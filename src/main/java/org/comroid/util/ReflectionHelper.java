@@ -287,4 +287,18 @@ public final class ReflectionHelper {
             return null;
         }
     }
+
+    public static <T> T fieldByName(Class<?> inClass, Object instance, String fieldName, Class<T> cast) {
+        try {
+            final Field field = inClass.getDeclaredField(fieldName);
+
+            if (instance == null && Modifier.isStatic(field.getModifiers()))
+                throw new IllegalArgumentException("Instance missing for non-static field");
+
+            Object yield = field.get(instance);
+            return cast.cast(yield);
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
