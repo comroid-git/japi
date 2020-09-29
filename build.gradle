@@ -74,9 +74,8 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.google.flogger:flogger:0.5.1'
-
-    compileOnly 'org.jetbrains:annotations:19.0.0'
+    api 'org.jetbrains:annotations:19.0.0'
+    api 'com.google.flogger:flogger:0.5.1'
 
     testImplementation 'junit:junit:4.13'
     testImplementation 'org.easymock:easymock:4.1'
