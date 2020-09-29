@@ -110,15 +110,15 @@ public interface Invocable<T> {
 
     Class<?>[] parameterTypesOrdered();
 
-    @Nullable T invoke(Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException;
+    @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException;
 
     default T invokeAutoOrder(Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
-        return invoke(ReflectionHelper.arrange(args, parameterTypesOrdered()));
+        return invoke(null, ReflectionHelper.arrange(args, parameterTypesOrdered()));
     }
 
     default T invokeRethrow(Object... args) {
         try {
-            return invoke(args);
+            return invoke(null, args);
         } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
             throw new RuntimeException(e);
         }
@@ -126,7 +126,7 @@ public interface Invocable<T> {
 
     default <X extends Throwable> T invokeRethrow(Function<ReflectiveOperationException, X> remapper, Object... args) throws X {
         try {
-            return invoke(args);
+            return invoke(null, args);
         } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
             throw remapper.apply(e);
         }
@@ -237,7 +237,7 @@ public interface Invocable<T> {
         }
 
         @Override
-        default @Nullable T invoke(Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
+        default @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
             return invoke(mapArgs(args));
         }
 
@@ -260,7 +260,7 @@ public interface Invocable<T> {
 
         @Nullable
         @Override
-        public T invoke(Object... args) {
+        public T invoke(@Nullable Object target, Object... args) {
             return underlying.autoInvoke(args);
         }
 
@@ -283,7 +283,7 @@ public interface Invocable<T> {
 
             @Nullable
             @Override
-            public T invoke(Object... args) {
+            public T invoke(@Nullable Object target, Object... args) {
                 return provider.now();
             }
 
@@ -301,7 +301,7 @@ public interface Invocable<T> {
             }
 
             @Override
-            public @NotNull T invoke(Object... args) throws InvocationTargetException, IllegalAccessException {
+            public @NotNull T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException {
                 try {
                     return constructor.newInstance(args);
                 } catch (InstantiationException e) {
@@ -332,9 +332,9 @@ public interface Invocable<T> {
 
             @Nullable
             @Override
-            public T invoke(Object... args) throws InvocationTargetException, IllegalAccessException {
+            public T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException {
                 //noinspection unchecked
-                return (T) method.invoke(target, args);
+                return (T) method.invoke(target == null ? this.target : target, args);
             }
 
             @Override
@@ -354,7 +354,7 @@ public interface Invocable<T> {
 
             @Nullable
             @Override
-            public T invoke(Object... args) {
+            public T invoke(@Nullable Object target, Object... args) {
                 //noinspection unchecked
                 return Stream.of(args)
                         .filter(type::isInstance)
@@ -381,7 +381,7 @@ public interface Invocable<T> {
 
             @Nullable
             @Override
-            public T invoke(Object... args) {
+            public T invoke(@Nullable Object target, Object... args) {
                 return value;
             }
 
@@ -404,7 +404,7 @@ public interface Invocable<T> {
 
             @Nullable
             @Override
-            public T invoke(Object... args) {
+            public T invoke(@Nullable Object target, Object... args) {
                 if (argType.isInstance(args[0])) {
                     consumer.accept(argType.cast(args[0]));
                     return null;
@@ -438,7 +438,7 @@ public interface Invocable<T> {
             }
 
             @Override
-            public @Nullable T invoke(Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
+            public @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
                 final Constructor<? extends T> constructor = ReflectionHelper
                         .findConstructor(type, ReflectionHelper.types(args))
                         .orElse(null);
