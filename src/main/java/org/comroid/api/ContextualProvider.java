@@ -1,6 +1,7 @@
 package org.comroid.api;
 
 import org.jetbrains.annotations.ApiStatus.Experimental;
+import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.ApiStatus.NonExtendable;
 import org.jetbrains.annotations.NotNull;
 
@@ -18,15 +19,20 @@ public interface ContextualProvider {
         return () -> underlying;
     }
 
+    @Internal
+    static <T> Object unwrapPossibleProvider(Class<T> memberType, Object member) {
+        if (member instanceof ContextualTypeProvider
+                && memberType.isAssignableFrom(((ContextualTypeProvider<?>) member).getContextMemberType()))
+            return ((ContextualTypeProvider<?>) member).getFromContext();
+        if (member instanceof ContextualProvider)
+            return ((ContextualProvider) member).getFromContext(memberType);
+        return member;
+    }
+
     @NonExtendable
     default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
         return StreamSupport.stream(getContextMembers().spliterator(), false)
-                .map(member -> member instanceof ContextualTypeProvider
-                        ?
-                        (memberType.isAssignableFrom(((ContextualTypeProvider<?>) member).getContextMemberType())
-                                ? ((ContextualTypeProvider<?>) member).getFromContext()
-                                : ((ContextualTypeProvider<?>) member).getFromContext(memberType).get())
-                        : member)
+                .map(member -> unwrapPossibleProvider(memberType, member))
                 .filter(memberType::isInstance)
                 .findAny()
                 .map(memberType::cast)
