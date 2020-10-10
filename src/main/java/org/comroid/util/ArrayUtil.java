@@ -20,7 +20,7 @@ public final class ArrayUtil {
         return yield;
     }
 
-    public static <T> boolean contains(T[] array, final T other, BiPredicate<T,T> tester) {
+    public static <T> boolean contains(T[] array, final T other, BiPredicate<T, T> tester) {
         return Stream.of(array).anyMatch(e -> tester.test(e, other));
     }
 }
