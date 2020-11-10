@@ -12,6 +12,13 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 public interface Rewrapper<T> extends Supplier<@Nullable T> {
+    Rewrapper<?> EMPTY = () -> null;
+
+    static <T> Rewrapper<T> empty() {
+        //noinspection unchecked
+        return (Rewrapper<T>) EMPTY;
+    }
+
     default boolean isNull() {
         return test(Objects::isNull);
     }
