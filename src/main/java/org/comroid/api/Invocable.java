@@ -2,6 +2,7 @@ package org.comroid.api;
 
 import org.comroid.annotations.OptionalVararg;
 import org.comroid.util.ReflectionHelper;
+import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -249,6 +250,7 @@ public interface Invocable<T> {
         }
     }
 
+    @Experimental
     abstract class Magic<T> implements Invocable<T> {
         private final Invocable<T> underlying;
 
