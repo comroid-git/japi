@@ -21,14 +21,6 @@ public interface ContextualTypeProvider<T> extends ContextualProvider {
         return Collections.singleton(getFromContext());
     }
 
-    @Override
-    @NonExtendable
-    default <R> Rewrapper<R> getFromContext(final Class<R> memberType) {
-        return memberType.isAssignableFrom(getContextMemberType())
-                ? () -> memberType.cast(getFromContext())
-                : () -> null;
-    }
-
     interface This<T> extends ContextualTypeProvider<T> {
         @Override
         @NonExtendable
