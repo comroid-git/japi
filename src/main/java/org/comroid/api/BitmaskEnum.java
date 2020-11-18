@@ -44,4 +44,13 @@ public interface BitmaskEnum<S extends BitmaskEnum<S>> extends IntEnum, SelfDecl
     default int apply(int toMask, boolean newState) {
         return Bitmask.modifyFlag(toMask, getValue(), newState);
     }
+
+    @Override
+    default boolean equals(int value) {
+        return getValue() == value;
+    }
+
+    default boolean equals(BitmaskEnum other) {
+        return getValue() == other.getValue();
+    }
 }
