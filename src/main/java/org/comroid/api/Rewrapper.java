@@ -40,6 +40,10 @@ public interface Rewrapper<T> extends Supplier<@Nullable T> {
         return Stream.of(get());
     }
 
+    default T assertion() throws AssertionError {
+        return orElseThrow(AssertionError::new);
+    }
+
     default T requireNonNull() throws NullPointerException {
         return Objects.requireNonNull(get());
     }
