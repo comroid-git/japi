@@ -27,6 +27,10 @@ public interface Rewrapper<T> extends Supplier<@Nullable T> {
         return test(Objects::nonNull);
     }
 
+    static <T> Rewrapper<T> ofSupplier(final Supplier<T> selfSupplier) {
+        return selfSupplier::get;
+    }
+
     @Override
     @Nullable T get();
 
