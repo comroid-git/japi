@@ -166,7 +166,7 @@ public final class ReflectionHelper {
         return Collections.unmodifiableSet(values);
     }
 
-    public static Object[] arrange(Object[] args, Class<?>[] typesOrdered) {
+    public static Object[] arrange(Object[] args, Class<?>[] typesOrdered) throws IllegalArgumentException {
         final Object[] yields = new Object[typesOrdered.length];
 
         for (int i = 0; i < typesOrdered.length; i++) {
@@ -175,7 +175,7 @@ public final class ReflectionHelper {
                     .filter(Objects::nonNull)
                     .filter(it -> typeCompat(typesOrdered[finalli], it.getClass()))
                     .findFirst()
-                    .orElseThrow(() -> new AssertionError(
+                    .orElseThrow(() -> new IllegalArgumentException(
                             "No instance of " + typesOrdered[finalli].getName() + " found in array"));
         }
 

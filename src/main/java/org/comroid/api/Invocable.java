@@ -20,7 +20,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-public interface Invocable<T> {
+public interface Invocable<T> extends Named {
     static <T, E extends Throwable> Invocable<T> ofCallable(
             ThrowingSupplier<T, E> callable
     ) {
@@ -114,7 +114,20 @@ public interface Invocable<T> {
     @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException;
 
     default T invokeAutoOrder(Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
-        return invoke(null, ReflectionHelper.arrange(args, parameterTypesOrdered()));
+        return invoke(null, tryArrange(args, parameterTypesOrdered()));
+    }
+
+    @Internal
+    default Object[] tryArrange(Object[] args, Class<?>[] typesOrdered) {
+        Object[] arranged;
+        try {
+            arranged = ReflectionHelper.arrange(args, typesOrdered);
+        } catch (IllegalArgumentException iaEx) {
+            throw new IllegalArgumentException(String.format("Unable to arrange arguments array %s" +
+                    "\n%s" +
+                    "\n", Arrays.toString(args), getName()), iaEx);
+        }
+        return arranged;
     }
 
     default T invokeRethrow(Object... args) {
@@ -209,6 +222,11 @@ public interface Invocable<T> {
             return new TypeMap<T>() {
                 private final Invocable<T> underlying = invocable;
 
+                @Override
+                public String getName() {
+                    return underlying.getName();
+                }
+
                 @Nullable
                 @Override
                 public T invoke(Map<Class<?>, Object> args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
@@ -270,6 +288,11 @@ public interface Invocable<T> {
         public Class<?>[] parameterTypesOrdered() {
             return underlying.parameterTypesOrdered();
         }
+
+        @Override
+        public String getName() {
+            return underlying.getName();
+        }
     }
 
     @Internal
@@ -278,6 +301,11 @@ public interface Invocable<T> {
 
         private static final class OfProvider<T> implements Invocable<T> {
             private final Provider<T> provider;
+
+            @Override
+            public String getName() {
+                return "OfProvider";
+            }
 
             public OfProvider(Provider<T> provider) {
                 this.provider = provider;
@@ -297,6 +325,11 @@ public interface Invocable<T> {
 
         private static final class OfConstructor<T> implements Invocable<T> {
             private final Constructor<T> constructor;
+
+            @Override
+            public String getName() {
+                return String.format("OfConstructor(%s)", constructor.getName());
+            }
 
             public OfConstructor(Constructor<T> constructor) {
                 this.constructor = constructor;
@@ -320,6 +353,11 @@ public interface Invocable<T> {
         private static final class OfMethod<T> implements Invocable<T> {
             private final Method method;
             private final Object target;
+
+            @Override
+            public String getName() {
+                return String.format("OfMethod(%s @ %s)", method.getName(), target);
+            }
 
             private OfMethod(Method method, @Nullable Object target) {
                 if (target == null && !Modifier.isStatic(method.getModifiers())) {
@@ -349,6 +387,11 @@ public interface Invocable<T> {
             private final Class<T> type;
             private final Class<?>[] typeArray;
 
+            @Override
+            public String getName() {
+                return "Returning" + type.getSimpleName();
+            }
+
             private ParamReturning(Class<T> type) {
                 this.type = type;
                 this.typeArray = new Class[]{type};
@@ -377,6 +420,11 @@ public interface Invocable<T> {
             private static final Map<Object, Invocable<Object>> Cache = new ConcurrentHashMap<>();
             private final T value;
 
+            @Override
+            public String getName() {
+                return String.format("Constant(%s)", value);
+            }
+
             private Constant(T value) {
                 this.value = value;
             }
@@ -397,6 +445,11 @@ public interface Invocable<T> {
             private final Class<T> argType;
             private final Consumer<T> consumer;
             private final Class<?>[] argTypeArr;
+
+            @Override
+            public String getName() {
+                return String.format("OfConsumer(%s)", argType.getName());
+            }
 
             private OfConsumer(Class<T> argType, Consumer<T> consumer) {
                 this.argType = argType;
@@ -427,6 +480,11 @@ public interface Invocable<T> {
         private final static class OfClass<T> implements Invocable<T> {
             private final Class<? extends T> type;
 
+            @Override
+            public String getName() {
+                return String.format("OfClass(%s)", type.getName());
+            }
+
             private OfClass(Class<? extends T> type) {
                 this.type = type;
             }
@@ -447,8 +505,7 @@ public interface Invocable<T> {
 
                 if (constructor == null)
                     return null;
-                final Object[] arranged = ReflectionHelper.arrange(args, constructor.getParameterTypes());
-                return constructor.newInstance(arranged);
+                return constructor.newInstance(tryArrange(args, constructor.getParameterTypes()));
             }
         }
     }

@@ -11,7 +11,9 @@ public interface Named extends WrappedFormattable {
         return toString();
     }
 
-    String getName();
+    default String getName() {
+        return toString();
+    }
 
     class Base implements Named {
         private final String name;
