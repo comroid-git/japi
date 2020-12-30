@@ -513,6 +513,28 @@ public interface Invocable<T> extends Named {
                     return null;
                 return constructor.newInstance(tryArrange(args, constructor.getParameterTypes()));
             }
+
+            @Override
+            public T invokeAutoOrder(Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
+                return Stream.of(type.getConstructors())
+                        .filter(c -> c.getParameterCount() <= args.length)
+                        .sorted(Comparator.<Constructor<?>>comparingInt(Constructor::getParameterCount).reversed())
+                        .map(c -> {
+                            Object[] arranged = tryArrange(args, c.getParameterTypes(), true);
+
+                            if (arranged == null)
+                                return null;
+                            try {
+                                return c.newInstance(arranged);
+                            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                                throw new RuntimeException(e);
+                            }
+                        })
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .map(Polyfill::<T>uncheckedCast)
+                        .orElseThrow(() -> new RuntimeException("Could not find matching method for arguments " + Arrays.toString(args)));
+            }
         }
     }
 }
