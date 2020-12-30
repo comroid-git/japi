@@ -60,7 +60,10 @@ public interface ContextualProvider {
         @Override
         @NonExtendable
         default Iterable<Object> getContextMembers() {
-            return getUnderlyingContextualProvider().getContextMembers();
+            ContextualProvider maybeUnderlying = getUnderlyingContextualProvider();
+            if (maybeUnderlying == this)
+                return getContextMembers();
+            return maybeUnderlying.getContextMembers();
         }
     }
 }
