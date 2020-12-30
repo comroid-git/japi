@@ -303,12 +303,9 @@ public final class ReflectionHelper {
     }
 
     public static int extendingClassesCount(Class<?> inClass, Class<?> target) {
-        int c = 0;
-
-        for (Class<?> aClass : inClass.getClasses())
-            if (target.isAssignableFrom(aClass))
-                c++;
-
-        return c;
+        Stream<Class<?>> concat1 = Stream.concat(Stream.of(inClass.getClasses()), Stream.of(inClass.getInterfaces()));
+        return (int) Stream.concat(concat1, Stream.of(inClass.getSuperclass()))
+                .filter(target::isAssignableFrom)
+                .count();
     }
 }
