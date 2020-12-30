@@ -1,8 +1,11 @@
 package org.comroid.util;
 
+import jdk.internal.reflect.CallerSensitive;
+
 import java.util.List;
 
 public final class StackTraceUtils {
+    @CallerSensitive
     public static Class<?> callerClass(int skip) {
         final String className = new Throwable().getStackTrace()[1 + skip].getClassName();
 
