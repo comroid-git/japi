@@ -47,6 +47,48 @@ public interface ContextualProvider {
         }
     }
 
+    @Experimental
+    interface This extends ContextualProvider {
+        @Override
+        default Iterable<Object> getContextMembers() {
+            return Collections.singleton(this);
+        }
+
+        @Override
+        default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
+            if (memberType.isAssignableFrom(getClass()))
+                return () -> Polyfill.uncheckedCast(this);
+            return Rewrapper.empty();
+        }
+
+        @Override
+        default ContextualProvider plus(Object plus) {
+            return create(this, plus);
+        }
+    }
+
+    @Experimental
+    interface Member extends ContextualProvider {
+        Object getFromContext();
+
+        @Override
+        default Iterable<Object> getContextMembers() {
+            return Collections.singleton(getFromContext());
+        }
+
+        @Override
+        default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
+            if (memberType.isAssignableFrom(getFromContext().getClass()))
+                return () -> Polyfill.uncheckedCast(getFromContext());
+            return Rewrapper.empty();
+        }
+
+        @Override
+        default ContextualProvider plus(Object plus) {
+            return create(getFromContext(), plus);
+        }
+    }
+
     @Internal
     class Base implements ContextualProvider {
         private final Set<Object> members = new HashSet<>();
