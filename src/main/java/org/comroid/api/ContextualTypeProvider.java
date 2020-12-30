@@ -8,6 +8,18 @@ import java.util.Collections;
 
 @Experimental
 public interface ContextualTypeProvider<T> extends ContextualProvider {
+    @Override
+    default <O> Rewrapper<O> getFromContext(final Class<O> memberType) {
+        if (getContextMemberType().isAssignableFrom(memberType))
+            return () -> Polyfill.uncheckedCast(getFromContext());
+        return Rewrapper.empty();
+    }
+
+    @Override
+    default ContextualProvider plus(Object plus) {
+        return ContextualProvider.create(getFromContext()).plus(plus);
+    }
+
     @NotNull T getFromContext();
 
     @NonExtendable
@@ -40,6 +52,16 @@ public interface ContextualTypeProvider<T> extends ContextualProvider {
         @NonExtendable
         default Iterable<Object> getContextMembers() {
             return getUnderlyingContextualProvider().getContextMembers();
+        }
+
+        @Override
+        default <O> Rewrapper<O> getFromContext(final Class<O> memberType) {
+            return getUnderlyingContextualProvider().getFromContext(memberType);
+        }
+
+        @Override
+        default ContextualProvider plus(Object plus) {
+            return getUnderlyingContextualProvider().plus(plus);
         }
 
         @Override

@@ -1,69 +1,77 @@
 package org.comroid.api;
 
+import org.comroid.util.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.ApiStatus.NonExtendable;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+import java.util.*;
+
+import static org.comroid.util.ReflectionHelper.extendingClassesCount;
 
 @Experimental
 public interface ContextualProvider {
+    static ContextualProvider create(Object... members) {
+        return new Base(members);
+    }
+
     Iterable<Object> getContextMembers();
 
-    static ContextualProvider create(Object... members) {
-        final Set<Object> collect = Stream.of(members)
-                .map(it -> it instanceof ContextualProvider
-                        ? ((ContextualProvider) it).getContextMembers().spliterator()
-                        : Collections.singletonList(it).spliterator())
-                .flatMap(split -> StreamSupport.stream(split, false))
-                .collect(Collectors.toSet());
-        return () -> collect;
-    }
+    <T> Rewrapper<T> getFromContext(final Class<T> memberType);
 
-    @Internal
-    static <T> Object unwrapPossibleProvider(Class<T> memberType, Object member) {
-        if (member instanceof ContextualTypeProvider
-                && memberType.isAssignableFrom(((ContextualTypeProvider<?>) member).getContextMemberType()))
-            return ((ContextualTypeProvider<?>) member).getFromContext();
-        return member;
-    }
-
-    @NonExtendable
-    default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
-        return StreamSupport.stream(getContextMembers().spliterator(), false)
-                .map(member -> unwrapPossibleProvider(memberType, member))
-                .filter(memberType::isInstance)
-                .findAny()
-                .map(memberType::cast)
-                .map(it -> (Rewrapper<T>) () -> it)
-                .orElse(() -> null);
-    }
+    ContextualProvider plus(Object plus);
 
     @NonExtendable
     default <T> @NotNull T requireFromContext(final Class<T> memberType) throws NoSuchElementException {
         return getFromContext(memberType).requireNonNull(() -> String.format("No member of type %s found", memberType));
     }
 
-    default ContextualProvider plus(Object plus) {
-        return create(this, plus);
-    }
-
     interface Underlying extends ContextualProvider {
         ContextualProvider getUnderlyingContextualProvider();
 
         @Override
+        default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
+            return getUnderlyingContextualProvider().getFromContext(memberType);
+        }
+
+        @Override
+        default ContextualProvider plus(Object plus) {
+            return getUnderlyingContextualProvider().plus(plus);
+        }
+
+        @Override
         @NonExtendable
         default Iterable<Object> getContextMembers() {
-            ContextualProvider maybeUnderlying = getUnderlyingContextualProvider();
-            if (maybeUnderlying == this)
-                return getContextMembers();
-            return maybeUnderlying.getContextMembers();
+            return getUnderlyingContextualProvider().getContextMembers();
+        }
+    }
+
+    @Internal
+    class Base implements ContextualProvider {
+        private final Set<Object> members = new HashSet<>();
+
+        @Override
+        public Collection<Object> getContextMembers() {
+            return members;
+        }
+
+        protected Base(Object... initialMembers) {
+            members.addAll(Arrays.asList(initialMembers));
+        }
+
+        @Override
+        public final <T> Rewrapper<T> getFromContext(Class<T> memberType) {
+            return () -> members.stream()
+                    .max(Comparator.comparingInt(member -> extendingClassesCount(member.getClass(), memberType)))
+                    .map(Polyfill::<T>uncheckedCast)
+                    .orElse(null);
+        }
+
+        @Override
+        public final ContextualProvider plus(Object plus) {
+            members.add(plus);
+            return this;
         }
     }
 }

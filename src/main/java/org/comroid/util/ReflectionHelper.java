@@ -301,4 +301,14 @@ public final class ReflectionHelper {
             throw new RuntimeException(e);
         }
     }
+
+    public static int extendingClassesCount(Class<?> inClass, Class<?> target) {
+        int c = 0;
+
+        for (Class<?> aClass : inClass.getClasses())
+            if (target.isAssignableFrom(aClass))
+                c++;
+
+        return c;
+    }
 }
