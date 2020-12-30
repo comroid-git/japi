@@ -119,10 +119,17 @@ public interface Invocable<T> extends Named {
 
     @Internal
     default Object[] tryArrange(Object[] args, Class<?>[] typesOrdered) {
+        return tryArrange(args, typesOrdered, false);
+    }
+
+    @Internal
+    default Object[] tryArrange(Object[] args, Class<?>[] typesOrdered, boolean simulate) {
         Object[] arranged;
         try {
             arranged = ReflectionHelper.arrange(args, typesOrdered);
         } catch (IllegalArgumentException iaEx) {
+            if (simulate)
+                return null;
             throw new IllegalArgumentException(String.format("Unable to arrange arguments %s" +
                     "\nwhen trying to arrange at %s", Arrays.toString(args), getName()), iaEx);
         }
