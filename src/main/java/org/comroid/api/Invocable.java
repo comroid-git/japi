@@ -123,9 +123,8 @@ public interface Invocable<T> extends Named {
         try {
             arranged = ReflectionHelper.arrange(args, typesOrdered);
         } catch (IllegalArgumentException iaEx) {
-            throw new IllegalArgumentException(String.format("Unable to arrange arguments array %s" +
-                    "\n%s" +
-                    "\n", Arrays.toString(args), getName()), iaEx);
+            throw new IllegalArgumentException(String.format("Unable to arrange arguments %s" +
+                    "\nwhen trying to arrange at %s", Arrays.toString(args), getName()), iaEx);
         }
         return arranged;
     }
