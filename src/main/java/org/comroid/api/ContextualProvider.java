@@ -104,7 +104,8 @@ public interface ContextualProvider {
 
         @Override
         public final <T> Rewrapper<T> getFromContext(Class<T> memberType) {
-            return () -> members.stream()
+            return () -> getContextMembers()
+                    .stream()
                     .max(Comparator.comparingInt(member -> extendingClassesCount(member.getClass(), memberType)))
                     .map(Polyfill::<T>uncheckedCast)
                     .orElse(null);
