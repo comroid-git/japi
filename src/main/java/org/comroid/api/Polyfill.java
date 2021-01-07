@@ -94,6 +94,7 @@ public final class Polyfill {
         return value;
     }
 
+    @Deprecated
     @Contract("_ -> param1")
     public static <R> R uncheckedCast(Object instance) {
         //noinspection unchecked
