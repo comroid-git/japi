@@ -48,6 +48,14 @@ public interface Rewrapper<T> extends Supplier<@Nullable T> {
         return orElseThrow(AssertionError::new);
     }
 
+    default T assertion(String message) throws AssertionError {
+        return orElseThrow(() -> new AssertionError(message));
+    }
+
+    default T assertion(Supplier<String> messageSupplier) throws AssertionError {
+        return orElseThrow(() -> new AssertionError(messageSupplier.get()));
+    }
+
     default T requireNonNull() throws NullPointerException {
         return Objects.requireNonNull(get());
     }
