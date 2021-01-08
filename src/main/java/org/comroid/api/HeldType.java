@@ -11,4 +11,12 @@ public interface HeldType<R> extends Named {
     R parse(String data);
 
     <T> T convert(R value, HeldType<T> toType);
+
+    Class<R> getTargetClass();
+
+    default Rewrapper<R> cast(final Object obj) {
+        if (getTargetClass().isInstance(obj))
+            return () -> getTargetClass().cast(obj);
+        return Rewrapper.empty();
+    }
 }
