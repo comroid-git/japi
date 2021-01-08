@@ -74,13 +74,15 @@ repositories {
 }
 
 dependencies {
-    api 'org.jetbrains:annotations:19.0.0'
-    api 'com.google.flogger:flogger:0.5.1'
+    api 'org.jetbrains:annotations:20.1.0'
+
+    // logging dependencies
+    implementation 'org.apache.logging.log4j:log4j-api:2.11.0'
+    testImplementation 'org.apache.logging.log4j:log4j-core:2.11.0'
 
     testImplementation 'junit:junit:4.13'
     testImplementation 'org.easymock:easymock:4.1'
     testImplementation 'org.codehaus.groovy:groovy:3.0.0-rc-2'
-    testImplementation 'com.google.flogger:flogger-system-backend:0.5.1'
 }
 
 apply from: 'gradle/publishing.gradle'
