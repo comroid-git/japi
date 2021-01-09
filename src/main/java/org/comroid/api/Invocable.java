@@ -109,6 +109,13 @@ public interface Invocable<T> extends Named {
         return (Invocable<T>) Support.Empty;
     }
 
+    static <T> T newInstance(Class<? extends T> type, Object... args) {
+        return ReflectionHelper.findConstructor(type, ReflectionHelper.types(args))
+                .map(ThrowingFunction.rethrowing(constr -> constr
+                        .newInstance(ReflectionHelper.arrange(args, constr.getParameterTypes())), RuntimeException::new))
+                .orElseThrow(() -> new NoSuchElementException("Could not find a suitable constructor for type: " + type));
+    }
+
     Class<?>[] parameterTypesOrdered();
 
     @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException;

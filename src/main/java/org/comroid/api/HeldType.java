@@ -1,8 +1,24 @@
 package org.comroid.api;
 
 import java.util.function.Function;
+import java.util.function.Predicate;
 
-public interface HeldType<R> extends Named {
+public interface HeldType<R> extends ValuePointer<R>, Predicate<Object>, Named {
+    @Override
+    default HeldType<R> getHeldType() {
+        return this;
+    }
+
+    @Override
+    default boolean test(Object it) {
+        return getTargetClass().isInstance(it);
+    }
+
+    default <T> T convert(R value, HeldType<T> toType) {
+        if (value == null) return null;
+        return toType.parse(value.toString());
+    }
+
     @Deprecated
     default Function<String, R> getConverter() {
         return this::parse;
@@ -10,13 +26,5 @@ public interface HeldType<R> extends Named {
 
     R parse(String data);
 
-    <T> T convert(R value, HeldType<T> toType);
-
     Class<R> getTargetClass();
-
-    default Rewrapper<R> cast(final Object obj) {
-        if (getTargetClass().isInstance(obj))
-            return () -> getTargetClass().cast(obj);
-        return Rewrapper.empty();
-    }
 }

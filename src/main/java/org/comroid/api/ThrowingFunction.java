@@ -3,7 +3,7 @@ package org.comroid.api;
 import java.util.function.Function;
 
 public interface ThrowingFunction<I, O, T extends Throwable> {
-    static <I, O, T extends Throwable> Function<I, O> handling(
+    static <I, O, T extends Throwable> Function<I, O> rethrowing(
             ThrowingFunction<I, O, T> function,
             Function<Throwable, ? extends RuntimeException> remapper
     ) {

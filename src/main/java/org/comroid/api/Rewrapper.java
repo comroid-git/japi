@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.function.*;
 import java.util.stream.Stream;
 
-public interface Rewrapper<T> extends Supplier<@Nullable T> {
+public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
     Rewrapper<?> EMPTY = () -> null;
 
     static <T> Rewrapper<T> empty() {
@@ -16,10 +16,12 @@ public interface Rewrapper<T> extends Supplier<@Nullable T> {
         return (Rewrapper<T>) EMPTY;
     }
 
+    @Override
     default boolean isNull() {
         return test(Objects::isNull);
     }
 
+    @Override
     default boolean isNonNull() {
         return test(Objects::nonNull);
     }
