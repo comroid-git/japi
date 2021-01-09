@@ -308,4 +308,8 @@ public final class ReflectionHelper {
                 .filter(target::isAssignableFrom)
                 .count();
     }
+
+    public static String simpleClassName(Class<?> cls) {
+        return cls == null ? "" : (simpleClassName(cls.getDeclaringClass()) + (cls.getDeclaringClass() == null ? "" : '.') + cls.getSimpleName());
+    }
 }
