@@ -5,10 +5,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
+import java.util.function.*;
 import java.util.stream.Stream;
 
 public interface Rewrapper<T> extends Supplier<@Nullable T> {
@@ -108,6 +105,10 @@ public interface Rewrapper<T> extends Supplier<@Nullable T> {
         if (type.isInstance(it))
             return type.cast(it);
         return null;
+    }
+
+    default <X, R> R accumulate(Supplier<X> other, BiFunction<T, X, R> accumulator) {
+        return accumulator.apply(get(), other.get());
     }
 
     default boolean test(Predicate<@Nullable ? super T> predicate) {
