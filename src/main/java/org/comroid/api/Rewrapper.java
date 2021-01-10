@@ -123,7 +123,7 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
         return predicate.test(requireNonNull());
     }
 
-    default boolean contentEquals(T other) {
+    default boolean contentEquals(Object other) {
         if (other == null)
             return isNull();
         return into(other::equals);
