@@ -72,12 +72,11 @@ public final class ReflectionHelper {
         if (constructors.length == 0) {
             return Optional.empty();
         }
-
+        // todo Fix this
         return Stream.of(constructors)
                 .map(it -> (Constructor<T>) it)
                 .max(Comparator.comparingLong(constr -> Stream.of(constr.getParameterTypes())
-                        .filter(typ -> Stream.of(types)
-                                .anyMatch(typ::isAssignableFrom))
+                        .filter(typ -> Stream.of(types).anyMatch(typ::isAssignableFrom))
                         .count()));
     }
 

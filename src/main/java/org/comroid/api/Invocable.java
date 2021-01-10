@@ -80,10 +80,10 @@ public interface Invocable<T> extends Named {
                     .filter(it -> ReflectionHelper.matchingFootprint(it.getParameterTypes(), params))
                     .findAny()
                     .map(it -> Invocable.<T>ofConstructor(Polyfill.uncheckedCast(it)))
-                    .orElseThrow(() -> new NoSuchElementException("No suitable constructor could be found!"));
+                    .orElseThrow(() -> new NoSuchElementException("No suitable constructor could be found in " + type));
         } else {
             return ofConstructor(ReflectionHelper.findConstructor(type, params)
-                    .orElseThrow(() -> new NoSuchElementException("No suitable constructor found")));
+                    .orElseThrow(() -> new NoSuchElementException("No suitable constructor found in " + type)));
         }
     }
 
@@ -111,8 +111,15 @@ public interface Invocable<T> extends Named {
 
     static <T> T newInstance(Class<? extends T> type, Object... args) {
         return ReflectionHelper.findConstructor(type, ReflectionHelper.types(args))
-                .map(ThrowingFunction.rethrowing(constr -> constr
-                        .newInstance(ReflectionHelper.arrange(args, constr.getParameterTypes())), RuntimeException::new))
+                .map(ThrowingFunction.rethrowing(constr -> {
+                    final Object[] arrange;
+                    try {
+                        arrange = ReflectionHelper.arrange(args, constr.getParameterTypes());
+                    } catch (IllegalArgumentException e) {
+                        throw new RuntimeException("Could not construct " + type, e);
+                    }
+                    return constr.newInstance(arrange);
+                }, RuntimeException::new))
                 .orElseThrow(() -> new NoSuchElementException("Could not find a suitable constructor for type: " + type));
     }
 
