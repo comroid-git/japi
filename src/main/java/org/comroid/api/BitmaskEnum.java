@@ -7,7 +7,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
 
-public interface BitmaskEnum<S extends BitmaskEnum<S>> extends IntEnum, SelfDeclared<S> {
+public interface BitmaskEnum<S extends BitmaskEnum<S>> extends IntEnum, SelfDeclared<S>, Named {
     @Override
     int getValue();
 

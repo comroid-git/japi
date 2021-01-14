@@ -2,7 +2,7 @@ package org.comroid.api;
 
 import java.util.function.Function;
 
-public interface IntEnum {
+public interface IntEnum extends Named {
     int getValue();
 
     static <T extends java.lang.Enum<? extends T> & IntEnum> Rewrapper<T> valueOf(int value, Class<T> viaEnum) {
