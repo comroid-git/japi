@@ -144,8 +144,8 @@ public interface Invocable<T> extends Named {
         } catch (IllegalArgumentException iaEx) {
             if (simulate)
                 return null;
-            throw new IllegalArgumentException(String.format("Unable to arrange arguments %s" +
-                    "\nwhen trying to arrange at %s", Arrays.toString(args), getName()), iaEx);
+            throw new IllegalArgumentException(String.format("type - unable to arrange arguments: %s - %s",
+                    getName(), Arrays.toString(args)), iaEx);
         }
         return arranged;
     }
