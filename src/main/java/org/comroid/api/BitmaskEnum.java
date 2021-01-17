@@ -15,17 +15,16 @@ public interface BitmaskEnum<S extends BitmaskEnum<S>> extends IntEnum, SelfDecl
         if (!viaEnum.isEnum())
             throw new IllegalArgumentException("Only enums allowed as parameter 'viaEnum'");
 
-        return valueOf(mask, viaEnum, Class::getEnumConstants);
+        return valueOf(mask, viaEnum.getEnumConstants());
     }
 
     static <T extends BitmaskEnum<T>> Set<T> valueOf(
             int mask,
-            Class<? super T> viaEnum,
-            Function<Class<? extends T>, T[]> valuesProvider) {
-        final T[] constants = valuesProvider.apply(Polyfill.uncheckedCast(viaEnum));
+            final T[] values
+    ) {
         HashSet<T> yields = new HashSet<>();
 
-        for (T constant : constants) {
+        for (T constant : values) {
             if (constant.isFlagSet(mask))
                 yields.add(constant);
         }
