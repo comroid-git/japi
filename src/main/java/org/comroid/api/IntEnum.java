@@ -27,4 +27,11 @@ public interface IntEnum extends Named {
     default boolean equals(int value) {
         return getValue() == value;
     }
+
+    @Override
+    default String getName() {
+        if (this instanceof Enum)
+            return ((Enum<?>) this).name();
+        throw new AbstractMethodError();
+    }
 }
