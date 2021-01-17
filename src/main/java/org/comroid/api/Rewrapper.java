@@ -152,8 +152,11 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
     }
 
     default <R> R ifPresentMapOrElseGet(Function<T, R> consumer, Supplier<R> task) {
-        if (isNonNull())
-            return into(consumer);
-        else return task.get();
+        if (isNonNull()) {
+            R into = into(consumer);
+            if (into == null)
+                return task.get();
+            return into;
+        } else return task.get();
     }
 }
