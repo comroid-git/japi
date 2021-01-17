@@ -20,9 +20,9 @@ public interface BitmaskEnum<S extends BitmaskEnum<S>> extends IntEnum, SelfDecl
 
     static <T extends BitmaskEnum<T>> Set<T> valueOf(
             int mask,
-            Class<T> viaEnum,
-            Function<Class<T>, T[]> valuesProvider) {
-        final T[] constants = valuesProvider.apply(viaEnum);
+            Class<? super T> viaEnum,
+            Function<Class<? extends T>, T[]> valuesProvider) {
+        final T[] constants = valuesProvider.apply(Polyfill.uncheckedCast(viaEnum));
         HashSet<T> yields = new HashSet<>();
 
         for (T constant : constants) {
