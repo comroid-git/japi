@@ -17,7 +17,7 @@ public interface Specifiable<B extends Specifiable<? super B>> extends SelfDecla
             return Optional.empty();
         }
 
-        return Optional.of(type.cast(self().get()));
+        return Optional.ofNullable(type.cast(self().get()));
     }
 
     default boolean isType(Class<? extends B> type) {

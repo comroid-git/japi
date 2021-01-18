@@ -7,11 +7,12 @@ import org.jetbrains.annotations.ApiStatus.NonExtendable;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.function.Supplier;
 
 import static org.comroid.util.ReflectionHelper.extendingClassesCount;
 
 @Experimental
-public interface ContextualProvider {
+public interface ContextualProvider extends Specifiable<ContextualProvider> {
     static ContextualProvider create(Object... members) {
         return new Base(members);
     }
@@ -22,9 +23,21 @@ public interface ContextualProvider {
 
     ContextualProvider plus(Object plus);
 
+    @Override
+    default <R extends ContextualProvider> Optional<R> as(Class<R> type) {
+        if (isType(type))
+            return Optional.ofNullable(type.cast(self().get()));
+        return getFromContext(type).wrap();
+    }
+
     @NonExtendable
     default <T> @NotNull T requireFromContext(final Class<T> memberType) throws NoSuchElementException {
-        return getFromContext(memberType).requireNonNull(() -> String.format("No member of type %s found", memberType));
+        return requireFromContext(memberType, String.format("No member of type %s found", memberType));
+    }
+
+    @NonExtendable
+    default <T> @NotNull T requireFromContext(final Class<T> memberType, String message) throws NoSuchElementException {
+        return getFromContext(memberType).assertion(message);
     }
 
     interface Underlying extends ContextualProvider {

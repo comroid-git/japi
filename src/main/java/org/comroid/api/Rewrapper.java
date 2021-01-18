@@ -37,7 +37,7 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
         return Optional.ofNullable(get());
     }
 
-    default Stream<T> stream() {
+    default Stream<? extends T> stream() {
         if (isNull())
             return Stream.empty();
         return Stream.of(get());
