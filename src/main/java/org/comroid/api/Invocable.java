@@ -20,6 +20,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+@Deprecated
 public interface Invocable<T> extends Named {
     static <T, E extends Throwable> Invocable<T> ofCallable(
             ThrowingSupplier<T, E> callable
