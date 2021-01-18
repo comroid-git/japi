@@ -32,6 +32,13 @@ public interface BitmaskEnum<S extends BitmaskEnum<S>> extends IntEnum, SelfDecl
         return Collections.unmodifiableSet(yields);
     }
 
+    static int toMask(BitmaskEnum<?>[] values) {
+        int x = 0;
+        for (BitmaskEnum<?> each : values)
+            each.apply(x, true);
+        return x;
+    }
+
     default boolean hasFlag(BitmaskEnum<S> other) {
         return Bitmask.isFlagSet(getValue(), other.getValue());
     }
@@ -49,7 +56,7 @@ public interface BitmaskEnum<S extends BitmaskEnum<S>> extends IntEnum, SelfDecl
         return getValue() == value;
     }
 
-    default boolean equals(BitmaskEnum other) {
+    default boolean equals(BitmaskEnum<?> other) {
         return getValue() == other.getValue();
     }
 }
