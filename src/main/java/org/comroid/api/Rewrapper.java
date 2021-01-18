@@ -109,6 +109,10 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
         return null;
     }
 
+    default <X, R> Rewrapper<R> combine(Supplier<X> other, BiFunction<T, X, R> accumulator) {
+        return () -> accumulator.apply(get(), other.get());
+    }
+
     default <X, R> R accumulate(Supplier<X> other, BiFunction<T, X, R> accumulator) {
         return accumulator.apply(get(), other.get());
     }
