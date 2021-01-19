@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.lang.ref.WeakReference;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -123,9 +124,14 @@ public final class Polyfill {
         };
     }
 
-    public static Object selfawareLock() {
-        class Lock {
-            private volatile Object selfaware_keepalive;
+    public static Object selfawareObject() {
+        //noinspection FieldCanBeLocal
+        class Monitor {
+            private final WeakReference<Monitor> self;
+
+            {
+                this.self = new WeakReference<>(this);
+            }
 
             @Override
             public String toString() {
@@ -133,10 +139,7 @@ public final class Polyfill {
             }
         }
 
-        final Lock lock = new Lock();
-        lock.selfaware_keepalive = lock;
-
-        return lock;
+        return new Monitor();
     }
 
     public static <T> CompletableFuture<T> failedFuture(Throwable throwable) {
