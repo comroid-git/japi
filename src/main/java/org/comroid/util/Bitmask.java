@@ -14,25 +14,24 @@ public final class Bitmask {
     public static final int EMPTY = 0x0;
     private static final Map<Class<?>, AtomicInteger> LAST_FLAG = new ConcurrentHashMap<>();
 
-    public static int combine(BitmaskEnum... values) {
+    public static int combine(BitmaskEnum<?>... values) {
         int yield = EMPTY;
 
-        for (BitmaskEnum value : values)
+        for (BitmaskEnum<?> value : values)
             yield = value.apply(yield, true);
 
         return yield;
     }
 
     public static int modifyFlag(int mask, int flag, boolean newState) {
-        if (isFlagSet(mask, flag) && !newState) {
+        final boolean isSet = isFlagSet(mask, flag);
+        if (!isSet && newState) {
             // add flag
             return mask | flag;
-        } else if (!isFlagSet(mask, flag) && newState) {
+        } else if (isSet && !newState) {
             // remove flag
             return mask & ~flag;
-        } else {
-            return mask; // do nothing
-        }
+        } else return mask; // do nothing
     }
 
     public static boolean isFlagSet(int mask, int flag) {
