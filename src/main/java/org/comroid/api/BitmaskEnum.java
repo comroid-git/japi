@@ -9,10 +9,6 @@ import java.util.Set;
 import java.util.function.Function;
 
 public interface BitmaskEnum<S extends BitmaskEnum<S>> extends IntEnum, SelfDeclared<S>, Named {
-    @Override
-    @NotNull
-    Integer getValue();
-
     static <T extends java.lang.Enum<? extends T> & BitmaskEnum<T>> Set<T> valueOf(int mask, Class<T> viaEnum) {
         if (!viaEnum.isEnum())
             throw new IllegalArgumentException("Only enums allowed as parameter 'viaEnum'");

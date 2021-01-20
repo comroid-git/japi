@@ -6,9 +6,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.function.Function;
 
 public interface IntEnum extends Named, ValueBox<Integer> {
-    @NotNull
-    Integer getValue();
-
     static <T extends java.lang.Enum<? extends T> & IntEnum> Rewrapper<T> valueOf(int value, Class<T> viaEnum) {
         if (!viaEnum.isEnum())
             throw new IllegalArgumentException("Only enums allowed as parameter 'viaEnum'");
