@@ -1,6 +1,7 @@
 package org.comroid.api;
 
 import org.comroid.util.Bitmask;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -9,7 +10,8 @@ import java.util.function.Function;
 
 public interface BitmaskEnum<S extends BitmaskEnum<S>> extends IntEnum, SelfDeclared<S>, Named {
     @Override
-    int getValue();
+    @NotNull
+    Integer getValue();
 
     static <T extends java.lang.Enum<? extends T> & BitmaskEnum<T>> Set<T> valueOf(int mask, Class<T> viaEnum) {
         if (!viaEnum.isEnum())

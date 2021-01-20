@@ -1,9 +1,13 @@
 package org.comroid.api;
 
+import org.comroid.util.StandardValueType;
+import org.jetbrains.annotations.NotNull;
+
 import java.util.function.Function;
 
-public interface IntEnum extends Named {
-    int getValue();
+public interface IntEnum extends Named, ValueBox<Integer> {
+    @NotNull
+    Integer getValue();
 
     static <T extends java.lang.Enum<? extends T> & IntEnum> Rewrapper<T> valueOf(int value, Class<T> viaEnum) {
         if (!viaEnum.isEnum())
@@ -33,5 +37,10 @@ public interface IntEnum extends Named {
         if (this instanceof Enum)
             return ((Enum<?>) this).name();
         throw new AbstractMethodError();
+    }
+
+    @Override
+    default ValueType<? extends Integer> getHeldType() {
+        return StandardValueType.INTEGER;
     }
 }
