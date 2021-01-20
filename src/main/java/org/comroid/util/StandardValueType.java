@@ -61,6 +61,9 @@ public final class StandardValueType<R> implements ValueType<R> {
     }
 
     public static <T> ValueType<T> typeOf(T value) {
+        if (value == null)
+            //noinspection unchecked
+            return (ValueType<T>) StandardValueType.VOID;
         return values.stream()
                 .filter(it -> it.test(value))
                 .findAny()
