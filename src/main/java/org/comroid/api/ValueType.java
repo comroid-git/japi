@@ -10,12 +10,13 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named 
         return this;
     }
 
+    default boolean isNumeric() {
+        return Number.class.isAssignableFrom(getTargetClass());
+    }
+
     @Override
     default boolean test(Object it) {
-        Class<R> targetClass = getTargetClass();
-        Class<?> aClass = it.getClass();
-
-        return targetClass.isAssignableFrom(aClass) && targetClass.isInstance(it);
+        return getTargetClass().isInstance(it);
     }
 
     default <T> T convert(R value, ValueType<T> toType) {
