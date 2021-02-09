@@ -3,6 +3,7 @@ package org.comroid.api;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.*;
@@ -10,6 +11,14 @@ import java.util.stream.Stream;
 
 public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
     Rewrapper<?> EMPTY = () -> null;
+
+    default boolean isMutable() {
+        return false;
+    }
+
+    default boolean isImmutable() {
+        return !isMutable();
+    }
 
     static <T> Rewrapper<T> empty() {
         //noinspection unchecked
@@ -28,6 +37,12 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
 
     static <T> Rewrapper<T> ofSupplier(final Supplier<T> selfSupplier) {
         return selfSupplier::get;
+    }
+
+    static <T> Rewrapper<T> of(final T value) {
+        if (value == null)
+            return empty();
+        return () -> value;
     }
 
     @Override
@@ -109,6 +124,39 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
         return null;
     }
 
+    /**
+     * @return The new value if it could be set, else the previous value.
+     */
+    default T compute(Function<T, T> computor) {
+        if (isImmutable())
+            throw new UnsupportedOperationException("Reference is immutable");
+        if (!set(into(computor)))
+            throw new UnsupportedOperationException("Could not set value");
+        return get();
+    }
+
+    /**
+     * @return The new value if it could be set, else the previous value.
+     */
+    default T computeIfPresent(Function<T, T> computor) {
+        if (isImmutable())
+            throw new UnsupportedOperationException("Reference is immutable");
+        if (!isNull() && !set(into(computor)))
+            throw new UnsupportedOperationException("Could not set value");
+        return get();
+    }
+
+    /**
+     * @return The new value if it could be set, else the previous value.
+     */
+    default T computeIfAbsent(Supplier<T> supplier) {
+        if (isImmutable())
+            throw new UnsupportedOperationException("Reference is immutable");
+        if (isNull() && !set(supplier.get()))
+            throw new UnsupportedOperationException("Could not set value");
+        return get();
+    }
+
     default <X, R> Rewrapper<R> combine(Supplier<X> other, BiFunction<T, X, R> accumulator) {
         return () -> accumulator.apply(get(), other.get());
     }
@@ -162,5 +210,9 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
                 return task.get();
             return into;
         } else return task.get();
+    }
+
+    default boolean set(T value) {
+        return false;
     }
 }
