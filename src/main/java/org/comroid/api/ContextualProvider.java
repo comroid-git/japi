@@ -1,15 +1,11 @@
 package org.comroid.api;
 
-import org.comroid.util.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.ApiStatus.NonExtendable;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
-import java.util.function.Supplier;
-
-import static org.comroid.util.ReflectionHelper.extendingClassesCount;
 
 @Experimental
 public interface ContextualProvider extends Specifiable<ContextualProvider> {
@@ -61,14 +57,14 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
     }
 
     @Experimental
-    interface This extends ContextualProvider {
+    interface This<T> extends ContextualProvider {
         @Override
         default Iterable<Object> getContextMembers() {
             return Collections.singleton(this);
         }
 
         @Override
-        default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
+        default <R> Rewrapper<R> getFromContext(final Class<R> memberType) {
             if (memberType.isAssignableFrom(getClass()))
                 return () -> Polyfill.uncheckedCast(this);
             return Rewrapper.empty();
