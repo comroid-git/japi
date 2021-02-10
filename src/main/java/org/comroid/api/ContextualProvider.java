@@ -19,6 +19,8 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
 
     Iterable<Object> getContextMembers();
 
+    <T> Rewrapper<T> getFromContext(final Class<T> memberType);
+
     ContextualProvider plus(Object plus);
 
     @Override
@@ -28,15 +30,13 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
         return getFromContext(type).wrap();
     }
 
-    <T> Rewrapper<T> getFromContext(final Class<? super T> memberType);
-
     @NonExtendable
-    default <T> @NotNull T requireFromContext(final Class<? extends T> memberType) throws NoSuchElementException {
+    default <T> @NotNull T requireFromContext(final Class<T> memberType) throws NoSuchElementException {
         return requireFromContext(memberType, String.format("No member of type %s found", memberType));
     }
 
     @NonExtendable
-    default <T> @NotNull T requireFromContext(final Class<? extends T> memberType, String message) throws NoSuchElementException {
+    default <T> @NotNull T requireFromContext(final Class<T> memberType, String message) throws NoSuchElementException {
         return getFromContext(memberType).assertion(message);
     }
 
@@ -44,7 +44,7 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
         ContextualProvider getUnderlyingContextualProvider();
 
         @Override
-        default <T> Rewrapper<T> getFromContext(final Class<? super T> memberType) {
+        default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
             return getUnderlyingContextualProvider().getFromContext(memberType);
         }
 
@@ -68,7 +68,7 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
         }
 
         @Override
-        default <T> Rewrapper<T> getFromContext(final Class<? super T> memberType) {
+        default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
             if (memberType.isAssignableFrom(getClass()))
                 return () -> Polyfill.uncheckedCast(this);
             return Rewrapper.empty();
@@ -90,7 +90,7 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
         }
 
         @Override
-        default <T> Rewrapper<T> getFromContext(final Class<? super T> memberType) {
+        default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
             if (memberType.isAssignableFrom(getFromContext().getClass()))
                 return () -> Polyfill.uncheckedCast(getFromContext());
             return Rewrapper.empty();
@@ -116,12 +116,12 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
         }
 
         @Override
-        public final <T> Rewrapper<T> getFromContext(final Class<? super T> memberType) {
-            //noinspection unchecked
-            return () -> (T) getContextMembers()
+        public final <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
+            return () -> getContextMembers()
                     .stream()
                     .filter(memberType::isInstance)
                     .findAny()
+                    .map(memberType::cast)
                     .orElse(null);
         }
 

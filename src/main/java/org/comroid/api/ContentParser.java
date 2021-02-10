@@ -1,7 +1,6 @@
 package org.comroid.api;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -19,10 +18,6 @@ public interface ContentParser {
 
     default Rewrapper<String> wrapContent() {
         return wrapContent(false);
-    }
-
-    default <R> @Nullable R parse(ContextualProvider context) {
-        return context.<Serializer<R>>getFromContext(Serializer.class).ifPresentMap(this::parse);
     }
 
     default <R> @NotNull R parse(final Serializer<R> serializer) {
