@@ -4,6 +4,12 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 public interface ThrowingPredicate<R, T extends Throwable> {
+    static <R, T extends Throwable> Predicate<R> swallowing(
+            ThrowingPredicate<R, T> predicate
+    ) {
+        return rethrowing(predicate, nil -> null);
+    }
+
     static <R, T extends Throwable> Predicate<R> rethrowing(
             ThrowingPredicate<R, T> predicate,
             Function<Throwable, ? extends RuntimeException> remapper
@@ -12,7 +18,10 @@ public interface ThrowingPredicate<R, T extends Throwable> {
             try {
                 return predicate.test(in);
             } catch (Throwable error) {
-                throw remapper.apply(error);
+                RuntimeException exception = remapper.apply(error);
+                if (exception == null)
+                    return false;
+                throw exception;
             }
         };
     }
