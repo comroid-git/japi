@@ -157,6 +157,15 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
         return get();
     }
 
+    default T getAndCompute(Function<T, T> computor) {
+        if (isImmutable())
+            throw new UnsupportedOperationException("Reference is immutable");
+        final T old = get();
+        if (!set(into(computor)))
+            throw new UnsupportedOperationException("Could not set value");
+        return old;
+    }
+
     default <X, R> Rewrapper<R> combine(Supplier<X> other, BiFunction<T, X, R> accumulator) {
         return () -> accumulator.apply(get(), other.get());
     }
@@ -214,5 +223,12 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
 
     default boolean set(T value) {
         return false;
+    }
+
+    default T replace(T newValue) {
+        T old = get();
+        if (set(newValue))
+            return old;
+        return null;
     }
 }
