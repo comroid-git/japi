@@ -6,6 +6,25 @@ import org.jetbrains.annotations.NotNull;
 import java.util.function.Function;
 
 public interface IntEnum extends Named, ValueBox<Integer> {
+    @Override
+    default @NotNull Integer getValue() {
+        if (this instanceof Enum)
+            return ((Enum<?>) this).ordinal();
+        throw new AbstractMethodError();
+    }
+
+    @Override
+    default String getName() {
+        if (this instanceof Enum)
+            return ((Enum<?>) this).name();
+        throw new AbstractMethodError();
+    }
+
+    @Override
+    default ValueType<? extends Integer> getHeldType() {
+        return StandardValueType.INTEGER;
+    }
+
     static <T extends java.lang.Enum<? extends T> & IntEnum> Rewrapper<T> valueOf(int value, Class<T> viaEnum) {
         if (!viaEnum.isEnum())
             throw new IllegalArgumentException("Only enums allowed as parameter 'viaEnum'");
@@ -27,17 +46,5 @@ public interface IntEnum extends Named, ValueBox<Integer> {
 
     default boolean equals(int value) {
         return getValue() == value;
-    }
-
-    @Override
-    default String getName() {
-        if (this instanceof Enum)
-            return ((Enum<?>) this).name();
-        throw new AbstractMethodError();
-    }
-
-    @Override
-    default ValueType<? extends Integer> getHeldType() {
-        return StandardValueType.INTEGER;
     }
 }
