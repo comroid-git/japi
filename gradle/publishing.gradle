@@ -2,7 +2,8 @@ apply plugin: 'maven-publish'
 
 publishing {
     repositories {
-        mavenLocal()
+        def local = mavenLocal()
+        System.out.println(local.url)
 
         if (canPublishToSpace) {
             maven {
