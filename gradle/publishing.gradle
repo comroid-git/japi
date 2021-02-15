@@ -2,9 +2,8 @@ apply plugin: 'maven-publish'
 
 publishing {
     repositories {
-        def local = mavenLocal()
-        System.out.println(local.url)
-
+        mavenLocal()
+/*
         if (canPublishToSpace) {
             maven {
                 name = 'Space'
@@ -32,6 +31,7 @@ publishing {
                 }
             }
         }
+ */
 
         if (canPublishToGitHub) {
             maven {
