@@ -100,7 +100,7 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
 
     @Internal
     class Base implements ContextualProvider {
-        private final Set<Object> members = new HashSet<>();
+        protected final Set<Object> members = new HashSet<>();
 
         @Override
         public Collection<Object> getContextMembers() {
