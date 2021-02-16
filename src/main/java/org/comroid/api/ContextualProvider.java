@@ -22,9 +22,13 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         return plus(StackTraceUtils.callerClass(1).getSimpleName(), plus);
     }
 
-    ContextualProvider plus(String newName, Object plus);
+    default ContextualProvider plus(String newName, Object plus) {
+        throw new AbstractMethodError();
+    }
 
-    boolean add(Object plus);
+    default boolean add(Object plus) {
+        return false;
+    }
 
     @Override
     default <R extends ContextualProvider> Optional<R> as(Class<R> type) {
@@ -35,7 +39,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
     @NonExtendable
     default <T> @NotNull T requireFromContext(final Class<T> memberType) throws NoSuchElementException {
-        return requireFromContext(memberType, String.format("No member of type %s found", memberType));
+        return requireFromContext(memberType, String.format("No member of type %s found in %s", memberType, this));
     }
 
     @NonExtendable
@@ -96,11 +100,6 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         default ContextualProvider plus(Object plus) {
             return create(this, plus);
         }
-
-        @Override
-        default boolean add(Object plus) {
-            return false;
-        }
     }
 
     @Experimental
@@ -127,11 +126,6 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         @Override
         default ContextualProvider plus(Object plus) {
             return create(getFromContext(), plus);
-        }
-
-        @Override
-        default boolean add(Object plus) {
-            return false;
         }
     }
 
