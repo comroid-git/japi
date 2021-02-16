@@ -1,6 +1,6 @@
 package org.comroid.api;
 
-import org.comroid.util.StackTraceUtils;
+import org.comroid.annotations.inheritance.MustExtend;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.ApiStatus.NonExtendable;
@@ -12,15 +12,14 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static org.comroid.util.StackTraceUtils.callerClass;
+
 @Experimental
+@MustExtend(ContextualProvider.Base.class)
 public interface ContextualProvider extends Named, Specifiable<ContextualProvider> {
     @Deprecated
     default Iterable<Object> getContextMembers() {
         return Collections.unmodifiableSet(streamContextMembers().collect(Collectors.toSet()));
-    }
-
-    default Stream<Object> streamContextMembers() {
-        return StreamSupport.stream(getContextMembers().spliterator(), false);
     }
 
     @Internal
@@ -29,22 +28,45 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
     }
 
     @Internal
+    @NonExtendable
     default boolean isRoot() {
         return getParentContext() == null;
     }
 
     static ContextualProvider create(Object... members) {
-        return new Base(members);
+        return new Base(Base.ROOT, callerClass(1), members);
     }
 
-    <T> Rewrapper<T> getFromContext(final Class<T> memberType);
+    static ContextualProvider create(ContextualProvider parent, Object... members) {
+        return new Base((Base) parent, callerClass(1), members);
+    }
 
+    @Internal
+    static String wrapContextStr(String subStr) {
+        return "Context<" + subStr + ">";
+    }
+
+    default Stream<Object> streamContextMembers() {
+        return StreamSupport.stream(getContextMembers().spliterator(), false);
+    }
+
+    @NonExtendable
+    default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
+        return () -> streamContextMembers()
+                .filter(memberType::isInstance)
+                .findFirst()
+                .map(memberType::cast)
+                .orElse(null);
+    }
+
+    @NonExtendable
     default ContextualProvider plus(Object plus) {
-        return plus(StackTraceUtils.callerClass(1).getSimpleName(), plus);
+        return plus(callerClass(1).getSimpleName(), plus);
     }
 
-    default ContextualProvider plus(String newName, Object plus) {
-        throw new AbstractMethodError();
+    @NonExtendable
+    default ContextualProvider plus(String name, Object plus) {
+        return new Base((Base) this, name, plus);
     }
 
     default boolean addToContext(Object plus) {
@@ -125,15 +147,12 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
     interface This<T> extends ContextualProvider {
         @Override
         default String getName() {
-            return ContextualProvider.Base.wrapContextStr(getClass().getSimpleName());
+            Class<? extends This> cls = getClass();
+            if (cls == null)
+                return "uninitialized context";
+            return wrapContextStr(cls.getSimpleName());
         }
 
-        @Override
-        default Iterable<Object> getContextMembers() {
-            return Collections.singleton(this);
-        }
-
-        @Override
         default Stream<Object> streamContextMembers() {
             return Stream.of(this);
         }
@@ -157,12 +176,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
         @Override
         default String getName() {
-            return ContextualProvider.Base.wrapContextStr(getFromContext().getClass().getSimpleName());
-        }
-
-        @Override
-        default Iterable<Object> getContextMembers() {
-            return Collections.singleton(getFromContext());
+            return wrapContextStr(getFromContext().getClass().getSimpleName());
         }
 
         @Override
@@ -185,26 +199,17 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
     @Internal
     class Base implements ContextualProvider {
-        protected final Set<Object> myMembers = new HashSet<>();
+        @SuppressWarnings("ConstantConditions")
+        public static final ContextualProvider.Base ROOT
+                = new ContextualProvider.Base(null, "ROOT");
+        protected final Set<Object> myMembers;
+        private final Set<ContextualProvider> children;
         private final ContextualProvider parent;
         private final String name;
 
         @Override
-        public @Nullable ContextualProvider getParentContext() {
+        public final @Nullable ContextualProvider getParentContext() {
             return parent;
-        }
-
-        @Override
-        public Collection<Object> getContextMembers() {
-            return myMembers;
-        }
-
-        @Override
-        public Stream<Object> streamContextMembers() {
-            return Stream.of(
-                    Stream.of(parent).flatMap(ContextualProvider::streamContextMembers),
-                    myMembers.stream()
-            );
         }
 
         @Override
@@ -212,51 +217,36 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
             return wrapContextStr(name);
         }
 
-        @Deprecated
-        protected Base(Object... initialMembers) {
-            this((ContextualProvider) null, initialMembers);
+        protected Base(@NotNull ContextualProvider.Base parent, Object... initialMembers) {
+            this(parent, callerClass(1).getSimpleName(), initialMembers);
         }
 
-        protected Base(ContextualProvider parent, Object... initialMembers) {
-            this(parent, StackTraceUtils.callerClass(1).getSimpleName(), initialMembers);
-        }
+        @SuppressWarnings("NullableProblems")
+        protected Base(@NotNull ContextualProvider.Base parent, String name, Object... initialMembers) {
+            this.myMembers = new HashSet<>();
+            this.children = new HashSet<>();
+            if (!isRoot())
+                parent.children.add(this);
 
-        protected Base(String name, Object... initialMembers) {
-            this(null, name, initialMembers);
-        }
-
-        protected Base(ContextualProvider parent, String name, Object... initialMembers) {
-            this.parent = parent;
+            this.parent = name.equals("ROOT") && callerClass(1).equals(ContextualProvider.Base.class)
+                    ? parent
+                    : Objects.requireNonNull(parent);
             this.name = name;
+
             myMembers.addAll(Arrays.asList(initialMembers));
             myMembers.add(this);
         }
 
-        @Internal
-        private static String wrapContextStr(String subStr) {
-            return "Context<" + subStr + ">";
+        @Override
+        public final Stream<Object> streamContextMembers() {
+            return Stream.of(
+                    Stream.of(parent).flatMap(ContextualProvider::streamContextMembers),
+                    myMembers.stream()
+            );
         }
 
         @Override
-        public final <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
-            return () -> getContextMembers()
-                    .stream()
-                    .filter(memberType::isInstance)
-                    .findAny()
-                    .map(memberType::cast)
-                    .orElse(null);
-        }
-
-        @Override
-        public final ContextualProvider plus(String name, Object plus) {
-            ContextualProvider.Base base = new ContextualProvider.Base(name, myMembers.toArray());
-            if (base.addToContext(plus))
-                return base;
-            return null;
-        }
-
-        @Override
-        public boolean addToContext(Object plus) {
+        public final boolean addToContext(Object plus) {
             return myMembers.add(plus);
         }
     }
