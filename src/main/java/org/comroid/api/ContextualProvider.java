@@ -26,7 +26,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         throw new AbstractMethodError();
     }
 
-    default boolean add(Object plus) {
+    default boolean addToContext(Object plus) {
         return false;
     }
 
@@ -84,11 +84,11 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
-        default boolean add(Object plus) {
+        default boolean addToContext(Object plus) {
             ContextualProvider context = getUnderlyingContextualProvider();
             if (context == this)
                 throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
-            return context.add(plus);
+            return context.addToContext(plus);
         }
     }
 
@@ -186,13 +186,13 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         @Override
         public final ContextualProvider plus(String name, Object plus) {
             ContextualProvider.Base base = new ContextualProvider.Base(name, members.toArray());
-            if (base.add(plus))
+            if (base.addToContext(plus))
                 return base;
             return null;
         }
 
         @Override
-        public boolean add(Object plus) {
+        public boolean addToContext(Object plus) {
             return members.add(plus);
         }
     }
