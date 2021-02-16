@@ -44,7 +44,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
     @NonExtendable
     default <T> @NotNull T requireFromContext(final Class<T> memberType, String message) throws NoSuchElementException {
-        return getFromContext(memberType).assertion(message);
+        return getFromContext(memberType).assertion(String.format("<%s => %s>", this, message));
     }
 
     interface Underlying extends ContextualProvider {
