@@ -5,12 +5,33 @@ import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.ApiStatus.NonExtendable;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 @Experimental
 public interface ContextualProvider extends Named, Specifiable<ContextualProvider> {
-    Iterable<Object> getContextMembers();
+    @Deprecated
+    default Iterable<Object> getContextMembers() {
+        return Collections.unmodifiableSet(streamContextMembers().collect(Collectors.toSet()));
+    }
+
+    default Stream<Object> streamContextMembers() {
+        return StreamSupport.stream(getContextMembers().spliterator(), false);
+    }
+
+    @Internal
+    default @Nullable ContextualProvider getParentContext() {
+        return null;
+    }
+
+    @Internal
+    default boolean isRoot() {
+        return getParentContext() == null;
+    }
 
     static ContextualProvider create(Object... members) {
         return new Base(members);
@@ -51,6 +72,15 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         ContextualProvider getUnderlyingContextualProvider();
 
         @Override
+        @Nullable
+        default ContextualProvider getParentContext() {
+            ContextualProvider context = getUnderlyingContextualProvider();
+            if (context == this)
+                throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
+            return context.getParentContext();
+        }
+
+        @Override
         default String getName() {
             ContextualProvider context = getUnderlyingContextualProvider();
             if (context == this)
@@ -59,12 +89,11 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
-        @NonExtendable
-        default Iterable<Object> getContextMembers() {
+        default Stream<Object> streamContextMembers() {
             ContextualProvider context = getUnderlyingContextualProvider();
             if (context == this)
                 throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
-            return context.getContextMembers();
+            return context.streamContextMembers();
         }
 
         @Override
@@ -105,6 +134,11 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
+        default Stream<Object> streamContextMembers() {
+            return Stream.of(this);
+        }
+
+        @Override
         default <R> Rewrapper<R> getFromContext(final Class<R> memberType) {
             if (memberType.isAssignableFrom(getClass()))
                 return () -> Polyfill.uncheckedCast(this);
@@ -132,6 +166,11 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
+        default Stream<Object> streamContextMembers() {
+            return Stream.of(getFromContext());
+        }
+
+        @Override
         default <R> Rewrapper<R> getFromContext(final Class<R> memberType) {
             if (memberType.isAssignableFrom(getFromContext().getClass()))
                 return () -> Polyfill.uncheckedCast(getFromContext());
@@ -146,12 +185,26 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
     @Internal
     class Base implements ContextualProvider {
-        protected final Set<Object> members = new HashSet<>();
+        protected final Set<Object> myMembers = new HashSet<>();
+        private final ContextualProvider parent;
         private final String name;
 
         @Override
+        public @Nullable ContextualProvider getParentContext() {
+            return parent;
+        }
+
+        @Override
         public Collection<Object> getContextMembers() {
-            return members;
+            return myMembers;
+        }
+
+        @Override
+        public Stream<Object> streamContextMembers() {
+            return Stream.of(
+                    Stream.of(parent).flatMap(ContextualProvider::streamContextMembers),
+                    myMembers.stream()
+            );
         }
 
         @Override
@@ -159,13 +212,24 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
             return wrapContextStr(name);
         }
 
+        @Deprecated
         protected Base(Object... initialMembers) {
-            this(StackTraceUtils.callerClass(1).getSimpleName(), initialMembers);
+            this((ContextualProvider) null, initialMembers);
+        }
+
+        protected Base(ContextualProvider parent, Object... initialMembers) {
+            this(parent, StackTraceUtils.callerClass(1).getSimpleName(), initialMembers);
         }
 
         protected Base(String name, Object... initialMembers) {
+            this(null, name, initialMembers);
+        }
+
+        protected Base(ContextualProvider parent, String name, Object... initialMembers) {
+            this.parent = parent;
             this.name = name;
-            members.addAll(Arrays.asList(initialMembers));
+            myMembers.addAll(Arrays.asList(initialMembers));
+            myMembers.add(this);
         }
 
         @Internal
@@ -185,7 +249,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
         @Override
         public final ContextualProvider plus(String name, Object plus) {
-            ContextualProvider.Base base = new ContextualProvider.Base(name, members.toArray());
+            ContextualProvider.Base base = new ContextualProvider.Base(name, myMembers.toArray());
             if (base.addToContext(plus))
                 return base;
             return null;
@@ -193,7 +257,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
         @Override
         public boolean addToContext(Object plus) {
-            return members.add(plus);
+            return myMembers.add(plus);
         }
     }
 }
