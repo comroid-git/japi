@@ -8,7 +8,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static org.comroid.util.StackTraceUtils.callerClass;
@@ -255,7 +254,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
         @Override
         public final Stream<Object> streamContextMembers() {
-            return Stream.of(
+            return Stream.concat(
                     Stream.of(parent).flatMap(ContextualProvider::streamContextMembers),
                     Stream.concat(Stream.of(this), myMembers.stream())
             );
@@ -263,9 +262,11 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
         @Override
         public final boolean addToContext(Object... plus) {
-            return Stream.of(plus)
-                    .filter(it -> this != it)
-                    .allMatch(myMembers::add);
+            boolean anyAdded = false;
+            for (Object each : plus)
+                if (myMembers.add(each))
+                    anyAdded = true;
+            return anyAdded;
         }
     }
 }
