@@ -51,6 +51,11 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
     }
 
     @NonExtendable
+    default ContextualProvider plus() {
+        return plus(new Object[0]);
+    }
+
+    @NonExtendable
     default ContextualProvider plus(Object plus) {
         return plus(callerClass(1).getSimpleName(), plus);
     }
@@ -60,7 +65,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         return new Base((Base) this, name, plus);
     }
 
-    default boolean addToContext(Object plus) {
+    default boolean addToContext(Object... plus) {
         return false;
     }
 
@@ -126,7 +131,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
-        default boolean addToContext(Object plus) {
+        default boolean addToContext(Object... plus) {
             ContextualProvider context = getUnderlyingContextualProvider();
             if (context == this)
                 throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
@@ -192,7 +197,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
     class Base implements ContextualProvider {
         @SuppressWarnings("ConstantConditions")
         public static final ContextualProvider.Base ROOT
-                = new ContextualProvider.Base(null, "ROOT");
+                = new ContextualProvider.Base((ContextualProvider.Base) null, "ROOT");
         protected final Set<Object> myMembers;
         private final Set<ContextualProvider> children;
         private final ContextualProvider parent;
@@ -208,21 +213,27 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
             return wrapContextStr(name);
         }
 
+        protected Base(Object... initialMembers) {
+            this(ROOT, initialMembers);
+        }
+
         protected Base(@NotNull ContextualProvider.Base parent, Object... initialMembers) {
             this(parent, callerClass(1).getSimpleName(), initialMembers);
         }
 
-        @SuppressWarnings("NullableProblems")
+        protected Base(String name, Object... initialMembers) {
+            this(ROOT, name, initialMembers);
+        }
+
         protected Base(@NotNull ContextualProvider.Base parent, String name, Object... initialMembers) {
             this.myMembers = new HashSet<>();
             this.children = new HashSet<>();
-            if (!isRoot())
-                parent.children.add(this);
-
             this.parent = name.equals("ROOT") && callerClass(1).equals(ContextualProvider.Base.class)
                     ? parent
                     : Objects.requireNonNull(parent);
             this.name = name;
+            if (!isRoot())
+                parent.children.add(this);
 
             myMembers.addAll(Arrays.asList(initialMembers));
             myMembers.add(this);
@@ -237,8 +248,8 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
-        public final boolean addToContext(Object plus) {
-            return myMembers.add(plus);
+        public final boolean addToContext(Object... plus) {
+            return myMembers.addAll(Arrays.asList(plus));
         }
     }
 }
