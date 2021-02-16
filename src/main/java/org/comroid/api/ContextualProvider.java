@@ -52,28 +52,43 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
         @Override
         default String getName() {
-            return getUnderlyingContextualProvider().getName();
+            ContextualProvider context = getUnderlyingContextualProvider();
+            if (context == this)
+                throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
+            return context.getName();
         }
 
         @Override
         @NonExtendable
         default Iterable<Object> getContextMembers() {
-            return getUnderlyingContextualProvider().getContextMembers();
+            ContextualProvider context = getUnderlyingContextualProvider();
+            if (context == this)
+                throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
+            return context.getContextMembers();
         }
 
         @Override
         default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
-            return getUnderlyingContextualProvider().getFromContext(memberType);
+            ContextualProvider context = getUnderlyingContextualProvider();
+            if (context == this)
+                throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
+            return context.getFromContext(memberType);
         }
 
         @Override
-        default ContextualProvider plus(Object plus) {
-            return getUnderlyingContextualProvider().plus(plus);
+        default ContextualProvider plus(String name, Object plus) {
+            ContextualProvider context = getUnderlyingContextualProvider();
+            if (context == this)
+                throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
+            return context.plus(name, plus);
         }
 
         @Override
         default boolean add(Object plus) {
-            return getUnderlyingContextualProvider().add(plus);
+            ContextualProvider context = getUnderlyingContextualProvider();
+            if (context == this)
+                throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
+            return context.add(plus);
         }
     }
 
