@@ -1,5 +1,6 @@
 package org.comroid.api;
 
+import org.comroid.util.StackTraceUtils;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.ApiStatus.NonExtendable;
@@ -8,16 +9,22 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 
 @Experimental
-public interface ContextualProvider extends Specifiable<ContextualProvider> {
+public interface ContextualProvider extends Named, Specifiable<ContextualProvider> {
+    Iterable<Object> getContextMembers();
+
     static ContextualProvider create(Object... members) {
         return new Base(members);
     }
 
-    Iterable<Object> getContextMembers();
-
     <T> Rewrapper<T> getFromContext(final Class<T> memberType);
 
-    ContextualProvider plus(Object plus);
+    default ContextualProvider plus(Object plus) {
+        return plus(StackTraceUtils.callerClass(1).getSimpleName(), plus);
+    }
+
+    ContextualProvider plus(String newName, Object plus);
+
+    boolean add(Object plus);
 
     @Override
     default <R extends ContextualProvider> Optional<R> as(Class<R> type) {
@@ -40,6 +47,17 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
         ContextualProvider getUnderlyingContextualProvider();
 
         @Override
+        default String getName() {
+            return getUnderlyingContextualProvider().getName();
+        }
+
+        @Override
+        @NonExtendable
+        default Iterable<Object> getContextMembers() {
+            return getUnderlyingContextualProvider().getContextMembers();
+        }
+
+        @Override
         default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
             return getUnderlyingContextualProvider().getFromContext(memberType);
         }
@@ -50,14 +68,18 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
         }
 
         @Override
-        @NonExtendable
-        default Iterable<Object> getContextMembers() {
-            return getUnderlyingContextualProvider().getContextMembers();
+        default boolean add(Object plus) {
+            return getUnderlyingContextualProvider().add(plus);
         }
     }
 
     @Experimental
     interface This<T> extends ContextualProvider {
+        @Override
+        default String getName() {
+            return ContextualProvider.Base.wrapContextStr(getClass().getSimpleName());
+        }
+
         @Override
         default Iterable<Object> getContextMembers() {
             return Collections.singleton(this);
@@ -74,11 +96,21 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
         default ContextualProvider plus(Object plus) {
             return create(this, plus);
         }
+
+        @Override
+        default boolean add(Object plus) {
+            return false;
+        }
     }
 
     @Experimental
-    interface Member extends ContextualProvider {
-        Object getFromContext();
+    interface Member<T> extends ContextualProvider {
+        T getFromContext();
+
+        @Override
+        default String getName() {
+            return ContextualProvider.Base.wrapContextStr(getFromContext().getClass().getSimpleName());
+        }
 
         @Override
         default Iterable<Object> getContextMembers() {
@@ -86,7 +118,7 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
         }
 
         @Override
-        default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
+        default <R> Rewrapper<R> getFromContext(final Class<R> memberType) {
             if (memberType.isAssignableFrom(getFromContext().getClass()))
                 return () -> Polyfill.uncheckedCast(getFromContext());
             return Rewrapper.empty();
@@ -96,19 +128,40 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
         default ContextualProvider plus(Object plus) {
             return create(getFromContext(), plus);
         }
+
+        @Override
+        default boolean add(Object plus) {
+            return false;
+        }
     }
 
     @Internal
     class Base implements ContextualProvider {
         protected final Set<Object> members = new HashSet<>();
+        private final String name;
 
         @Override
         public Collection<Object> getContextMembers() {
             return members;
         }
 
+        @Override
+        public String getName() {
+            return wrapContextStr(name);
+        }
+
         protected Base(Object... initialMembers) {
+            this(StackTraceUtils.callerClass(1).getSimpleName(), initialMembers);
+        }
+
+        protected Base(String name, Object... initialMembers) {
+            this.name = name;
             members.addAll(Arrays.asList(initialMembers));
+        }
+
+        @Internal
+        private static String wrapContextStr(String subStr) {
+            return "Context<" + subStr + ">";
         }
 
         @Override
@@ -122,9 +175,15 @@ public interface ContextualProvider extends Specifiable<ContextualProvider> {
         }
 
         @Override
-        public final ContextualProvider plus(Object plus) {
-            members.add(plus);
-            return this;
+        public final ContextualProvider plus(String name, Object plus) {
+            ContextualProvider.Base base = new ContextualProvider.Base(name, members.toArray());
+            base.add(plus);
+            return base;
+        }
+
+        @Override
+        public boolean add(Object plus) {
+            return members.add(plus);
         }
     }
 }
