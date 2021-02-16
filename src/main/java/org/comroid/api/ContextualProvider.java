@@ -214,7 +214,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         @SuppressWarnings("ConstantConditions")
         public static final ContextualProvider.Base ROOT
                 = new ContextualProvider.Base((ContextualProvider.Base) null, "ROOT");
-        protected final Set<Object> myMembers;
+        private final Set<Object> myMembers;
         private final Set<ContextualProvider> children;
         private final ContextualProvider parent;
         private final String name;
@@ -250,22 +250,22 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
             this.name = name;
             if (!isRoot())
                 parent.children.add(this);
-
-            myMembers.addAll(Arrays.asList(initialMembers));
-            myMembers.add(this);
+            addToContext(initialMembers);
         }
 
         @Override
         public final Stream<Object> streamContextMembers() {
             return Stream.of(
                     Stream.of(parent).flatMap(ContextualProvider::streamContextMembers),
-                    myMembers.stream()
+                    Stream.concat(Stream.of(this), myMembers.stream())
             );
         }
 
         @Override
         public final boolean addToContext(Object... plus) {
-            return myMembers.addAll(Arrays.asList(plus));
+            return Stream.of(plus)
+                    .filter(it -> this != it)
+                    .allMatch(myMembers::add);
         }
     }
 }
