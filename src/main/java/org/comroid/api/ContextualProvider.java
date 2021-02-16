@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static org.comroid.util.StackTraceUtils.callerClass;
@@ -32,6 +33,21 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
     static ContextualProvider create(ContextualProvider parent, Object... members) {
         return new Base((Base) parent, callerClass(1), members);
+    }
+
+    static <T> T requireFromContexts(Class<T> member) throws NoSuchElementException {
+        return requireFromContexts(member, String.format("No member of type %s found", member));
+    }
+
+    static <T> T requireFromContexts(Class<T> member, String message) throws NoSuchElementException {
+        return getFromContexts(member).orElseThrow(() -> new NoSuchElementException(message));
+    }
+
+    static <T> Rewrapper<T> getFromContexts(final Class<T> member) {
+        return () -> Base.ROOT.children.stream()
+                .flatMap(sub -> sub.getFromContext(member).stream())
+                .findFirst()
+                .orElse(null);
     }
 
     @Internal
