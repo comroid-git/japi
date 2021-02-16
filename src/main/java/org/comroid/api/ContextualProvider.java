@@ -54,11 +54,16 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         return "Context<" + subStr + ">";
     }
 
-    Stream<Object> streamContextMembers();
+    @Deprecated
+    default Stream<Object> streamContextMembers() {
+        return streamContextMembers(false);
+    }
+
+    Stream<Object> streamContextMembers(boolean includeChildren);
 
     @NonExtendable
     default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
-        return () -> streamContextMembers()
+        return () -> streamContextMembers(false)
                 .filter(memberType::isInstance)
                 .findFirst()
                 .map(memberType::cast)
@@ -122,11 +127,11 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
-        default Stream<Object> streamContextMembers() {
+        default Stream<Object> streamContextMembers(boolean includeChildren) {
             ContextualProvider context = getUnderlyingContextualProvider();
             if (context == this)
                 throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
-            return context.streamContextMembers();
+            return context.streamContextMembers(includeChildren);
         }
 
         @Override
@@ -164,7 +169,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
             return wrapContextStr(cls.getSimpleName());
         }
 
-        default Stream<Object> streamContextMembers() {
+        default Stream<Object> streamContextMembers(boolean includeChildren) {
             return Stream.of(this);
         }
 
@@ -191,7 +196,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
-        default Stream<Object> streamContextMembers() {
+        default Stream<Object> streamContextMembers(boolean includeChildren) {
             return Stream.of(getFromContext());
         }
 
@@ -213,8 +218,8 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         @SuppressWarnings("ConstantConditions")
         public static final ContextualProvider.Base ROOT
                 = new ContextualProvider.Base((ContextualProvider.Base) null, "ROOT");
+        protected final Set<ContextualProvider> children;
         private final Set<Object> myMembers;
-        private final Set<ContextualProvider> children;
         private final ContextualProvider parent;
         private final String name;
 
@@ -253,13 +258,16 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
-        public final Stream<Object> streamContextMembers() {
-            return Stream.concat(
-                    Stream.of(parent)
+        public final Stream<Object> streamContextMembers(final boolean includeChildren) {
+            Stream<Object> stream1 = Stream.concat(Stream.of(parent)
                             .filter(Objects::nonNull)
-                            .flatMap(ContextualProvider::streamContextMembers),
-                    Stream.concat(Stream.of(this), myMembers.stream())
-            ).filter(Objects::nonNull);
+                            .flatMap(contextualProvider -> contextualProvider.streamContextMembers(false)),
+                    Stream.of(this));
+            Stream<Object> stream2 = Stream.concat(myMembers.stream(),
+                    includeChildren
+                            ? children.stream().flatMap(sub -> sub.streamContextMembers(includeChildren))
+                            : Stream.empty());
+            return Stream.concat(stream1, stream2).filter(Objects::nonNull);
         }
 
         @Override
