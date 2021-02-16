@@ -171,8 +171,9 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         @Override
         public final ContextualProvider plus(String name, Object plus) {
             ContextualProvider.Base base = new ContextualProvider.Base(name, members.toArray());
-            base.add(plus);
-            return base;
+            if (base.add(plus))
+                return base;
+            return null;
         }
 
         @Override
