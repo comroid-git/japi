@@ -255,9 +255,11 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         @Override
         public final Stream<Object> streamContextMembers() {
             return Stream.concat(
-                    Stream.of(parent).flatMap(ContextualProvider::streamContextMembers),
+                    Stream.of(parent)
+                            .filter(Objects::nonNull)
+                            .flatMap(ContextualProvider::streamContextMembers),
                     Stream.concat(Stream.of(this), myMembers.stream())
-            );
+            ).filter(Objects::nonNull);
         }
 
         @Override
