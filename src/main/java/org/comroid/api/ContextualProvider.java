@@ -8,20 +8,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import static org.comroid.util.StackTraceUtils.callerClass;
 
 @Experimental
 @MustExtend(ContextualProvider.Base.class)
 public interface ContextualProvider extends Named, Specifiable<ContextualProvider> {
-    @Deprecated
-    default Iterable<Object> getContextMembers() {
-        return Collections.unmodifiableSet(streamContextMembers().collect(Collectors.toSet()));
-    }
-
     @Internal
     default @Nullable ContextualProvider getParentContext() {
         return null;
@@ -46,9 +39,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         return "Context<" + subStr + ">";
     }
 
-    default Stream<Object> streamContextMembers() {
-        return StreamSupport.stream(getContextMembers().spliterator(), false);
-    }
+    Stream<Object> streamContextMembers();
 
     @NonExtendable
     default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
