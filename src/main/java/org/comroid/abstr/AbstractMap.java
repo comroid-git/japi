@@ -22,12 +22,20 @@ public interface AbstractMap<K, V> extends Map<K, V> {
     @NotNull
     @Override
     default Set<K> keySet() {
-        return Collections.unmodifiableSet(entrySet().stream().map(Entry::getKey).collect(Collectors.toSet()));
+        //noinspection SimplifyStreamApiCallChains
+        return Collections.unmodifiableSet(entrySet()
+                .stream()
+                .map(Entry::getKey)
+                .collect(Collectors.toSet()));
     }
 
     @NotNull
     @Override
     default List<V> values() {
-        return Collections.unmodifiableList(entrySet().stream().map(Entry::getValue).collect(Collectors.toList()));
+        //noinspection SimplifyStreamApiCallChains
+        return Collections.unmodifiableList(entrySet()
+                .stream()
+                .map(Entry::getValue)
+                .collect(Collectors.toList()));
     }
 }

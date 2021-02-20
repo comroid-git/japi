@@ -2,10 +2,9 @@ package org.comroid.abstr;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.*;
 
-public interface AbstractCollection<T> extends Collection<T> {
+public interface AbstractList<T> extends List<T> {
     @Override
     default boolean isEmpty() {
         return size() == 0;
@@ -29,6 +28,7 @@ public interface AbstractCollection<T> extends Collection<T> {
     default boolean containsAll(@NotNull Collection<?> other) {
         boolean x = false;
         for (Object each : other)
+            //noinspection IfStatementMissingBreakInLoop
             if (contains(each))
                 x = true;
         return x;
@@ -36,11 +36,7 @@ public interface AbstractCollection<T> extends Collection<T> {
 
     @Override
     default boolean addAll(@NotNull Collection<? extends T> other) {
-        boolean x = false;
-        for (T each : other)
-            if (add(each))
-                x = true;
-        return x;
+        return addAll(size(), other);
     }
 
     @Override
@@ -60,5 +56,25 @@ public interface AbstractCollection<T> extends Collection<T> {
                 x = true;
         }
         return x;
+    }
+
+    @NotNull
+    @Override
+    default Iterator<T> iterator() {
+        return listIterator();
+    }
+
+    @Override
+    default boolean addAll(int index, @NotNull Collection<? extends T> other) {
+        int ps = size();
+        for (T each : other)
+            add(index, each);
+        return other.size() > 0 & ps != size();
+    }
+
+    @NotNull
+    @Override
+    default ListIterator<T> listIterator() {
+        return listIterator(0);
     }
 }
