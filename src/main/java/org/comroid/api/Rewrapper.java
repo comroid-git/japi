@@ -9,15 +9,16 @@ import java.util.Optional;
 import java.util.function.*;
 import java.util.stream.Stream;
 
-public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T> {
+public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, MutableState {
     Rewrapper<?> EMPTY = () -> null;
 
     default boolean isMutable() {
         return false;
     }
 
-    default boolean isImmutable() {
-        return !isMutable();
+    @Override
+    default boolean setMutable(boolean state) {
+        return false;
     }
 
     static <T> Rewrapper<T> empty() {
