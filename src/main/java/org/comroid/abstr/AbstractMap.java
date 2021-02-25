@@ -10,6 +10,11 @@ import java.util.stream.Collectors;
 
 public interface AbstractMap<K, V> extends Map<K, V> {
     @Override
+    default int size() {
+        return entrySet().size();
+    }
+
+    @Override
     default boolean isEmpty() {
         return size() == 0;
     }
@@ -17,6 +22,16 @@ public interface AbstractMap<K, V> extends Map<K, V> {
     @Override
     default void putAll(@NotNull Map<? extends K, ? extends V> m) {
         m.forEach(this::put);
+    }
+
+    @Override
+    default boolean containsKey(Object key) {
+        return keySet().stream().anyMatch(key::equals);
+    }
+
+    @Override
+    default boolean containsValue(Object value) {
+        return values().stream().anyMatch(value::equals);
     }
 
     @NotNull
