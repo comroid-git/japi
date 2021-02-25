@@ -51,8 +51,8 @@ public final class StringBasedComparator<T> implements Comparator<T> {
                 return -1;
 
             if (iv != 0 || ov != 0) {
-                iv <<= 6;
-                ov <<= 6;
+                iv = (iv + 1) << 6;
+                ov = (ov + 1) << 6;
             }
             iv |= icp;
             ov |= ocp;
