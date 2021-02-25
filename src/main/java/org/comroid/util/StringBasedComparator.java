@@ -1,9 +1,12 @@
 package org.comroid.util;
 
+import org.jetbrains.annotations.ApiStatus.Experimental;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.function.Function;
 
+@Experimental
 public final class StringBasedComparator<T> implements Comparator<T> {
     private final Function<T, String> toStringFunction;
 
