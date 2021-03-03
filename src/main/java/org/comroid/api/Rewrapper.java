@@ -184,4 +184,9 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
             return into(consumer);
         throw exceptionSupplier.get();
     }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    static <T> Rewrapper<T> ofOptional(final Optional<? extends T> optional) {
+        return () -> optional.orElse(null);
+    }
 }
