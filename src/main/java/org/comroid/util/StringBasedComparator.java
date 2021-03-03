@@ -45,10 +45,10 @@ public final class StringBasedComparator<T> implements Comparator<T> {
                 continue;
             // if other codepoint is not letter or digit, 'it' is larger
             if (il && !ol)
-                return 1;
+                return -1;
             // if it's codepoint is not letter or digit, other is larger
             if (!il)
-                return -1;
+                return 1;
 
             if (iv != 0 || ov != 0) {
                 iv <<= 6;
