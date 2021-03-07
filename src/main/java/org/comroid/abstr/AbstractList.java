@@ -67,8 +67,9 @@ public interface AbstractList<T> extends List<T> {
     @Override
     default boolean addAll(int index, @NotNull Collection<? extends T> other) {
         int ps = size();
+        int c = 0;
         for (T each : other)
-            add(index, each);
+            add(index + c++, each);
         return other.size() > 0 & ps != size();
     }
 
