@@ -153,6 +153,12 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
             consume(consumer);
     }
 
+    default <EX extends Throwable> void ifPresentOrElseThrow(Consumer<T> consumer, Supplier<EX> exceptionSupplier) throws EX {
+        if (isNonNull())
+            consume(consumer);
+        else throw exceptionSupplier.get();
+    }
+
     default void ifEmpty(Runnable task) {
         if (isNull())
             task.run();
