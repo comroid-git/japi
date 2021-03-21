@@ -97,13 +97,13 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
     }
 
     @NonExtendable
-    default <T> @NotNull T requireFromContext(final Class<T> memberType) throws NoSuchElementException {
+    default <T> @NotNull T requireFromContext(final Class<? super T> memberType) throws NoSuchElementException {
         return requireFromContext(memberType, String.format("No member of type %s found in %s", memberType, this));
     }
 
     @NonExtendable
-    default <T> @NotNull T requireFromContext(final Class<T> memberType, String message) throws NoSuchElementException {
-        return getFromContext(memberType).assertion(String.format("<%s => %s>", this, message));
+    default <T> @NotNull T requireFromContext(final Class<? super T> memberType, String message) throws NoSuchElementException {
+        return Polyfill.uncheckedCast(getFromContext(memberType).assertion(String.format("<%s => %s>", this, message)));
     }
 
     interface Underlying extends ContextualProvider {
