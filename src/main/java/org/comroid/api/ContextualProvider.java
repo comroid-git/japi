@@ -275,7 +275,12 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
                             ? children.stream().flatMap(sub -> sub.streamContextMembers(includeChildren))
                             : Stream.empty()
             );
-            return Stream.concat(stream1, stream2).filter(Objects::nonNull);
+            return Stream.concat(stream1, stream2).filter(Objects::nonNull)
+                    .flatMap(it -> {
+                        if (it.getClass().isArray())
+                            return Stream.of((Object[]) it);
+                        return Stream.of(it);
+                    });
         }
 
         @Override
