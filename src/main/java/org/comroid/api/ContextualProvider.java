@@ -30,6 +30,10 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         return new Base(Base.ROOT, callerClass(1), members);
     }
 
+    static ContextualProvider create(String name, Object... members) {
+        return new Base(Base.ROOT, name, members);
+    }
+
     static ContextualProvider create(ContextualProvider parent, Object... members) {
         return new Base((Base) parent, callerClass(1), members);
     }
@@ -76,12 +80,12 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
     }
 
     @NonExtendable
-    default ContextualProvider plus(Object plus) {
+    default ContextualProvider plus(Object... plus) {
         return plus(callerClass(1).getSimpleName(), plus);
     }
 
     @NonExtendable
-    default ContextualProvider plus(String name, Object plus) {
+    default ContextualProvider plus(String name, Object... plus) {
         return new Base((Base) this, name, plus);
     }
 
@@ -143,7 +147,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
-        default ContextualProvider plus(String name, Object plus) {
+        default ContextualProvider plus(String name, Object... plus) {
             ContextualProvider context = getUnderlyingContextualProvider();
             if (context == this)
                 throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
@@ -181,7 +185,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
-        default ContextualProvider plus(Object plus) {
+        default ContextualProvider plus(Object... plus) {
             return create(this, plus);
         }
     }
@@ -208,7 +212,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
-        default ContextualProvider plus(Object plus) {
+        default ContextualProvider plus(Object... plus) {
             return create(getFromContext(), plus);
         }
     }
@@ -259,15 +263,21 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
         @Override
         public final Stream<Object> streamContextMembers(final boolean includeChildren) {
-            Stream<Object> stream1 = Stream.concat(Stream.of(parent)
+            Stream<Object> stream1 = Stream.concat(
+                    Stream.of(parent)
                             .filter(Objects::nonNull)
                             .flatMap(contextualProvider -> contextualProvider.streamContextMembers(false)),
-                    Stream.of(this));
-            Stream<Object> stream2 = Stream.concat(myMembers.stream(),
+                    Stream.of(this)
+            );
+            Stream<Object> stream2 = Stream.concat(
+                    myMembers.stream(),
                     includeChildren
                             ? children.stream().flatMap(sub -> sub.streamContextMembers(includeChildren))
-                            : Stream.empty());
-            return Stream.concat(stream1, stream2).filter(Objects::nonNull);
+                            : Stream.empty()
+            );
+            return Stream.concat(stream1, stream2).filter(Objects::nonNull).peek(member -> {
+                System.out.println(name+": member = " + member);
+            });
         }
 
         @Override
