@@ -275,9 +275,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
                             ? children.stream().flatMap(sub -> sub.streamContextMembers(includeChildren))
                             : Stream.empty()
             );
-            return Stream.concat(stream1, stream2).filter(Objects::nonNull).peek(member -> {
-                System.out.println(name+": member = " + member);
-            });
+            return Stream.concat(stream1, stream2).filter(Objects::nonNull);
         }
 
         @Override
