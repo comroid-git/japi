@@ -1,5 +1,7 @@
 package org.comroid.api;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -42,6 +44,21 @@ public final class Polyfill {
         return nil -> {
             nil.printStackTrace(System.err);
 
+            return null;
+        };
+    }
+
+    public static <R, T extends Throwable> Function<T, R> exceptionLogger(final Logger logger) {
+        return exceptionLogger(logger, "An async error occurred");
+    }
+
+    public static <R, T extends Throwable> Function<T, R> exceptionLogger(final Logger logger, final String message) {
+        return exceptionLogger(logger, Level.ERROR, message);
+    }
+
+    public static <R, T extends Throwable> Function<T, R> exceptionLogger(final Logger logger, final Level level, final String message) {
+        return throwable -> {
+            logger.log(level, message, throwable);
             return null;
         };
     }
