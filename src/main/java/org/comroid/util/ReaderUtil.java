@@ -63,6 +63,9 @@ public final class ReaderUtil {
         @Override
         public int read(final char[] buf, final int off, final int len) throws IOException {
             synchronized (readerIndex) {
+                if (readerIndex.get() >= readers.length)
+                    return -1;
+
                 int read = 0, index;
                 boolean lastWasUnsatisfied = false;
 
