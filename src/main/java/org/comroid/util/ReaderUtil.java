@@ -71,7 +71,7 @@ public final class ReaderUtil {
 
                 while (read < len && (index = readerIndex.get()) < readers.length) {
                     int nextIndex = index + 1;
-                    if (nextIndex >= readers.length && read + 1 >= len)
+                    if ((nextIndex >= readers.length || read + 1 >= len) && lastWasUnsatisfied)
                         break;
 
                     if (read != 0 && delimiter != null && lastWasUnsatisfied)
@@ -89,6 +89,8 @@ public final class ReaderUtil {
                     lastWasUnsatisfied = (justRead == -1 || justRead < maxRead);
                 }
 
+                if (lastWasUnsatisfied)
+                    readerIndex.incrementAndGet();
                 return read;
             }
         }
