@@ -11,6 +11,26 @@ public final class ReaderUtil {
         throw new UnsupportedOperationException();
     }
 
+    @Internal
+    public static void main(String[] args) throws IOException {
+        String first = "abc";
+        String second = "def";
+
+        runTest(first, second, new char[5]);
+        runTest(first, second, new char[4]);
+        runTest(first, second, new char[8]);
+    }
+
+    @Internal
+    private static void runTest(String first, String second, char[] buf) throws IOException {
+        Reader reader = combine(';', new StringReader(first), new StringReader(second));
+        int read = reader.read(buf);
+        String content = new String(buf).substring(0, read);
+
+        System.out.println("read = " + read);
+        System.out.println("content = " + content);
+    }
+
     public static Reader combine(InputStream... streams) {
         return combine(null, streams);
     }
