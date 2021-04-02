@@ -1,5 +1,7 @@
 package org.comroid.util;
 
+import org.comroid.api.Serializer;
+import org.comroid.api.StringSerializable;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,6 +31,27 @@ public final class ReaderUtil {
 
         System.out.printf("read = %d / %d%n", read, buf.length);
         System.out.printf("content = %s%n", content);
+    }
+
+    public static Reader combine(Object... parts) {
+        return combine(null, parts);
+    }
+
+    public static Reader combine(@Nullable Character delimiter, Object... parts) {
+        Reader[] readers = new Reader[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            final Object it = parts[i];
+
+            if (it instanceof Reader)
+                readers[i] = (Reader) it;
+            else if (it instanceof InputStream)
+                readers[i] = new InputStreamReader((InputStream) it);
+            else if (it instanceof CharSequence)
+                readers[i] = new StringReader(((CharSequence) it).toString());
+            else if (it instanceof StringSerializable)
+                readers[i] = new StringReader(((StringSerializable) it).toSerializedString());
+        }
+        return combine(delimiter, readers);
     }
 
     public static Reader combine(InputStream... streams) {
