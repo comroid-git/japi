@@ -70,7 +70,6 @@ public final class ReaderUtil {
                 boolean lastWasUnsatisfied = false;
 
                 while (read < len && (index = readerIndex.get()) < readers.length) {
-
                     int nextIndex = index + 1;
                     if (nextIndex >= readers.length && read + 1 >= len)
                         break;
