@@ -1,11 +1,9 @@
 package org.comroid.util;
 
+import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ReaderUtil {
@@ -48,14 +46,18 @@ public final class ReaderUtil {
                 int read = 0, index;
 
                 while (read < len && (index = readerIndex.get()) < readers.length) {
+                    int nextIndex = readerIndex.incrementAndGet();
+                    if (nextIndex >= readers.length && read + 1 >= len)
+                        break;
+
+                    boolean isAppend = read != 0;
+                    if (isAppend && delimiter != null)
+                        buf[read++] = delimiter;
                     int maxRead = len - read;
                     int justRead = readers[index].read(buf, read, maxRead);
 
-                    if (justRead == -1) {
-                        int nextIndex = readerIndex.incrementAndGet();
-                        if (delimiter != null && nextIndex < readers.length)
-                            buf[read++] = delimiter;
-                    } else read += justRead;
+                    if (justRead != -1)
+                        read += justRead;
                 }
 
                 return read;
