@@ -1,11 +1,11 @@
 package org.comroid.util;
 
-import org.comroid.api.Serializer;
 import org.comroid.api.StringSerializable;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
+import java.util.Formattable;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ReaderUtil {
@@ -50,6 +50,9 @@ public final class ReaderUtil {
                 readers[i] = new StringReader(((CharSequence) it).toString());
             else if (it instanceof StringSerializable)
                 readers[i] = new StringReader(((StringSerializable) it).toSerializedString());
+            else if (it instanceof Formattable)
+                readers[i] = new StringReader(String.format("%s", it));
+            else readers[i] = new StringReader(it.toString());
         }
         return combine(delimiter, readers);
     }
