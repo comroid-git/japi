@@ -64,19 +64,27 @@ public final class ReaderUtil {
         public int read(final char[] buf, final int off, final int len) throws IOException {
             synchronized (readerIndex) {
                 int read = 0, index;
+                boolean lastWasUnsatisfied = false;
 
                 while (read < len && (index = readerIndex.get()) < readers.length) {
-                    int nextIndex = readerIndex.incrementAndGet();
+
+                    int nextIndex = index + 1;
                     if (nextIndex >= readers.length && read + 1 >= len)
                         break;
 
-                    if (read != 0 && delimiter != null)
+                    if (read != 0 && delimiter != null && lastWasUnsatisfied)
                         buf[read++] = delimiter;
                     int maxRead = len - read;
                     int justRead = readers[index].read(buf, read, maxRead);
 
                     if (justRead != -1)
                         read += justRead;
+                    if (lastWasUnsatisfied && justRead == -1) {
+                        lastWasUnsatisfied = false;
+                        readerIndex.set(nextIndex);
+                        continue;
+                    }
+                    lastWasUnsatisfied = (justRead == -1 || justRead < maxRead);
                 }
 
                 return read;
@@ -86,6 +94,7 @@ public final class ReaderUtil {
         @Override
         public void close() throws IOException {
             synchronized (readerIndex) {
+                readerIndex.set(readers.length);
                 for (Reader reader : readers)
                     reader.close();
             }
