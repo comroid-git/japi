@@ -70,8 +70,7 @@ public final class ReaderUtil {
                     if (nextIndex >= readers.length && read + 1 >= len)
                         break;
 
-                    boolean isAppend = read != 0;
-                    if (isAppend && delimiter != null)
+                    if (read != 0 && delimiter != null)
                         buf[read++] = delimiter;
                     int maxRead = len - read;
                     int justRead = readers[index].read(buf, read, maxRead);
