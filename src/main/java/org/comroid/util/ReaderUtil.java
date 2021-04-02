@@ -27,8 +27,8 @@ public final class ReaderUtil {
         int read = reader.read(buf);
         String content = new String(buf).substring(0, read);
 
-        System.out.println("read = " + read);
-        System.out.println("content = " + content);
+        System.out.printf("read = %d / %d%n", read, buf.length);
+        System.out.printf("content = %s%n", content);
     }
 
     public static Reader combine(InputStream... streams) {
