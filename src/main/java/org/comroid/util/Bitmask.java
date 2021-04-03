@@ -1,6 +1,9 @@
 package org.comroid.util;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.Logger;
 import org.comroid.api.BitmaskEnum;
+import org.jetbrains.annotations.Nullable;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
@@ -78,28 +81,29 @@ public final class Bitmask {
         return new BitmaskCollector();
     }
 
-    public static void printIntegerBytes(int value) {
+    public static void printIntegerBytes(Logger logger, @Nullable String title, int value) {
         byte[] bytes = ByteBuffer.allocate(4)
                 .putInt(value)
                 .array();
-        printByteArrayDump(bytes);
-        System.out.println("- integer: "+value);
+        printByteArrayDump(logger, String.format("Integer Dump of %s [%d]", title, value), bytes);
     }
 
-    public static void printByteArrayDump(byte[] bytes) {
+    public static void printByteArrayDump(Logger logger, @Nullable String title, byte[] bytes) {
+        StringBuilder sb = new StringBuilder("\n");
         for (int i = 0; i < bytes.length; i++) {
             byte each = bytes[i];
-            printByteDump(each);
+            sb.append(createByteDump(null, each));
             if (i % 2 == 1)
-                System.out.println();
+                sb.append('\n');
         }
+        logger.log(Level.ALL, (title == null ? "" : "Printing byte array dump of " + title) + sb.substring(0, sb.length() - 1));
     }
 
-    public static void printByteDump(byte each) {
+    public static String createByteDump(@Nullable String title, byte each) {
         StringBuilder binaryString = new StringBuilder(Integer.toUnsignedString(each, 2));
         while (binaryString.length() < 8)
             binaryString.insert(0, '0');
-        System.out.printf("0x%2x [0b%s]\t", each, binaryString.toString());
+        return String.format("%s0x%2x [0b%s]\t", (title == null ? "" : "Creating byte dump of " + title + '\n'), each, binaryString.toString());
     }
 
     private static final class BitmaskCollector implements Collector<Integer, AtomicInteger, Integer> {
