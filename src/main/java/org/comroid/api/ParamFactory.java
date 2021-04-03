@@ -4,7 +4,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Function;
 
-public interface ParamFactory<P, T> extends Provider.Now<T> {
+public interface ParamFactory<P, T> extends Provider.Now<T>, Function<P, T> {
     @Override
     default T now() {
         return create();
@@ -12,6 +12,11 @@ public interface ParamFactory<P, T> extends Provider.Now<T> {
 
     default T create() {
         return create(null);
+    }
+
+    @Override
+    default T apply(P p) {
+        return create(p);
     }
 
     T create(@Nullable P parameter);

@@ -179,4 +179,12 @@ public final class Polyfill {
     public static <T> CompletableFuture<T> infiniteFuture() {
         return uncheckedCast(infiniteFuture);
     }
+
+    public static String[] splitStringForLength(String data, int maxLength) {
+        String[] parts = new String[(data.length() / maxLength) + 1];
+
+        for (int i = 0, end; i < parts.length; i++)
+            parts[i] = data.substring(maxLength * i, (end = maxLength * (i + 1)) > data.length() ? data.length() : end);
+        return parts;
+    }
 }

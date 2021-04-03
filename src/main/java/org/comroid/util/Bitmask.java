@@ -37,13 +37,13 @@ public final class Bitmask {
     public static boolean isFlagSet(int mask, int flag) {
         return (mask & flag) != 0;
     }
-
     //@CallerSensitive
+
     public static int nextFlag() {
         return nextFlag(0);
     }
-
     //@CallerSensitive
+
     public static int nextFlag(int traceDelta) {
         final AtomicInteger atom = LAST_FLAG.computeIfAbsent(StackTraceUtils
                 .callerClass(1 + traceDelta), key -> new AtomicInteger(-1));
