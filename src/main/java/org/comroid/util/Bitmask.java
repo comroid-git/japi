@@ -2,6 +2,7 @@ package org.comroid.util;
 
 import org.comroid.api.BitmaskEnum;
 
+import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -77,6 +78,14 @@ public final class Bitmask {
         return new BitmaskCollector();
     }
 
+    public static void printIntegerBytes(int value) {
+        byte[] bytes = ByteBuffer.allocate(4)
+                .putInt(value)
+                .array();
+        printByteArrayDump(bytes);
+        System.out.println("- integer: "+value);
+    }
+
     public static void printByteArrayDump(byte[] bytes) {
         for (int i = 0; i < bytes.length; i++) {
             byte each = bytes[i];
@@ -87,7 +96,7 @@ public final class Bitmask {
     }
 
     public static void printByteDump(byte each) {
-        StringBuilder binaryString = new StringBuilder(Integer.toBinaryString(each));
+        StringBuilder binaryString = new StringBuilder(Integer.toUnsignedString(each, 2));
         while (binaryString.length() < 8)
             binaryString.insert(0, '0');
         System.out.printf("0x%2x [0b%s]\t", each, binaryString.toString());
