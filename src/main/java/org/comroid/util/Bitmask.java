@@ -77,6 +77,18 @@ public final class Bitmask {
         return new BitmaskCollector();
     }
 
+    public static void printByteDump(byte[] bytes) {
+        for (int i = 0; i < bytes.length; i++) {
+            byte each = bytes[i];
+            String binaryString = Integer.toBinaryString(each);
+            while (binaryString.length() < 8)
+                binaryString = '0' + binaryString;
+            System.out.printf("0x%2x [0b%s]\t", each, binaryString);
+            if (i % 2 == 1)
+                System.out.println();
+        }
+    }
+
     private static final class BitmaskCollector implements Collector<Integer, AtomicInteger, Integer> {
         private static final Set<Characteristics> characteristics
                 = Collections.singleton(Characteristics.IDENTITY_FINISH);
