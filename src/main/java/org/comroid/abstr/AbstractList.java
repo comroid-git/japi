@@ -78,4 +78,32 @@ public interface AbstractList<T> extends List<T> {
     default ListIterator<T> listIterator() {
         return listIterator(0);
     }
+
+    @Override
+    default boolean contains(Object o) {
+        ListIterator<T> iterator = listIterator();
+        while (iterator().hasNext())
+            if (iterator.next().equals(o))
+                return true;
+        return false;
+    }
+
+    @Override
+    default int indexOf(Object o) {
+        ListIterator<T> iterator = listIterator();
+        while (iterator.hasNext())
+            if (iterator.next().equals(o))
+                return iterator.previousIndex();
+        return -1;
+    }
+
+    @Override
+    default int lastIndexOf(Object o) {
+        ListIterator<T> iterator = listIterator();
+        int yield = -1;
+        while (iterator.hasNext())
+            if (iterator.next().equals(o))
+                yield = iterator.previousIndex();
+        return yield;
+    }
 }
