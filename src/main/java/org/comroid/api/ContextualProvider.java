@@ -65,6 +65,15 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
     Stream<Object> streamContextMembers(boolean includeChildren);
 
+    default Serializer findSerializer(String mimetype) {
+        return streamContextMembers(false)
+                .filter(Serializer.class::isInstance)
+                .map(Serializer.class::cast)
+                .filter(seri -> seri.getMimeType().equals(mimetype))
+                .findAny()
+                .orElseThrow(() -> new NoSuchElementException(String.format("No Serializer with Mime Type %s was found in %s", mimetype, this)));
+    }
+
     @NonExtendable
     default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
         return () -> streamContextMembers(false)
