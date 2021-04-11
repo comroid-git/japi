@@ -66,7 +66,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
     Stream<Object> streamContextMembers(boolean includeChildren);
 
     default Serializer findSerializer(String mimetype) {
-        return streamContextMembers(false)
+        return streamContextMembers(true)
                 .filter(Serializer.class::isInstance)
                 .map(Serializer.class::cast)
                 .filter(seri -> seri.getMimeType().equals(mimetype))
