@@ -13,7 +13,19 @@ public enum OS implements Named {
     UNIX(".so", "nix", "nux", "aix"),
     SOLARIS(".so", "sunos");
 
-    public static final OS current = detect();
+    public static final OS current;
+    public static final boolean isWindows;
+    public static final boolean isMac;
+    public static final boolean isUnix;
+    public static final boolean isSolaris;
+
+    static {
+        current = detect();
+        isWindows = current == WINDOWS;
+        isMac = current == MAC;
+        isUnix = current == UNIX;
+        isSolaris = current == SOLARIS;
+    }
 
     private final String libExtension;
     private final List<String> validators;
