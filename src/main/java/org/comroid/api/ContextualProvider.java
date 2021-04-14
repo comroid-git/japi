@@ -39,16 +39,28 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
     }
 
     static <T> T requireFromContexts(Class<T> member) throws NoSuchElementException {
+        return requireFromContexts(member, false);
+    }
+
+    static <T> T requireFromContexts(Class<T> member, boolean includeChildren) throws NoSuchElementException {
         return requireFromContexts(member, String.format("No member of type %s found", member));
     }
 
     static <T> T requireFromContexts(Class<T> member, String message) throws NoSuchElementException {
-        return getFromContexts(member).orElseThrow(() -> new NoSuchElementException(message));
+        return requireFromContexts(member, message, false);
+    }
+
+    static <T> T requireFromContexts(Class<T> member, String message, boolean includeChildren) throws NoSuchElementException {
+        return getFromContexts(member, includeChildren).orElseThrow(() -> new NoSuchElementException(message));
     }
 
     static <T> Rewrapper<T> getFromContexts(final Class<T> member) {
+        return getFromContexts(member, false);
+    }
+
+    static <T> Rewrapper<T> getFromContexts(final Class<T> member, boolean includeChildren) {
         return () -> Base.ROOT.children.stream()
-                .flatMap(sub -> sub.getFromContext(member).stream())
+                .flatMap(sub -> sub.getFromContext(member, includeChildren).stream())
                 .findFirst()
                 .orElse(null);
     }
@@ -77,7 +89,12 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
     @NonExtendable
     default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
-        return () -> streamContextMembers(false)
+        return getFromContext(memberType, false);
+    }
+
+    @NonExtendable
+    default <T> Rewrapper<T> getFromContext(final Class<T> memberType, boolean includeChildren) {
+        return () -> streamContextMembers(includeChildren)
                 .filter(memberType::isInstance)
                 .findFirst()
                 .map(memberType::cast)
@@ -112,11 +129,21 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
     @NonExtendable
     default <T> @NotNull T requireFromContext(final Class<? super T> memberType) throws NoSuchElementException {
+        return requireFromContext(memberType, false);
+    }
+
+    @NonExtendable
+    default <T> @NotNull T requireFromContext(final Class<? super T> memberType, boolean includeChildren) throws NoSuchElementException {
         return requireFromContext(memberType, String.format("No member of type %s found in %s", memberType, this));
     }
 
     @NonExtendable
     default <T> @NotNull T requireFromContext(final Class<? super T> memberType, String message) throws NoSuchElementException {
+        return requireFromContext(memberType, message, false);
+    }
+
+    @NonExtendable
+    default <T> @NotNull T requireFromContext(final Class<? super T> memberType, String message, boolean includeChildren) throws NoSuchElementException {
         return Polyfill.uncheckedCast(getFromContext(memberType).assertion(String.format("<%s => %s>", this, message)));
     }
 
@@ -149,11 +176,11 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
         }
 
         @Override
-        default <T> Rewrapper<T> getFromContext(final Class<T> memberType) {
+        default <T> Rewrapper<T> getFromContext(final Class<T> memberType, boolean includeChildren) {
             ContextualProvider context = getUnderlyingContextualProvider();
             if (context == this)
                 throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
-            return context.getFromContext(memberType);
+            return context.getFromContext(memberType, includeChildren);
         }
 
         @Override
