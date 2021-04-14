@@ -144,7 +144,7 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
     @NonExtendable
     default <T> @NotNull T requireFromContext(final Class<? super T> memberType, String message, boolean includeChildren) throws NoSuchElementException {
-        return Polyfill.uncheckedCast(getFromContext(memberType).assertion(String.format("<%s => %s>", this, message)));
+        return Polyfill.uncheckedCast(getFromContext(memberType, includeChildren).assertion(String.format("<%s => %s>", this, message)));
     }
 
     interface Underlying extends ContextualProvider {
