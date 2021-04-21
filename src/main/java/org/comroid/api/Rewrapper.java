@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.function.*;
 import java.util.stream.Stream;
 
-public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, MutableState {
+public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, MutableState, StreamSupplier<T> {
     Rewrapper<?> EMPTY = () -> null;
 
     default boolean isMutable() {
@@ -38,6 +38,11 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         if (value == null)
             return empty();
         return () -> value;
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    static <T> Rewrapper<T> ofOptional(final Optional<? extends T> optional) {
+        return () -> optional.orElse(null);
     }
 
     @Override
@@ -189,10 +194,5 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         if (isNonNull())
             return into(consumer);
         throw exceptionSupplier.get();
-    }
-
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    static <T> Rewrapper<T> ofOptional(final Optional<? extends T> optional) {
-        return () -> optional.orElse(null);
     }
 }

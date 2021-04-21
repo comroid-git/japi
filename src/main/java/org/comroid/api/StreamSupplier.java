@@ -30,7 +30,7 @@ public interface StreamSupplier<T> extends Upgradeable<StreamSupplier<T>> {
         return () -> Stream.concat(first.stream(), second.stream());
     }
 
-    Stream<T> stream();
+    Stream<? extends T> stream();
 
     default StreamSupplier<T> append(final StreamSupplier<? extends T> other) {
         return concat(this, other);
