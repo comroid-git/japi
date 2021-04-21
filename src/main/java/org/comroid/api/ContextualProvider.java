@@ -77,11 +77,11 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
     Stream<Object> streamContextMembers(boolean includeChildren);
 
-    default <T> Serializer<T> findSerializer(String mimetype) {
+    default <T> Serializer<T> findSerializer(CharSequence mimetype) {
         return streamContextMembers(true)
                 .filter(Serializer.class::isInstance)
                 .map(Serializer.class::cast)
-                .filter(seri -> seri.getMimeType().equals(mimetype))
+                .filter(seri -> seri.getMimeType().equals(mimetype.toString()))
                 .findAny()
                 .map(Polyfill::<Serializer<T>>uncheckedCast)
                 .orElseThrow(() -> new NoSuchElementException(String.format("No Serializer with Mime Type %s was found in %s", mimetype, this)));
