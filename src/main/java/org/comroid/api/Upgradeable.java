@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
+import java.util.NoSuchElementException;
 
 @Experimental
 public interface Upgradeable<T> {
@@ -36,6 +37,6 @@ public interface Upgradeable<T> {
                         throw new AssertionError("Upgrade method returned an invalid type", e);
                     }
                 })
-                .orElseThrow(() -> new RuntimeException(String.format("Could not upgrade %s to %s", this, target)));
+                .orElseThrow(() -> new NoSuchElementException("Could not find suitable upgrade method in " + target));
     }
 }
