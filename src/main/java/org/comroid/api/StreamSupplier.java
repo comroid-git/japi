@@ -3,7 +3,7 @@ package org.comroid.api;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-public interface StreamSupplier<T> {
+public interface StreamSupplier<T> extends Upgradeable<StreamSupplier<T>> {
     @SafeVarargs
     static <T> StreamSupplier<T> of(final T... values) {
         return () -> Stream.of(values);
