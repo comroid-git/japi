@@ -27,7 +27,7 @@ public interface Upgradeable<T> {
                     try {
                         return (R) mtd.invoke(null, this);
                     } catch (InvocationTargetException e) {
-                        throw new RuntimeException("Error ocurred during Upgrade", e);
+                        throw new RuntimeException("Error occurred during Upgrade", e);
                     } catch (IllegalAccessException e) {
                         // theoretically unreachable
                         throw new AssertionError("Cannot access Upgrade method " + mtd, e);
