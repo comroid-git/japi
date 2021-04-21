@@ -16,8 +16,8 @@ public interface Upgradeable<T> {
             return (R) target.cast(this);
         return Arrays.stream(target.getMethods())
                 .filter(mtd -> Modifier.isStatic(mtd.getModifiers()))
-                .filter(mtd -> mtd.isAnnotationPresent(Upgrade.class))
-                .filter(mtd -> mtd.getParameterCount() == 1)
+                .filter(mtd -> mtd.isAnnotationPresent(Upgrade.class) || mtd.getName().equals("upgrade"))
+                .filter(mtd -> mtd.getParameterCount() == 1 && mtd.getParameterTypes()[0].isInstance(this))
                 .findAny()
                 .map(Invocable::<R>ofMethodCall)
                 .map(invoc -> invoc.autoInvoke(this))
