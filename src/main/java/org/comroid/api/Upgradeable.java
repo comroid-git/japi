@@ -1,16 +1,23 @@
 package org.comroid.api;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.comroid.annotations.Upgrade;
 import org.jetbrains.annotations.ApiStatus.Experimental;
+import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 @Experimental
-public interface Upgradeable<T> {
+public interface Upgradeable<T extends Upgradeable<? super T>> extends Specifiable<T> {
+    @Internal
+    Logger logger = LogManager.getLogger();
+
     @SuppressWarnings("unchecked")
     @Experimental
     default <R extends T> @NotNull R upgrade(Class<? super R> target) {
@@ -38,5 +45,19 @@ public interface Upgradeable<T> {
                     }
                 })
                 .orElseThrow(() -> new NoSuchElementException("Could not find suitable upgrade method in " + target));
+    }
+
+    @Override
+    default <R extends T> Optional<R> as(Class<R> type) {
+        return Specifiable.super.as(type)
+                .map(Optional::ofNullable)
+                .orElseGet(() -> {
+                    try {
+                        return Optional.of(upgrade(type));
+                    } catch (Throwable t) {
+                        logger.warn("Could not upgrade to type {} when specifying", type, t);
+                        return Optional.empty();
+                    }
+                });
     }
 }

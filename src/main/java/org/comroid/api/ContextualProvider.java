@@ -14,7 +14,7 @@ import static org.comroid.util.StackTraceUtils.callerClass;
 
 @Experimental
 @MustExtend(ContextualProvider.Base.class)
-public interface ContextualProvider extends Named, Specifiable<ContextualProvider> {
+public interface ContextualProvider extends Named, Upgradeable<ContextualProvider> {
     @Internal
     default @Nullable ContextualProvider getParentContext() {
         return null;
@@ -77,12 +77,12 @@ public interface ContextualProvider extends Named, Specifiable<ContextualProvide
 
     Stream<Object> streamContextMembers(boolean includeChildren);
 
-    default <T> Serializer<T> findSerializer(CharSequence mimetype) {
+    default <T> Serializer<T> findSerializer(@Nullable CharSequence mimetype) {
         return streamContextMembers(true)
                 .filter(Serializer.class::isInstance)
                 .map(Serializer.class::cast)
-                .filter(seri -> seri.getMimeType().equals(mimetype.toString()))
-                .findAny()
+                .filter(seri -> mimetype == null || seri.getMimeType().equals(mimetype.toString()))
+                .findFirst()
                 .map(Polyfill::<Serializer<T>>uncheckedCast)
                 .orElseThrow(() -> new NoSuchElementException(String.format("No Serializer with Mime Type %s was found in %s", mimetype, this)));
     }
