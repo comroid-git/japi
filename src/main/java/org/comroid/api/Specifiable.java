@@ -3,7 +3,7 @@ package org.comroid.api;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-public interface Specifiable<B extends Specifiable<? super B>> extends SelfDeclared<B> {
+public interface Specifiable<B> extends SelfDeclared<B> {
     default <R extends B> R as(Class<R> type, String message) throws AssertionError {
         return as(type, () -> message);
     }

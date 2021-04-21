@@ -14,7 +14,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 
 @Experimental
-public interface Upgradeable<T extends Upgradeable<? super T>> extends Specifiable<T> {
+public interface Upgradeable<T> extends Specifiable<T> {
     @Internal
     Logger logger = LogManager.getLogger();
 
