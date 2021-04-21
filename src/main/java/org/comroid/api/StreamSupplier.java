@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-public interface StreamSupplier<T> extends Upgradeable<StreamSupplier<T>> {
+public interface StreamSupplier<T> {
     static <T> StreamSupplier<T> empty() {
         return Stream::empty;
     }
