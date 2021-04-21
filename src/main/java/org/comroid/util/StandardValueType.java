@@ -2,10 +2,10 @@ package org.comroid.util;
 
 import org.comroid.api.Polyfill;
 import org.comroid.api.ValueType;
+import org.jetbrains.annotations.ApiStatus.Experimental;
 
 import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Objects;
 import java.util.function.Function;
 
 public final class StandardValueType<R> implements ValueType<R> {
@@ -50,11 +50,6 @@ public final class StandardValueType<R> implements ValueType<R> {
     }
 
     @Override
-    public R parse(String data) {
-        return converter.apply(data);
-    }
-
-    @Override
     public Class<R> getTargetClass() {
         return type;
     }
@@ -63,6 +58,20 @@ public final class StandardValueType<R> implements ValueType<R> {
         this.type = type;
         this.name = name;
         this.converter = mapper;
+    }
+
+    @Experimental
+    public static Object findGoodType(String parse) {
+        return Arrays.stream(values)
+                .map(vt -> {
+                    try {
+                        return vt.parse(parse);
+                    } catch (Throwable t) {
+                        return null;
+                    }
+                }).filter(Objects::nonNull)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Could not find type of '" + parse + "'"));
     }
 
     public static <T> ValueType<T> typeOf(T value) {
@@ -74,5 +83,10 @@ public final class StandardValueType<R> implements ValueType<R> {
                 .findAny()
                 .map(Polyfill::<StandardValueType<T>>uncheckedCast)
                 .orElse(null);
+    }
+
+    @Override
+    public R parse(String data) {
+        return converter.apply(data);
     }
 }
