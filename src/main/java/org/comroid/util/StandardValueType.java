@@ -5,7 +5,6 @@ import org.comroid.api.ValueType;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 
 import java.util.Arrays;
-import java.util.Objects;
 import java.util.function.Function;
 
 public final class StandardValueType<R> implements ValueType<R> {
@@ -25,7 +24,6 @@ public final class StandardValueType<R> implements ValueType<R> {
     public static final ValueType<?>[] values;
 
     static {
-        BOOLEAN = new StandardValueType<>(Boolean.class, "boolean", Boolean::parseBoolean);
         CHARACTER = new StandardValueType<>(Character.class, "char", str -> str.toCharArray()[0]);
         DOUBLE = new StandardValueType<>(Double.class, "double", Double::parseDouble);
         FLOAT = new StandardValueType<>(Float.class, "float", Float::parseFloat);
@@ -33,11 +31,12 @@ public final class StandardValueType<R> implements ValueType<R> {
         LONG = new StandardValueType<>(Long.class, "long", Long::parseLong);
         SHORT = new StandardValueType<>(Short.class, "short", Short::parseShort);
         STRING = new StandardValueType<>(String.class, "String", Function.identity());
+        BOOLEAN = new StandardValueType<>(Boolean.class, "boolean", Boolean::parseBoolean);
         VOID = new StandardValueType<>(void.class, "Void", it -> null);
         OBJECT = new StandardValueType<>(Object.class, "Object", it -> it);
         ARRAY = new StandardValueType<>(Object[].class, "Array", it -> new Object[]{it});
 
-        values = new ValueType[]{BOOLEAN, CHARACTER, DOUBLE, FLOAT, INTEGER, LONG, SHORT, STRING, VOID, ARRAY, OBJECT};
+        values = new ValueType[]{CHARACTER, DOUBLE, FLOAT, INTEGER, LONG, SHORT, STRING, BOOLEAN, VOID, ARRAY, OBJECT};
     }
 
     private final Class<R> type;
@@ -62,16 +61,17 @@ public final class StandardValueType<R> implements ValueType<R> {
 
     @Experimental
     public static Object findGoodType(String parse) {
-        return Arrays.stream(values)
-                .map(vt -> {
-                    try {
-                        return vt.parse(parse);
-                    } catch (Throwable t) {
-                        return null;
-                    }
-                }).filter(Objects::nonNull)
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("Could not find type of '" + parse + "'"));
+        if (parse == null || parse.equals("null"))
+            return null;
+        if (parse.matches("\\d{1,9}"))
+            return Integer.parseInt(parse);
+        if (parse.matches("\\d{10,}"))
+            return Long.parseLong(parse);
+        if (parse.matches("\\d+[,.]\\d+"))
+            return Double.parseDouble(parse);
+        if (parse.matches("(true)|(false)"))
+            return Boolean.parseBoolean(parse);
+        return parse;
     }
 
     public static <T> ValueType<T> typeOf(T value) {
