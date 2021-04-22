@@ -317,7 +317,7 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
                         if (it.getClass().isArray())
                             return Stream.of((Object[]) it);
                         return Stream.of(it);
-                    });
+                    }).distinct();
         }
 
         @Override
