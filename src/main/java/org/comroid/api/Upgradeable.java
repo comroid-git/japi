@@ -1,10 +1,7 @@
 package org.comroid.api;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.comroid.annotations.Upgrade;
 import org.jetbrains.annotations.ApiStatus.Experimental;
-import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.InvocationTargetException;
@@ -14,10 +11,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 
 @Experimental
-public interface Upgradeable<T> extends Specifiable<T> {
-    @Internal
-    Logger logger = LogManager.getLogger();
-
+public interface Upgradeable<T> extends Specifiable<T>, LoggerCarrier {
     @SuppressWarnings("unchecked")
     @Experimental
     default <R extends T> @NotNull R upgrade(Class<? super R> target) {
@@ -55,7 +49,7 @@ public interface Upgradeable<T> extends Specifiable<T> {
                     try {
                         return Optional.of(upgrade(type));
                     } catch (Throwable t) {
-                        logger.warn("Could not upgrade to type {} when specifying", type, t);
+                        getLogger().warn("Could not upgrade to type {} when specifying", type, t);
                         return Optional.empty();
                     }
                 });
