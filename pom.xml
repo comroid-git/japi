@@ -9,7 +9,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.comroid</groupId>
   <artifactId>api</artifactId>
-  <version>0.20.1</version>
+  <version>0.21.1-SNAPSHOT</version>
   <name>repo</name>
   <description></description>
   <url>https://github.com/comroid-git/repo</url>
