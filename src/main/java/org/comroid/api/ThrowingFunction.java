@@ -11,7 +11,9 @@ public interface ThrowingFunction<I, O, T extends Throwable> {
             try {
                 return function.apply(in);
             } catch (Throwable error) {
-                throw remapper.apply(error);
+                if (remapper != null)
+                    throw remapper.apply(error);
+                return null;
             }
         };
     }
