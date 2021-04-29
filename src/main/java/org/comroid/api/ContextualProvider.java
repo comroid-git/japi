@@ -113,7 +113,7 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
 
     @NonExtendable
     default ContextualProvider plus(String name, Object... plus) {
-        return new Base((Base) this, name, plus);
+        return new Base(this, name, plus);
     }
 
     default boolean addToContext(Object... plus) {
@@ -278,7 +278,7 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
             this(ROOT, initialMembers);
         }
 
-        protected Base(@NotNull ContextualProvider.Base parent, Object... initialMembers) {
+        protected Base(@NotNull ContextualProvider parent, Object... initialMembers) {
             this(parent, callerClass(1).getSimpleName(), initialMembers);
         }
 
@@ -286,7 +286,7 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
             this(ROOT, name, initialMembers);
         }
 
-        protected Base(@NotNull ContextualProvider.Base parent, String name, Object... initialMembers) {
+        protected Base(@NotNull ContextualProvider parent, String name, Object... initialMembers) {
             this.myMembers = new HashSet<>();
             this.children = new HashSet<>();
             this.parent = name.equals("ROOT") && callerClass(1).equals(ContextualProvider.Base.class)
@@ -294,7 +294,7 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
                     : Objects.requireNonNull(parent);
             this.name = name;
             if (!isRoot())
-                parent.children.add(this);
+                parent.addToContext(this);
             addToContext(initialMembers);
         }
 
