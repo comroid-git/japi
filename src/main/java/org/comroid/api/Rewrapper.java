@@ -8,9 +8,15 @@ import java.util.Optional;
 import java.util.function.*;
 import java.util.stream.Stream;
 
+/**
+ * Pre-defining interface for Reference-like structures
+ *
+ * @param <T> The type of held data
+ */
 public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, MutableState, StreamSupplier<T> {
     Rewrapper<?> EMPTY = () -> null;
 
+    @Override
     default boolean isMutable() {
         return false;
     }

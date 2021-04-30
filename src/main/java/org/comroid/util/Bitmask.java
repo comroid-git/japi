@@ -2,7 +2,7 @@ package org.comroid.util;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
-import org.comroid.api.BitmaskEnum;
+import org.comroid.api.BitmaskAttribute;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.ByteBuffer;
@@ -18,10 +18,10 @@ public final class Bitmask {
     public static final int EMPTY = 0x0;
     private static final Map<Class<?>, AtomicInteger> LAST_FLAG = new ConcurrentHashMap<>();
 
-    public static int combine(BitmaskEnum<?>... values) {
+    public static int combine(BitmaskAttribute<?>... values) {
         int yield = EMPTY;
 
-        for (BitmaskEnum<?> value : values)
+        for (BitmaskAttribute<?> value : values)
             yield = value.apply(yield, true);
 
         return yield;

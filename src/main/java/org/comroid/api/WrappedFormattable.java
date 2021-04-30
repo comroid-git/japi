@@ -10,9 +10,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public interface WrappedFormattable extends Formattable {
-    String getDefaultFormattedName();
+    String getPrimaryName();
 
-    String getAlternateFormattedName();
+    String getAlternateName();
 
     static void wrapFormatter(Formatter formatter, int flags, int width, int precision, String base) {
         if (precision != -1 && precision > base.length() && width < precision) {
@@ -51,7 +51,7 @@ public interface WrappedFormattable extends Formattable {
     @Override
     default void formatTo(Formatter formatter, int flags, int width, int precision) {
         wrapFormatter(formatter, flags, width, precision, Bitmask.isFlagSet(flags, FormattableFlags.ALTERNATE)
-                ? getAlternateFormattedName()
-                : getDefaultFormattedName());
+                ? getAlternateName()
+                : getPrimaryName());
     }
 }
