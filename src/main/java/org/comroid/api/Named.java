@@ -10,15 +10,13 @@ package org.comroid.api;
 public interface Named extends WrappedFormattable {
     /**
      * Default implementation to get the primary name.
-     * If this is an instance of {@link Enum}, returns its {@link Enum#name() enum constant name}.
+     * By default, invokes {@link #getName()}.
      *
      * @return The primary name.
      */
     @Override
     default String getPrimaryName() {
-        if (this instanceof Enum)
-            return ((Enum<?>) this).name();
-        return getAlternateName();
+        return getName();
     }
 
     /**
@@ -33,12 +31,14 @@ public interface Named extends WrappedFormattable {
 
     /**
      * Returns the primary common name of this object.
-     * By default, invokes {@link #getPrimaryName()}.
+     * If this is an instance of {@link Enum}, returns its {@link Enum#name() enum constant name}.
      *
      * @return the primary common name.
      */
     default String getName() {
-        return getPrimaryName();
+        if (this instanceof Enum)
+            return ((Enum<?>) this).name();
+        return toString();
     }
 
     /**
