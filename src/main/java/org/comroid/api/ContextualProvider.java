@@ -274,6 +274,11 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
             return wrapContextStr(name);
         }
 
+        @Override
+        public String toString() {
+            return getName();
+        }
+
         protected Base(Object... initialMembers) {
             this(ROOT, initialMembers);
         }
