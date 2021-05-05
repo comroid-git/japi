@@ -276,7 +276,7 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
                     for (Map.Entry<Object, Object> entry : props.entrySet()) {
                         final int fc = c;
                         Class<?> targetClass = Class.forName(String.valueOf(entry.getValue()));
-                        ReflectionHelper.instanceField(targetClass).ifPresent(it -> values[fc] = it);
+                        createInstance(targetClass).ifPresent(it -> values[fc] = it);
                         c++;
                     }
                     Polyfill.COMMON_LOGGER.debug("Initializing ContextualProvider Root with: {}", Arrays.toString(values));
@@ -326,6 +326,11 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
             if (!isRoot())
                 parent.addToContext(this);
             addToContext(initialMembers);
+        }
+
+        private static Rewrapper<?> createInstance(Class<?> targetClass) {
+            return Rewrapper.ofOptional(ReflectionHelper.instanceField(targetClass))
+                    .or(() -> Polyfill.uncheckedCast(ReflectionHelper.instance(targetClass)));
         }
 
         @Override
