@@ -201,4 +201,8 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
             return into(consumer);
         throw exceptionSupplier.get();
     }
+
+    default Rewrapper<T> or(final Supplier<T> orElse) {
+        return () -> orElseGet(orElse);
+    }
 }
