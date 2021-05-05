@@ -6,11 +6,19 @@ public interface UUIDContainer {
     UUID getUUID();
 
     class Base implements UUIDContainer {
-        private final UUID id = UUID.randomUUID();
+        private final UUID id;
 
         @Override
         public UUID getUUID() {
             return id;
+        }
+
+        public Base() {
+            this(UUID.randomUUID());
+        }
+
+        public Base(UUID id) {
+            this.id = id;
         }
     }
 
