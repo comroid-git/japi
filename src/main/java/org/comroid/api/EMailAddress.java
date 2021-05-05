@@ -40,6 +40,7 @@ public final class EMailAddress implements CharSequence, WrappedFormattable {
     }
 
     public static EMailAddress parse(String parse) {
+        parse = parse.replace("%40", "@");
         int index = parse.indexOf('@');
 
         String user = parse.substring(0, index);
