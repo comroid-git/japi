@@ -20,6 +20,7 @@ import java.util.regex.Matcher;
 import static java.util.Objects.isNull;
 
 public final class Polyfill {
+    public static final String UUID_PATTERN = "\\b[0-9a-f]{8}\\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\\b[0-9a-f]{12}\\b";
     public static final Logger COMMON_LOGGER = LogManager.getLogger("org.comroid - common logger");
     private static final CompletableFuture<?> infiniteFuture = new CompletableFuture<>();
 
