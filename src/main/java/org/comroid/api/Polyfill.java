@@ -1,6 +1,7 @@
 package org.comroid.api;
 
 import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -19,6 +20,7 @@ import java.util.regex.Matcher;
 import static java.util.Objects.isNull;
 
 public final class Polyfill {
+    public static final Logger COMMON_LOGGER = LogManager.getLogger("org.comroid - common logger");
     private static final CompletableFuture<?> infiniteFuture = new CompletableFuture<>();
 
     public static <T> T supplyOnce(Provider<T> provider, Function<T, T> writer, Supplier<T> accessor) {

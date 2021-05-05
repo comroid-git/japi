@@ -1,12 +1,15 @@
 package org.comroid.api;
 
 import org.comroid.annotations.inheritance.MustExtend;
+import org.comroid.util.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.ApiStatus.NonExtendable;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -35,7 +38,7 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
     }
 
     static ContextualProvider create(ContextualProvider parent, Object... members) {
-        return new Base((Base) parent, callerClass(1), members);
+        return new Base(parent, callerClass(1), members);
     }
 
     static <T> T requireFromContexts(Class<T> member) throws NoSuchElementException {
@@ -257,8 +260,35 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
     @Internal
     class Base implements ContextualProvider {
         @SuppressWarnings("ConstantConditions")
-        public static final ContextualProvider.Base ROOT
-                = new ContextualProvider.Base((ContextualProvider.Base) null, "ROOT");
+        public static final ContextualProvider.Base ROOT;
+
+        static {
+            try {
+                InputStream resource = ClassLoader.getSystemClassLoader().getResourceAsStream("org.comroid.api/context.properties");
+                if (resource != null)
+                    ROOT = new ContextualProvider.Base((ContextualProvider.Base) null, "ROOT");
+                else {
+                    Properties props = new Properties();
+                    props.load(resource);
+
+                    int c = 0;
+                    Object[] values = new Object[props.size()];
+                    for (Map.Entry<Object, Object> entry : props.entrySet()) {
+                        final int fc = c;
+                        Class<?> targetClass = Class.forName(String.valueOf(entry.getValue()));
+                        ReflectionHelper.instanceField(targetClass).ifPresent(it -> values[fc] = it);
+                        c++;
+                    }
+                    Polyfill.COMMON_LOGGER.debug("Initializing ContextualProvider Root with: {}", Arrays.toString(values));
+                    ROOT = new ContextualProvider.Base(null, "ROOT", values);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Could not read context properties", e);
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException("Could not find Context Class", e);
+            }
+        }
+
         protected final Set<ContextualProvider> children;
         private final Set<Object> myMembers;
         private final ContextualProvider parent;
@@ -272,11 +302,6 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
         @Override
         public String getName() {
             return wrapContextStr(name);
-        }
-
-        @Override
-        public String toString() {
-            return getName();
         }
 
         protected Base(Object... initialMembers) {
@@ -301,6 +326,11 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
             if (!isRoot())
                 parent.addToContext(this);
             addToContext(initialMembers);
+        }
+
+        @Override
+        public String toString() {
+            return getName();
         }
 
         @Override
