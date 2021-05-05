@@ -49,6 +49,17 @@ public final class EMailAddress implements CharSequence, WrappedFormattable {
         return new EMailAddress(user, domain);
     }
 
+    public boolean equals(Object o) {
+        if (o instanceof EMailAddress) {
+            EMailAddress other = (EMailAddress) o;
+            return other.string.equals(string);
+        } else return false;
+    }
+
+    public int hashCode() {
+        return string.hashCode();
+    }
+
     @Override
     public int length() {
         return string.length();
