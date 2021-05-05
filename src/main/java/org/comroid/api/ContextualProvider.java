@@ -264,10 +264,9 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
 
         static {
             try {
+                ROOT = new ContextualProvider.Base(null, "ROOT", new Object[0]);
                 InputStream resource = ClassLoader.getSystemClassLoader().getResourceAsStream("org.comroid.api/context.properties");
-                if (resource == null)
-                    ROOT = new ContextualProvider.Base((ContextualProvider.Base) null, "ROOT");
-                else {
+                if (resource != null) {
                     Properties props = new Properties();
                     props.load(resource);
 
@@ -280,7 +279,7 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
                         c++;
                     }
                     Polyfill.COMMON_LOGGER.debug("Initializing ContextualProvider Root with: {}", Arrays.toString(values));
-                    ROOT = new ContextualProvider.Base(null, "ROOT", values);
+                    ROOT.addToContext(values);
                 }
             } catch (IOException e) {
                 throw new RuntimeException("Could not read context properties", e);
