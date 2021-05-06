@@ -20,7 +20,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-@Deprecated
+@Experimental
 public interface Invocable<T> extends Named {
     static <T, E extends Throwable> Invocable<T> ofCallable(
             ThrowingSupplier<T, E> callable
@@ -42,9 +42,16 @@ public interface Invocable<T> extends Named {
         return new Support.OfConsumer<>(type, consumer);
     }
 
-    @Deprecated
-    static <T> Invocable<T> ofMethodCall(Method method, @Nullable Object target) {
-        return new Support.OfMethod<>(method, target);
+    static <T> Invocable<T> ofExecutable(Executable executable) {
+        return ofExecutable(null, executable);
+    }
+
+    static <T> Invocable<T> ofExecutable(@Nullable Object target, Executable executable) {
+        if (executable instanceof Method)
+            return ofMethodCall(target, (Method) executable);
+        if (executable instanceof Constructor) //noinspection unchecked
+            return ofConstructor((Constructor<T>) executable);
+        throw new IllegalArgumentException("Unknown type: " + executable);
     }
 
     static <T> Invocable<T> ofMethodCall(Class<?> inClass, String methodName) {
@@ -65,7 +72,7 @@ public interface Invocable<T> extends Named {
     }
 
     static <T> Invocable<T> ofMethodCall(Method method) {
-        return ofMethodCall((Object) null, method);
+        return ofMethodCall(null, method);
     }
 
     static <T> Invocable<T> ofMethodCall(@Nullable Object target, Method method) {
@@ -299,9 +306,9 @@ public interface Invocable<T> extends Named {
         }
 
         protected Magic() {
-            this.underlying = Invocable.ofMethodCall(ReflectionHelper.externalMethodsAbove(Magic.class, getClass())
+            this.underlying = Invocable.ofMethodCall(this, ReflectionHelper.externalMethodsAbove(Magic.class, getClass())
                     .findAny()
-                    .orElseThrow(() -> new NoSuchElementException("Could not find matching method")), this);
+                    .orElseThrow(() -> new NoSuchElementException("Could not find matching method")));
         }
 
         @Nullable
