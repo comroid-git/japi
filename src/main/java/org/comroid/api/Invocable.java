@@ -293,6 +293,11 @@ public interface Invocable<T> extends Named {
     abstract class Magic<T> implements Invocable<T> {
         private final Invocable<T> underlying;
 
+        @Override
+        public String getName() {
+            return underlying.getName();
+        }
+
         protected Magic() {
             this.underlying = Invocable.ofMethodCall(ReflectionHelper.externalMethodsAbove(Magic.class, getClass())
                     .findAny()
@@ -308,11 +313,6 @@ public interface Invocable<T> extends Named {
         @Override
         public Class<?>[] parameterTypesOrdered() {
             return underlying.parameterTypesOrdered();
-        }
-
-        @Override
-        public String getName() {
-            return underlying.getName();
         }
     }
 

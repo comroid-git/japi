@@ -7,11 +7,11 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface ContentParser {
-    String getContent(boolean createIfAbsent);
-
     default String getContent() {
         return getContent(false);
     }
+
+    String getContent(boolean createIfAbsent);
 
     default Rewrapper<String> wrapContent(boolean createIfAbsent) {
         return Rewrapper.of(getContent(createIfAbsent));

@@ -10,13 +10,13 @@ import java.util.stream.Collectors;
 
 public interface AbstractMap<K, V> extends Map<K, V> {
     @Override
-    default int size() {
-        return entrySet().size();
+    default boolean isEmpty() {
+        return size() == 0;
     }
 
     @Override
-    default boolean isEmpty() {
-        return size() == 0;
+    default int size() {
+        return entrySet().size();
     }
 
     @Override

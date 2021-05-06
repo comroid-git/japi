@@ -14,6 +14,13 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named 
         return Number.class.isAssignableFrom(getTargetClass());
     }
 
+    @Deprecated
+    default Function<String, R> getConverter() {
+        return this::parse;
+    }
+
+    Class<R> getTargetClass();
+
     @Override
     default boolean test(Object it) {
         return getTargetClass().isInstance(it);
@@ -27,12 +34,5 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named 
         return toType.parse(value.toString());
     }
 
-    @Deprecated
-    default Function<String, R> getConverter() {
-        return this::parse;
-    }
-
     R parse(String data);
-
-    Class<R> getTargetClass();
 }
