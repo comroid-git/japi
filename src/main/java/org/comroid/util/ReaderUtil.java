@@ -2,11 +2,13 @@ package org.comroid.util;
 
 import org.comroid.api.StringSerializable;
 import org.jetbrains.annotations.ApiStatus.Internal;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.util.Formattable;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 public final class ReaderUtil {
     private ReaderUtil() {
@@ -74,6 +76,42 @@ public final class ReaderUtil {
 
     public static Reader combine(@Nullable Character delimiter, Reader... readers) {
         return new CombinedReader(delimiter, readers);
+    }
+
+    public static Reader peek(Reader reader, Consumer<char[]> action) {
+        return new PeekingReader(reader, action);
+    }
+
+    public static int transferTo(Reader reader, Writer writer) throws IOException {
+        int r, w = 0;
+        char[] buf = new char[1024];
+        while ((r = reader.read(buf)) != -1) {
+            writer.write(buf, 0, r);
+            w += r;
+        }
+        return w;
+    }
+
+    private static class PeekingReader extends Reader {
+        private final Reader reader;
+        private final Consumer<char[]> action;
+
+        public PeekingReader(Reader reader, Consumer<char[]> action) {
+            this.reader = reader;
+            this.action = action;
+        }
+
+        @Override
+        public int read(@NotNull char[] cbuf, int off, int len) throws IOException {
+            int read = reader.read(cbuf, off, len);
+            action.accept(cbuf);
+            return read;
+        }
+
+        @Override
+        public void close() throws IOException {
+            reader.close();
+        }
     }
 
     private static class CombinedReader extends Reader {
