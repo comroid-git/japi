@@ -1,5 +1,8 @@
 package org.comroid.api;
 
+import org.jetbrains.annotations.ApiStatus.Experimental;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * An attribute interface in order to obtain common Names from an object using {@link #getName()} and {@link #getAlternateName()}.
  * <p>
@@ -39,6 +42,11 @@ public interface Named extends WrappedFormattable {
         if (this instanceof Enum)
             return ((Enum<?>) this).name();
         return toString();
+    }
+
+    @Experimental
+    default boolean setName(@Nullable String name) {
+        return false;
     }
 
     /**
