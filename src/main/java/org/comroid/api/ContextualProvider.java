@@ -15,6 +15,23 @@ import java.util.stream.Stream;
 
 import static org.comroid.util.StackTraceUtils.callerClass;
 
+/**
+ * Structure that allows passing many system-wide values using a single parameter,
+ * such as Executors, Serializers and other Adapters.
+ * <p>
+ * It is not advised to create a new context yourself, instead it is recommended to use the
+ * {@linkplain ContextualProvider#getRoot() default Root context} and create derivates from that.
+ * The default root context is initialized and set up by creating a resource named
+ * {@code org/comroid/api/context.properties}, which contains all implementation classes
+ * that are supposed to be contained in the Root context. The keys in this properties-file are meaningless,
+ * but of course you can not duplicate keys.
+ * <p>
+ * A standard root context setup may look like this: {@code
+ * serialization=org.comroid.uniform.adapter.json.fastjson.FastJSONLib
+ * http=org.comroid.restless.adapter.java.JavaHttpAdapter
+ * }
+ * An instance of the implementation class is obtained using {@link ReflectionHelper#obtainInstance(Class, Object...)}.
+ */
 @Experimental
 @MustExtend(ContextualProvider.Base.class)
 public interface ContextualProvider extends Named, Upgradeable<ContextualProvider>, LoggerCarrier {
@@ -29,14 +46,30 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
         return getParentContext() == null;
     }
 
+    static ContextualProvider getRoot() {
+        return Base.ROOT;
+    }
+
+    /**
+     * @deprecated Use {@link ContextualProvider#getRoot()} instead of creating new contexts
+     */
+    @Deprecated
     static ContextualProvider create(Object... members) {
         return new Base(Base.ROOT, callerClass(1), members);
     }
 
+    /**
+     * @deprecated Use {@link ContextualProvider#getRoot()} instead of creating new contexts
+     */
+    @Deprecated
     static ContextualProvider create(String name, Object... members) {
         return new Base(Base.ROOT, name, members);
     }
 
+    /**
+     * @deprecated Use {@link ContextualProvider#getRoot()} instead of creating new contexts
+     */
+    @Deprecated
     static ContextualProvider create(ContextualProvider parent, Object... members) {
         return new Base(parent, callerClass(1), members);
     }
@@ -328,8 +361,7 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
         }
 
         private static Rewrapper<?> createInstance(Class<?> targetClass) {
-            return Rewrapper.ofOptional(ReflectionHelper.instanceField(targetClass))
-                    .or(() -> Polyfill.uncheckedCast(ReflectionHelper.instance(targetClass)));
+            return ReflectionHelper.obtainInstance(targetClass);
         }
 
         @Override

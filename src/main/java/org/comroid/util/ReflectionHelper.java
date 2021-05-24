@@ -2,6 +2,8 @@ package org.comroid.util;
 
 import org.comroid.annotations.Instance;
 import org.comroid.api.Polyfill;
+import org.comroid.api.Rewrapper;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -14,6 +16,7 @@ import java.util.stream.StreamSupport;
 
 import static java.lang.reflect.Modifier.*;
 
+@ApiStatus.Experimental
 public final class ReflectionHelper {
     public static <T> T instance(Class<T> type, Object... args) throws RuntimeException, AssertionError {
         final Optional<T> optInstByField = instanceField(type);
@@ -310,5 +313,10 @@ public final class ReflectionHelper {
 
     public static String simpleClassName(Class<?> cls) {
         return cls == null ? "" : (simpleClassName(cls.getDeclaringClass()) + (cls.getDeclaringClass() == null ? "" : '.') + cls.getSimpleName());
+    }
+
+    public static Rewrapper<?> obtainInstance(Class<?> targetClass, Object... args) {
+        return Rewrapper.ofOptional(ReflectionHelper.instanceField(targetClass))
+                .or(() -> Polyfill.uncheckedCast(ReflectionHelper.instance(targetClass, args)));
     }
 }
