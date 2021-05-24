@@ -92,6 +92,10 @@ public final class ReaderUtil {
         return w;
     }
 
+    public static Reader empty() {
+        return new StringReader("");
+    }
+
     private static class PeekingReader extends Reader {
         private final Reader reader;
         private final Consumer<char[]> action;
