@@ -3,19 +3,6 @@ apply plugin: 'maven-publish'
 publishing {
     repositories {
         mavenLocal()
-
-        if (!isAutoDeploy) {
-            maven {
-                name = 'TestMaven'
-                url = 'http://192.168.0.10:42009'
-
-                credentials {
-                    username 'username1'
-                    password 'password1'
-                }
-            }
-        }
-
 /*
         if (canPublishToSpace) {
             maven {
