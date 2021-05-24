@@ -1,6 +1,7 @@
 package org.comroid.api;
 
 import org.comroid.annotations.inheritance.MustExtend;
+import org.comroid.util.Debug;
 import org.comroid.util.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
@@ -311,7 +312,7 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
                         createInstance(targetClass).ifPresent(it -> values[fc] = it);
                         c++;
                     }
-                    Polyfill.COMMON_LOGGER.debug("Initializing ContextualProvider Root with: {}", Arrays.toString(values));
+                    Debug.logger.debug("Initializing ContextualProvider Root with: {}", Arrays.toString(values));
                     ROOT.addToContext(values);
                 }
             } catch (IOException e) {
