@@ -6,9 +6,23 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.function.BooleanSupplier;
 
 public final class Debug {
     public static final Logger logger = LogManager.getLogger("Debug Tools");
+    public static String[] DEBUG_ENV_KEYS = new String[]{"DEBUG", "DEBUG_ENV", "IS_DEBUG"};
+    public static BooleanSupplier[] IS_DEBUG_CHECKS = new BooleanSupplier[]{Debug::isDebugEnv};
+
+    public static boolean isDebug() {
+        return Arrays.stream(IS_DEBUG_CHECKS).allMatch(BooleanSupplier::getAsBoolean);
+    }
+
+    public static boolean isDebugEnv() {
+        Map<String, String> env = System.getenv();
+        return Arrays.stream(DEBUG_ENV_KEYS).anyMatch(env::containsKey);
+    }
 
     public static void printIntegerBytes(Logger logger, @Nullable String title, int value) {
         byte[] bytes = ByteBuffer.allocate(4)
@@ -32,6 +46,6 @@ public final class Debug {
         StringBuilder binaryString = new StringBuilder(Integer.toUnsignedString(each, 2));
         while (binaryString.length() < 8)
             binaryString.insert(0, '0');
-        return String.format("%s0x%2x [0b%s]\t", (title == null ? "" : "Creating byte dump of " + title + '\n'), each, binaryString.toString());
+        return String.format("%s0x%2x [0b%s]\t", (title == null ? "" : "Creating byte dump of " + title + '\n'), each, binaryString);
     }
 }
