@@ -1,10 +1,16 @@
 package org.comroid.api;
 
+import org.comroid.util.StackTraceUtils;
+
 import java.io.*;
 
 public interface ResourceLoader {
     static ResourceLoader ofSystemClassLoader() {
         return ofClassLoader(ClassLoader.getSystemClassLoader());
+    }
+
+    static ResourceLoader ofCallerClassLoader() {
+        return ofClassLoader(StackTraceUtils.callerClass(1).getClassLoader());
     }
 
     static ResourceLoader ofClassLoader(final ClassLoader classLoader) {
