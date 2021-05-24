@@ -265,7 +265,7 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
         static {
             try {
                 ROOT = new ContextualProvider.Base(null, "ROOT", new Object[0]);
-                InputStream resource = ClassLoader.getSystemClassLoader().getResourceAsStream("org.comroid.api/context.properties");
+                InputStream resource = ClassLoader.getSystemClassLoader().getResourceAsStream("org/comroid/api/context.properties");
                 if (resource != null) {
                     Properties props = new Properties();
                     props.load(resource);
