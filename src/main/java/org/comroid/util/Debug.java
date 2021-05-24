@@ -15,6 +15,10 @@ public final class Debug {
     public static String[] DEBUG_ENV_KEYS = new String[]{"DEBUG", "DEBUG_ENV", "IS_DEBUG"};
     public static BooleanSupplier[] IS_DEBUG_CHECKS = new BooleanSupplier[]{Debug::isDebugEnv};
 
+    private Debug() {
+        throw new UnsupportedOperationException("Debug is a Utility Class");
+    }
+
     public static boolean isDebug() {
         return Arrays.stream(IS_DEBUG_CHECKS).allMatch(BooleanSupplier::getAsBoolean);
     }
