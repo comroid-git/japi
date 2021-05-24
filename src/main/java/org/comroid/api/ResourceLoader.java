@@ -3,6 +3,10 @@ package org.comroid.api;
 import java.io.*;
 
 public interface ResourceLoader {
+    static ResourceLoader ofSystemClassLoader() {
+        return ofClassLoader(ClassLoader.getSystemClassLoader());
+    }
+
     static ResourceLoader ofClassLoader(final ClassLoader classLoader) {
         return classLoader::getResourceAsStream;
     }
