@@ -1,5 +1,7 @@
 package org.comroid.api;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.UUID;
 
 public interface UUIDContainer {
@@ -14,11 +16,11 @@ public interface UUIDContainer {
         }
 
         public Base() {
-            this(UUID.randomUUID());
+            this(null);
         }
 
-        public Base(UUID id) {
-            this.id = id;
+        public Base(@Nullable UUID id) {
+            this.id = id == null ? UUID.randomUUID() : id;
         }
     }
 
