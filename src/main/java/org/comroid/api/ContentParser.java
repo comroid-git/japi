@@ -6,6 +6,9 @@ import org.jetbrains.annotations.Nullable;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/**
+ * An object whose content can be parsed using a {@link Serializer}
+ */
 public interface ContentParser {
     default String getContent() {
         return getContent(false);
