@@ -8,6 +8,8 @@ import org.jetbrains.annotations.ApiStatus.OverrideOnly;
 public interface LoggerCarrier {
     @OverrideOnly
     default Logger getLogger() {
-        return LogManager.getLogger(StackTraceUtils.callerClass(1));
+        if (this instanceof Named)
+            return LogManager.getLogger(((Named) this).getName());
+        return LogManager.getLogger(getClass());
     }
 }
