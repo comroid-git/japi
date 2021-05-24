@@ -5,6 +5,8 @@ import org.comroid.util.StackTraceUtils;
 import java.io.*;
 
 public interface ResourceLoader {
+    ResourceLoader SYSTEM_CLASS_LOADER = ofClassLoader(ClassLoader.getSystemClassLoader());
+
     static ResourceLoader ofSystemClassLoader() {
         return ofClassLoader(ClassLoader.getSystemClassLoader());
     }
