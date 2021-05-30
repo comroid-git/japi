@@ -88,6 +88,14 @@ public final class Polyfill {
         }
     }
 
+    public static URL url(URI uri) {
+        try {
+            return uri.toURL();
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static <T extends Throwable> URI uri(
             String spec
     ) throws T {
