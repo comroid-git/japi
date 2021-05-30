@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static org.comroid.util.StackTraceUtils.callerClass;
@@ -105,6 +106,14 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
     @Internal
     static String wrapContextStr(String subStr) {
         return "Context<" + subStr + ">";
+    }
+
+    static <T> @Nullable T getFromRoot(Class<T> type) {
+        return getFromRoot(type, Rewrapper.empty());
+    }
+
+    static <T> T getFromRoot(Class<T> type, Supplier<? extends T> elseGet) {
+        return getRoot().getFromContext(type).orElseGet(elseGet);
     }
 
     @Deprecated
