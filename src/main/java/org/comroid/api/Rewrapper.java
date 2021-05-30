@@ -99,7 +99,7 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return requireNonNull("Assertion Failure");
     }
 
-    default T orElseGet(Supplier<T> otherProvider) {
+    default T orElseGet(Supplier<? extends T> otherProvider) {
         if (isNull())
             return otherProvider.get();
         return requireNonNull("Assertion Failure");
