@@ -41,7 +41,7 @@ public interface Named extends WrappedFormattable {
     default String getName() {
         if (this instanceof Enum)
             return ((Enum<?>) this).name();
-        return toString();
+        return getClass().getSimpleName();
     }
 
     @Experimental
