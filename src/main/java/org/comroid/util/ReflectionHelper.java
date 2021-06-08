@@ -3,6 +3,7 @@ package org.comroid.util;
 import org.comroid.annotations.Instance;
 import org.comroid.api.Polyfill;
 import org.comroid.api.Rewrapper;
+import org.comroid.api.ValueType;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
@@ -318,5 +319,22 @@ public final class ReflectionHelper {
     public static Rewrapper<?> obtainInstance(Class<?> targetClass, Object... args) {
         return Rewrapper.ofOptional(ReflectionHelper.instanceField(targetClass))
                 .or(() -> Polyfill.uncheckedCast(ReflectionHelper.instance(targetClass, args)));
+    }
+
+    public static <T> T resolveField(String fieldName) {
+        return resolveField(fieldName, null);
+    }
+
+    public static <T> T resolveField(String fieldName, @Nullable Object target) {
+        try {
+            int li = fieldName.lastIndexOf('.');
+            Class<?> in = Class.forName(fieldName.substring(0, li));
+            Field field = in.getField(fieldName.substring(li + 1));
+            //noinspection unchecked
+            return (T) field.get(target);
+        } catch (Throwable e) {
+            //Polyfill.COMMON_LOGGER.error("error in resolveField", e);
+            throw new RuntimeException(e);
+        }
     }
 }
