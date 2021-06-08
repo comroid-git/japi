@@ -1,10 +1,12 @@
 package org.comroid.util;
 
 import org.comroid.api.Polyfill;
+import org.comroid.api.Rewrapper;
 import org.comroid.api.ValueType;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.function.Function;
 
 public final class StandardValueType<R> implements ValueType<R> {
@@ -83,6 +85,12 @@ public final class StandardValueType<R> implements ValueType<R> {
                 .findAny()
                 .map(Polyfill::<StandardValueType<T>>uncheckedCast)
                 .orElse(null);
+    }
+
+    public static Rewrapper<ValueType<?>> forClass(Class<?> cls) {
+        return Rewrapper.ofOptional(Arrays.stream(values)
+                .filter(it -> it.getTargetClass().isAssignableFrom(cls))
+                .findAny());
     }
 
     @Override
