@@ -12,14 +12,14 @@ static String envOr(String key, String presentPrefix = "", Object or = "") {
 ext {
     buildId = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
 }
-group 'org.comroid'
-version '0.22.1' + '.' + buildId
 task tcBuildId {
     doLast {
         println "##teamcity[buildNumber '$buildId']"
     }
 }
 tasks.named('jar').configure { dependsOn tcBuildId }
+group 'org.comroid'
+version '0.22.1' + '.' + buildId
 
 apply from: 'gradle/vars.gradle'
 
