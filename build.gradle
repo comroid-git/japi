@@ -1,6 +1,6 @@
 apply plugin: 'java-library'
 
-static String envOr(String key, String presentPrefix = "", String or = "") {
+static String envOr(String key, String presentPrefix = "", Object or = "") {
     def env = System.getenv()
     if (env.containsKey(key))
         return presentPrefix + env.get(key)
