@@ -1,7 +1,14 @@
 apply plugin: 'java-library'
 
+static String envOr(String key, String presentPrefix = "", String or = "") {
+    def env = System.getenv()
+    if (env.containsKey(key))
+        return presentPrefix + env.get(key)
+    return or
+}
+
 group 'org.comroid'
-version '0.22.1-SNAPSHOT'
+version '0.22.1' + envOr('BUILD_NUMBER', '-rev', '-SNAPSHOT')
 
 apply from: 'gradle/vars.gradle'
 
