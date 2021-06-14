@@ -8,9 +8,10 @@ static String envOr(String key, String presentPrefix = "", Object or = "") {
         return presentPrefix + env.get(key)
     return or
 }
-
+var unixSec = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
 group 'org.comroid'
-version '0.22.1' + '.' + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
+version '0.22.1' + '.' + unixSec
+println "##teamcity[buildNumber '$unixSec']"
 
 apply from: 'gradle/vars.gradle'
 
