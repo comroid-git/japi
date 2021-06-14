@@ -19,7 +19,7 @@ task tcBuildId {
         println "##teamcity[buildNumber '$buildId']"
     }
 }
-tasks.named('build').configure { dependsOn tcBuildId }
+tasks.named('jar').configure { dependsOn tcBuildId }
 
 apply from: 'gradle/vars.gradle'
 
