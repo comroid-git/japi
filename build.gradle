@@ -8,10 +8,18 @@ static String envOr(String key, String presentPrefix = "", Object or = "") {
         return presentPrefix + env.get(key)
     return or
 }
-var unixSec = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
+
+ext {
+    buildId = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
+}
 group 'org.comroid'
-version '0.22.1' + '.' + unixSec
-println "##teamcity[buildNumber '$unixSec']"
+version '0.22.1' + '.' + buildId
+task tcBuildId {
+    doLast {
+        println "##teamcity[buildNumber '$buildId']"
+    }
+}
+tasks.named('build').configure { dependsOn tcBuildId }
 
 apply from: 'gradle/vars.gradle'
 
