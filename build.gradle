@@ -1,3 +1,5 @@
+import java.util.concurrent.TimeUnit
+
 apply plugin: 'java-library'
 
 static String envOr(String key, String presentPrefix = "", Object or = "") {
@@ -8,7 +10,7 @@ static String envOr(String key, String presentPrefix = "", Object or = "") {
 }
 
 group 'org.comroid'
-version '0.22.1' + envOr('BUILD_NUMBER', '-rev', '-SNAPSHOT')
+version '0.22.1' + '.' + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
 
 apply from: 'gradle/vars.gradle'
 
