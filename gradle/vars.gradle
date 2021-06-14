@@ -4,7 +4,7 @@ ext {
     isAutoDeploy = rootProject.name != 'repo' || getenv().containsKey("TEAMCITY") || getenv().containsKey("JITPACK")
 
     artifactName = 'api'
-    projectDescription = ''
+    projectDescription = 'Common comroid Java API'
     userbase = 'comroid-git'
     snapshot = project.version.toString().split('.').length == 3
 
