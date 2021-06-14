@@ -8,7 +8,7 @@ static String envOr(String key, String presentPrefix = "", String or = "") {
 }
 
 group 'org.comroid'
-version '0.22.1' + envOr('BUILD_NUMBER', '-rev', '-SNAPSHOT')
+version '0.22.1' + envOr('BUILD_NUMBER', '.b', '-SNAPSHOT')
 
 apply from: 'gradle/vars.gradle'
 
