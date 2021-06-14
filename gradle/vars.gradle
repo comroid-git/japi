@@ -6,7 +6,7 @@ ext {
     artifactName = 'api'
     projectDescription = ''
     userbase = 'comroid-git'
-    snapshot = project.version.endsWith('SNAPSHOT')
+    snapshot = project.version.toString().split('.').length == 3
 
     canSign = getenv().containsKey('GPG_KEYNAME') && getenv().containsKey('GPG_PASSPHRASE')
     canPublishToSpace = getenv().containsKey('SPACE_PASSWORD') && getenv().containsKey('SPACE_USERNAME')
