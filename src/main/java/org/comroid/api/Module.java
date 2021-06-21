@@ -21,16 +21,17 @@ public interface Module extends Named, LifeCycle, ContextualProvider.Underlying 
         try {
             Enumeration<URL> resources = loader.getResources(modList);
 
-            Properties modules;
+            Properties prop;
             while (resources.hasMoreElements()) {
                 try (InputStream is = resources.nextElement().openStream()) {
-                    modules = new Properties();
-                    modules.load(is);
+                    prop = new Properties();
+                    prop.load(is);
 
-                    for (Object it : modules.values()) {
+                    for (Object it : prop.values()) {
                         Class<?> cls = Class.forName(it.toString());
-                        Rewrapper<?> rewrapper = ReflectionHelper.obtainInstance(cls, forClass);
-                        Module module = (Module) rewrapper;
+                        Module module = ReflectionHelper.obtainInstance(cls, forClass).into(Module.class);
+                        if (module == null)
+                            continue;
                         found.add(module);
                     }
                 } catch (IOException e) {
