@@ -5,7 +5,12 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Target(ElementType.FIELD)
+/**
+ * Defines the Member of a class that can be used to obtain a singleton-like instance of the class.
+ * Result of the Member should always be equal, tho this is not checked.
+ * The annotated member must be {@code static}.
+ */
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.CONSTRUCTOR})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Instance {
 }
