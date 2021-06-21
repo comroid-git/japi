@@ -194,7 +194,9 @@ public interface ContextualProvider extends Named, Upgradeable<ContextualProvide
     }
 
     interface Underlying extends ContextualProvider {
-        ContextualProvider getUnderlyingContextualProvider();
+        default ContextualProvider getUnderlyingContextualProvider() {
+            return ContextualProvider.getRoot();
+        }
 
         @Override
         @Nullable
