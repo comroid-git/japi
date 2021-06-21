@@ -8,7 +8,7 @@ import java.lang.annotation.Target;
 /**
  * Defines the Member of a class that can be used to obtain a singleton-like instance of the class.
  * Result of the Member should always be equal, tho this is not checked.
- * The annotated member must be {@code static}.
+ * The annotated member must be {@code static}, and may not have any parameters other than {@link org.comroid.api.ContextualProvider}.
  */
 @Target({ElementType.FIELD, ElementType.METHOD, ElementType.CONSTRUCTOR})
 @Retention(RetentionPolicy.RUNTIME)
