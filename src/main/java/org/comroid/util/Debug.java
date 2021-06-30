@@ -39,9 +39,8 @@ public final class Debug {
         StringBuilder sb = new StringBuilder("\n");
         for (int i = 0; i < bytes.length; i++) {
             byte each = bytes[i];
-            sb.append(createByteDump(null, each));
-            if (i % 2 == 1)
-                sb.append('\n');
+            sb.append(createByteDump(null, each))
+                    .append('\n');
         }
         logger.log(Level.ALL, (title == null ? "" : "Printing byte array dump of " + title) + sb.substring(0, sb.length() - 1));
     }
@@ -50,6 +49,6 @@ public final class Debug {
         StringBuilder binaryString = new StringBuilder(Integer.toUnsignedString(each, 2));
         while (binaryString.length() < 8)
             binaryString.insert(0, '0');
-        return String.format("%s0x%2x [0b%s]\t", (title == null ? "" : "Creating byte dump of " + title + '\n'), each, binaryString);
+        return String.format("%s0x%2x [0b%s]\t", (title == null ? "" : "Creating byte dump of " + title + ':' + each + '\n'), each, binaryString);
     }
 }
