@@ -1,11 +1,13 @@
 package org.comroid.util;
 
+import org.comroid.api.Readable;
 import org.comroid.api.StringSerializable;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.Formattable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -94,6 +96,31 @@ public final class ReaderUtil {
 
     public static Reader empty() {
         return new StringReader("");
+    }
+
+    public static byte[] toArray(Reader reader) {
+        return toString(reader).getBytes();
+    }
+
+    public static String toString(Reader reader) {
+        try {
+            StringWriter writer = new StringWriter();
+            transferTo(reader, writer);
+            String s = writer.toString();
+            writer.close();
+            return s;
+        } catch (IOException e) {
+            StringWriter ex = new StringWriter();
+            PrintWriter pw = new PrintWriter(ex);
+            e.printStackTrace(pw);
+            String s = ex.toString();
+            pw.close();
+            return s;
+        }
+    }
+
+    public static Readable ofArray(byte[] bytes) {
+        return () -> new InputStreamReader(new ByteArrayInputStream(bytes));
     }
 
     private static class PeekingReader extends Reader {
