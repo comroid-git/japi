@@ -46,6 +46,10 @@ public interface ContentParser extends Readable {
     }
 
     default <R> R parse(final Function<String, R> parser, final Supplier<R> elseGet) {
-        return wrapContent().ifPresentMapOrElseGet(parser, elseGet);
+        try {
+            return wrapContent().ifPresentMapOrElseGet(parser, elseGet);
+        } catch (IllegalArgumentException parseException) {
+            return elseGet.get();
+        }
     }
 }
