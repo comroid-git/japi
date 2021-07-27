@@ -3,12 +3,19 @@ package org.comroid.api;
 import org.comroid.util.StandardValueType;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.function.IntSupplier;
+
 /**
  * An attribute interface for objects that contains a plain integer value.
  *
  * @see Named
  */
-public interface IntegerAttribute extends Named, ValueBox<Integer> {
+public interface IntegerAttribute extends Named, ValueBox<Integer>, IntSupplier {
+    @Override
+    default int getAsInt() {
+        return getValue();
+    }
+
     /**
      * Default implementation. If this is an instance of {@link Enum}, the {@linkplain Enum#ordinal() enum ordinal} is returned.
      * Otherwise, an {@link AbstractMethodError} will be thrown.
