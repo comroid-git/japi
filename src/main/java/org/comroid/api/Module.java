@@ -3,6 +3,7 @@ package org.comroid.api;
 import org.apache.logging.log4j.Logger;
 import org.comroid.util.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -50,6 +51,10 @@ public interface Module extends Named, LifeCycle, ContextualProvider.Underlying 
     class Carrier implements UncheckedCloseable, LoggerCarrier, LifeCycle {
         private final Collection<? extends Module> modules;
 
+        public final Collection<? extends Module> getModules() {
+            return Collections.unmodifiableCollection(modules);
+        }
+
         public <CTX extends ContextualProvider> Carrier(CTX context) {
             modules = findModules(context);
         }
@@ -58,10 +63,6 @@ public interface Module extends Named, LifeCycle, ContextualProvider.Underlying 
             if (!(this instanceof ContextualProvider))
                 throw new IllegalStateException("ModuleCarrier must implement ContextualProvider");
             modules = findModules(Polyfill.uncheckedCast(this));
-        }
-
-        public final Collection<? extends Module> getModules() {
-            return Collections.unmodifiableCollection(modules);
         }
 
         @Override

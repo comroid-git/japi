@@ -3,7 +3,6 @@ package org.comroid.util;
 import org.comroid.annotations.Instance;
 import org.comroid.api.Polyfill;
 import org.comroid.api.Rewrapper;
-import org.comroid.api.ValueType;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 

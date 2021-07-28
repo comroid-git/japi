@@ -1,11 +1,7 @@
 package org.comroid.util;
 
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.Logger;
 import org.comroid.api.BitmaskAttribute;
-import org.jetbrains.annotations.Nullable;
 
-import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;

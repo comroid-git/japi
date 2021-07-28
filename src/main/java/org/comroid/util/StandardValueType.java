@@ -6,7 +6,6 @@ import org.comroid.api.ValueType;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 
 import java.util.Arrays;
-import java.util.Optional;
 import java.util.function.Function;
 
 public final class StandardValueType<R> implements ValueType<R> {

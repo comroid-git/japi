@@ -15,10 +15,6 @@ public final class Debug {
     public static String[] DEBUG_ENV_KEYS = new String[]{"DEBUG", "DEBUG_ENV", "IS_DEBUG"};
     public static BooleanSupplier[] IS_DEBUG_CHECKS = new BooleanSupplier[]{Debug::isDebugEnv};
 
-    private Debug() {
-        throw new UnsupportedOperationException("Debug is a Utility Class");
-    }
-
     public static boolean isDebug() {
         return Arrays.stream(IS_DEBUG_CHECKS).allMatch(BooleanSupplier::getAsBoolean);
     }
@@ -26,6 +22,10 @@ public final class Debug {
     public static boolean isDebugEnv() {
         Map<String, String> env = System.getenv();
         return Arrays.stream(DEBUG_ENV_KEYS).anyMatch(env::containsKey);
+    }
+
+    private Debug() {
+        throw new UnsupportedOperationException("Debug is a Utility Class");
     }
 
     public static void printIntegerBytes(Logger logger, @Nullable String title, int value) {
