@@ -105,6 +105,10 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return requireNonNull("Assertion Failure");
     }
 
+    default T orElseThrow() throws NullPointerException {
+        return orElseThrow(NullPointerException::new);
+    }
+
     default <EX extends Throwable> T orElseThrow(Supplier<EX> exceptionSupplier) throws EX {
         if (isNull())
             throw exceptionSupplier.get();
