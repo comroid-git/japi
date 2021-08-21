@@ -90,7 +90,7 @@ repositories {
 }
 
 dependencies {
-    api 'org.jetbrains:annotations:+'
+    api 'org.jetbrains:annotations:21.+'
 
     // logging dependencies
     api 'org.apache.logging.log4j:log4j-api:2.11.0'
