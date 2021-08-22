@@ -131,12 +131,24 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return remapper.apply(get());
     }
 
+    /**
+     * @deprecated Use {@link #cast(Class)}
+     */
+    @Deprecated
     default <R> @Nullable R into(Class<R> type) {
+        return cast(type);
+    }
+
+    default <R> @Nullable R cast(Class<R> type) {
         final T it = get();
 
         if (type.isInstance(it))
             return type.cast(it);
         return null;
+    }
+
+    default <R> R cast() throws ClassCastException {
+        return into(Polyfill::uncheckedCast);
     }
 
     default <X, R> Rewrapper<R> combine(Supplier<X> other, BiFunction<T, X, R> accumulator) {
