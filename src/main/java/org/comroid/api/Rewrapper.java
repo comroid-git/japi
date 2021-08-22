@@ -1,5 +1,6 @@
 package org.comroid.api;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -147,6 +148,7 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return null;
     }
 
+    @ApiStatus.Experimental
     default <R> R cast() throws ClassCastException {
         return into(Polyfill::uncheckedCast);
     }
