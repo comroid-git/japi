@@ -1,7 +1,8 @@
 package org.comroid.util;
 
-import java.util.Map;
-import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.*;
 import java.util.function.BiPredicate;
 
 public final class MapUtil {
@@ -14,5 +15,22 @@ public final class MapUtil {
             if (keyTester.test(key, entry.getKey()))
                 return Optional.ofNullable(entry.getValue());
         return Optional.empty();
+    }
+
+    public static <K, V> Map<K, V> hashtable(Hashtable<K, V> hashtable) {
+        return new AbstractMap<K, V>() {
+            private final Hashtable<K, V> table = hashtable;
+
+            @NotNull
+            @Override
+            public Set<Entry<K, V>> entrySet() {
+                return table.entrySet();
+            }
+
+            @Override
+            public V put(K key, V value) {
+                return table.put(key, value);
+            }
+        };
     }
 }

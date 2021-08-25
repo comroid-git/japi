@@ -1,5 +1,6 @@
 package org.comroid.api;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -105,6 +106,10 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return requireNonNull("Assertion Failure");
     }
 
+    default T orElseThrow() throws NullPointerException {
+        return orElseThrow(NullPointerException::new);
+    }
+
     default <EX extends Throwable> T orElseThrow(Supplier<EX> exceptionSupplier) throws EX {
         if (isNull())
             throw exceptionSupplier.get();
@@ -127,12 +132,25 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return remapper.apply(get());
     }
 
+    /**
+     * @deprecated Use {@link #cast(Class)}
+     */
+    @Deprecated
     default <R> @Nullable R into(Class<R> type) {
+        return cast(type);
+    }
+
+    default <R> @Nullable R cast(Class<R> type) {
         final T it = get();
 
         if (type.isInstance(it))
             return type.cast(it);
         return null;
+    }
+
+    @ApiStatus.Experimental
+    default <R> R cast() throws ClassCastException {
+        return into(Polyfill::uncheckedCast);
     }
 
     default <X, R> Rewrapper<R> combine(Supplier<X> other, BiFunction<T, X, R> accumulator) {

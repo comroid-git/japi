@@ -12,6 +12,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -118,9 +119,8 @@ public final class Polyfill {
 
     public static <T> T notnullOr(@Nullable T value, @NotNull T def) {
         if (isNull(value)) {
-            return def;
+            return Objects.requireNonNull(def, "Default value cannot be null");
         }
-
         return value;
     }
 
