@@ -19,7 +19,7 @@ task tcBuildId {
 }
 tasks.named('jar').configure { dependsOn tcBuildId }
 group 'org.comroid'
-version '0.22.1' + '.' + buildId
+version '0.23.0' + '.' + buildId
 
 apply from: 'gradle/vars.gradle'
 
