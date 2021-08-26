@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 @Experimental
-public interface Upgradeable extends LoggerCarrier {
+public interface Upgradeable {
     @SuppressWarnings("unchecked")
     @Experimental
     default <R> @NotNull R upgrade(Class<? super R> target) {
