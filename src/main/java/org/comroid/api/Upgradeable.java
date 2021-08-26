@@ -12,10 +12,10 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 @Experimental
-public interface Upgradeable<T> extends Specifiable<T>, LoggerCarrier {
+public interface Upgradeable extends LoggerCarrier {
     @SuppressWarnings("unchecked")
     @Experimental
-    default <R extends T> @NotNull R upgrade(Class<? super R> target) {
+    default <R> @NotNull R upgrade(Class<? super R> target) {
         if (target.isInstance(this))
             return (R) target.cast(this);
         return Stream.concat(Arrays.stream(target.getMethods()), Arrays.stream(target.getConstructors()))
@@ -41,19 +41,5 @@ public interface Upgradeable<T> extends Specifiable<T>, LoggerCarrier {
                     }
                 })
                 .orElseThrow(() -> new NoSuchElementException("Could not find suitable upgrade method in " + target));
-    }
-
-    @Override
-    default <R extends T> Optional<R> as(Class<R> type) {
-        return Specifiable.super.as(type)
-                .map(Optional::ofNullable)
-                .orElseGet(() -> {
-                    try {
-                        return Optional.of(upgrade(type));
-                    } catch (Throwable t) {
-                        getLogger().warn("Could not upgrade to type {} when specifying", type, t);
-                        return Optional.empty();
-                    }
-                });
     }
 }

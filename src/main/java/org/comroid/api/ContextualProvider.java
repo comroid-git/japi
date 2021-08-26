@@ -36,7 +36,7 @@ import static org.comroid.util.StackTraceUtils.callerClass;
  */
 @Experimental
 @MustExtend(ContextualProvider.Base.class)
-public interface ContextualProvider extends Named, Upgradeable<ContextualProvider>, LoggerCarrier {
+public interface ContextualProvider extends Named, Upgradeable, Specifiable<ContextualProvider>, LoggerCarrier {
     @Internal
     default @Nullable ContextualProvider getParentContext() {
         return null;

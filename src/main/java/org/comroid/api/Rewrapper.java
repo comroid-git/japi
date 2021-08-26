@@ -14,7 +14,7 @@ import java.util.stream.Stream;
  *
  * @param <T> The type of held data
  */
-public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, MutableState, StreamSupplier<T>, Upgradeable<Rewrapper<T>> {
+public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, MutableState, StreamSupplier<T>, Upgradeable {
     Rewrapper<?> EMPTY = () -> null;
 
     @Override
