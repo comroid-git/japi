@@ -220,7 +220,7 @@ public interface ContextualProvider extends Named, Upgradeable, Specifiable<Cont
             ContextualProvider context = getUnderlyingContextualProvider();
             if (context == this)
                 throw new IllegalStateException("Bad inheritance: Underlying can't provide itself");
-            return context.streamContextMembers(includeChildren);
+            return Stream.concat(Stream.of(this), context.streamContextMembers(includeChildren));
         }
 
         @Override
