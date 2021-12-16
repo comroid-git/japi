@@ -128,7 +128,7 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         consumer.accept(get());
     }
 
-    default <R> R into(Function<? super T, R> remapper) {
+    default <R> R into(Function<? super @Nullable T, R> remapper) {
         return remapper.apply(get());
     }
 
@@ -174,7 +174,7 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
     default boolean contentEquals(Object other) {
         if (other == null)
             return isNull();
-        return into(other::equals);
+        return testIfPresent(other::equals);
     }
 
     default void ifPresent(Consumer<T> consumer) {
