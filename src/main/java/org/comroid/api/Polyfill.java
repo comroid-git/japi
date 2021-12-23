@@ -3,10 +3,12 @@ package org.comroid.api;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.comroid.util.RegExpUtil;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.*;
 import java.lang.ref.WeakReference;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -21,7 +23,8 @@ import java.util.regex.Matcher;
 import static java.util.Objects.isNull;
 
 public final class Polyfill {
-    public static final String UUID_PATTERN = "\\b[0-9a-f]{8}\\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\\b[0-9a-f]{12}\\b";
+    @Deprecated
+    public static final String UUID_PATTERN = RegExpUtil.UUID4.pattern();
     @Deprecated
     public static final Logger COMMON_LOGGER = LogManager.getLogger("org.comroid - common logger");
     private static final CompletableFuture<?> infiniteFuture = new CompletableFuture<>();
@@ -198,5 +201,11 @@ public final class Polyfill {
         for (int i = 0, end; i < parts.length; i++)
             parts[i] = data.substring(maxLength * i, (end = maxLength * (i + 1)) > data.length() ? data.length() : end);
         return parts;
+    }
+
+    public static Color parseHexColor(String hex) {
+        if (!hex.startsWith("#"))
+            throw new IllegalArgumentException("Invalid Hex-Color String: " + hex);
+        return new Color(Integer.parseInt(hex.substring(1), 16));
     }
 }

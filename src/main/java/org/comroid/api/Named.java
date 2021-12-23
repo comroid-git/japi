@@ -22,11 +22,6 @@ public interface Named extends WrappedFormattable {
         return getName();
     }
 
-    /**
-     * Default implementation to get the alternate name. Calls {@link #toString()}.
-     *
-     * @return The alternate name.
-     */
     @Override
     default String getAlternateName() {
         return toString();

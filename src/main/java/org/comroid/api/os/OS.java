@@ -1,6 +1,7 @@
 package org.comroid.api.os;
 
 import org.comroid.api.Named;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -44,6 +45,10 @@ public enum OS implements Named {
             return current;
 
         String osName = System.getProperty("os.name");
+        return findByName(osName);
+    }
+
+    public @NotNull static OS findByName(String osName) {
         for (OS value : values()) {
             final String osLow = osName.toLowerCase();
             if (value.validators.stream().anyMatch(osLow::contains))
