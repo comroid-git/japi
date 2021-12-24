@@ -10,10 +10,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.awt.*;
 import java.lang.ref.WeakReference;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.net.*;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -207,5 +204,33 @@ public final class Polyfill {
         if (!hex.startsWith("#"))
             throw new IllegalArgumentException("Invalid Hex-Color String: " + hex);
         return new Color(Integer.parseInt(hex.substring(1), 16));
+    }
+
+    public static Inet4Address parseIPv4(String ipv4) {
+        String[] split = ipv4.split("\\.");
+        byte[] addr = new byte[4];
+        if (split.length != addr.length)
+            throw new IllegalArgumentException("Invalid IPv4 Address: " + ipv4);
+        for (int i = 0; i < split.length; i++)
+            addr[i] = (byte) Integer.parseInt(split[i]);
+        try {
+            return (Inet4Address) Inet4Address.getByAddress(addr);
+        } catch (UnknownHostException e) {
+            throw new IllegalArgumentException("Invalid IPv4 Address; host is unknown: " + ipv4);
+        }
+    }
+
+    public static Inet6Address parseIPv6(String ipv6) {
+        String[] split = ipv6.split(":");
+        byte[] addr = new byte[8];
+        if (split.length != addr.length)
+            throw new IllegalArgumentException("Invalid IPv6 Address: " + ipv6);
+        for (int i = 0; i < split.length; i++)
+            addr[i] = (byte) Integer.parseInt(split[i], 16);
+        try {
+            return (Inet6Address) Inet6Address.getByAddress(addr);
+        } catch (UnknownHostException e) {
+            throw new IllegalArgumentException("Invalid IPv6 Address; host is unknown: " + ipv6);
+        }
     }
 }
