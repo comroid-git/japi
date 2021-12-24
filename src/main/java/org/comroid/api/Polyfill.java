@@ -4,6 +4,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.comroid.util.RegExpUtil;
+import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -19,6 +20,7 @@ import java.util.regex.Matcher;
 
 import static java.util.Objects.isNull;
 
+@Experimental
 public final class Polyfill {
     @Deprecated
     public static final String UUID_PATTERN = RegExpUtil.UUID4.pattern();
