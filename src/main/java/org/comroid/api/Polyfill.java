@@ -208,6 +208,13 @@ public final class Polyfill {
         return new Color(Integer.parseInt(hex.substring(1), 16));
     }
 
+    public static String hexString(Color color) {
+        return '#'
+                + Integer.toHexString(color.getRed())
+                + Integer.toHexString(color.getGreen())
+                + Integer.toHexString(color.getBlue());
+    }
+
     public static Inet4Address parseIPv4(String ipv4) {
         String[] split = ipv4.split("\\.");
         byte[] addr = new byte[4];
