@@ -1,6 +1,9 @@
 package org.comroid.util;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.Arrays;
+import java.util.NoSuchElementException;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
@@ -22,5 +25,13 @@ public final class ArrayUtil {
 
     public static <T> boolean contains(T[] array, final T other, BiPredicate<T, T> tester) {
         return Stream.of(array).anyMatch(e -> tester.test(e, other));
+    }
+
+    public static <T> @NotNull T get(Object[] args, Class<T> type) {
+        return Arrays.stream(args)
+                .filter(type::isInstance)
+                .findAny()
+                .map(type::cast)
+                .orElseThrow(() -> new NoSuchElementException("No element of type " + type.getSimpleName() + " was found"));
     }
 }
