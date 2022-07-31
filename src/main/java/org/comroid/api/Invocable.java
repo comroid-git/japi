@@ -131,6 +131,13 @@ public interface Invocable<T> extends Named {
                 .orElseThrow(() -> new NoSuchElementException("Could not find a suitable constructor for type: " + type));
     }
 
+    @Experimental
+    static Throwable unwrapInvocationTargetException(Throwable t) {
+        if (t instanceof InvocationTargetException || (t instanceof RuntimeException && t.getCause() instanceof InvocationTargetException))
+            return unwrapInvocationTargetException(t.getCause());
+        return t;
+    }
+
     Class<?>[] parameterTypesOrdered();
 
     @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException;
