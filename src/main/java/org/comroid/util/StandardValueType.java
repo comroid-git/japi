@@ -88,7 +88,7 @@ public final class StandardValueType<R> implements ValueType<R> {
 
     public static Rewrapper<ValueType<?>> forClass(Class<?> cls) {
         return Rewrapper.ofOptional(Arrays.stream(values)
-                .filter(it -> it.getTargetClass().isAssignableFrom(cls))
+                .filter(it -> it.getTargetClass().isAssignableFrom(cls) || (cls.isPrimitive() && it.getName().equals(cls.getSimpleName())))
                 .findAny());
     }
 
