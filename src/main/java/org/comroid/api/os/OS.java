@@ -48,7 +48,8 @@ public enum OS implements Named {
         return findByName(osName);
     }
 
-    public @NotNull static OS findByName(String osName) {
+    public @NotNull
+    static OS findByName(String osName) {
         for (OS value : values()) {
             final String osLow = osName.toLowerCase();
             if (value.validators.stream().anyMatch(osLow::contains))
