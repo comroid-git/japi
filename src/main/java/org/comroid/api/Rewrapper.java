@@ -61,7 +61,11 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
     @Nullable T get();
 
     default @NotNull Optional<T> wrap() {
-        return Optional.ofNullable(get());
+        try {
+            return Optional.ofNullable(get());
+        } catch (NullPointerException ignored) {
+            return Optional.empty();
+        }
     }
 
     default Stream<? extends T> stream() {
