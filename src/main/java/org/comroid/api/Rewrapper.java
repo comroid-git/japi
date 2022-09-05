@@ -71,15 +71,27 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
     }
 
     default T assertion() throws AssertionError {
-        return orElseThrow(AssertionError::new);
+        try {
+            return orElseThrow(AssertionError::new);
+        } catch (NullPointerException npe) {
+            throw new AssertionError("Assertion failure", npe);
+        }
     }
 
     default T assertion(String message) throws AssertionError {
-        return orElseThrow(() -> new AssertionError(message));
+        try {
+            return orElseThrow(() -> new AssertionError(message));
+        } catch (NullPointerException npe) {
+            throw new AssertionError(message, npe);
+        }
     }
 
     default T assertion(Supplier<String> messageSupplier) throws AssertionError {
-        return orElseThrow(() -> new AssertionError(messageSupplier.get()));
+        try {
+            return orElseThrow(() -> new AssertionError(messageSupplier.get()));
+        } catch (NullPointerException npe) {
+            throw new AssertionError(messageSupplier.get(), npe);
+        }
     }
 
     default T requireNonNull() throws NullPointerException {
