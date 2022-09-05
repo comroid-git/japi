@@ -24,12 +24,20 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
 
     @Override
     default boolean isNull() {
-        return test(Objects::isNull);
+        try {
+            return test(Objects::isNull);
+        } catch (NullPointerException ignored) {
+            return true;
+        }
     }
 
     @Override
     default boolean isNonNull() {
-        return test(Objects::nonNull);
+        try {
+            return test(Objects::nonNull);
+        } catch (NullPointerException ignored) {
+            return false;
+        }
     }
 
     static <T> Rewrapper<T> empty() {
