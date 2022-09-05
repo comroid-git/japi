@@ -76,8 +76,6 @@ public interface Provider<T> extends Supplier<CompletableFuture<T>> {
             }
         }
 
-        private static final Provider<?> EMPTY = constant(null);
-
         private static final class Once<T> implements Provider<T> {
             private final CompletableFuture<T> future;
 
@@ -90,6 +88,8 @@ public interface Provider<T> extends Supplier<CompletableFuture<T>> {
                 return future;
             }
         }
+
+        private static final Provider<?> EMPTY = constant(null);
 
 
     }
