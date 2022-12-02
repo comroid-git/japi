@@ -75,16 +75,6 @@ compileJava.options.encoding = 'UTF-8'
 
 repositories {
     mavenLocal()
-    maven {
-        url "https://maven.jetbrains.space/comroid/release"
-        credentials.username "Anonymous.User"
-        credentials.password "anonymous"
-    }
-    maven {
-        url "https://maven.jetbrains.space/comroid/repo"
-        credentials.username "Anonymous.User"
-        credentials.password "anonymous"
-    }
     jcenter()
     maven { url 'https://www.jitpack.io' }
 }
