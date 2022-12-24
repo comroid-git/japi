@@ -112,6 +112,20 @@ public final class ReflectionHelper {
         return yields;
     }
 
+    public static Set<Method> methodsWithAnnotation(
+            Class<?> type, Class<? extends Annotation> instanceClass
+    ) {
+        Set<Method> yields = new HashSet<>();
+
+        for (Method method : type.getMethods()) {
+            if (method.isAnnotationPresent(instanceClass)) {
+                yields.add(method);
+            }
+        }
+
+        return yields;
+    }
+
     public static boolean typeCompat(Class<?> expected, Class<?> target) {
         if (expected.getName().contains("."))
             // type is not primitive
