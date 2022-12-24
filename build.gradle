@@ -19,7 +19,7 @@ task tcBuildId {
 }
 tasks.named('jar').configure { dependsOn tcBuildId }
 group 'org.comroid'
-version '0.23.0' + '.' + buildId
+version '1.0' + '.' + buildId
 
 apply from: 'gradle/vars.gradle'
 
@@ -77,18 +77,18 @@ repositories {
     mavenLocal()
     jcenter()
     maven { url 'https://www.jitpack.io' }
+    mavenCentral()
 }
 
 dependencies {
-    api 'org.jetbrains:annotations:21.+'
+    api 'org.jetbrains:annotations:23.+'
 
     // logging dependencies
-    api 'org.apache.logging.log4j:log4j-api:2.11.0'
-    testImplementation 'org.apache.logging.log4j:log4j-core:2.11.0'
+    api 'ch.qos.logback:logback-core:1.4.5'
+    testImplementation 'ch.qos.logback:logback-classic:1.4.5'
 
-    testImplementation 'junit:junit:4.13'
-    testImplementation 'org.easymock:easymock:4.1'
-    testImplementation 'org.codehaus.groovy:groovy:3.0.0-rc-2'
+    testImplementation 'junit:junit:4.+'
+    testImplementation 'org.easymock:easymock:4.+'
 }
 
 apply from: 'gradle/publishing.gradle'
