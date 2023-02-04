@@ -12,11 +12,12 @@ import org.jetbrains.annotations.Nullable;
 import java.awt.*;
 import java.lang.ref.WeakReference;
 import java.net.*;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.isNull;
 
@@ -241,5 +242,15 @@ public final class Polyfill {
         } catch (UnknownHostException e) {
             throw new IllegalArgumentException("Invalid IPv6 Address; host is unknown: " + ipv6);
         }
+    }
+
+    public static Map<String, String> getUriQuery(URI uri) {
+        String query = uri.getQuery();
+        if (query == null)
+            return Collections.emptyMap();
+        return Arrays.stream(query.split("&"))
+                .map(entry -> entry.split("="))
+                .filter(entry -> entry.length == 2)
+                .collect(Collectors.toMap(entry -> entry[0], entry -> entry[1]));
     }
 }
