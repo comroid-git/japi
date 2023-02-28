@@ -34,6 +34,10 @@ public final class Bitmask {
         } else return mask; // do nothing
     }
 
+    public static boolean isFlagSet(int mask, BitmaskAttribute<?> attribute) {
+        return isFlagSet(mask, attribute.getAsInt());
+    }
+
     public static boolean isFlagSet(int mask, int flag) {
         return (mask & flag) != 0;
     }
