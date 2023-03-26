@@ -10,7 +10,7 @@ static String envOr(String key, String presentPrefix = "", Object or = "") {
 }
 
 ext {
-    buildId = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
+    buildId = TimeUnit.MILLISECONDS.toMinutes(System.currentTimeMillis())
 }
 task tcBuildId {
     doLast {
