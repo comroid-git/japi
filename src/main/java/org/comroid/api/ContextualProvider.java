@@ -167,10 +167,10 @@ public interface ContextualProvider extends Named, Upgradeable, Specifiable<Cont
     }
 
     @Override
-    default <R extends ContextualProvider> Optional<R> as(Class<R> type) {
+    default <R extends ContextualProvider> Rewrapper<R> as(Class<R> type) {
         if (isType(type))
-            return Optional.ofNullable(type.cast(self().get()));
-        return getFromContext(type).wrap();
+            return Rewrapper.of(type.cast(self().get()));
+        return getFromContext(type);
     }
 
     @NonExtendable

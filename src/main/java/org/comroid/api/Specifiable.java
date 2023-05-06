@@ -1,6 +1,5 @@
 package org.comroid.api;
 
-import java.util.Optional;
 import java.util.function.Supplier;
 
 public interface Specifiable<B> extends SelfDeclared<B> {
@@ -12,12 +11,10 @@ public interface Specifiable<B> extends SelfDeclared<B> {
         return as(type).orElseThrow(() -> new AssertionError(message.get()));
     }
 
-    default <R extends B> Optional<R> as(Class<R> type) {
-        if (!isType(type)) {
-            return Optional.empty();
-        }
-
-        return Optional.ofNullable(type.cast(self().get()));
+    default <R extends B> Rewrapper<R> as(Class<R> type) {
+        if (!isType(type))
+            return Rewrapper.empty();
+        return Rewrapper.of(type.cast(self().get()));
     }
 
     default boolean isType(Class<? extends B> type) {
