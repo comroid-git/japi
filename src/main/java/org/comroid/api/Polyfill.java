@@ -1,13 +1,12 @@
 package org.comroid.api;
 
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.comroid.util.RegExpUtil;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.event.Level;
 
 import java.awt.*;
 import java.lang.ref.WeakReference;
@@ -25,8 +24,6 @@ import static java.util.Objects.isNull;
 public final class Polyfill {
     @Deprecated
     public static final String UUID_PATTERN = RegExpUtil.UUID4.pattern();
-    @Deprecated
-    public static final Logger COMMON_LOGGER = LogManager.getLogger("org.comroid - common logger");
     private static final CompletableFuture<?> infiniteFuture = new CompletableFuture<>();
 
     public static <T> T supplyOnce(Provider<T> provider, Function<T, T> writer, Supplier<T> accessor) {
@@ -66,7 +63,7 @@ public final class Polyfill {
 
     public static <R, T extends Throwable> Function<T, R> exceptionLogger(final Logger logger, final Level level, final String message) {
         return throwable -> {
-            logger.log(level, message, throwable);
+            logger.atLevel(level).log(message, throwable);
             return null;
         };
     }

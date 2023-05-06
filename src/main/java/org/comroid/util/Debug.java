@@ -1,19 +1,20 @@
 package org.comroid.util;
 
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 
+@Slf4j
 public final class Debug {
-    public static final Logger logger = LogManager.getLogger("Debug Tools");
     public static String[] DEBUG_ENV_KEYS = new String[]{"DEBUG", "DEBUG_ENV", "IS_DEBUG"};
     public static BooleanSupplier[] IS_DEBUG_CHECKS = new BooleanSupplier[]{Debug::isDebugEnv};
+    public static Logger logger = LoggerFactory.getLogger(Debug.class);
 
     public static boolean isDebug() {
         return Arrays.stream(IS_DEBUG_CHECKS).allMatch(BooleanSupplier::getAsBoolean);
@@ -42,7 +43,7 @@ public final class Debug {
             sb.append(createByteDump(null, each))
                     .append('\n');
         }
-        logger.log(Level.ALL, (title == null ? "" : "Printing byte array dump of " + title) + sb.substring(0, sb.length() - 1));
+        logger.trace((title == null ? "" : "Printing byte array dump of " + title) + sb.substring(0, sb.length() - 1));
     }
 
     public static String createByteDump(@Nullable String title, byte each) {

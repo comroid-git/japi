@@ -1,8 +1,8 @@
 package org.comroid.api;
 
-import org.apache.logging.log4j.Logger;
 import org.comroid.util.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
+import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
