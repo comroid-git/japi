@@ -123,8 +123,7 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
         private final ThrowingIntConsumer<IOException> write;
         private final ThrowingRunnable<IOException> flush;
         private final Queue<Closeable> dependencies;
-        @Nullable
-        private @With String prefix;
+        private StringBuilder buf = new StringBuilder();
 
         public Output(final OutputStream delegate, Closeable... dependencies) {
             this.write = delegate::write;
@@ -142,7 +141,7 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
             final var writer = new AtomicReference<>(new StringWriter());
             this.write = c -> writer.get().write(c);
             this.flush = () -> writer.updateAndGet(buf -> {
-                log.atLevel(level).log(Objects.requireNonNullElse(prefix, "") + buf.toString());
+                log.atLevel(level).log(buf.toString());
                 return new StringWriter();
             });
             this.dependencies = collect(dependencies);
@@ -161,11 +160,13 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
         @Override
         public void write(int b) throws IOException {
             write.accept(b);
+            buf.append((char)b);
         }
 
         @Override
         public void flush() throws IOException {
             flush.run();
+            var $ = buf.toString();
         }
 
         @Override
@@ -196,6 +197,7 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
         }
     }
 
+    @Slf4j
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     class IOE implements DelegateStream {
         public static final IOE SYSTEM = new IOE(System.in, System.out, System.err);
@@ -278,13 +280,18 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
 
         private class RedirectInput extends InputStream {
             @Override
-            public int read() throws IOException {
-                for (var ioe : redirect) {
-                    if (Bitmask.isFlagSet(ioe.getCapabilities(), Capability.Input)) {
-                        return ioe.input().read();
+            public int read() {
+                try {
+                    for (var ioe : redirect) {
+                        if (Bitmask.isFlagSet(ioe.getCapabilities(), Capability.Input)) {
+                            return ioe.input().read();
+                        }
                     }
+                    return SYSTEM.input().read();
+                } catch (Throwable t) {
+                    log.error("Error reading from InputStream", t);
+                    return -1;
                 }
-                return SYSTEM.input().read();
             }
         }
 
@@ -298,23 +305,39 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
             }
 
             @Override
-            public void write(int b) throws IOException {
-                if (redirect.empty())
-                    $(SYSTEM).write(b);
-                else for (var delegate : redirect) {
-                    if (Bitmask.isFlagSet(delegate.getCapabilities(), cap))
-                        $(delegate).write(b);
+            public void write(int b) {
+                try {
+                    if (redirect.isEmpty())
+                        $(SYSTEM).write(b);
+                    else for (var delegate : redirect) {
+                        if (Bitmask.isFlagSet(delegate.getCapabilities(), cap))
+                            $(delegate).write(b);
+                    }
+                } catch (Throwable t) {
+                    log.error("Error writing to Output", t);
                 }
             }
 
             @Override
-            public void flush() throws IOException {
-                if (redirect.empty())
-                    $(SYSTEM).flush();
-                else for (var delegate : redirect) {
-                    if (Bitmask.isFlagSet(delegate.getCapabilities(), cap))
-                        $(delegate).flush();
+            public void flush() {
+                try {
+                    if (redirect.isEmpty())
+                        $(SYSTEM).flush();
+                    else for (var delegate : redirect) {
+                        if (Bitmask.isFlagSet(delegate.getCapabilities(), cap))
+                            $(delegate).flush();
+                    }
+                } catch (Throwable t) {
+                    log.error("Error flushing Output", t);
                 }
+            }
+
+            @Override
+            @SneakyThrows
+            public void close() {
+                redirect.clear();
+                while (!dependencies.isEmpty())
+                    dependencies.poll().close();
             }
 
             private OutputStream $(DelegateStream delegate) {
