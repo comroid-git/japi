@@ -5,6 +5,8 @@ import lombok.experimental.Delegate;
 import lombok.extern.slf4j.Slf4j;
 import org.comroid.util.Bitmask;
 import org.intellij.lang.annotations.MagicConstant;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
@@ -72,6 +74,7 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
             this.desc = String.format("Reader delegating InputStream from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
+        @Experimental
         public Input(final Supplier<String> source, Closeable... dependencies) {
             this.read = new ThrowingIntSupplier<>() {
                 @Nullable
