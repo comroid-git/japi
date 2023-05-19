@@ -102,8 +102,8 @@ public class Event<T> {
             if (parent != null) parent.children.add(this);
         }
 
-        public Event.Listener<T> listen(final Consumer<Optional<Event<T>>> action) {
-            return listen($ -> true, x -> action.accept(Optional.ofNullable(x)));
+        public Event.Listener<T> listen(final Consumer<Rewrapper<Event<T>>> action) {
+            return listen($ -> true, x -> action.accept(Rewrapper.of(x)));
         }
 
         public <R extends T> Event.Listener<T> listen(final Class<R> type, final Consumer<Event<R>> action) {
@@ -133,7 +133,7 @@ public class Event<T> {
 
         public <R extends T> CompletableFuture<Event<R>> next(final Predicate<Event<T>> requirement, final @Nullable Duration timeout) {
             final var future = new CompletableFuture<Event<R>>();
-            final var listener = listen(e -> e
+            final var listener = listen(e -> e.wrap()
                     .filter(requirement)
                     .map(Event::getData)
                     .map(Polyfill::<Event<R>>uncheckedCast)
