@@ -119,12 +119,12 @@ public class Event<T> {
             return listener;
         }
 
-        public <R extends T> CompletableFuture<R> next(final Class<R> type) {
+        public <R extends T> CompletableFuture<Event<R>> next(final Class<R> type) {
             return next(type, null);
         }
 
-        public <R extends T> CompletableFuture<R> next(final Class<R> type, final @Nullable Duration timeout) {
-            return this.<R>next(e -> type.isInstance(e.getData()), timeout).thenApply(Event::getData);
+        public <R extends T> CompletableFuture<Event<R>> next(final Class<R> type, final @Nullable Duration timeout) {
+            return next(e -> type.isInstance(e.getData()), timeout);
         }
 
         public <R extends T> CompletableFuture<Event<R>> next(final Predicate<Event<T>> requirement) {
