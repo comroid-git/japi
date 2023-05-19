@@ -6,8 +6,14 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface ThrowingSupplier<T, E extends Throwable> {
-    static <T, E extends Throwable> Supplier<T> rethrowing(
-            ThrowingSupplier<T, E> supplier,
+    static <R> Supplier<R> rethrowing(
+            ThrowingSupplier<R, Throwable> supplier
+    ) {
+        return rethrowing(supplier, RuntimeException::new);
+    }
+
+    static <R, E extends Throwable> Supplier<R> rethrowing(
+            ThrowingSupplier<R, E> supplier,
             @Nullable Function<Throwable, ? extends RuntimeException> remapper
     ) {
         return () -> {

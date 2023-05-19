@@ -1,6 +1,7 @@
 package org.comroid.api;
 
 import org.comroid.util.RegExpUtil;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -124,7 +125,6 @@ public final class Polyfill {
         return value;
     }
 
-    @Deprecated
     @Contract("_ -> param1")
     public static <R> R uncheckedCast(Object instance) {
         //noinspection unchecked
