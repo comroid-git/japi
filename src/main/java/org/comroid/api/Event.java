@@ -13,6 +13,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -22,11 +24,38 @@ import static org.comroid.api.Polyfill.uncheckedCast;
 @Data
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class Event<T> {
-    public final long unixTime = System.nanoTime();
-    public final @NonNull T data;
-    public boolean cancelled = false;
+    private final long unixTime = System.nanoTime();
+    private final @NonNull Long seq;
+    private final @NonNull T data;
+    private boolean cancelled = false;
 
-    public interface Factory<T, E extends Event<? super T>> extends Function<T, E> {
+    @Data
+    @NoArgsConstructor
+    public static abstract class Factory<T, E extends Event<? super T>> implements Function<T, E> {
+        private static final AtomicLong counter = new AtomicLong(0);
+
+        @Override
+        public final E apply(T data) {
+            var seq = counter.addAndGet(1);
+            if (seq == Long.MAX_VALUE)
+                counter.set(0);
+            return create(seq, data);
+        }
+
+        public abstract E create(long seq, T data);
+
+        public static <T, E extends Event<? super T>> Event.Factory<T,E> of(BiFunction<Long, T, E> factory) {
+            return new Event.Factory<>() {
+                @Override
+                public E create(long seq, T data) {
+                    return factory.apply(seq, data);
+                }
+            };
+        }
+
+        private static <T> Event.Factory<T,Event<T>> $default() {
+            return of(Event::new);
+        }
     }
 
     @Data
@@ -50,6 +79,7 @@ public class Event<T> {
         private final Set<Event.Bus<?>> children = new HashSet<>();
         private final @Nullable Function<?, @Nullable T> function;
         private final Set<Event.Listener<T>> listeners = new HashSet<>();
+        private @Setter Event.Factory<T, ? extends Event<T>> factory = Event.Factory.$default();
         private @Setter Executor executor = Runnable::run;
         private @Setter boolean active = true;
 
@@ -132,8 +162,8 @@ public class Event<T> {
             if (!active)
                 return;
             executor.execute(() -> {
-                final var event = new Event<>(data);
-                for (Listener<T> listener : listeners)
+                final var event = factory.apply(data);
+                for (var listener : listeners)
                     if (event.isCancelled())
                         break;
                     else if (listener.test(event))
