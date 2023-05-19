@@ -29,6 +29,10 @@ public class Event<T> {
     private final @NonNull T data;
     private boolean cancelled = false;
 
+    public boolean cancel() {
+        return !cancelled && (cancelled = true);
+    }
+
     @Data
     @NoArgsConstructor
     public static abstract class Factory<T, E extends Event<? super T>> implements Function<T, E> {
