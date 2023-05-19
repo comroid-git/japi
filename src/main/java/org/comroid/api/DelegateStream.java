@@ -250,6 +250,10 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
             return Bitmask.arrange(in != null, out != null, err != null);
         }
 
+        public boolean hasCapability(Capability capability) {
+            return Bitmask.isFlagSet(getCapabilities(), capability);
+        }
+
         @Override public InputStream input() {return Objects.requireNonNull(in,this + " does not contain an InputStream");}
         @Override public OutputStream output() {return Objects.requireNonNull(out,this + " does not contain an OutputStream");}
         @Override public OutputStream error() {return Objects.requireNonNull(err,this + " does not contain an ErrorStream");}
