@@ -2,6 +2,7 @@ package org.comroid.api;
 
 import lombok.*;
 import lombok.experimental.Delegate;
+import org.comroid.util.StandardValueType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -22,14 +23,24 @@ import static org.comroid.util.StackTraceUtils.caller;
 
 @Data
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public class Event<T> {
+public class Event<T> implements Rewrapper<T> {
     private final long unixTime = System.nanoTime();
-    private final @NonNull Long seq;
+    private final long seq;
     private final @NonNull T data;
     private boolean cancelled = false;
 
     public boolean cancel() {
         return !cancelled && (cancelled = true);
+    }
+
+    @Override
+    public String toString() {
+        return data.toString();
+    }
+
+    @Override
+    public @Nullable T get() {
+        return data;
     }
 
     @Data
