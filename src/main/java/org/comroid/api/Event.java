@@ -26,10 +26,13 @@ public class Event<T> {
     public final @NonNull T data;
     public boolean cancelled = false;
 
+    public interface Factory<T, E extends Event<? super T>> extends Function<T, E> {
+    }
+
     @Data
     @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
     public static final class Listener<T> implements Predicate<Event<T>>, Consumer<Event<T>>, Closeable {
-        private final Bus<T> bus;
+        private final Event.Bus<T> bus;
         @Delegate
         private final Predicate<Event<T>> requirement;
         @Delegate
@@ -46,7 +49,7 @@ public class Event<T> {
         private final @Nullable Event.Bus<?> parent;
         private final Set<Event.Bus<?>> children = new HashSet<>();
         private final @Nullable Function<?, @Nullable T> function;
-        private final Set<Listener<T>> listeners = new HashSet<>();
+        private final Set<Event.Listener<T>> listeners = new HashSet<>();
         private @Setter Executor executor = Runnable::run;
         private @Setter boolean active = true;
 
@@ -54,7 +57,7 @@ public class Event<T> {
             this(null, null);
         }
 
-        public Bus(@Nullable Bus<? extends T> parent) {
+        public Bus(@Nullable Event.Bus<? extends T> parent) {
             this(parent, Polyfill::uncheckedCast);
         }
 
@@ -65,19 +68,19 @@ public class Event<T> {
             if (parent != null) parent.children.add(this);
         }
 
-        public Listener<T> listen(final Consumer<Optional<Event<T>>> action) {
+        public Event.Listener<T> listen(final Consumer<Optional<Event<T>>> action) {
             return listen($ -> true, x -> action.accept(Optional.ofNullable(x)));
         }
 
-        public <R extends T> Listener<T> listen(final Class<R> type, final Consumer<Event<R>> action) {
+        public <R extends T> Event.Listener<T> listen(final Class<R> type, final Consumer<Event<R>> action) {
             return listen(e -> type.isInstance(e.getData()), uncheckedCast(action));
         }
 
-        public Listener<T> listen(final Predicate<Event<T>> requirement, final Consumer<Event<T>> action) {
-            Listener<T> listener;
-            if (action instanceof Listener)
-                listener = (Listener<T>) action;
-            else listener = new Listener<>(this, requirement, action);
+        public Event.Listener<T> listen(final Predicate<Event<T>> requirement, final Consumer<Event<T>> action) {
+            Event.Listener<T> listener;
+            if (action instanceof Event.Listener)
+                listener = (Event.Listener<T>) action;
+            else listener = new Event.Listener<>(this, requirement, action);
             listeners.add(listener);
             return listener;
         }
@@ -135,7 +138,7 @@ public class Event<T> {
                         break;
                     else if (listener.test(event))
                         listener.accept(event);
-                for (Bus<?> child : children)
+                for (var child : children)
                     child.$publish(data);
             });
         }
