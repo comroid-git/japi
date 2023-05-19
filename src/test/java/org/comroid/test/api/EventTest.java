@@ -17,5 +17,6 @@ public class EventTest {
 
         busA.publish("123");
         busB.publish(420);
+        busB.publish("666");
     }
 }
