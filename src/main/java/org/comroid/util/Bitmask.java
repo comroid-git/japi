@@ -80,7 +80,7 @@ public final class Bitmask {
     public static int arrange(boolean... bits) {
         var x = 0;
         for (int i = 0; i < bits.length; i++)
-            x |= (bits[i]?1:0) << (i+1);
+            x |= (bits[i]?1:0) << i;
         return x;
     }
 

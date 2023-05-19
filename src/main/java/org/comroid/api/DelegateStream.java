@@ -50,7 +50,7 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
                 .collect(ArrayDeque::new, Collection::add, Collection::addAll);
     }
 
-    enum Capability implements BitmaskAttribute<Capability> {None, Input, Output, Error}
+    enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
 
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     class Input extends InputStream implements DelegateStream {
@@ -247,7 +247,7 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
 
         @Override
         public int getCapabilities() {
-            return Bitmask.arrange(err != null, out != null, in != null);
+            return Bitmask.arrange(in != null, out != null, err != null);
         }
 
         @Override public InputStream input() {return Objects.requireNonNull(in,this + " does not contain an InputStream");}
