@@ -136,8 +136,8 @@ public class Event<T> {
             final var listener = listen(e -> e
                     .filter(requirement)
                     .map(Event::getData)
-                    .filter($ -> !future.isDone())
                     .map(Polyfill::<Event<R>>uncheckedCast)
+                    .filter($ -> !future.isDone())
                     .ifPresent(future::complete));
             future.whenComplete((e, t) -> listener.close());
             if (timeout == null)
@@ -185,7 +185,7 @@ public class Event<T> {
         private <P> void $publish(P data) {
             if (function == null)
                 return;
-            var func = Polyfill.<Function<@NotNull P, @Nullable T>>uncheckedCast(function);
+            Function<@NotNull P, @Nullable T> func = uncheckedCast(function);
             var it = func.apply(data);
             if (it == null)
                 return;
