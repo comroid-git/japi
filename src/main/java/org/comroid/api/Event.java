@@ -4,22 +4,21 @@ import lombok.*;
 import lombok.experimental.Delegate;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.event.Level;
 
 import java.io.Closeable;
+import java.io.InputStream;
 import java.time.Duration;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.function.*;
 
 import static org.comroid.api.Polyfill.uncheckedCast;
+import static org.comroid.util.StackTraceUtils.caller;
 
 @Data
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
@@ -63,13 +62,21 @@ public class Event<T> {
     }
 
     @Data
-    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+    @ToString(of = "loc", includeFieldNames = false)
     public static final class Listener<T> implements Predicate<Event<T>>, Consumer<Event<T>>, Closeable {
         private final Event.Bus<T> bus;
         @Delegate
         private final Predicate<Event<T>> requirement;
         @Delegate
         private final Consumer<Event<T>> action;
+        private final StackTraceElement loc;
+
+        public Listener(Bus<T> bus, Predicate<Event<T>> requirement, Consumer<Event<T>> action) {
+            this.bus = bus;
+            this.requirement = requirement;
+            this.action = action;
+            this.loc = caller(2);
+        }
 
         @Override
         public void close() {
@@ -78,7 +85,7 @@ public class Event<T> {
     }
 
     @Getter
-    public static final class Bus<T> implements Consumer<T>, Closeable {
+    public static final class Bus<T> implements Consumer<T>, Supplier<T>, Closeable {
         private final @Nullable Event.Bus<?> parent;
         private final Set<Event.Bus<?>> children = new HashSet<>();
         private final @Nullable Function<?, @Nullable T> function;
@@ -102,8 +109,8 @@ public class Event<T> {
             if (parent != null) parent.children.add(this);
         }
 
-        public Event.Listener<T> listen(final Consumer<Rewrapper<Event<T>>> action) {
-            return listen($ -> true, x -> action.accept(Rewrapper.of(x)));
+        public Event.Listener<T> listen(final Consumer<Event<T>> action) {
+            return listen($ -> true, action);
         }
 
         public <R extends T> Event.Listener<T> listen(final Class<R> type, final Consumer<Event<R>> action) {
@@ -117,6 +124,10 @@ public class Event<T> {
             else listener = new Event.Listener<>(this, requirement, action);
             listeners.add(listener);
             return listener;
+        }
+
+        public <R extends T> CompletableFuture<Event<R>> next() {
+            return next($->true);
         }
 
         public <R extends T> CompletableFuture<Event<R>> next(final Class<R> type) {
@@ -133,11 +144,10 @@ public class Event<T> {
 
         public <R extends T> CompletableFuture<Event<R>> next(final Predicate<Event<T>> requirement, final @Nullable Duration timeout) {
             final var future = new CompletableFuture<Event<R>>();
-            final var listener = listen(e -> e.wrap()
+            final var listener = listen(e -> Optional.ofNullable(e)
                     .filter(requirement)
-                    .map(Event::getData)
-                    .map(Polyfill::<Event<R>>uncheckedCast)
                     .filter($ -> !future.isDone())
+                    .map(Polyfill::<Event<R>>uncheckedCast)
                     .ifPresent(future::complete));
             future.whenComplete((e, t) -> listener.close());
             if (timeout == null)
@@ -158,6 +168,11 @@ public class Event<T> {
         }
 
         @Override
+        public T get() {
+            return next().thenApply(Event::getData).join();
+        }
+
+        @Override
         public void accept(final T data) {
             publish(data);
         }
@@ -167,7 +182,7 @@ public class Event<T> {
                 return;
             executor.execute(() -> {
                 final var event = factory.apply(data);
-                for (var listener : listeners)
+                for (var listener : new HashSet<>(listeners))
                     if (event.isCancelled())
                         break;
                     else if (listener.test(event))
@@ -175,6 +190,10 @@ public class Event<T> {
                 for (var child : children)
                     child.$publish(data);
             });
+        }
+
+        public Listener<T> log(final Logger log, final Level level) {
+            return listen(e -> log.atLevel(level).log(e.getData().toString()));
         }
 
         @Override

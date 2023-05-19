@@ -16,6 +16,8 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import static org.comroid.util.StackTraceUtils.caller;
+
 public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseable {
     @MagicConstant(flagsFromClass = Capability.class)
     int getCapabilities();
@@ -44,7 +46,7 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
     }
 
     @SafeVarargs
-    private static <T extends AutoCloseable> Queue<T> collect(T[] array, T... prepend) {
+    private static <T extends AutoCloseable> Deque<T> collect(T[] array, T... prepend) {
         return Stream.concat(Stream.of(prepend), Stream.of(array)).sequential()
                 .filter(Objects::nonNull)
                 .collect(ArrayDeque::new, Collection::add, Collection::addAll);
@@ -56,15 +58,18 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
     class Input extends InputStream implements DelegateStream {
         private final ThrowingIntSupplier<IOException> read;
         private final Queue<Closeable> dependencies;
+        private final String desc;
 
         public Input(final InputStream delegate, Closeable... dependencies) {
             this.read = delegate::read;
             this.dependencies = collect(dependencies, delegate);
+            this.desc = String.format("Proxy InputStream from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
         public Input(final Reader delegate, Closeable... dependencies) {
             this.read = delegate::read;
             this.dependencies = collect(dependencies, delegate);
+            this.desc = String.format("Reader delegating InputStream from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
         public Input(final Supplier<String> source, Closeable... dependencies) {
@@ -75,14 +80,16 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
 
                 @Override
                 public int getAsInt() {
-                    if (buf == null || i + 1 >= buf.length()) {
+                    if (buf == null || i + 1 > buf.length()) {
                         buf = source.get();
                         i = 0;
-                    }
-                    return buf.charAt(++i);
+                    } else if (++i == buf.length())
+                        return -1;
+                    return buf.charAt(i);
                 }
             };
             this.dependencies = collect(dependencies);
+            this.desc = String.format("Adapter InputStream from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
         @Override
@@ -116,10 +123,16 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
             while (!dependencies.isEmpty())
                 dependencies.poll().close();
         }
+
+        @Override
+        public String toString() {
+            return desc;
+        }
     }
 
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     class Output extends OutputStream implements DelegateStream {
+        private final String desc;
         private final ThrowingIntConsumer<IOException> write;
         private final ThrowingRunnable<IOException> flush;
         private final Queue<Closeable> dependencies;
@@ -129,12 +142,14 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
             this.write = delegate::write;
             this.flush = delegate::flush;
             this.dependencies = collect(dependencies, delegate);
+            this.desc = String.format("Proxy OutputStream from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
         public Output(final Writer delegate, Closeable... dependencies) {
             this.write = delegate::write;
             this.flush = delegate::flush;
             this.dependencies = collect(dependencies, delegate);
+            this.desc = String.format("Writer delegating OutputStream from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
         public Output(final Logger log, final Level level, Closeable... dependencies) {
@@ -145,16 +160,18 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
                 return new StringWriter();
             });
             this.dependencies = collect(dependencies);
+            this.desc = String.format("Log delegating OutputStream from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
         public Output(final Consumer<String> handler, Closeable... dependencies) {
             final var writer = new AtomicReference<>(new StringWriter());
             this.write = c -> writer.get().write(c);
-            this.flush = () -> writer.updateAndGet(buf -> {
+            this.flush = () -> writer.getAndUpdate(buf -> {
                 handler.accept(buf.toString());
                 return new StringWriter();
             });
             this.dependencies = collect(dependencies);
+            this.desc = String.format("Adapter OutputStream from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
         @Override
@@ -195,15 +212,21 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
             while (!dependencies.isEmpty())
                 dependencies.poll().close();
         }
+
+        @Override
+        public String toString() {
+            return desc;
+        }
     }
 
     @Slf4j
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
-    class IOE implements DelegateStream {
-        public static final IOE SYSTEM = new IOE(System.in, System.out, System.err);
+    class IO implements DelegateStream {
+        public static final IO SYSTEM = new IO(System.in, System.out, System.err);
 
-        private final Queue<Closeable> dependencies;
-        public final Stack<DelegateStream> redirect = new Stack<>();
+        private final String desc;
+        private final Deque<Closeable> dependencies;
+        public final Deque<DelegateStream> redirect = new ArrayDeque<>();
         @Nullable
         @Delegate(excludes = {Closeable.class})
         private final InputStream in;
@@ -213,38 +236,40 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
         @Nullable
         private final OutputStream err;
 
-        public static IOE slf4j(Logger log) {
-            return new IOE(new Output(log, Level.INFO), new Output(log, Level.ERROR));
+        public static IO slf4j(Logger log) {
+            return new IO(new Output(log, Level.INFO), new Output(log, Level.ERROR));
         }
 
-        public IOE(Closeable... dependencies) {
+        public IO(Closeable... dependencies) {
             this.dependencies = collect(dependencies);
             in = new RedirectInput();
             out = new RedirectOutput(false);
             err = new RedirectOutput(true);
+            this.desc = String.format("Redirect-IOE from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
-        public IOE(@Nullable OutputStream out,  Closeable... dependencies) {
+        public IO(@Nullable OutputStream out, Closeable... dependencies) {
             this(out, null, dependencies);
         }
 
-        public IOE(@Nullable OutputStream out, @Nullable OutputStream err, Closeable... dependencies) {
+        public IO(@Nullable OutputStream out, @Nullable OutputStream err, Closeable... dependencies) {
             this(null, out, err, dependencies);
         }
 
-        public IOE(@Nullable InputStream in,  Closeable... dependencies) {
+        public IO(@Nullable InputStream in, Closeable... dependencies) {
             this(in, null, dependencies);
         }
 
-        public IOE(@Nullable InputStream in, @Nullable OutputStream out, Closeable... dependencies) {
+        public IO(@Nullable InputStream in, @Nullable OutputStream out, Closeable... dependencies) {
             this(in, out, null, dependencies);
         }
 
-        public IOE(@Nullable InputStream in, @Nullable OutputStream out, @Nullable OutputStream err, Closeable... dependencies) {
+        public IO(@Nullable InputStream in, @Nullable OutputStream out, @Nullable OutputStream err, Closeable... dependencies) {
             this.dependencies = collect(dependencies, in, out, err);
             this.in = in;
             this.out = out;
             this.err = err;
+            this.desc = String.format("Container-IOE from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
         @Override
@@ -278,6 +303,11 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
                 dependencies.poll().close();
         }
 
+        @Override
+        public String toString() {
+            return desc;
+        }
+
         private class RedirectInput extends InputStream {
             @Override
             public int read() {
@@ -292,6 +322,11 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
                     log.error("Error reading from InputStream", t);
                     return -1;
                 }
+            }
+
+            @Override
+            public String toString() {
+                return "RedirectInput of " + desc;
             }
         }
 
@@ -342,6 +377,11 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
 
             private OutputStream $(DelegateStream delegate) {
                 return (err ? delegate.error() : delegate.output());
+            }
+
+            @Override
+            public String toString() {
+                return "RedirectOutput of " + desc;
             }
         }
     }

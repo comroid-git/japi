@@ -1,13 +1,28 @@
 package org.comroid.util;
 
-
 import java.util.List;
 
 public final class StackTraceUtils {
-    public static Class<?> callerClass(int skip) {
-        final String className = new Throwable().getStackTrace()[1 + skip].getClassName();
-
+    public static StackTraceElement caller(int skip) {
         try {
+            var trace = new Throwable().getStackTrace();
+            var basis = trace[skip];
+            var filter = basis.getClassName();
+            filter = filter.substring(filter.lastIndexOf('.') + 1) + '.' + basis.getMethodName();
+            for (int i = skip; i < trace.length; i++) {
+                if (!trace[i].toString().contains(filter))
+                    return trace[i];
+            }
+            return trace[0];
+        } catch (ArrayIndexOutOfBoundsException e) {
+            throw new IllegalArgumentException(String.format("Cannot skip %d classes", skip), e);
+        }
+    }
+
+    public static Class<?> callerClass(int skip) {
+        var className = StackTraceUtils.class.getCanonicalName();
+        try {
+            className = new Throwable().getStackTrace()[1 + skip].getClassName();
             return Class.forName(className);
         } catch (ArrayIndexOutOfBoundsException e) {
             throw new IllegalArgumentException(String.format("Cannot skip %d classes", skip), e);
