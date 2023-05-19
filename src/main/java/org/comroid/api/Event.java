@@ -70,7 +70,7 @@ public class Event<T> {
         }
 
         public <R extends T> Listener<T> listen(final Class<R> type, final Consumer<Event<R>> action) {
-            return listen(requireClass(type), uncheckedCast(action));
+            return listen(e -> type.isInstance(e.getData()), uncheckedCast(action));
         }
 
         public Listener<T> listen(final Predicate<Event<T>> requirement, final Consumer<Event<T>> action) {
@@ -87,7 +87,7 @@ public class Event<T> {
         }
 
         public <R extends T> CompletableFuture<R> next(final Class<R> type, final @Nullable Duration timeout) {
-            return this.<R>next(requireClass(type), timeout).thenApply(Event::getData);
+            return this.<R>next(e -> type.isInstance(e.getData()), timeout).thenApply(Event::getData);
         }
 
         public <R extends T> CompletableFuture<Event<R>> next(final Predicate<Event<T>> requirement) {
@@ -114,6 +114,10 @@ public class Event<T> {
 
         public <R> Event.Bus<R> map(final Function<@NotNull T, @Nullable R> function) {
             return new Event.Bus<>(this, function);
+        }
+
+        public <R extends T> Event.Bus<R> flatMap(final Class<R> type) {
+            return filter(type::isInstance).map(type::cast);
         }
 
         @Override
@@ -149,11 +153,6 @@ public class Event<T> {
             if (it == null)
                 return;
             publish(it);
-        }
-
-        @NotNull
-        private <E extends T> Predicate<Event<T>> requireClass(Class<E> type) {
-            return e -> type.isInstance(e.getData());
         }
     }
 }
