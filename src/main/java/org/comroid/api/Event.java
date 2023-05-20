@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.*;
@@ -31,11 +32,6 @@ public class Event<T> implements Rewrapper<T> {
 
     public boolean cancel() {
         return !cancelled && (cancelled = true);
-    }
-
-    @Override
-    public String toString() {
-        return data.toString();
     }
 
     @Override
@@ -99,10 +95,10 @@ public class Event<T> implements Rewrapper<T> {
     public static final class Bus<T> implements Consumer<T>, Supplier<T>, Closeable {
         private final @Nullable Event.Bus<?> parent;
         private final Set<Event.Bus<?>> children = new HashSet<>();
-        private final @Nullable Function<?, @Nullable T> function;
         private final Set<Event.Listener<T>> listeners = new HashSet<>();
+        private final @Nullable Function<?, @Nullable T> function;
         private @Setter Event.Factory<T, ? extends Event<T>> factory = Event.Factory.$default();
-        private @Setter Executor executor = Runnable::run;
+        private @Setter Executor executor = Executors.newWorkStealingPool(2);
         private @Setter boolean active = true;
 
         public Bus() {

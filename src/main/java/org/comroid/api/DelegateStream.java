@@ -244,11 +244,15 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
         }
 
         public IO(Closeable... dependencies) {
+            this(Integer.MAX_VALUE, dependencies);
+        }
+
+        public IO(int capabilities, Closeable... dependencies) {
             this.dependencies = collect(dependencies);
-            in = new RedirectInput();
-            out = new RedirectOutput(false);
-            err = new RedirectOutput(true);
-            this.desc = String.format("Redirect-IOE from %s with %d dependencies", caller(1), this.dependencies.size());
+            in = Bitmask.isFlagSet(capabilities, Capability.Input) ? new RedirectInput() : null;
+            out = Bitmask.isFlagSet(capabilities, Capability.Output) ? new RedirectOutput(false) : null;
+            err = Bitmask.isFlagSet(capabilities, Capability.Error) ? new RedirectOutput(true) : null;
+            this.desc = String.format("Redirect-IO from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
         public IO(@Nullable OutputStream out, Closeable... dependencies) {
@@ -272,7 +276,7 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
             this.in = in;
             this.out = out;
             this.err = err;
-            this.desc = String.format("Container-IOE from %s with %d dependencies", caller(1), this.dependencies.size());
+            this.desc = String.format("Container-IO from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
         @Override
@@ -368,14 +372,6 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
                 } catch (Throwable t) {
                     log.error("Error flushing Output", t);
                 }
-            }
-
-            @Override
-            @SneakyThrows
-            public void close() {
-                redirect.clear();
-                while (!dependencies.isEmpty())
-                    dependencies.poll().close();
             }
 
             private OutputStream $(DelegateStream delegate) {
