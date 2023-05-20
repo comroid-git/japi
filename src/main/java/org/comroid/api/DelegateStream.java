@@ -20,7 +20,7 @@ import java.util.stream.Stream;
 
 import static org.comroid.util.StackTraceUtils.caller;
 
-public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseable {
+public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseable, Named {
     @MagicConstant(flagsFromClass = Capability.class)
     int getCapabilities();
 
@@ -128,7 +128,7 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
         }
 
         @Override
-        public String toString() {
+        public String getName() {
             return desc;
         }
     }
@@ -217,7 +217,7 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
         }
 
         @Override
-        public String toString() {
+        public String getName() {
             return desc;
         }
     }
@@ -311,16 +311,16 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
         }
 
         @Override
-        public String toString() {
+        public String getName() {
             return desc;
         }
 
-        public String toInfoString() {return toInfoString(1);}
+        public String getAlternativeName() {return toInfoString(1);}
         private String toInfoString(int indent) {
             var sb = new StringBuilder();
 
             String here = '\n'+"|\t".repeat(indent)+"|>";
-            String tabs = '\n'+"|\t".repeat(indent)+"|---";
+            String tabs = '\n'+"|\t".repeat(indent)+"|-- ";
 
             sb.append(desc).append(here);
             if (redirect.size() == 0)
