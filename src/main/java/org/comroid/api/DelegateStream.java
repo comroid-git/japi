@@ -3,6 +3,7 @@ package org.comroid.api;
 import lombok.*;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
+import org.comroid.api.info.Log;
 import org.comroid.util.Bitmask;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.ApiStatus;
@@ -17,6 +18,7 @@ import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -33,30 +35,104 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
     default Rewrapper<OutputStream> output() {return Rewrapper.empty();}
     default Rewrapper<OutputStream> error() {return Rewrapper.empty();}
 
+    static Input wrap(final InputStream stream) {
+        return wrap(stream, Log.get());
+    }
+
+    static Input wrap(final InputStream stream, final Logger logger) {
+        @Value
+        @EqualsAndHashCode(callSuper = true)
+        class WrapInputStream extends InputStream {
+            @NonNull InputStream delegate;
+            @NonNull Logger log;
+
+            @Override
+            public int read() {
+                try {
+                    return delegate.read();
+                } catch (Throwable t) {
+                    log.error("Could not read from " + delegate, t);
+                    return -1;
+                }
+            }
+
+            @Override
+            public void close() {
+                try {
+                    delegate.close();
+                } catch (Throwable t) {
+                    log.error("Could not close " + delegate, t);
+                }
+            }
+        }
+        return new Input(new WrapInputStream(stream, logger));
+    }
+
+    static Output wrap(final OutputStream stream) {
+        return wrap(stream, Log.get());
+    }
+
+    static Output wrap(final OutputStream stream, final Logger logger) {
+        @Value
+        @EqualsAndHashCode(callSuper = true)
+        class WrapOutputStream extends OutputStream {
+            @NonNull OutputStream delegate;
+            @NonNull Logger log;
+
+            @Override
+            public void write(int b) {
+                try {
+                    delegate.write(b);
+                } catch (Throwable t) {
+                    log.error("Could not write to " + delegate, t);
+                }
+            }
+
+            @Override
+            public void flush() {
+                try {
+                    delegate.flush();
+                } catch (Throwable t) {
+                    log.error("Could not flush " + delegate, t);
+                }
+            }
+
+            @Override
+            public void close() {
+                try {
+                    delegate.close();
+                } catch (Throwable t) {
+                    log.error("Could not close " + delegate, t);
+                }
+            }
+        }
+        return new Output(new WrapOutputStream(stream, logger));
+    }
+
     private static UnsupportedOperationException unsupported(DelegateStream stream, Capability capability) {
         return new UnsupportedOperationException(String.format("%s has no support for %s", stream, capability));
     }
 
     enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
 
-    @Value
     @Slf4j
+    @Value
     @EqualsAndHashCode(callSuper = true)
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     class Input extends InputStream implements DelegateStream {
+        @Nullable @Getter AutoCloseable delegate;
         ThrowingIntSupplier<IOException> read;
-        @Getter AutoCloseable delegate;
         String desc;
 
         public Input(final InputStream delegate) {
-            this.read = delegate::read;
             this.delegate = delegate;
+            this.read = delegate::read;
             this.desc = "Proxy InputStream @ " + caller(1);
         }
 
         public Input(final Reader delegate) {
-            this.read = delegate::read;
             this.delegate = delegate;
+            this.read = delegate::read;
             this.desc = "Reader delegating InputStream @ " + caller(1);
         }
 
@@ -70,6 +146,7 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                     else log.error("Failed to queue new input " + e);
                 }
             });
+            this.delegate = source;
             this.read = new ThrowingIntSupplier<>() {
                 @Nullable
                 private String buf = null;
@@ -98,13 +175,17 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                     return buf.charAt(i);
                 }
             };
-            this.delegate = source;
             this.desc = "Adapter InputStream @ " + caller(1);
         }
 
         @Override
-        public int read() throws IOException {
-            return read.getAsInt();
+        public int read() {
+            try {
+                return read.getAsInt();
+            } catch (Throwable t) {
+                log.error("Could not read from " + this, t);
+                return -1;
+            }
         }
 
         @Override
@@ -120,7 +201,8 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
         @Override
         @SneakyThrows
         public void close() {
-            delegate.close();
+            if (delegate != null)
+                delegate.close();
         }
 
         @Override
@@ -129,14 +211,14 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
         }
     }
 
+    @Slf4j
     @Value
     @EqualsAndHashCode(callSuper = true)
     class Output extends OutputStream implements DelegateStream {
+        @Nullable @Getter AutoCloseable delegate;
         ThrowingIntConsumer<IOException> write;
         ThrowingRunnable<IOException> flush;
-        @Getter AutoCloseable delegate;
         String desc;
-        StringBuilder buf = new StringBuilder();
 
         public Output(final OutputStream delegate) {
             this.write = delegate::write;
@@ -159,7 +241,7 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                 log.atLevel(level).log(buf.toString());
                 return new StringWriter();
             });
-            this.delegate = ()->{};
+            this.delegate = null;
             this.desc = "Log delegating OutputStream @ " + caller(1);
         }
 
@@ -170,20 +252,26 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                 handler.accept(buf.toString());
                 return new StringWriter();
             });
-            this.delegate = ()->{};
+            this.delegate = null;
             this.desc = "Adapter OutputStream @ " + caller(1);
         }
 
         @Override
-        public void write(int b) throws IOException {
-            write.accept(b);
-            buf.append((char)b);
+        public void write(int b) {
+            try {
+                write.accept(b);
+            } catch (Throwable t) {
+                log.error("Could not read from " + this, t);
+            }
         }
 
         @Override
-        public void flush() throws IOException {
-            flush.run();
-            var $ = buf.toString();
+        public void flush() {
+            try {
+                flush.run();
+            } catch (Throwable t) {
+                log.error("Could not read from " + this, t);
+            }
         }
 
         @Override
@@ -199,7 +287,8 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
         @Override
         @SneakyThrows
         public void close() {
-            delegate.close();
+            if (delegate != null)
+                delegate.close();
         }
 
         @Override
@@ -303,9 +392,9 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
             this.parent = parent;
             this.initialCapabilities = Bitmask.combine(initialCapabilities.toArray(Capability[]::new));
             this.redirects = new ArrayDeque<>(redirects);
-            this.in = obtainStream(in,Capability.Input,()->new RedirectInput());
-            this.out = obtainStream(out,Capability.Output,()->new RedirectOutput(Capability.Output));
-            this.err = obtainStream(err,Capability.Error,()->new RedirectOutput(Capability.Error));
+            this.in = obtainStream(in,Capability.Input,()->new RedirectInput(),DelegateStream::wrap);
+            this.out = obtainStream(out,Capability.Output,()->new RedirectOutput(Capability.Output),DelegateStream::wrap);
+            this.err = obtainStream(err,Capability.Error,()->new RedirectOutput(Capability.Error),DelegateStream::wrap);
             this.delegate = ()->{
                 if (this.in!=null)this.in.close();
                 if (this.out!=null)this.out.close();
@@ -371,9 +460,13 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
 
             return sb.toString();
         }
-        private <R> @Nullable R obtainStream(R basis, final Capability capability, final Supplier<R> fallback) {
-            return Optional.ofNullable(basis).orElseGet(() -> Bitmask
-                    .isFlagSet(this.initialCapabilities, capability) ? fallback.get() : null);
+        private <R> @Nullable R obtainStream(R basis, final Capability capability, final Supplier<R> fallback, final Function<R,R> wrapper) {
+            return Optional.ofNullable(basis)
+                    .or(() -> Bitmask.isFlagSet(this.initialCapabilities, capability)
+                            ? Optional.ofNullable(fallback.get())
+                            : Optional.empty())
+                    .map(wrapper)
+                    .orElse(null);
         }
 
         @Override

@@ -254,6 +254,8 @@ public class Event<T> implements Rewrapper<T> {
         @Override
         public void close() {
             active = false;
+            for (var listener : listeners)
+                listener.close();
         }
 
         @Override
