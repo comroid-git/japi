@@ -315,6 +315,40 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
             return desc;
         }
 
+        public String toInfoString() {return toInfoString(1);}
+        private String toInfoString(int indent) {
+            var sb = new StringBuilder();
+
+            String here = '\n'+"|\t".repeat(indent)+"|>";
+            String tabs = '\n'+"|\t".repeat(indent)+"|---";
+
+            sb.append(desc).append(here);
+            if (redirect.size() == 0)
+                sb.append("No Redirects");
+            else sb.append("Redirects:");
+            for (var redir : redirect) {
+                if (redir instanceof IO)
+                    sb.append(tabs).append(((IO) redir).toInfoString(indent+1));
+                else sb.append(tabs).append(redir);
+            }
+
+            sb.append(here);
+            if (dependencies.size() == 0)
+                sb.append("No dependencies");
+            else sb.append("Dependencies:");
+            for (var dep : dependencies) {
+                if (dep instanceof IO)
+                    sb.append(tabs).append(((IO) dep).toInfoString(indent+1));
+                else sb.append(tabs).append(dep);
+            }
+
+            sb.append(here).append("input(): ").append(ThrowingSupplier.fallback(this::input).get());
+            sb.append(here).append("output(): ").append(ThrowingSupplier.fallback(this::output).get());
+            sb.append(here).append("error(): ").append(ThrowingSupplier.fallback(this::error).get());
+
+            return sb.toString();
+        }
+
         private class RedirectInput extends InputStream {
             @Override
             public int read() {
