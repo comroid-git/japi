@@ -3,6 +3,7 @@ package org.comroid.api.java;
 import org.comroid.api.Invocable;
 import org.comroid.api.Polyfill;
 import org.comroid.util.ReflectionHelper;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.ApiStatus.Internal;
 
 import java.lang.reflect.AccessibleObject;
@@ -14,7 +15,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
-@Deprecated
+@ApiStatus.Experimental
 public final class JITAssistant {
     public static CompletableFuture<Void> prepare(Class<?>... classes) {
         return CompletableFuture.allOf(Arrays.stream(classes)

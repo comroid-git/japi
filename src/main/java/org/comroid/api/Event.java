@@ -23,14 +23,16 @@ import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.util.StackTraceUtils.caller;
 
 @Data
-@EqualsAndHashCode(of = "seq")
+@EqualsAndHashCode(of = {"cancelled", "unixNanos", "key", "seq"})
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class Event<T> implements Rewrapper<T> {
     long unixNanos = System.nanoTime();
     long seq;
-    @NonNull T data;
-    @NonFinal boolean cancelled = false;
+    String key;
+    T data;
+    @NonFinal
+    boolean cancelled = false;
 
     public boolean cancel() {
         return !cancelled && (cancelled = true);
@@ -45,34 +47,24 @@ public class Event<T> implements Rewrapper<T> {
         return Instant.ofEpochMilli(unixNanos / 1000);
     }
 
-    @Data
-    @NoArgsConstructor(access = AccessLevel.PRIVATE)
-    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    public static abstract class Factory<T, E extends Event<? super T>> implements Function<T, E> {
-        @NotNull static AtomicLong counter = new AtomicLong(0);
+    @FunctionalInterface
+    public interface Factory<T, E extends Event<? super T>> extends N.Function.$3<T, String, Long, E> {
+        @NotNull AtomicLong counter = new AtomicLong(0);
 
         @Override
-        public final E apply(T data) {
+        default Long getDefaultZ() {
             var seq = counter.addAndGet(1);
             if (seq == Long.MAX_VALUE)
                 counter.set(0);
-            return create(seq, data);
+            return seq;
         }
 
-        public abstract E create(long seq, T data);
-
-        public static <T, E extends Event<? super T>> Event.Factory<T,E> of(BiFunction<Long, T, E> factory) {
-            return new Event.Factory<>() {
-                @Override
-                public E create(long seq, T data) {
-                    return factory.apply(seq, data);
-                }
-            };
+        @Override
+        default E apply(T data, String key, Long seq) {
+            return factory(seq, key, data);
         }
 
-        private static <T> Event.Factory<T,Event<T>> $default() {
-            return of(Event::new);
-        }
+        E factory(long seq, String key, T data);
     }
 
     @Value
@@ -80,13 +72,19 @@ public class Event<T> implements Rewrapper<T> {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     @ToString(of = "location", includeFieldNames = false)
     public static class Listener<T> implements Predicate<Event<T>>, Consumer<Event<T>>, Comparable<Listener<?>>, Closeable {
-        @NotNull static Comparator<Listener<?>> Comparator = java.util.Comparator.<Listener<?>>comparingInt(Listener::getPriority).reversed();
+        @NotNull
+        static Comparator<Listener<?>> Comparator = java.util.Comparator.<Listener<?>>comparingInt(Listener::getPriority).reversed();
         @NotNull Event.Bus<T> bus;
-        @Delegate Predicate<Event<T>> requirement;
-        @Delegate Consumer<Event<T>> action;
+        @Delegate
+        Predicate<Event<T>> requirement;
+        @Delegate
+        Consumer<Event<T>> action;
         @NotNull StackTraceElement location;
-        @NonFinal @Setter int priority = 0;
-        @NonFinal boolean active = true;
+        @NonFinal
+        @Setter
+        int priority = 0;
+        @NonFinal
+        boolean active = true;
 
         private Listener(@NotNull Bus<T> bus, Predicate<Event<T>> requirement, Consumer<Event<T>> action) {
             this.bus = bus;
@@ -113,14 +111,27 @@ public class Event<T> implements Rewrapper<T> {
     @Slf4j
     @FieldDefaults(level = AccessLevel.PRIVATE)
     @ToString(of = {"parent", "factory", "active"})
-    public static class Bus<T> implements Consumer<T>, Supplier<T>, Closeable {
-        @Nullable @NonFinal Event.Bus<?> parent;
+    public static class Bus<T> implements N.Consumer.$2<T, String>, Provider<T>, Closeable {
+        @Nullable
+        @NonFinal
+        Event.Bus<?> parent;
         @NotNull Set<Event.Bus<?>> children = new HashSet<>();
         @NotNull SortedSet<Event.Listener<T>> listeners = new ConcurrentSkipListSet<>(Listener.Comparator);
-        @Nullable @NonFinal Function<?, @Nullable T> function;
-        @NonFinal @Setter  Event.Factory<T, ? extends Event<T>> factory = Event.Factory.$default();
-        @NonFinal @Setter Executor executor = Context.wrap(Executor.class).orElseGet(()->Executors.newFixedThreadPool(4));
-        @NonFinal @Setter boolean active = true;
+        @Nullable
+        @NonFinal
+        Function<?, @Nullable T> function;
+        @Nullable
+        @NonFinal
+        Function<String, String> keyFunction;
+        @NonFinal
+        @Setter
+        Event.Factory<T, ? extends Event<T>> factory = Event::new;
+        @NonFinal
+        @Setter
+        Executor executor = Context.wrap(Executor.class).orElseGet(() -> Executors.newFixedThreadPool(4));
+        @NonFinal
+        @Setter
+        boolean active = true;
 
         @Contract(value = "_ -> this", mutates = "this")
         public Event.Bus<T> setParent(@Nullable Event.Bus<? extends T> parent) {
@@ -128,11 +139,24 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         @Contract(value = "_, _ -> this", mutates = "this")
-        public <P> Event.Bus<T> setParent(@Nullable Event.Bus<? extends P> parent, @NotNull Function<P, T> function) {
+        public <P> Bus<T> setParent(
+                @Nullable Event.Bus<? extends P> parent,
+                @NotNull Function<P, T> function
+        ) {
+            return setParent(parent, function, UnaryOperator.identity());
+        }
+
+        @Contract(value = "_, _, _ -> this", mutates = "this")
+        public <P> Event.Bus<T> setParent(
+                @Nullable Event.Bus<? extends P> parent,
+                @NotNull Function<P, T> function,
+                @Nullable Function<String, String> keyFunction
+        ) {
             if (this.parent != null)
                 this.parent.children.remove(this);
             this.parent = parent;
             this.function = function;
+            this.keyFunction = keyFunction;
             if (this.parent != null)
                 this.parent.children.add(this);
             return this;
@@ -153,12 +177,17 @@ public class Event<T> implements Rewrapper<T> {
             if (parent != null) parent.children.add(this);
         }
 
+        public <R extends T> Event.Listener<T> listen(final Class<R> type, final Consumer<Event<R>> action) {
+            return listen(e -> type.isInstance(e.getData()), uncheckedCast(action));
+        }
+
         public Event.Listener<T> listen(final Consumer<Event<T>> action) {
             return listen($ -> true, action);
         }
 
-        public <R extends T> Event.Listener<T> listen(final Class<R> type, final Consumer<Event<R>> action) {
-            return listen(e -> type.isInstance(e.getData()), uncheckedCast(action));
+        public Event.Listener<T> listen(final String key, final Consumer<Event<T>> action) {
+            return listen(e -> e.key.equals(key), action);
+
         }
 
         public Event.Listener<T> listen(final Predicate<Event<T>> requirement, final Consumer<Event<T>> action) {
@@ -173,7 +202,7 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         public <R extends T> CompletableFuture<Event<R>> next() {
-            return next($->true);
+            return next($ -> true);
         }
 
         public <R extends T> CompletableFuture<Event<R>> next(final Class<R> type) {
@@ -214,36 +243,8 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         @Override
-        public T get() {
-            return next().thenApply(Event::getData).join();
-        }
-
-        @Override
-        public void accept(final T data) {
-            publish(data);
-        }
-
-        public void publish(final T data) {
-            if (!active)
-                return;
-            executor.execute(() -> {
-                try {
-                    final var event = factory.apply(data);
-                    synchronized (listeners) {
-                        for (var listener : listeners)
-                            if (!listener.isActive() || event.isCancelled())
-                                break;
-                            else if (listener.test(event))
-                                listener.accept(event);
-                    }
-                    synchronized (children) {
-                        for (var child : children)
-                            child.$publish(data);
-                    }
-                } catch (Throwable t) {
-                    log.error("Unable to publish event to "+this,t);
-                }
-            });
+        public CompletableFuture<T> get() {
+            return next().thenApply(Event::getData);
         }
 
         public Listener<T> log(final Logger log, final Level level) {
@@ -255,14 +256,41 @@ public class Event<T> implements Rewrapper<T> {
             active = false;
         }
 
-        private <P> void $publish(P data) {
+        @Override
+        public void accept(final T data, @Nullable final String key) {
+            if (!active)
+                return;
+            executor.execute(() -> {
+                try {
+                    publish(factory.apply(data, key));
+                    synchronized (children) {
+                        for (var child : children)
+                            child.$publish(data, key);
+                    }
+                } catch (Throwable t) {
+                    log.error("Unable to publish event to " + this, t);
+                }
+            });
+        }
+
+        private void publish(Event<T> event) {
+            synchronized (listeners) {
+                for (var listener : listeners)
+                    if (!listener.isActive() || event.isCancelled())
+                        break;
+                    else if (listener.test(event))
+                        listener.accept(event);
+            }
+        }
+
+        private <P> void $publish(final P data, @Nullable final String key) {
             if (function == null)
                 return;
             Function<@NotNull P, @Nullable T> func = uncheckedCast(function);
             var it = func.apply(data);
             if (it == null)
                 return;
-            publish(it);
+            accept(it, keyFunction == null ? key : keyFunction.apply(key));
         }
     }
 }

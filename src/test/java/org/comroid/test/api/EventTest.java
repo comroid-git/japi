@@ -28,8 +28,8 @@ public class EventTest {
 
     @Test
     public void testEventBus() {
-        busA.publish("123");
-        busB.publish(420);
-        busB.publish("666");
+        busA.accept("123");
+        busB.accept(420);
+        busB.accept("666");
     }
 }

@@ -2,6 +2,7 @@ package org.comroid.api.iter;
 
 import java.util.function.IntUnaryOperator;
 
+@Deprecated
 public final class Operator {
     public static IntUnaryOperator intOrder(int... values) {
         class Ordered implements IntUnaryOperator {

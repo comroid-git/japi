@@ -2,6 +2,7 @@ package org.comroid.api.info;
 
 import java.util.function.Supplier;
 
+@Deprecated(forRemoval = true)
 @FunctionalInterface
 public interface MessageSupplier extends Supplier<String> {
     static MessageSupplier format(String format, Object... args) {

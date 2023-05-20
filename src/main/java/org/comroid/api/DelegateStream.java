@@ -1,7 +1,6 @@
 package org.comroid.api;
 
 import lombok.*;
-import lombok.Builder;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.comroid.util.Bitmask;
@@ -18,7 +17,6 @@ import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -212,7 +210,7 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
 
     @Value
     @Slf4j
-    class IO implements DelegateStream, NFunction.In3<@Nullable Consumer<InputStream>, @Nullable Consumer<OutputStream>, @Nullable Consumer<OutputStream>, Void> {
+    class IO implements DelegateStream, N.Consumer.$3<@Nullable Consumer<InputStream>, @Nullable Consumer<OutputStream>, @Nullable Consumer<OutputStream>> {
         public static final IO SYSTEM = new IO(System.in, System.out, System.err);
 
         int initialCapabilities;
@@ -410,16 +408,22 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                     .map(Polyfill::uncheckedCast);
         }
 
-        @Override
-        public Void apply(
-                @Nullable Consumer<InputStream>   in,//
-                @Nullable Consumer<OutputStream> out,//
-                @Nullable Consumer<OutputStream> err///
+        public void accept(
+                @Nullable Consumer<OutputStream> out,
+                @Nullable Consumer<OutputStream> err
         ) {
-            Rewrapper.of( in).ifBothPresent(input(), Consumer::accept);
-            Rewrapper.of(out).ifBothPresent(output(), Consumer::accept);
-            Rewrapper.of(err).ifBothPresent(error(), Consumer::accept);
-            return null;
+            accept(null, out, err);
+        }
+
+        @Override
+        public void accept(
+                @Nullable Consumer<InputStream> in,
+                @Nullable Consumer<OutputStream> out,
+                @Nullable Consumer<OutputStream> err
+        ) {
+            Rewrapper.of( in).ifBothPresent(input(), java.util.function.Consumer::accept);
+            Rewrapper.of(out).ifBothPresent(output(), java.util.function.Consumer::accept);
+            Rewrapper.of(err).ifBothPresent(error(), java.util.function.Consumer::accept);
         }
 
         private class RedirectInput extends InputStream {

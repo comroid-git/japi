@@ -2,6 +2,7 @@ package org.comroid.api.func;
 
 import java.util.function.Predicate;
 
+@Deprecated(forRemoval = true)
 public interface PredicateDuo<A, B> {
     static <A, B> PredicateDuo<A, B> any() {
         return of(any -> true, any -> true);

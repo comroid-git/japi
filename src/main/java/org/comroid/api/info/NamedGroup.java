@@ -5,6 +5,7 @@ import org.comroid.api.Named;
 import org.comroid.util.Bitmask;
 import org.jetbrains.annotations.NotNull;
 
+@Deprecated(forRemoval = true)
 public interface NamedGroup extends Named, IntegerAttribute {
     @Override
     String getName();

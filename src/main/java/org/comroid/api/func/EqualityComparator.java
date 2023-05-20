@@ -2,6 +2,7 @@ package org.comroid.api.func;
 
 import java.util.Comparator;
 
+@Deprecated
 public interface EqualityComparator<T> extends Comparator<T> {
     static <T> EqualityComparator<T> ofComparator(Comparator<T> underlying) {
         if (underlying instanceof EqualityComparator) {

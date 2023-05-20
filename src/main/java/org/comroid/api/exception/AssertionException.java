@@ -3,6 +3,7 @@ package org.comroid.api.exception;
 import java.util.Objects;
 import java.util.function.BiPredicate;
 
+@Deprecated
 public class AssertionException extends RuntimeException {
     public AssertionException() {
     }
