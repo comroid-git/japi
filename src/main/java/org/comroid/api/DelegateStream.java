@@ -13,6 +13,7 @@ import org.slf4j.event.Level;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -56,6 +57,7 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
 
     enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
 
+    @Slf4j
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     class Input extends InputStream implements DelegateStream {
         private final ThrowingIntSupplier<IOException> read;
@@ -74,24 +76,38 @@ public interface DelegateStream extends Specifiable<AutoCloseable>, AutoCloseabl
             this.desc = String.format("Reader delegating InputStream from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
-        @Experimental
-        public Input(final Supplier<String> source, Closeable... dependencies) {
+        public Input(final Event.Bus<String> source, Closeable... dependencies) {
+            final var queue = new LinkedBlockingQueue<String>();
+            var listener = source.listen(e -> {
+                synchronized (queue) {
+                    if (e.test(queue::add))
+                        queue.notify();
+                    else log.error("Failed to queue new input " + e);
+                }
+            });
             this.read = new ThrowingIntSupplier<>() {
                 @Nullable
                 private String buf = null;
                 private int i = -1;
 
                 @Override
+                @SneakyThrows
                 public int getAsInt() {
                     if (buf == null || i + 1 > buf.length()) {
-                        buf = source.get();
+                        synchronized (queue) {
+                            while (queue.isEmpty())
+                                queue.wait();
+                        }
+                        buf = queue.poll();
                         i = 0;
-                    } else if (++i == buf.length())
+                    } else if (++i == buf.length()) {
+                        buf = null;
                         return -1;
+                    }
                     return buf.charAt(i);
                 }
             };
-            this.dependencies = collect(dependencies);
+            this.dependencies = collect(dependencies, listener);
             this.desc = String.format("Adapter InputStream from %s with %d dependencies", caller(1), this.dependencies.size());
         }
 
