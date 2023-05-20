@@ -1,86 +1,85 @@
 package org.comroid.api;
 
+import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+@UtilityClass
 public final class NFunction {
-    private NFunction() {
-        throw new UnsupportedOperationException();
-    }
-
     @FunctionalInterface
-    public interface In1<A, R> extends Function<A, R> {
+    public interface In1<X, R> extends Function<X, R> {
         @Override
-        R apply(A a);
+        R apply(X x);
 
         @NotNull
         @Override
-        default <V> In1<V, R> compose(@NotNull Function<? super V, ? extends A> before) {
+        default <V> In1<V, R> compose(@NotNull Function<? super V, ? extends X> before) {
             return v -> apply(before.apply(v));
         }
     }
 
     @FunctionalInterface
-    public interface In2<A, B, R> extends BiFunction<A, B, R>, In1<A, R> {
-        default B getDefaultB() {
+    public interface In2<X, Y, R> extends BiFunction<X, Y, R>, In1<X, R> {
+        default @Nullable Y getDefaultB() {
             return null;
         }
 
         @Override
-        R apply(A a, B b);
+        R apply(X x, @Nullable Y y);
 
         @Override
-        default R apply(A a) {
-            return apply(a, getDefaultB());
+        default R apply(X x) {
+            return apply(x, getDefaultB());
         }
 
         @NotNull
         @Override
-        default <V> In2<V, B, R> compose(@NotNull Function<? super V, ? extends A> before) {
-            return (v, b) -> apply(before.apply(v), b);
+        default <I> In2<I, @Nullable Y, R> compose(final @NotNull Function<? super I, ? extends X> before) {
+            return (i, y) -> apply(before.apply(i), y);
         }
 
         @NotNull
         @Override
-        default <V> In2<A, B, V> andThen(final @NotNull Function<? super R, ? extends V> after) {
-            return (a, b) -> after.apply(apply(a, b));
+        default <O> In2<X, @Nullable Y, O> andThen(final @NotNull Function<? super R, ? extends O> after) {
+            return (x, y) -> after.apply(apply(x, y));
         }
     }
 
     @FunctionalInterface
-    public interface In3<A, B, C, R> extends In2<A, B, R> {
-        default B getDefaultB() {
+    public interface In3<X, Y, Z, R> extends In2<X, Y, R> {
+        default @Nullable Y getDefaultB() {
             return null;
         }
 
-        default C getDefaultC() {
+        default @Nullable Z getDefaultC() {
             return null;
         }
 
-        R apply(A a, B b, C c);
+        R apply(X x, @Nullable Y y, @Nullable Z z);
 
         @Override
-        default R apply(A a, B b) {
-            return apply(a, b, getDefaultC());
+        default R apply(X x, @Nullable Y y) {
+            return apply(x, y, getDefaultC());
         }
 
         @Override
-        default R apply(A a) {
-            return apply(a, getDefaultB());
+        default R apply(X x) {
+            return apply(x, getDefaultB());
         }
 
         @NotNull
         @Override
-        default <V> In3<V, B, C, R> compose(@NotNull Function<? super V, ? extends A> before) {
-            return (v, b, c) -> apply(before.apply(v), b, c);
+        default <I> In3<I, @Nullable Y, @Nullable Z, R> compose(final @NotNull Function<? super I, ? extends X> before) {
+            return (i, y, z) -> apply(before.apply(i), y, z);
         }
 
         @Override
         @NotNull
-        default <V> In3<A, B, C, V> andThen(final @NotNull Function<? super R, ? extends V> after) {
-            return (a, b, c) -> after.apply(apply(a, b, c));
+        default <O> In3<X, @Nullable Y, @Nullable Z, O> andThen(final @NotNull Function<? super R, ? extends O> after) {
+            return (x, y, z) -> after.apply(apply(x, y, z));
         }
     }
 }

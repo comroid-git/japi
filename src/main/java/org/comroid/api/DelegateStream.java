@@ -1,11 +1,14 @@
 package org.comroid.api;
 
 import lombok.*;
-import lombok.experimental.Delegate;
+import lombok.Builder;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.comroid.util.Bitmask;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
@@ -28,27 +31,12 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
     @MagicConstant(flagsFromClass = Capability.class)
     int getCapabilities();
 
-    default InputStream input() {
-        throw unsupported(this, Capability.Input);
-    }
-
-    default OutputStream output() {
-        throw unsupported(this, Capability.Output);
-    }
-
-    default OutputStream error() {
-        throw unsupported(this, Capability.Error);
-    }
+    default Rewrapper<InputStream> input() {return Rewrapper.empty();}
+    default Rewrapper<OutputStream> output() {return Rewrapper.empty();}
+    default Rewrapper<OutputStream> error() {return Rewrapper.empty();}
 
     private static UnsupportedOperationException unsupported(DelegateStream stream, Capability capability) {
         return new UnsupportedOperationException(String.format("%s has no support for %s", stream, capability));
-    }
-
-    @SafeVarargs
-    private static <T extends Closeable> Deque<T> collect(T[] array, T... prepend) {
-        return Stream.concat(Stream.of(prepend), Stream.of(array)).sequential()
-                .filter(Objects::nonNull)
-                .collect(ArrayDeque::new, Collection::add, Collection::addAll);
     }
 
     enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
@@ -127,8 +115,8 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
         }
 
         @Override
-        public InputStream input() {
-            return this;
+        public Rewrapper<InputStream> input() {
+            return Rewrapper.of(this);
         }
 
         @Override
@@ -206,8 +194,8 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
         }
 
         @Override
-        public OutputStream output() {
-            return this;
+        public Rewrapper<OutputStream> output() {
+            return Rewrapper.of(this);
         }
 
         @Override
@@ -224,50 +212,99 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
 
     @Value
     @Slf4j
-    class IO implements DelegateStream {
+    class IO implements DelegateStream, NFunction.In3<@Nullable Consumer<InputStream>, @Nullable Consumer<OutputStream>, @Nullable Consumer<OutputStream>, Void> {
         public static final IO SYSTEM = new IO(System.in, System.out, System.err);
 
         int initialCapabilities;
-        public Deque<DelegateStream> redirects;
+        Deque<IO> redirects;
+        @NonFinal @Nullable IO parent;
         @Nullable InputStream in;
         @Nullable OutputStream out;
         @Nullable OutputStream err;
         @Getter AutoCloseable delegate;
         String desc;
 
-        public static IO slf4j(Logger log) {
-            return new IO(new Output(log, Level.INFO), new Output(log, Level.ERROR));
+        public boolean isRedirect() {
+            return in instanceof RedirectInput || out instanceof RedirectOutput || err instanceof RedirectOutput;
         }
 
-        public static IO with(Capability... capabilities) {
-            var builder = builder();
-            for (Capability capability : capabilities)
-                builder.initialCapability(capability);
-            return builder.build();
+        @NotNull
+        @Contract(pure = true)
+        public IO and() {
+            assert parent != null : "Parent must not be null";
+            return parent;
+        }
+        @NotNull
+        @Contract(value = "_->new", mutates = "this")
+        public IO log(Logger log) {
+            return attach(new Output(log::info), new Output(log::error));
+        }
+        @NotNull
+        @Contract(value = "_->new", mutates = "this")
+        public IO attachErr(@Nullable OutputStream err) { return attach(new IO(null,null,err));}
+        @NotNull
+        @Contract(value = "_->new", mutates = "this")
+        public IO attach(@Nullable InputStream in) { return attach(new IO(in,null,null));}
+        @NotNull
+        @Contract(value = "_->new", mutates = "this")
+        public IO attach(@Nullable OutputStream out) { return attach(new IO(null,out,null));}
+        @NotNull
+        @Contract(value = "_,_->new", mutates = "this")
+        public IO attach(@Nullable InputStream in, @Nullable OutputStream out) { return attach(new IO(in, out, null));}
+        @NotNull
+        @Contract(value = "_,_->new", mutates = "this")
+        public IO attach(@Nullable OutputStream out, @Nullable OutputStream err) { return attach(new IO(null,out,err));}
+        @NotNull
+        @Contract(value = "_,_,_->new", mutates = "this")
+        public IO attach(@Nullable InputStream in, @Nullable OutputStream out, @Nullable OutputStream err) { return attach(new IO(in,out,err));}
+        @NotNull
+        @Contract(value = "_->param1", mutates = "this")
+        public IO attach(@NotNull IO redirect) {
+            if (!isRedirect())
+                log.warn("Cannot attach redirect to IO container " + this);
+            if (redirect.parent != null)
+                redirect.detach();
+            if (!redirects.add(redirect))
+                log.warn("Could not attach redirect to " + this);
+            redirect.parent = this;
+            return redirect;
+        }
+        public void detach() {
+            if (parent == null || parent.redirects.remove(this))
+                log.warn("Could not remove redirect from parent");
+            else parent = null;
         }
 
         public IO() {
-            this(null,null);
+            this(Capability.values());
         }
 
-        public IO(@Nullable OutputStream out, @Nullable OutputStream err) {
-            this(null, out, err);
+        public IO(Capability... capabilities) {
+            // default constructor
+            this(null, null, null, capabilities);
         }
 
-        public IO(@Nullable InputStream in, @Nullable OutputStream out, @Nullable OutputStream err) {
-            this(BitmaskAttribute.valueOf(Bitmask.arrange(in==null,out==null,err==null),Capability.values()), in,out,err, List.of());
+        public IO(
+                @Nullable InputStream in,
+                @Nullable OutputStream out,
+                @Nullable OutputStream err,
+                Capability... capabilities
+        ) {
+            this(null, in, out, err, Set.of(capabilities), Set.of());
         }
 
         @lombok.Builder(builderClassName = "Builder")
         private IO(
-                @Singular Set<Capability> initialCapabilities,
+                @Nullable IO parent,
                 @Nullable InputStream in,
                 @Nullable OutputStream out,
                 @Nullable OutputStream err,
-                @Singular List<DelegateStream> redirects
-        ) {
+                @Singular Set<Capability> initialCapabilities,
+                @Singular Set<IO> redirects
+        ) { // builder constructor
+            this.parent = parent;
             this.initialCapabilities = Bitmask.combine(initialCapabilities.toArray(Capability[]::new));
-            this.redirects = DelegateStream.collect(redirects.toArray(DelegateStream[]::new));
+            this.redirects = new ArrayDeque<>(redirects);
             this.in = obtainStream(in,Capability.Input,()->new RedirectInput());
             this.out = obtainStream(out,Capability.Output,()->new RedirectOutput(Capability.Output));
             this.err = obtainStream(err,Capability.Error,()->new RedirectOutput(Capability.Error));
@@ -288,9 +325,9 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
             return Bitmask.isFlagSet(getCapabilities(), capability);
         }
 
-        @Override public InputStream input() {return Objects.requireNonNull(in,this + " does not contain an InputStream");}
-        @Override public OutputStream output() {return Objects.requireNonNull(out,this + " does not contain an OutputStream");}
-        @Override public OutputStream error() {return Objects.requireNonNull(err,this + " does not contain an ErrorStream");}
+        @Override public Rewrapper<InputStream> input() {return Rewrapper.ofSupplier(()->in);}
+        @Override public Rewrapper<OutputStream> output() {return Rewrapper.ofSupplier(()->out);}
+        @Override public Rewrapper<OutputStream> error() {return Rewrapper.ofSupplier(()->err);}
 
         @Override
         public String toString() {
@@ -301,20 +338,18 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
         private String toInfoString(int indent) {
             var sb = new StringBuilder(getName());
 
-            String here = '\n'+"|\t".repeat(indent-1)+"╠═╦> ";
-            String tabs = '\n'+"|\t".repeat(indent-1)+"│ ├> ";
-            String desc = '\n'+"|\t".repeat(indent-1)+"│ ├─ ";
+            final String here = '\n'+"|\t".repeat(indent-1)+"==> ";
+            final String tabs = '\n'+"|\t".repeat(indent-1)+" -> ";
+            final String desc = '\n'+"|\t".repeat(indent-1)+"  - ";
 
             if (redirects.size() != 0) {
                 sb.append(here).append("Redirects:");
                 for (var redirect : redirects) {
                     sb.append(tabs);
-                    if (redirect instanceof IO)
-                        sb.append(((IO) redirect).toInfoString(indent+1));
+                    if (redirect != null)
+                        sb.append(redirect.toInfoString(indent+1));
                     else {
                         sb.append(redirect);
-                        if (redirect.getDelegate() != null)
-                            sb.append(desc).append(redirect.getDelegate());
                     }
                 }
             }
@@ -327,27 +362,28 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                     }
                     sb.append(here).append(capability.getName()).append(":");
                     stream(capability).forEach(tgt -> {
-                        var it = tgt.toString();
-                        sb.append(tabs).append(it);
+                        sb.append(tabs).append(tgt);
                         Optional.of(tgt)
                                 .filter(DelegateStream.class::isInstance)
                                 .map(DelegateStream.class::cast)
                                 .map(Objects::toString)
-                                .filter(Predicate.not(it::equals))
                                 .ifPresent(delegate -> sb.append(desc).append(delegate));
                     });
                 }
 
             return sb.toString();
         }
-        private <R> R obtainStream(@Nullable R input, final Capability capability, final Supplier<R> fallback) {
-            return Optional.ofNullable(input).orElseGet(() -> Bitmask
+        private <R> @Nullable R obtainStream(R basis, final Capability capability, final Supplier<R> fallback) {
+            return Optional.ofNullable(basis).orElseGet(() -> Bitmask
                     .isFlagSet(this.initialCapabilities, capability) ? fallback.get() : null);
         }
 
         @Override
         @SneakyThrows
         public void close() {
+            detach();
+            for (var redirect : redirects)
+                redirect.close();
             delegate.close();
         }
 
@@ -360,7 +396,7 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
         private void runOnOutput(Capability capability, ThrowingConsumer<OutputStream, ? extends Throwable> action) {
             this.<OutputStream>stream(capability).forEachOrdered(action.wrap(null));
         }
-        private <T> Stream<T> stream(final Capability capability) {
+        private <T extends Closeable> Stream<T> stream(final Capability capability) {
             return redirects.stream() // Stream.concat(redirect.stream(), Stream.of(SYSTEM))
                     .filter(it->Bitmask.isFlagSet(it.getCapabilities(), capability))
                     .map(it->{switch(capability){
@@ -368,9 +404,22 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                         case Output: return it.output();
                         case Error: return it.error();}
                         return null;})
+                    .flatMap(Rewrapper::stream)
                     .filter(Objects::nonNull)
                     .distinct()
                     .map(Polyfill::uncheckedCast);
+        }
+
+        @Override
+        public Void apply(
+                @Nullable Consumer<InputStream>   in,//
+                @Nullable Consumer<OutputStream> out,//
+                @Nullable Consumer<OutputStream> err///
+        ) {
+            Rewrapper.of( in).ifBothPresent(input(), Consumer::accept);
+            Rewrapper.of(out).ifBothPresent(output(), Consumer::accept);
+            Rewrapper.of(err).ifBothPresent(error(), Consumer::accept);
+            return null;
         }
 
         private class RedirectInput extends InputStream {
@@ -413,10 +462,6 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                 } catch (Throwable t) {
                     log.error("Error flushing Output", t);
                 }
-            }
-
-            private OutputStream $(DelegateStream delegate) {
-                return (capability == Capability.Error ? delegate.error() : delegate.output());
             }
 
             @Override

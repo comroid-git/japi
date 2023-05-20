@@ -6,5 +6,5 @@ import java.util.Set;
 
 @Experimental
 public interface Updateable<P> {
-    <R extends Named & ValueBox> Set<? extends R> updateFrom(P param);
+    <R extends Named & ValueBox<? super R>> Set<? extends R> updateFrom(P param);
 }

@@ -146,7 +146,7 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return Invocable.ofProvider(Provider.of(this));
     }
 
-    default void consume(Consumer<T> consumer) {
+    default void consume(Consumer<@Nullable T> consumer) {
         consumer.accept(get());
     }
 
@@ -175,11 +175,13 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return into(Polyfill::uncheckedCast);
     }
 
-    default <X, R> Rewrapper<R> combine(Supplier<X> other, BiFunction<T, X, R> accumulator) {
-        return () -> accumulator.apply(get(), other.get());
+    default <X, R> @NotNull Rewrapper<@Nullable R> combine(@Nullable Supplier<@Nullable X> other, BiFunction<T, @Nullable X, @Nullable R> accumulator) {
+        return () -> accumulate(other, accumulator);
     }
 
-    default <X, R> R accumulate(Supplier<X> other, BiFunction<T, X, R> accumulator) {
+    default <X, R> @Nullable R accumulate(@Nullable Supplier<@Nullable X> other, BiFunction<T, @Nullable X, @Nullable R> accumulator) {
+        if (other == null || other.get() == null)
+            return null;
         return accumulator.apply(get(), other.get());
     }
 
@@ -240,6 +242,14 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         if (isNonNull())
             return into(consumer);
         throw exceptionSupplier.get();
+    }
+
+    default <O> void ifBothPresent(@Nullable Supplier<@Nullable O> other, BiConsumer<T, @Nullable O> accumulator) {
+        if (other != null) {
+            O o = other.get();
+            if (o != null)
+                accumulator.accept(get(), o);
+        }
     }
 
     default Rewrapper<T> or(final Supplier<? extends T> orElse) {

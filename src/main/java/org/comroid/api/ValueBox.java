@@ -1,5 +1,19 @@
 package org.comroid.api;
 
-public interface ValueBox<T> extends ValuePointer<T> {
+import org.comroid.util.StandardValueType;
+import org.jetbrains.annotations.Nullable;
+
+public interface ValueBox<T> extends ValuePointer<T>, Rewrapper<T> {
     T getValue();
+
+    @Override
+    @Nullable
+    default T get() {
+        return getValue();
+    }
+
+    @Override
+    default ValueType<? extends T> getHeldType() {
+        return into(StandardValueType::typeOf);
+    }
 }

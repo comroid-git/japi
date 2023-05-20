@@ -1,5 +1,6 @@
 package org.comroid.api;
 
 public interface Terminatable {
-    void terminate() throws Throwable;
+    default void terminate() throws Throwable {
+    }
 }

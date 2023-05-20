@@ -39,7 +39,7 @@ import static org.comroid.util.StackTraceUtils.callerClass;
  */
 @Experimental
 @MustExtend(Context.Base.class)
-public interface Context extends Named, Upgradeable, Specifiable<Context>, LoggerCarrier {
+public interface Context extends Named, Upgradeable, LoggerCarrier {
     @Internal
     default @Nullable Context getParentContext() {
         return null;
@@ -76,7 +76,10 @@ public interface Context extends Named, Upgradeable, Specifiable<Context>, Logge
     default Stream<Object> streamContextMembers(boolean includeChildren) {
         return uncheckedCast(streamContextMembers(includeChildren, Object.class));
     }
-    <T> Stream<? extends T> streamContextMembers(boolean includeChildren, Class<T> type);
+
+    default <T> Stream<? extends T> streamContextMembers(boolean includeChildren, Class<T> type) {
+        return root().streamContextMembers(includeChildren, type);
+    }
 
     default <T> Serializer<T> findSerializer(@Nullable CharSequence mimetype) {
         return streamContextMembers(true)
@@ -184,13 +187,6 @@ public interface Context extends Named, Upgradeable, Specifiable<Context>, Logge
     @Deprecated(forRemoval = true)
     default boolean addToContext(Object... plus) {
         return false;
-    }
-
-    @Override
-    default <R extends Context> Rewrapper<R> as(Class<R> type) {
-        if (isType(type))
-            return Rewrapper.of(type.cast(self().get()));
-        return getFromContext(type);
     }
 
     @NonExtendable

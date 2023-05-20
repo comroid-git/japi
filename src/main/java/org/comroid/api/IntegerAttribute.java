@@ -10,7 +10,12 @@ import java.util.function.IntSupplier;
  *
  * @see Named
  */
-public interface IntegerAttribute extends Named, ValueBox<Integer>, IntSupplier {
+public interface IntegerAttribute extends Named, ValueBox<Integer>, IntSupplier, Index {
+    @Override
+    default int index() {
+        return getValue();
+    }
+
     @Override
     default int getAsInt() {
         return getValue();
