@@ -1,8 +1,10 @@
 package org.comroid.util;
 
+import lombok.SneakyThrows;
 import org.comroid.annotations.Instance;
 import org.comroid.api.Polyfill;
 import org.comroid.api.Rewrapper;
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,6 +20,20 @@ import static java.lang.reflect.Modifier.*;
 
 @ApiStatus.Experimental
 public final class ReflectionHelper {
+    @ApiStatus.Experimental
+    private static <T> T eval(@Language("java") String expr) {
+        throw new UnsupportedOperationException("Not yet implemented"); // todo
+    }
+
+    @SneakyThrows
+    public static <T> T call(Object target, String methodName, Object... args) {
+        boolean dynamic = !(target instanceof Class);
+        var cls = dynamic ? target.getClass() : ((Class<?>) target);
+        return Polyfill.uncheckedCast(cls
+                .getMethod(methodName, types(args))
+                .invoke(dynamic ? target : null, args));
+    }
+
     public static <T> T instance(Class<T> type, Object... args) throws RuntimeException, AssertionError {
         final Optional<T> optInstByField = instanceField(type);
 
@@ -329,7 +345,7 @@ public final class ReflectionHelper {
         return cls == null ? "" : (simpleClassName(cls.getDeclaringClass()) + (cls.getDeclaringClass() == null ? "" : '.') + cls.getSimpleName());
     }
 
-    public static Rewrapper<?> obtainInstance(Class<?> targetClass, Object... args) {
+    public static <T> Rewrapper<T> obtainInstance(Class<T> targetClass, Object... args) {
         return Rewrapper.ofOptional(ReflectionHelper.instanceField(targetClass))
                 .or(() -> Polyfill.uncheckedCast(ReflectionHelper.instance(targetClass, args)));
     }

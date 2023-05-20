@@ -1,11 +1,30 @@
 package org.comroid.api;
 
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface ThrowingSupplier<T, E extends Throwable> {
+    static <R, E extends Throwable> Supplier<@Nullable R> fallback(
+            ThrowingSupplier<R, E> supplier
+    ) {return fallback(supplier,null);}
+    static <R, E extends Throwable> Supplier<@Nullable R> fallback(
+            ThrowingSupplier<@Nullable R, E> supplier,
+            @Nullable Function<Throwable, @Nullable R> fallback
+    ) {
+        return () -> {
+            try {
+                return supplier.get();
+            } catch (Throwable t) {
+                if (fallback == null)
+                    return null;
+                return fallback.apply(t);
+            }
+        };
+    }
+
     static <R> Supplier<R> rethrowing(
             ThrowingSupplier<R, Throwable> supplier
     ) {

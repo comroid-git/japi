@@ -77,9 +77,7 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
     }
 
     default Stream<? extends T> stream() {
-        if (isNull())
-            return Stream.empty();
-        return Stream.of(get());
+        return Stream.of(get()).filter(Objects::nonNull);
     }
 
     default T assertion() throws AssertionError {

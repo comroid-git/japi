@@ -2,15 +2,15 @@ package org.comroid.api;
 
 import lombok.*;
 import lombok.experimental.Delegate;
-import org.comroid.util.StandardValueType;
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
 
 import java.io.Closeable;
-import java.io.InputStream;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -25,7 +25,7 @@ import static org.comroid.util.StackTraceUtils.caller;
 @Data
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class Event<T> implements Rewrapper<T> {
-    private final long unixTime = System.nanoTime();
+    private final long unixNanos = System.nanoTime();
     private final long seq;
     private final @NonNull T data;
     private boolean cancelled = false;
@@ -37,6 +37,10 @@ public class Event<T> implements Rewrapper<T> {
     @Override
     public @Nullable T get() {
         return data;
+    }
+
+    public Instant getTimestamp() {
+        return Instant.ofEpochMilli(unixNanos / 1000);
     }
 
     @Data
@@ -91,6 +95,7 @@ public class Event<T> implements Rewrapper<T> {
         }
     }
 
+    @Slf4j
     @Getter
     public static final class Bus<T> implements Consumer<T>, Supplier<T>, Closeable {
         private final @Nullable Event.Bus<?> parent;
@@ -98,7 +103,8 @@ public class Event<T> implements Rewrapper<T> {
         private final Set<Event.Listener<T>> listeners = new HashSet<>();
         private final @Nullable Function<?, @Nullable T> function;
         private @Setter Event.Factory<T, ? extends Event<T>> factory = Event.Factory.$default();
-        private @Setter Executor executor = Executors.newWorkStealingPool(2);
+        private @Setter Executor executor = Context.wrap(Executor.class)
+                .orElseGet(()->Executors.newFixedThreadPool(4));
         private @Setter boolean active = true;
 
         public Bus() {
@@ -188,14 +194,18 @@ public class Event<T> implements Rewrapper<T> {
             if (!active)
                 return;
             executor.execute(() -> {
-                final var event = factory.apply(data);
-                for (var listener : new HashSet<>(listeners))
-                    if (event.isCancelled())
-                        break;
-                    else if (listener.test(event))
-                        listener.accept(event);
-                for (var child : children)
-                    child.$publish(data);
+                try {
+                    final var event = factory.apply(data);
+                    for (var listener : new HashSet<>(listeners))
+                        if (event.isCancelled())
+                            break;
+                        else if (listener.test(event))
+                            listener.accept(event);
+                    for (var child : children)
+                        child.$publish(data);
+                } catch (Throwable t) {
+                    log.error("Unable to publish event to "+this,t);
+                }
             });
         }
 

@@ -1,5 +1,6 @@
 package org.comroid.util;
 
+import org.comroid.api.Event;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 
 import java.nio.charset.StandardCharsets;

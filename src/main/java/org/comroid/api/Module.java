@@ -9,11 +9,11 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.*;
 
-public interface Module extends Named, LifeCycle, ContextualProvider.Underlying {
+public interface Module extends Named, LifeCycle, Context.Underlying {
     @Override
-    ContextualProvider getUnderlyingContextualProvider();
+    Context getUnderlyingContextualProvider();
 
-    static <CTX extends ContextualProvider> Collection<? extends Module> findModules(CTX forClass) {
+    static <CTX extends Context> Collection<? extends Module> findModules(CTX forClass) {
         String cname = forClass.getClass().getName();
         String modList = "modules/" + cname + ".properties";
         ClassLoader loader = ClassLoader.getSystemClassLoader();
@@ -55,12 +55,12 @@ public interface Module extends Named, LifeCycle, ContextualProvider.Underlying 
             return Collections.unmodifiableCollection(modules);
         }
 
-        public <CTX extends ContextualProvider> Carrier(CTX context) {
+        public <CTX extends Context> Carrier(CTX context) {
             modules = findModules(context);
         }
 
         public Carrier() {
-            if (!(this instanceof ContextualProvider))
+            if (!(this instanceof Context))
                 throw new IllegalStateException("ModuleCarrier must implement ContextualProvider");
             modules = findModules(Polyfill.uncheckedCast(this));
         }
@@ -101,7 +101,7 @@ public interface Module extends Named, LifeCycle, ContextualProvider.Underlying 
         }
     }
 
-    abstract class Abstract<CTX extends ContextualProvider> implements Module {
+    abstract class Abstract<CTX extends Context> implements Module {
         private final CTX context;
         private final String name;
 

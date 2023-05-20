@@ -35,7 +35,7 @@ public interface ContentParser extends Readable {
         return wrapContent(false);
     }
 
-    default <R> @Nullable R parsefromContext(ContextualProvider context) {
+    default <R> @Nullable R parsefromContext(Context context) {
         //noinspection unchecked
         return context.getFromContext(Serializer.class)
                 .ifPresentMap(serializer -> parse((Serializer<R>) serializer));
