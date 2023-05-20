@@ -1,4 +1,4 @@
-package org.comroid.uti;
+package org.comroid.test.util;
 
 import org.comroid.util.Bitmask;
 import org.junit.Assert;

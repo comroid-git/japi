@@ -2,7 +2,10 @@ package org.comroid.api;
 
 import lombok.*;
 import lombok.experimental.Delegate;
+import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -12,10 +15,7 @@ import java.io.Closeable;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.*;
 
@@ -23,12 +23,14 @@ import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.util.StackTraceUtils.caller;
 
 @Data
+@EqualsAndHashCode(of = "seq")
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class Event<T> implements Rewrapper<T> {
-    private final long unixNanos = System.nanoTime();
-    private final long seq;
-    private final @NonNull T data;
-    private boolean cancelled = false;
+    long unixNanos = System.nanoTime();
+    long seq;
+    @NonNull T data;
+    @NonFinal boolean cancelled = false;
 
     public boolean cancel() {
         return !cancelled && (cancelled = true);
@@ -44,9 +46,10 @@ public class Event<T> implements Rewrapper<T> {
     }
 
     @Data
-    @NoArgsConstructor
+    @NoArgsConstructor(access = AccessLevel.PRIVATE)
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     public static abstract class Factory<T, E extends Event<? super T>> implements Function<T, E> {
-        private static final AtomicLong counter = new AtomicLong(0);
+        @NotNull static AtomicLong counter = new AtomicLong(0);
 
         @Override
         public final E apply(T data) {
@@ -72,46 +75,74 @@ public class Event<T> implements Rewrapper<T> {
         }
     }
 
-    @Data
-    @ToString(of = "loc", includeFieldNames = false)
-    public static final class Listener<T> implements Predicate<Event<T>>, Consumer<Event<T>>, Closeable {
-        private final Event.Bus<T> bus;
-        @Delegate
-        private final Predicate<Event<T>> requirement;
-        @Delegate
-        private final Consumer<Event<T>> action;
-        private final StackTraceElement loc;
+    @Value
+    @EqualsAndHashCode(exclude = "bus")
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @ToString(of = "location", includeFieldNames = false)
+    public static class Listener<T> implements Predicate<Event<T>>, Consumer<Event<T>>, Comparable<Listener<?>>, Closeable {
+        @NotNull static Comparator<Listener<?>> Comparator = java.util.Comparator.<Listener<?>>comparingInt(Listener::getPriority).reversed();
+        @NotNull Event.Bus<T> bus;
+        @Delegate Predicate<Event<T>> requirement;
+        @Delegate Consumer<Event<T>> action;
+        @NotNull StackTraceElement location;
+        @NonFinal @Setter int priority = 0;
+        @NonFinal boolean active = true;
 
-        public Listener(Bus<T> bus, Predicate<Event<T>> requirement, Consumer<Event<T>> action) {
+        private Listener(@NotNull Bus<T> bus, Predicate<Event<T>> requirement, Consumer<Event<T>> action) {
             this.bus = bus;
             this.requirement = requirement;
             this.action = action;
-            this.loc = caller(2);
+            this.location = caller(2);
         }
 
         @Override
         public void close() {
-            bus.listeners.remove(this);
+            active = false;
+            synchronized (bus.listeners) {
+                bus.listeners.remove(this);
+            }
+        }
+
+        @Override
+        public int compareTo(@NotNull Event.Listener<?> other) {
+            return Comparator.compare(this, other);
         }
     }
 
+    @Value
     @Slf4j
-    @Getter
-    public static final class Bus<T> implements Consumer<T>, Supplier<T>, Closeable {
-        private final @Nullable Event.Bus<?> parent;
-        private final Set<Event.Bus<?>> children = new HashSet<>();
-        private final Set<Event.Listener<T>> listeners = new HashSet<>();
-        private final @Nullable Function<?, @Nullable T> function;
-        private @Setter Event.Factory<T, ? extends Event<T>> factory = Event.Factory.$default();
-        private @Setter Executor executor = Context.wrap(Executor.class)
-                .orElseGet(()->Executors.newFixedThreadPool(4));
-        private @Setter boolean active = true;
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @ToString(of = {"parent", "factory", "active"})
+    public static class Bus<T> implements Consumer<T>, Supplier<T>, Closeable {
+        @Nullable @NonFinal Event.Bus<?> parent;
+        @NotNull Set<Event.Bus<?>> children = new HashSet<>();
+        @NotNull SortedSet<Event.Listener<T>> listeners = new ConcurrentSkipListSet<>(Listener.Comparator);
+        @Nullable @NonFinal Function<?, @Nullable T> function;
+        @NonFinal @Setter  Event.Factory<T, ? extends Event<T>> factory = Event.Factory.$default();
+        @NonFinal @Setter Executor executor = Context.wrap(Executor.class).orElseGet(()->Executors.newFixedThreadPool(4));
+        @NonFinal @Setter boolean active = true;
+
+        @Contract(value = "_ -> this", mutates = "this")
+        public Event.Bus<T> setParent(@Nullable Event.Bus<? extends T> parent) {
+            return setParent(parent, Function.identity());
+        }
+
+        @Contract(value = "_, _ -> this", mutates = "this")
+        public <P> Event.Bus<T> setParent(@Nullable Event.Bus<? extends P> parent, @NotNull Function<P, T> function) {
+            if (this.parent != null)
+                this.parent.children.remove(this);
+            this.parent = parent;
+            this.function = function;
+            if (this.parent != null)
+                this.parent.children.add(this);
+            return this;
+        }
 
         public Bus() {
             this(null, null);
         }
 
-        public Bus(@Nullable Event.Bus<? extends T> parent) {
+        private Bus(@Nullable Event.Bus<? extends T> parent) {
             this(parent, Polyfill::uncheckedCast);
         }
 
@@ -135,7 +166,9 @@ public class Event<T> implements Rewrapper<T> {
             if (action instanceof Event.Listener)
                 listener = (Event.Listener<T>) action;
             else listener = new Event.Listener<>(this, requirement, action);
-            listeners.add(listener);
+            synchronized (listeners) {
+                listeners.add(listener);
+            }
             return listener;
         }
 
@@ -196,13 +229,17 @@ public class Event<T> implements Rewrapper<T> {
             executor.execute(() -> {
                 try {
                     final var event = factory.apply(data);
-                    for (var listener : new HashSet<>(listeners))
-                        if (event.isCancelled())
-                            break;
-                        else if (listener.test(event))
-                            listener.accept(event);
-                    for (var child : children)
-                        child.$publish(data);
+                    synchronized (listeners) {
+                        for (var listener : listeners)
+                            if (!listener.isActive() || event.isCancelled())
+                                break;
+                            else if (listener.test(event))
+                                listener.accept(event);
+                    }
+                    synchronized (children) {
+                        for (var child : children)
+                            child.$publish(data);
+                    }
                 } catch (Throwable t) {
                     log.error("Unable to publish event to "+this,t);
                 }

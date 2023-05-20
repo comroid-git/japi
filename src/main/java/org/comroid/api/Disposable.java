@@ -4,22 +4,23 @@ import org.jetbrains.annotations.ApiStatus.NonExtendable;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.Closeable;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public interface Disposable extends AutoCloseable, PropertyHolder {
+public interface Disposable extends Closeable, PropertyHolder {
     @NonExtendable
-    default Set<? super AutoCloseable> getCloseables() {
+    default Set<? super Closeable> getCloseables() {
         //noinspection unchecked
-        return ((Set<? super AutoCloseable>) getPropertyCache().computeIfAbsent("disposable-children", key -> new HashSet<>()));
+        return ((Set<? super Closeable>) getPropertyCache().computeIfAbsent("disposable-children", key -> new HashSet<>()));
     }
 
     @NonExtendable
-    default void addChildren(AutoCloseable... childs) {
-        for (AutoCloseable child : childs)
+    default void addChildren(Closeable... childs) {
+        for (Closeable child : childs)
             getCloseables().add(child);
     }
 
@@ -37,8 +38,8 @@ public interface Disposable extends AutoCloseable, PropertyHolder {
     @NonExtendable
     default List<? extends Throwable> dispose() {
         return Collections.unmodifiableList(Stream.concat(
-                        getCloseables().stream().map(AutoCloseable.class::cast),
-                        Stream.of(this::closeSelf)
+                        getCloseables().stream().map(Closeable.class::cast),
+                        Stream.of(ThrowingRunnable.rethrowing(this::closeSelf,null)::run)
                 )
                 .map(closeable -> {
                     try {
