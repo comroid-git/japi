@@ -407,8 +407,8 @@ public interface DelegateStream extends Container, Closeable, Named {
             return io;
         }
         public IO dev_null() {return redirect(NULL);}
-        public IO system() {return redirect(SYSTEM);}
         public IO log(Logger log) {return redirect(slf4j(log));}
+        public IO redirectToSystem() {return redirect(SYSTEM);}
         public IO redirectErr(@Nullable OutputStream err) { return redirect(new IO(null,null,err));}
         public IO redirect(@Nullable InputStream in) { return redirect(new IO(in,null,null));}
         public IO redirect(@Nullable OutputStream out) { return redirect(new IO(null,out,null));}
