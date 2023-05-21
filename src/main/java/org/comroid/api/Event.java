@@ -48,12 +48,12 @@ public class Event<T> implements Rewrapper<T> {
         return Instant.ofEpochMilli(unixNanos / 1000);
     }
 
-    @FunctionalInterface
-    public interface Factory<T, E extends Event<? super T>> extends N.Function.$3<T, String, Long, E> {
+    @Getter
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    public static abstract class Factory<T, E extends Event<? super T>> implements N.Function.$2<T, String, E> {
         @NotNull AtomicLong counter = new AtomicLong(0);
 
-        @Override
-        default Long getDefaultZ() {
+        public Long counter() {
             var seq = counter.addAndGet(1);
             if (seq == Long.MAX_VALUE)
                 counter.set(0);
@@ -61,11 +61,11 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         @Override
-        default E apply(T data, String key, Long seq) {
-            return factory(seq, key, data);
+        public E apply(T data, String key) {
+            return factory(counter(), key, data);
         }
 
-        E factory(long seq, String key, T data);
+        public abstract E factory(long seq, String key, T data);
     }
 
     @Value
@@ -126,7 +126,12 @@ public class Event<T> implements Rewrapper<T> {
         Function<String, String> keyFunction;
         @NonFinal
         @Setter
-        Event.Factory<T, ? extends Event<T>> factory = Event::new;
+        Event.Factory<T, ? extends Event<T>> factory = new Factory<>() {
+            @Override
+            public Event<T> factory(long seq, String key, T data) {
+                return new Event<>(seq, key, data);
+            }
+        };
         @NonFinal
         @Setter
         Executor executor = Context.wrap(Executor.class).orElseGet(() -> Executors.newFixedThreadPool(4));

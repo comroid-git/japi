@@ -18,6 +18,7 @@ import org.slf4j.event.Level;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -154,13 +155,17 @@ public interface DelegateStream extends Container, Closeable, Named {
                     implements Consumer<Event<String>>, ThrowingIntSupplier<IOException> {
                 private final LinkedBlockingQueue<String> queue = new LinkedBlockingQueue<>();
                 @Nullable
-                private String buf = null, prev = null;
-                private int i = -1;
+                private String buf = null;
+                private final AtomicInteger i = new AtomicInteger(-1);
+                private final AtomicInteger c = new AtomicInteger(0);
                 private boolean eof = false;
 
                 @Override
                 public void accept(Event<String> event) {
                     synchronized (queue) {
+                        int c = this.c.incrementAndGet();
+                        if (c != event.getSeq())
+                            log.warn("Event received in invalid order; got " + event.getSeq() + ", expected " + c + "\nData: " + event.getData());
                         if (event.test(queue::add))
                             queue.notify();
                         else log.error("Failed to queue new input " + event);
@@ -174,13 +179,17 @@ public interface DelegateStream extends Container, Closeable, Named {
                         eof = false;
                         return -1;
                     }
-                    if (buf == null || i + 1 > buf.length()) {
+
+                    while (buf == null) {
                         synchronized (queue) {
                             while (queue.isEmpty())
                                 queue.wait();
                         }
                         $buf(queue.poll());
-                    } else if (++i == buf.length()) {
+                    }
+
+                    int i = this.i.incrementAndGet();
+                    if (i == buf.length()) {
                         $buf(null);
                         if (eofMode == EofMode.OnDelegate)
                             return $eof();
@@ -189,6 +198,7 @@ public interface DelegateStream extends Container, Closeable, Named {
                         log.error("buf was unexpectedly null");
                         return -1;
                     }
+
                     var c = buf.charAt(i);
                     switch(c){
                         case '\r':
@@ -205,9 +215,8 @@ public interface DelegateStream extends Container, Closeable, Named {
                     //noinspection StringEquality
                     if(buf==txt)
                         return;
-                    prev = buf;
                     buf = txt;
-                    i = 0;
+                    i.set(0);
                 }
 
                 private int $eof() {
@@ -227,7 +236,8 @@ public interface DelegateStream extends Container, Closeable, Named {
             handler.addChildren(source);
             this.delegate = handler;
 
-            source.listen(handler);
+            source//.setExecutor(Executors.newSingleThreadExecutor())
+                    .listen(handler);
             this.read = handler;
         }
 
@@ -444,7 +454,7 @@ public interface DelegateStream extends Container, Closeable, Named {
             this.parent = parent;
             this.initialCapabilities = Bitmask.combine(initialCapabilities.toArray(Capability[]::new));
             this.redirects = new ArrayDeque<>(redirects);
-            this.in = obtainStream(in,Capability.Input,()->new RedirectInput());
+            this.in = obtainStream(in,Capability.Input, RedirectInput::new);
             this.out = obtainStream(out,Capability.Output,()->new RedirectOutput(Capability.Output));
             this.err = obtainStream(err,Capability.Error,()->new RedirectOutput(Capability.Error));
             this.delegate = ()->{
@@ -467,9 +477,9 @@ public interface DelegateStream extends Container, Closeable, Named {
         @Override public Rewrapper<OutputStream> output() {return Rewrapper.ofSupplier(()->out);}
         @Override public Rewrapper<OutputStream> error() {return Rewrapper.ofSupplier(()->err);}
 
-        public String getAlternateName() {return toInfoString(1);}
+        public String getAlternateName() {return toInfoString(1, false);}
 
-        private String toInfoString(int indent) {
+        private String toInfoString(int indent, boolean slim) {
             var sb = new StringBuilder(getName());
 
             final String here = '\n'+"|\t".repeat(indent-1)+"==> ";
@@ -477,14 +487,14 @@ public interface DelegateStream extends Container, Closeable, Named {
             final String desc = '\n'+"|\t".repeat(indent-1)+"  - ";
 
             if (parent != null)
-                sb.append(here).append("Parent:").append(tabs).append(parent.getName());
+                sb.append(here).append("Parent:").append(tabs).append(parent.toInfoString(indent+1,true));
 
-            if (redirects.size() != 0) {
+            if (!slim && redirects.size() != 0) {
                 sb.append(here).append("Redirects:");
                 for (var redirect : redirects) {
                     sb.append(tabs);
                     if (redirect != null)
-                        sb.append(redirect.toInfoString(indent+1));
+                        sb.append(redirect.toInfoString(indent+1, slim));
                     else sb.append("null");
                 }
             }
@@ -569,8 +579,13 @@ public interface DelegateStream extends Container, Closeable, Named {
             Rewrapper.of(err).ifBothPresent(error(), java.util.function.Consumer::accept);
         }
 
+        @Value
+        @EqualsAndHashCode(callSuper = true)
         private class RedirectInput extends InputStream {
+            Object monitor = new Object();
+
             @Override
+            @Synchronized("monitor")
             public int read() {
                 try {
                     return runOnInput(InputStream::read);
@@ -586,14 +601,14 @@ public interface DelegateStream extends Container, Closeable, Named {
             }
         }
 
+        @Value
+        @EqualsAndHashCode(callSuper = true)
         private class RedirectOutput extends OutputStream {
-            private final Capability capability;
-
-            public RedirectOutput(Capability capability) {
-                this.capability = capability;
-            }
+            Object monitor = new Object();
+            Capability capability;
 
             @Override
+            @Synchronized("monitor")
             public void write(final int b) {
                 try {
                     runOnOutput(capability, s->s.write(b));
@@ -603,6 +618,7 @@ public interface DelegateStream extends Container, Closeable, Named {
             }
 
             @Override
+            @Synchronized("monitor")
             public void flush() {
                 try {
                     runOnOutput(capability, OutputStream::flush);
