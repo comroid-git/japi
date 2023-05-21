@@ -244,6 +244,13 @@ public class Event<T> implements Rewrapper<T> {
             return future.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS);
         }
 
+        public Event.Bus<T> peek(final Consumer<@NotNull T> action) {
+            return filter(it -> {
+                action.accept(it);
+                return true;
+            });
+        }
+
         public Event.Bus<T> filter(final Predicate<@NotNull T> predicate) {
             return map(x -> predicate.test(x) ? x : null);
         }
