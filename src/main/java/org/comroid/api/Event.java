@@ -111,8 +111,10 @@ public class Event<T> implements Rewrapper<T> {
     @Value
     @Slf4j
     @FieldDefaults(level = AccessLevel.PRIVATE)
+    @EqualsAndHashCode(of = {}, callSuper = true)
     @ToString(of = {"parent", "factory", "active"})
-    public static class Bus<T> implements Named, N.Consumer.$2<T, String>, Provider<T>, Closeable {
+    public static class Bus<T> extends UUIDContainer.Base
+            implements Named, N.Consumer.$2<T, String>, Provider<T>, Closeable {
         @Nullable
         @NonFinal
         Event.Bus<?> parent;
