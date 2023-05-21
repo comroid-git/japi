@@ -232,7 +232,7 @@ public interface DelegateStream extends Container, Closeable, Named {
 
                 private int $pad() {
                     pad = false;
-                    return 0;
+                    return ' ';
                 }
 
                 @Override
