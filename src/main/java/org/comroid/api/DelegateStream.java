@@ -189,9 +189,9 @@ public interface DelegateStream extends Container, Closeable, Named {
 
                     int i = this.i.incrementAndGet();
                     if (i == buf.length()) {
-                        setBuf(null);
                         if (endlMode == EndlMode.OnDelegate)
                             return declareEndl();
+                        else setBuf(null);
                     }
                     if (buf == null) {
                         log.error("buf was unexpectedly null");
