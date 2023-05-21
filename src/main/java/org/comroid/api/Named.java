@@ -42,6 +42,10 @@ public interface Named extends WrappedFormattable {
     @Experimental
     default Object setName(@Nullable String name){return this;}
 
+    static String $(Object any) {
+        return any instanceof Named ? ((Named) any).getName() : String.valueOf(any);
+    }
+
     /**
      * A base class for a Named object using a final name field.
      */

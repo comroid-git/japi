@@ -477,7 +477,7 @@ public interface DelegateStream extends Container, Closeable, Named {
             final String desc = '\n'+"|\t".repeat(indent-1)+"  - ";
 
             if (parent != null)
-                sb.append(here).append("Parent:").append(tabs).append(parent);
+                sb.append(here).append("Parent:").append(tabs).append(parent.getName());
 
             if (redirects.size() != 0) {
                 sb.append(here).append("Redirects:");
@@ -502,7 +502,8 @@ public interface DelegateStream extends Container, Closeable, Named {
                             .map(DelegateStream.class::cast)
                             .map(DelegateStream::getDelegate)
                             .filter(Predicate.not(tgt::equals))
-                            .ifPresent(delegate -> sb.append(desc).append("Delegate: ").append(delegate));
+                            .ifPresent(delegate -> sb.append(desc).append("Delegate: ")
+                                    .append(Named.$(delegate)));
                 });
             }
 

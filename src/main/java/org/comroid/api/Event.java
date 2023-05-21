@@ -112,7 +112,7 @@ public class Event<T> implements Rewrapper<T> {
     @Slf4j
     @FieldDefaults(level = AccessLevel.PRIVATE)
     @ToString(of = {"parent", "factory", "active"})
-    public static class Bus<T> implements N.Consumer.$2<T, String>, Provider<T>, Closeable {
+    public static class Bus<T> implements Named, N.Consumer.$2<T, String>, Provider<T>, Closeable {
         @Nullable
         @NonFinal
         Event.Bus<?> parent;
@@ -133,6 +133,9 @@ public class Event<T> implements Rewrapper<T> {
         @NonFinal
         @Setter
         boolean active = true;
+        @NonFinal
+        @Setter
+        String name = null;
 
         @Contract(value = "_ -> this", mutates = "this")
         public Event.Bus<T> setParent(@Nullable Event.Bus<? extends T> parent) {
@@ -164,7 +167,12 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         public Bus() {
+            this("EventBus @ "+caller(1).toString());
+        }
+
+        public Bus(@Nullable String name) {
             this(null, null);
+            this.name = name;
         }
 
         private Bus(@Nullable Event.Bus<? extends T> parent) {
