@@ -1,5 +1,7 @@
 package org.comroid.api;
 
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
@@ -7,8 +9,10 @@ import java.util.UUID;
 public interface UUIDContainer {
     UUID getUUID();
 
+    @ToString(of="id")
+    @EqualsAndHashCode(of="id")
     class Base implements UUIDContainer {
-        private final UUID id;
+        protected final UUID id;
 
         @Override
         public UUID getUUID() {
