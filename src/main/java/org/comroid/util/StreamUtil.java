@@ -1,13 +1,12 @@
 package org.comroid.util;
 
+import lombok.experimental.UtilityClass;
+
 import java.io.OutputStream;
 import java.io.PrintStream;
 
+@UtilityClass
 public final class StreamUtil {
-    private StreamUtil() {
-        throw new UnsupportedOperationException();
-    }
-
     public static OutputStream voidOutputStream() {
         return new OutputStream() {
             @Override

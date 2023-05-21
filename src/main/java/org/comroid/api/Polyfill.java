@@ -1,5 +1,6 @@
 package org.comroid.api;
 
+import lombok.experimental.UtilityClass;
 import org.comroid.util.RegExpUtil;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.ApiStatus.Experimental;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 import static java.util.Objects.isNull;
 
 @Experimental
+@UtilityClass
 public final class Polyfill {
     @Deprecated
     public static final String UUID_PATTERN = RegExpUtil.UUID4.pattern();

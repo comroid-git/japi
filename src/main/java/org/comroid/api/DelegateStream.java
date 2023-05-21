@@ -7,9 +7,10 @@ import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.comroid.api.info.Log;
 import org.comroid.util.Bitmask;
+import org.comroid.util.StackTraceUtils;
+import org.comroid.util.StreamUtil;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -116,6 +117,8 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
         return new UnsupportedOperationException(String.format("%s has no support for %s", stream, capability));
     }
 
+    private static StackTraceElement caller() {return StackTraceUtils.caller(DelegateStream.class);}
+
     enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
 
     @Slf4j
@@ -131,13 +134,13 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
         public Input(final InputStream delegate) {
             this.read = delegate::read;
             this.delegate = delegate;
-            this.name = "Proxy InputStream @ " + caller(1);
+            this.name = "Proxy InputStream @ " + caller();
         }
 
         public Input(final Reader delegate) {
             this.read = delegate::read;
             this.delegate = delegate;
-            this.name = "Reader InputStream @ " + caller(1);
+            this.name = "Reader InputStream @ " + caller();
         }
 
         @ApiStatus.Experimental
@@ -179,7 +182,7 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
                 }
             };
             this.delegate = source;
-            this.name = "Adapter InputStream @ " + caller(1);
+            this.name = "Adapter InputStream @ " + caller();
         }
 
         @Override
@@ -230,14 +233,14 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
             this.write = delegate::write;
             this.flush = delegate::flush;
             this.delegate = delegate;
-            this.name = "Proxy OutputStream @ " + caller(1);
+            this.name = "Proxy OutputStream @ " + caller();
         }
 
         public Output(final Writer delegate) {
             this.write = delegate::write;
             this.flush = delegate::flush;
             this.delegate = delegate;
-            this.name = "Writer delegating OutputStream @ " + caller(1);
+            this.name = "Writer delegating OutputStream @ " + caller();
         }
 
         public Output(final Logger log, final Level level) {
@@ -248,7 +251,7 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
                 return new StringWriter();
             });
             this.delegate = null;
-            this.name = "Log delegating OutputStream @ " + caller(1);
+            this.name = "Log delegating OutputStream @ " + caller();
         }
 
         public Output(final Consumer<String> handler) {
@@ -259,7 +262,7 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
                 return new StringWriter();
             });
             this.delegate = null;
-            this.name = "Adapter OutputStream @ " + caller(1);
+            this.name = "Adapter OutputStream @ " + caller();
         }
 
         @Override
@@ -307,7 +310,9 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
     @Getter
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     class IO implements DelegateStream, N.Consumer.$3<@Nullable Consumer<InputStream>, @Nullable Consumer<OutputStream>, @Nullable Consumer<OutputStream>> {
+        public static final IO NULL = new IO(new ByteArrayInputStream(new byte[0]),StreamUtil.voidOutputStream(),StreamUtil.voidOutputStream());
         public static final IO SYSTEM = new IO(System.in, System.out, System.err);
+        public static IO slf4j(Logger log) {return new IO(null,new Output(log::info), new Output(log::error));}
 
         @Delegate(excludes = SelfCloseable.class)
         Container.Impl<Input> container = new Container.Impl<>();
@@ -320,53 +325,35 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
         @Nullable OutputStream err;
         @Getter AutoCloseable delegate;
 
-        public boolean isRedirect() {
-            return in instanceof RedirectInput || out instanceof RedirectOutput || err instanceof RedirectOutput;
-        }
+        public IO name(String name) {this.name = name;return this;}
+        public boolean isRedirect() {return in instanceof RedirectInput || out instanceof RedirectOutput || err instanceof RedirectOutput;}
+        public boolean isNull() {return NULL.equals(this);}
+        public boolean isSystem() {return SYSTEM.equals(this);}
 
-        public boolean isSystem() {
-            return SYSTEM.equals(this);
-        }
-
-        @NotNull
-        @Contract(pure = true)
         public IO and() {
-            assert parent != null : "Parent must not be null";
-            return parent;
+            var it = this;
+            while (!it.isRedirect() && it.parent != null)
+                it = it.parent;
+            if (it.isRedirect())
+                return it;
+            var io = new IO();
+            io.attach(this);
+            return io;
         }
-        @NotNull
-        @Contract(mutates = "this")
-        public IO system() {
-            return attach(SYSTEM);
-        }
-        @NotNull
-        @Contract(value = "_->new", mutates = "this")
-        public IO log(Logger log) {
-            return attach(new Output(log::info), new Output(log::error));
-        }
-        @NotNull
-        @Contract(value = "_->new", mutates = "this")
+        public IO dev_null() {return attach(NULL);}
+        public IO system() {return attach(SYSTEM);}
+        public IO log(Logger log) {return attach(slf4j(log));}
         public IO attachErr(@Nullable OutputStream err) { return attach(new IO(null,null,err));}
-        @NotNull
-        @Contract(value = "_->new", mutates = "this")
         public IO attach(@Nullable InputStream in) { return attach(new IO(in,null,null));}
-        @NotNull
-        @Contract(value = "_->new", mutates = "this")
         public IO attach(@Nullable OutputStream out) { return attach(new IO(null,out,null));}
-        @NotNull
-        @Contract(value = "_,_->new", mutates = "this")
         public IO attach(@Nullable InputStream in, @Nullable OutputStream out) { return attach(new IO(in, out, null));}
-        @NotNull
-        @Contract(value = "_,_->new", mutates = "this")
         public IO attach(@Nullable OutputStream out, @Nullable OutputStream err) { return attach(new IO(null,out,err));}
-        @NotNull
-        @Contract(value = "_,_,_->new", mutates = "this")
         public IO attach(@Nullable InputStream in, @Nullable OutputStream out, @Nullable OutputStream err) { return attach(new IO(in,out,err));}
-        @NotNull
-        @Contract(value = "_->param1", mutates = "this")
         public IO attach(@NotNull IO redirect) {
-            if (!isRedirect())
-                log.warn("Cannot attach redirect to IO container " + this);
+            if (!isRedirect()) {
+                log.warn(String.format("Cannot attach redirect to IO container %s; returning IO.NULL", this));
+                return NULL;
+            }
             if (redirect.parent != null && !redirect.isSystem())
                 redirect.detach();
             if (!redirects.add(redirect))
@@ -395,7 +382,7 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
                 @Nullable OutputStream err,
                 Capability... capabilities
         ) {
-            this("IO @ " + caller(3), null, in, out, err, Set.of(capabilities), Set.of());
+            this("IO @ " + caller(), null, in, out, err, Set.of(capabilities), Set.of());
         }
 
         @lombok.Builder(builderClassName = "Builder")

@@ -1,8 +1,23 @@
 package org.comroid.api;
 
+import lombok.SneakyThrows;
+
 import java.util.function.Function;
 
 public interface ThrowingFunction<I, O, T extends Throwable> {
+    static <I, O> Function<I, O> sneaky(
+            ThrowingFunction<I, O, Throwable> function
+    ) {
+        //noinspection Convert2Lambda,Anonymous2MethodRef
+        return new Function<>() {
+            @Override
+            @SneakyThrows
+            public O apply(I i) {
+                return function.apply(i);
+            }
+        };
+    }
+
     static <I, O> Function<I, O> rethrowing(
             ThrowingFunction<I, O, Throwable> function
     ) {

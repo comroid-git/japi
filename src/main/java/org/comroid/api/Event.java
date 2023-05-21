@@ -90,7 +90,7 @@ public class Event<T> implements Rewrapper<T> {
             this.bus = bus;
             this.requirement = requirement;
             this.action = action;
-            this.location = caller(2);
+            this.location = caller(Event.Bus.class, Event.Listener.class);
         }
 
         @Override
