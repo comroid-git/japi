@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.*;
 
+@SuppressWarnings({"removal", "rawtypes"}) // todo: Fix removal warning
 public interface Module extends Named, LifeCycle, Context.Underlying {
     @Override
     Context getUnderlyingContextualProvider();

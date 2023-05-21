@@ -120,7 +120,7 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
     @EqualsAndHashCode(callSuper = true)
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     class Input extends InputStream implements DelegateStream {
-        @Nullable @Getter AutoCloseable delegate;
+        @Nullable @NonFinal @Getter @Setter AutoCloseable delegate;
         ThrowingIntSupplier<IOException> read;
         String desc;
 
@@ -215,7 +215,7 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
     @Value
     @EqualsAndHashCode(callSuper = true)
     class Output extends OutputStream implements DelegateStream {
-        @Nullable @Getter AutoCloseable delegate;
+        @Nullable @NonFinal @Getter @Setter AutoCloseable delegate;
         ThrowingIntConsumer<IOException> write;
         ThrowingRunnable<IOException> flush;
         String desc;

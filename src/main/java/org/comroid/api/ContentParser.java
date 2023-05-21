@@ -35,8 +35,8 @@ public interface ContentParser extends Readable {
         return wrapContent(false);
     }
 
+    @SuppressWarnings({"unchecked", "removal"}) // todo: Fix removal warning
     default <R> @Nullable R parsefromContext(Context context) {
-        //noinspection unchecked
         return context.getFromContext(Serializer.class)
                 .ifPresentMap(serializer -> parse((Serializer<R>) serializer));
     }
