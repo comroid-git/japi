@@ -119,7 +119,7 @@ public interface DelegateStream extends Container, Closeable, Named {
     private static StackTraceElement caller() {return StackTraceUtils.caller(1);}
 
     enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
-    enum EofMode implements IntegerAttribute {Manual, OnNewLine, OnDelegate}
+    enum EndlMode implements IntegerAttribute {Manual, OnNewLine, OnDelegate}
 
     @Slf4j
     @Value
@@ -145,11 +145,11 @@ public interface DelegateStream extends Container, Closeable, Named {
 
         @ApiStatus.Experimental
         public Input(final Event.Bus<String> source) {
-            this(source, EofMode.OnDelegate);
+            this(source, EndlMode.OnDelegate);
         }
 
         @ApiStatus.Experimental
-        public Input(final Event.Bus<String> source, final EofMode eofMode) {
+        public Input(final Event.Bus<String> source, final EndlMode endlMode) {
             class EventBusHandler
                     extends Container.Base
                     implements Consumer<Event<String>>, ThrowingIntSupplier<IOException> {
@@ -158,7 +158,8 @@ public interface DelegateStream extends Container, Closeable, Named {
                 private String buf = null;
                 private final AtomicInteger i = new AtomicInteger(-1);
                 private final AtomicInteger c = new AtomicInteger(0);
-                private boolean eof = false;
+                private boolean endl = false;
+                private boolean pad = true;
 
                 @Override
                 public void accept(Event<String> event) {
@@ -175,24 +176,22 @@ public interface DelegateStream extends Container, Closeable, Named {
                 @Override
                 @SneakyThrows
                 public int getAsInt() {
-                    if (eof) {
-                        eof = false;
-                        return -1;
-                    }
+                    if (endl) return $endl();
+                    if (pad) return $pad();
 
                     while (buf == null) {
                         synchronized (queue) {
                             while (queue.isEmpty())
                                 queue.wait();
                         }
-                        $buf(queue.poll());
+                        setBuf(queue.poll());
                     }
 
                     int i = this.i.incrementAndGet();
                     if (i == buf.length()) {
-                        $buf(null);
-                        if (eofMode == EofMode.OnDelegate)
-                            return $eof();
+                        setBuf(null);
+                        if (endlMode == EndlMode.OnDelegate)
+                            return declareEndl();
                     }
                     if (buf == null) {
                         log.error("buf was unexpectedly null");
@@ -205,13 +204,13 @@ public interface DelegateStream extends Container, Closeable, Named {
                             // ignore CR
                             return getAsInt();
                         case '\n':
-                            if (eofMode == EofMode.OnNewLine)
-                                return $eof();
+                            if (endlMode == EndlMode.OnNewLine)
+                                return declareEndl();
                     }
                     return c;
                 }
 
-                private void $buf(String txt) {
+                private void setBuf(String txt) {
                     //noinspection StringEquality
                     if(buf==txt)
                         return;
@@ -219,10 +218,21 @@ public interface DelegateStream extends Container, Closeable, Named {
                     i.set(0);
                 }
 
-                private int $eof() {
-                    $buf(null);
-                    eof = true;
+                private int declareEndl() {
+                    setBuf(null);
+                    endl = true;
                     return '\n';
+                }
+
+                private int $endl() {
+                    endl = false;
+                    pad = true;
+                    return -1;
+                }
+
+                private int $pad() {
+                    pad = false;
+                    return 0;
                 }
 
                 @Override
