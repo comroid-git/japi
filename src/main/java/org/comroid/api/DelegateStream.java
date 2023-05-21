@@ -21,10 +21,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.comroid.util.StackTraceUtils.lessSimpleName;
 
 public interface DelegateStream extends Container, Closeable, Named {
     AutoCloseable getDelegate();
@@ -116,7 +119,7 @@ public interface DelegateStream extends Container, Closeable, Named {
         return new UnsupportedOperationException(String.format("%s has no support for %s", stream, capability));
     }
 
-    private static StackTraceElement caller() {return StackTraceUtils.caller(1);}
+    private static String caller() {return StackTraceUtils.caller(1);}
 
     enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
     enum EndlMode implements IntegerAttribute {Manual, OnNewLine, OnDelegate}
@@ -140,7 +143,7 @@ public interface DelegateStream extends Container, Closeable, Named {
         public Input(final Reader delegate) {
             this.read = delegate::read;
             this.delegate = delegate;
-            this.name = "Reader InputStream @ " + caller();
+            this.name = "Reader delegating InputStream @ " + caller();
         }
 
         @ApiStatus.Experimental
@@ -240,7 +243,7 @@ public interface DelegateStream extends Container, Closeable, Named {
                     queue.clear();
                 }
             }
-            this.name = "Adapter InputStream @ " + caller();
+            this.name = lessSimpleName(source.getClass()) + " InputStream @ " + caller();
             var handler = new EventBusHandler();
 
             handler.addChildren(source);
@@ -327,8 +330,34 @@ public interface DelegateStream extends Container, Closeable, Named {
                 handler.accept(buf.toString());
                 return new StringWriter();
             });
-            this.delegate = null;
-            this.name = "Adapter OutputStream @ " + caller();
+            this.delegate = handler instanceof AutoCloseable ? (AutoCloseable) handler : null;
+            this.name = lessSimpleName(handler.getClass()) + " OutputStream @ " + caller();
+        }
+
+        @ApiStatus.Experimental
+        public Output peek(final Consumer<@NotNull String> action) {
+            return filter(txt -> {
+                action.accept(txt);
+                return true;
+            });
+        }
+        @ApiStatus.Experimental
+        public Output filter(final Predicate<@NotNull String> action) {
+            return map(str -> action.test(str) ? str : null);
+        }
+        @ApiStatus.Experimental
+        public Output map(final Function<@NotNull String, @Nullable String> action) {
+            //if (!(delegate instanceof PipelineAdapter))
+                return new Output((Consumer<String>) new PipelineAdapter(this, action));
+            //((PipelineAdapter) delegate).actions.add(action);
+            //return this;
+        }
+        @ApiStatus.Experimental
+        public Output flatMap(final Function<@NotNull String, Stream<@Nullable String>> action) {
+            //if (!(delegate instanceof PipelineAdapter$flatMap))
+                return new Output((Consumer<String>) new PipelineAdapter$flatMap(this, action));
+            //((PipelineAdapter$flatMap) delegate).actions.add(action);
+            //return this;
         }
 
         @Override
@@ -369,6 +398,52 @@ public interface DelegateStream extends Container, Closeable, Named {
         @Override
         public String toString() {
             return getName();
+        }
+
+        @Value
+        @EqualsAndHashCode(callSuper = true)
+        private static class PipelineAdapter extends PrintStream implements Consumer<String> {
+            List<Function<String, String>> actions;
+
+            private PipelineAdapter(OutputStream output, Function<String, String> action) {
+                super(output);
+                this.actions = new ArrayList<>(Collections.singletonList(action));
+            }
+
+            @Override
+            @SneakyThrows
+            public void accept(String txt) {
+                for (var action : actions) {
+                    txt = action.apply(txt);
+                    if (txt == null)
+                        return;
+                }
+                print(txt);
+                flush();
+            }
+        }
+
+        @Value
+        @EqualsAndHashCode(callSuper = true)
+        private static class PipelineAdapter$flatMap extends PrintStream implements Consumer<String> {
+            List<Function<String, Stream<String>>> actions;
+
+            private PipelineAdapter$flatMap(OutputStream output, Function<String, Stream<String>> action) {
+                super(output);
+                this.actions = new ArrayList<>(Collections.singletonList(action));
+            }
+
+            @Override
+            @SneakyThrows
+            public void accept(String txt) {
+                var stream = Stream.of(txt);
+                for (var action : actions)
+                    stream = stream.flatMap(action).filter(Objects::nonNull);
+                stream.forEachOrdered(s -> {
+                    print(s);
+                    flush();
+                });
+            }
         }
     }
 

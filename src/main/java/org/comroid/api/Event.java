@@ -4,7 +4,6 @@ import lombok.*;
 import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
-import lombok.experimental.WithBy;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -80,7 +79,7 @@ public class Event<T> implements Rewrapper<T> {
         Predicate<Event<T>> requirement;
         @Delegate
         Consumer<Event<T>> action;
-        @NotNull StackTraceElement location;
+        String location;
         @NonFinal
         @Setter
         int priority = 0;
