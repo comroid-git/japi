@@ -13,6 +13,7 @@ import java.awt.*;
 import java.lang.ref.WeakReference;
 import java.net.*;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -249,5 +250,13 @@ public final class Polyfill {
                 .map(entry -> entry.split("="))
                 .filter(entry -> entry.length == 2)
                 .collect(Collectors.toMap(entry -> entry[0], entry -> entry[1]));
+    }
+
+    public static String plural(Collection<?> list, String singular, String plural) {
+        if (list.size()==1)
+            return singular;
+        if (plural.charAt(0) == '+')
+            return singular + plural.substring(1);
+        return plural;
     }
 }

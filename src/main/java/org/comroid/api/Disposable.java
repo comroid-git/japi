@@ -11,6 +11,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Deprecated
 public interface Disposable extends Closeable, PropertyHolder {
     @NonExtendable
     default Set<? super Closeable> getCloseables() {

@@ -1,6 +1,8 @@
 package org.comroid.api;
 
 import lombok.*;
+import lombok.experimental.Delegate;
+import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.comroid.api.info.Log;
@@ -18,18 +20,19 @@ import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.util.StackTraceUtils.caller;
 
-public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named {
+public interface DelegateStream extends Container, Specifiable<Closeable>, Closeable, Named {
     AutoCloseable getDelegate();
 
     @MagicConstant(flagsFromClass = Capability.class)
-    int getCapabilities();
+    default int getCapabilities() {
+        return 0;
+    }
 
     default Rewrapper<InputStream> input() {return Rewrapper.empty();}
     default Rewrapper<OutputStream> output() {return Rewrapper.empty();}
@@ -118,22 +121,23 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
     @Slf4j
     @Value
     @EqualsAndHashCode(callSuper = true)
-    @AllArgsConstructor(access = AccessLevel.PRIVATE)
     class Input extends InputStream implements DelegateStream {
-        @Nullable @NonFinal @Getter @Setter AutoCloseable delegate;
+        @Delegate(excludes = SelfCloseable.class)
+        Container.Impl<Input> container = new Container.Impl<>();
+        @NonFinal @NonNull @Setter String name;
         ThrowingIntSupplier<IOException> read;
-        String desc;
+        @Nullable AutoCloseable delegate;
 
         public Input(final InputStream delegate) {
-            this.delegate = delegate;
             this.read = delegate::read;
-            this.desc = "Proxy InputStream @ " + caller(1);
+            this.delegate = delegate;
+            this.name = "Proxy InputStream @ " + caller(1);
         }
 
         public Input(final Reader delegate) {
-            this.delegate = delegate;
             this.read = delegate::read;
-            this.desc = "Reader delegating InputStream @ " + caller(1);
+            this.delegate = delegate;
+            this.name = "Reader InputStream @ " + caller(1);
         }
 
         @ApiStatus.Experimental
@@ -146,7 +150,6 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                     else log.error("Failed to queue new input " + e);
                 }
             });
-            this.delegate = source;
             this.read = new ThrowingIntSupplier<>() {
                 @Nullable
                 private String buf = null;
@@ -175,7 +178,8 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                     return buf.charAt(i);
                 }
             };
-            this.desc = "Adapter InputStream @ " + caller(1);
+            this.delegate = source;
+            this.name = "Adapter InputStream @ " + caller(1);
         }
 
         @Override
@@ -200,14 +204,14 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
 
         @Override
         @SneakyThrows
-        public void close() {
+        public void closeSelf() {
             if (delegate != null)
                 delegate.close();
         }
 
         @Override
         public String toString() {
-            return desc;
+            return getName();
         }
     }
 
@@ -215,23 +219,25 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
     @Value
     @EqualsAndHashCode(callSuper = true)
     class Output extends OutputStream implements DelegateStream {
-        @Nullable @NonFinal @Getter @Setter AutoCloseable delegate;
+        @Delegate(excludes = SelfCloseable.class)
+        Container.Impl<Input> container = new Container.Impl<>();
+        @NonFinal @NonNull @Setter String name;
         ThrowingIntConsumer<IOException> write;
         ThrowingRunnable<IOException> flush;
-        String desc;
+        @Nullable AutoCloseable delegate;
 
         public Output(final OutputStream delegate) {
             this.write = delegate::write;
             this.flush = delegate::flush;
             this.delegate = delegate;
-            this.desc = "Proxy OutputStream @ " + caller(1);
+            this.name = "Proxy OutputStream @ " + caller(1);
         }
 
         public Output(final Writer delegate) {
             this.write = delegate::write;
             this.flush = delegate::flush;
             this.delegate = delegate;
-            this.desc = "Writer delegating OutputStream @ " + caller(1);
+            this.name = "Writer delegating OutputStream @ " + caller(1);
         }
 
         public Output(final Logger log, final Level level) {
@@ -242,7 +248,7 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                 return new StringWriter();
             });
             this.delegate = null;
-            this.desc = "Log delegating OutputStream @ " + caller(1);
+            this.name = "Log delegating OutputStream @ " + caller(1);
         }
 
         public Output(final Consumer<String> handler) {
@@ -253,7 +259,7 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                 return new StringWriter();
             });
             this.delegate = null;
-            this.desc = "Adapter OutputStream @ " + caller(1);
+            this.name = "Adapter OutputStream @ " + caller(1);
         }
 
         @Override
@@ -286,33 +292,40 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
 
         @Override
         @SneakyThrows
-        public void close() {
+        public void closeSelf() {
             if (delegate != null)
                 delegate.close();
         }
 
         @Override
         public String toString() {
-            return desc;
+            return getName();
         }
     }
 
-    @Value
     @Slf4j
+    @Getter
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     class IO implements DelegateStream, N.Consumer.$3<@Nullable Consumer<InputStream>, @Nullable Consumer<OutputStream>, @Nullable Consumer<OutputStream>> {
         public static final IO SYSTEM = new IO(System.in, System.out, System.err);
 
+        @Delegate(excludes = SelfCloseable.class)
+        Container.Impl<Input> container = new Container.Impl<>();
         int initialCapabilities;
         Deque<IO> redirects;
+        @NonFinal @NonNull @Setter String name;
         @NonFinal @Nullable IO parent;
         @Nullable InputStream in;
         @Nullable OutputStream out;
         @Nullable OutputStream err;
         @Getter AutoCloseable delegate;
-        String desc;
 
         public boolean isRedirect() {
             return in instanceof RedirectInput || out instanceof RedirectOutput || err instanceof RedirectOutput;
+        }
+
+        public boolean isSystem() {
+            return SYSTEM.equals(this);
         }
 
         @NotNull
@@ -320,6 +333,11 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
         public IO and() {
             assert parent != null : "Parent must not be null";
             return parent;
+        }
+        @NotNull
+        @Contract(mutates = "this")
+        public IO system() {
+            return attach(SYSTEM);
         }
         @NotNull
         @Contract(value = "_->new", mutates = "this")
@@ -349,7 +367,7 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
         public IO attach(@NotNull IO redirect) {
             if (!isRedirect())
                 log.warn("Cannot attach redirect to IO container " + this);
-            if (redirect.parent != null)
+            if (redirect.parent != null && !redirect.isSystem())
                 redirect.detach();
             if (!redirects.add(redirect))
                 log.warn("Could not attach redirect to " + this);
@@ -377,11 +395,12 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                 @Nullable OutputStream err,
                 Capability... capabilities
         ) {
-            this(null, in, out, err, Set.of(capabilities), Set.of());
+            this("IO @ " + caller(3), null, in, out, err, Set.of(capabilities), Set.of());
         }
 
         @lombok.Builder(builderClassName = "Builder")
         private IO(
+                @NotNull String name,
                 @Nullable IO parent,
                 @Nullable InputStream in,
                 @Nullable OutputStream out,
@@ -389,18 +408,18 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                 @Singular Set<Capability> initialCapabilities,
                 @Singular Set<IO> redirects
         ) { // builder constructor
+            this.name = name;
             this.parent = parent;
             this.initialCapabilities = Bitmask.combine(initialCapabilities.toArray(Capability[]::new));
             this.redirects = new ArrayDeque<>(redirects);
-            this.in = obtainStream(in,Capability.Input,()->new RedirectInput(),DelegateStream::wrap);
-            this.out = obtainStream(out,Capability.Output,()->new RedirectOutput(Capability.Output),DelegateStream::wrap);
-            this.err = obtainStream(err,Capability.Error,()->new RedirectOutput(Capability.Error),DelegateStream::wrap);
+            this.in = obtainStream(in,Capability.Input,()->new RedirectInput());
+            this.out = obtainStream(out,Capability.Output,()->new RedirectOutput(Capability.Output));
+            this.err = obtainStream(err,Capability.Error,()->new RedirectOutput(Capability.Error));
             this.delegate = ()->{
                 if (this.in!=null)this.in.close();
                 if (this.out!=null)this.out.close();
                 if (this.err!=null)this.err.close();
             };
-            this.desc = "IO @ " + caller(2);
         }
 
         @Override
@@ -416,10 +435,6 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
         @Override public Rewrapper<OutputStream> output() {return Rewrapper.ofSupplier(()->out);}
         @Override public Rewrapper<OutputStream> error() {return Rewrapper.ofSupplier(()->err);}
 
-        @Override
-        public String toString() {
-            return desc;
-        }
         public String getAlternateName() {return toInfoString(1);}
 
         private String toInfoString(int indent) {
@@ -435,43 +450,38 @@ public interface DelegateStream extends Specifiable<Closeable>, Closeable, Named
                     sb.append(tabs);
                     if (redirect != null)
                         sb.append(redirect.toInfoString(indent+1));
-                    else {
-                        sb.append(redirect);
-                    }
                 }
             }
 
-            if (this.desc.startsWith("IO"))
-                for (var capability : Capability.values()) {
-                    var list = stream(capability).collect(Collectors.toList());
-                    if (list.isEmpty()) {
-                        continue;
-                    }
-                    sb.append(here).append(capability.getName()).append(":");
-                    stream(capability).forEach(tgt -> {
-                        sb.append(tabs).append(tgt);
-                        Optional.of(tgt)
-                                .filter(DelegateStream.class::isInstance)
-                                .map(DelegateStream.class::cast)
-                                .map(Objects::toString)
-                                .ifPresent(delegate -> sb.append(desc).append(delegate));
-                    });
+            for (var capability : Capability.values()) {
+                var list = stream(capability).collect(Collectors.toList());
+                if (list.isEmpty()) {
+                    continue;
                 }
+                sb.append(here).append(capability.getName()).append(":");
+                stream(capability).forEach(tgt -> {
+                    sb.append(tabs).append(tgt);
+                    Optional.of(tgt)
+                            .filter(DelegateStream.class::isInstance)
+                            .map(DelegateStream.class::cast)
+                            .map(Objects::toString)
+                            .ifPresent(delegate -> sb.append(desc).append(delegate));
+                });
+            }
 
             return sb.toString();
         }
-        private <R> @Nullable R obtainStream(R basis, final Capability capability, final Supplier<R> fallback, final Function<R,R> wrapper) {
+        private <R> @Nullable R obtainStream(R basis, final Capability capability, final Supplier<R> fallback) {
             return Optional.ofNullable(basis)
                     .or(() -> Bitmask.isFlagSet(this.initialCapabilities, capability)
                             ? Optional.ofNullable(fallback.get())
                             : Optional.empty())
-                    .map(wrapper)
                     .orElse(null);
         }
 
         @Override
         @SneakyThrows
-        public void close() {
+        public void closeSelf() {
             detach();
             for (var redirect : redirects)
                 redirect.close();

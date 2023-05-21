@@ -40,9 +40,7 @@ public interface Named extends WrappedFormattable {
     }
 
     @Experimental
-    default boolean setName(@Nullable String name) {
-        return false;
-    }
+    default void setName(@Nullable String name){}
 
     /**
      * A base class for a Named object using a final name field.
