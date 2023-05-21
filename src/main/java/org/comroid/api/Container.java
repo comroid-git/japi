@@ -1,9 +1,6 @@
 package org.comroid.api;
 
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
 
@@ -20,7 +17,7 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
     }
 
     static Container of(Object... children) {
-        return new Impl<>(children);
+        return new Base(children);
     }
 
     private static Exception makeException(List<Throwable> errors) {
@@ -33,21 +30,16 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
 
     @Getter
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    class Impl<S> implements Container {
+    class Base implements Container {
         private final Set<Object> children;
 
-        public Impl(Object... children) {
+        public Base(Object... children) {
             this.children = new HashSet<>(Set.of(children));
         }
 
-        @OverrideOnly
-        @SuppressWarnings("RedundantThrows")
-        public void closeSelf() throws Exception {
-        }
-
-        public final S addChildren(Object... children) {
+        public Object addChildren(Object... children) {
             this.children.addAll(List.of(children));
-            return Polyfill.uncheckedCast(this);
+            return this;
         }
 
         @Override
@@ -73,6 +65,34 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
                     ()->Container.makeException(errors),
                     Throwable::addSuppressed,
                     (l, r) -> Arrays.stream(r.getSuppressed()).forEachOrdered(l::addSuppressed));
+        }
+
+        @Override
+        public void closeSelf() throws Exception {
+        }
+    }
+
+    @Getter
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    class Delegate<S extends SelfCloseable> extends Base implements Owned {
+        private final @NonNull S owner;
+
+        @Override
+        public S addChildren(Object... children) {
+            super.addChildren(children);
+            return owner;
+        }
+
+        public Delegate(@NonNull S owner, Object... children) {
+            super(children);
+            this.owner = owner;
+        }
+
+        @Override
+        @OverrideOnly
+        @SuppressWarnings("RedundantThrows")
+        public void closeSelf() throws Exception {
+            owner.closeSelf();
         }
     }
 }

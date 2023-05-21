@@ -7,15 +7,21 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public final class StackTraceUtils {
-    public static StackTraceElement caller(Class<?>... skip) {
-        var trace = new Throwable().getStackTrace();
-        return Arrays.stream(trace)
-                .filter(element-> Stream.of(element)
-                        .map(StackTraceElement::getClassName)
-                        .map(ThrowingFunction.sneaky(cls->Class.forName(cls,true,ClassLoader.getSystemClassLoader())))
-                        .anyMatch(cls-> Arrays.stream(skip).anyMatch(kls->kls.isAssignableFrom(cls))))
-                .findFirst()
-                .orElseGet(()-> trace[0]);
+    public static StackTraceElement caller(int skip) {
+        try {
+            var trace = new Throwable().getStackTrace();
+            var basis = trace[skip];
+            var filter = basis.getClassName();
+            filter = filter.substring(filter.lastIndexOf('.') + 1);// + '.' + basis.getMethodName();
+            if (filter.contains("$")) filter = filter.substring(filter.lastIndexOf('$'));
+            for (int i = skip; i < trace.length; i++) {
+                if (!trace[i].toString().contains(filter))
+                    return trace[i];
+            }
+            return trace[0];
+        } catch (ArrayIndexOutOfBoundsException e) {
+            throw new IllegalArgumentException(String.format("Cannot skip %d classes", skip), e);
+        }
     }
 
     public static Class<?> callerClass(int skip) {

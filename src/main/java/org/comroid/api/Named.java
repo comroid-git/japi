@@ -6,7 +6,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * An attribute interface in order to obtain common Names from an object using {@link #getName()} and {@link #getAlternateName()}.
  * <p>
- * If used within an enum class, the returned Name will correspond to the {@linkplain Enum#name() enum constant's name}, otherwise {@link #toString()}.
+ * If used within an enum class, the returned Name will correspond to the {@linkplain Enum#name() enum constant's name}, otherwise {@link Object#toString()}.
  *
  * @see WrappedFormattable as this class extends {@link java.util.Formattable}
  */
@@ -40,7 +40,7 @@ public interface Named extends WrappedFormattable {
     }
 
     @Experimental
-    default void setName(@Nullable String name){}
+    default Object setName(@Nullable String name){return this;}
 
     /**
      * A base class for a Named object using a final name field.

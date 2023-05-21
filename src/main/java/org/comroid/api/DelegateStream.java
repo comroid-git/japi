@@ -1,7 +1,6 @@
 package org.comroid.api;
 
 import lombok.*;
-import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
@@ -21,13 +20,12 @@ import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.comroid.util.StackTraceUtils.caller;
-
-public interface DelegateStream extends Container, Specifiable<Closeable>, Closeable, Named {
+public interface DelegateStream extends Container, Closeable, Named {
     AutoCloseable getDelegate();
 
     @MagicConstant(flagsFromClass = Capability.class)
@@ -117,16 +115,17 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
         return new UnsupportedOperationException(String.format("%s has no support for %s", stream, capability));
     }
 
-    private static StackTraceElement caller() {return StackTraceUtils.caller(DelegateStream.class);}
+    private static StackTraceElement caller() {return StackTraceUtils.caller(1);}
 
     enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
+    enum EofMode implements IntegerAttribute {Manual, OnNewLine, OnDelegate}
 
     @Slf4j
     @Value
     @EqualsAndHashCode(callSuper = true)
     class Input extends InputStream implements DelegateStream {
-        @Delegate(excludes = SelfCloseable.class)
-        Container.Impl<Input> container = new Container.Impl<>();
+        @lombok.experimental.Delegate(excludes = SelfCloseable.class)
+        Container.Delegate<Input> container = new Delegate<>(this);
         @NonFinal @NonNull @Setter String name;
         ThrowingIntSupplier<IOException> read;
         @Nullable AutoCloseable delegate;
@@ -145,19 +144,28 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
 
         @ApiStatus.Experimental
         public Input(final Event.Bus<String> source) {
-            final var queue = new LinkedBlockingQueue<String>();
-            var listener = source.listen(e -> {
-                synchronized (queue) {
-                    if (e.test(queue::add))
-                        queue.notify();
-                    else log.error("Failed to queue new input " + e);
-                }
-            });
-            this.read = new ThrowingIntSupplier<>() {
+            this(source, EofMode.OnDelegate);
+        }
+
+        @ApiStatus.Experimental
+        public Input(final Event.Bus<String> source, final EofMode eofMode) {
+            class EventBusHandler
+                    extends Container.Base
+                    implements Consumer<Event<String>>, ThrowingIntSupplier<IOException> {
+                private final LinkedBlockingQueue<String> queue = new LinkedBlockingQueue<>();
                 @Nullable
-                private String buf = null;
+                private String buf = null, prev = null;
                 private int i = -1;
                 private boolean eof = false;
+
+                @Override
+                public void accept(Event<String> event) {
+                    synchronized (queue) {
+                        if (event.test(queue::add))
+                            queue.notify();
+                        else log.error("Failed to queue new input " + event);
+                    }
+                }
 
                 @Override
                 @SneakyThrows
@@ -171,18 +179,56 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
                             while (queue.isEmpty())
                                 queue.wait();
                         }
-                        buf = queue.poll();
-                        i = 0;
+                        $buf(queue.poll());
                     } else if (++i == buf.length()) {
-                        buf = null;
-                        eof = true;
-                        return '\n';
+                        $buf(null);
+                        if (eofMode == EofMode.OnDelegate)
+                            return $eof();
                     }
-                    return buf.charAt(i);
+                    if (buf == null) {
+                        log.error("buf was unexpectedly null");
+                        return -1;
+                    }
+                    var c = buf.charAt(i);
+                    switch(c){
+                        case '\r':
+                            // ignore CR
+                            return getAsInt();
+                        case '\n':
+                            if (eofMode == EofMode.OnNewLine)
+                                return $eof();
+                    }
+                    return c;
                 }
-            };
-            this.delegate = source;
+
+                private void $buf(String txt) {
+                    //noinspection StringEquality
+                    if(buf==txt)
+                        return;
+                    prev = buf;
+                    buf = txt;
+                    i = 0;
+                }
+
+                private int $eof() {
+                    $buf(null);
+                    eof = true;
+                    return '\n';
+                }
+
+                @Override
+                public void closeSelf() {
+                    queue.clear();
+                }
+            }
             this.name = "Adapter InputStream @ " + caller();
+            var handler = new EventBusHandler();
+
+            handler.addChildren(source);
+            this.delegate = handler;
+
+            source.listen(handler);
+            this.read = handler;
         }
 
         @Override
@@ -222,8 +268,8 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
     @Value
     @EqualsAndHashCode(callSuper = true)
     class Output extends OutputStream implements DelegateStream {
-        @Delegate(excludes = SelfCloseable.class)
-        Container.Impl<Input> container = new Container.Impl<>();
+        @lombok.experimental.Delegate(excludes = SelfCloseable.class)
+        Container.Delegate<Output> container = new Delegate<>(this);
         @NonFinal @NonNull @Setter String name;
         ThrowingIntConsumer<IOException> write;
         ThrowingRunnable<IOException> flush;
@@ -314,8 +360,8 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
         public static final IO SYSTEM = new IO(System.in, System.out, System.err);
         public static IO slf4j(Logger log) {return new IO(null,new Output(log::info), new Output(log::error));}
 
-        @Delegate(excludes = SelfCloseable.class)
-        Container.Impl<Input> container = new Container.Impl<>();
+        @lombok.experimental.Delegate(excludes = SelfCloseable.class)
+        Container.Delegate<IO> container = new Delegate<>(this);
         int initialCapabilities;
         Deque<IO> redirects;
         @NonFinal @NonNull @Setter String name;
@@ -356,8 +402,7 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
             }
             if (redirect.parent != null && !redirect.isSystem())
                 redirect.detach();
-            if (!redirects.add(redirect))
-                log.warn("Could not attach redirect to " + this);
+            redirects.push(redirect);
             redirect.parent = this;
             return redirect;
         }
@@ -431,12 +476,16 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
             final String tabs = '\n'+"|\t".repeat(indent-1)+" -> ";
             final String desc = '\n'+"|\t".repeat(indent-1)+"  - ";
 
+            if (parent != null)
+                sb.append(here).append("Parent:").append(tabs).append(parent);
+
             if (redirects.size() != 0) {
                 sb.append(here).append("Redirects:");
                 for (var redirect : redirects) {
                     sb.append(tabs);
                     if (redirect != null)
                         sb.append(redirect.toInfoString(indent+1));
+                    else sb.append("null");
                 }
             }
 
@@ -451,8 +500,9 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
                     Optional.of(tgt)
                             .filter(DelegateStream.class::isInstance)
                             .map(DelegateStream.class::cast)
-                            .map(Objects::toString)
-                            .ifPresent(delegate -> sb.append(desc).append(delegate));
+                            .map(DelegateStream::getDelegate)
+                            .filter(Predicate.not(tgt::equals))
+                            .ifPresent(delegate -> sb.append(desc).append("Delegate: ").append(delegate));
                 });
             }
 
@@ -497,6 +547,8 @@ public interface DelegateStream extends Container, Specifiable<Closeable>, Close
                     .distinct()
                     .map(Polyfill::uncheckedCast);
         }
+
+        // todo: accept(Object) with autoconfiguration for any object
 
         public void accept(
                 @Nullable Consumer<OutputStream> out,

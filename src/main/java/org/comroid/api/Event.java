@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
+import lombok.experimental.WithBy;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -90,7 +91,7 @@ public class Event<T> implements Rewrapper<T> {
             this.bus = bus;
             this.requirement = requirement;
             this.action = action;
-            this.location = caller(Event.Bus.class, Event.Listener.class);
+            this.location = caller(2);
         }
 
         @Override
@@ -267,7 +268,7 @@ public class Event<T> implements Rewrapper<T> {
                     publish(factory.apply(data, key));
                     synchronized (children) {
                         for (var child : children)
-                            child.$publish(data, key);
+                            child.$publishDownstream(data, key);
                     }
                 } catch (Throwable t) {
                     log.error("Unable to publish event to " + this, t);
@@ -285,7 +286,7 @@ public class Event<T> implements Rewrapper<T> {
             }
         }
 
-        private <P> void $publish(final P data, @Nullable final String key) {
+        private <P> void $publishDownstream(final P data, @Nullable final String key) {
             if (function == null)
                 return;
             Function<@NotNull P, @Nullable T> func = uncheckedCast(function);
