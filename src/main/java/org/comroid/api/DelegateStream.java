@@ -393,19 +393,19 @@ public interface DelegateStream extends Container, Closeable, Named {
             if (it.isRedirect())
                 return it;
             var io = new IO();
-            io.attach(this);
+            io.redirect(this);
             return io;
         }
-        public IO dev_null() {return attach(NULL);}
-        public IO system() {return attach(SYSTEM);}
-        public IO log(Logger log) {return attach(slf4j(log));}
-        public IO attachErr(@Nullable OutputStream err) { return attach(new IO(null,null,err));}
-        public IO attach(@Nullable InputStream in) { return attach(new IO(in,null,null));}
-        public IO attach(@Nullable OutputStream out) { return attach(new IO(null,out,null));}
-        public IO attach(@Nullable InputStream in, @Nullable OutputStream out) { return attach(new IO(in, out, null));}
-        public IO attach(@Nullable OutputStream out, @Nullable OutputStream err) { return attach(new IO(null,out,err));}
-        public IO attach(@Nullable InputStream in, @Nullable OutputStream out, @Nullable OutputStream err) { return attach(new IO(in,out,err));}
-        public IO attach(@NotNull IO redirect) {
+        public IO dev_null() {return redirect(NULL);}
+        public IO system() {return redirect(SYSTEM);}
+        public IO log(Logger log) {return redirect(slf4j(log));}
+        public IO redirectErr(@Nullable OutputStream err) { return redirect(new IO(null,null,err));}
+        public IO redirect(@Nullable InputStream in) { return redirect(new IO(in,null,null));}
+        public IO redirect(@Nullable OutputStream out) { return redirect(new IO(null,out,null));}
+        public IO redirect(@Nullable InputStream in, @Nullable OutputStream out) { return redirect(new IO(in, out, null));}
+        public IO redirect(@Nullable OutputStream out, @Nullable OutputStream err) { return redirect(new IO(null,out,err));}
+        public IO redirect(@Nullable InputStream in, @Nullable OutputStream out, @Nullable OutputStream err) { return redirect(new IO(in,out,err));}
+        public IO redirect(@NotNull IO redirect) {
             if (!isRedirect()) {
                 log.warn(String.format("Cannot attach redirect to IO container %s; returning IO.NULL", this));
                 return NULL;
