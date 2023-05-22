@@ -3,6 +3,7 @@ package org.comroid.util;
 import org.comroid.api.DelegateStream;
 
 import java.util.List;
+import java.util.Optional;
 
 public final class StackTraceUtils {
     public static String callerString(StackTraceElement[] trace, int index) {
@@ -72,6 +73,8 @@ public final class StackTraceUtils {
     }
 
     public static String lessSimpleName(Class<?> type) {
-        return type.getCanonicalName().substring(type.getPackageName().length() + 1);
+        return Optional.ofNullable(type.getCanonicalName())
+                .map(name->name.substring(type.getPackageName().length() + 1))
+                .orElseGet(type::getSimpleName);
     }
 }

@@ -244,12 +244,21 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         throw exceptionSupplier.get();
     }
 
-    default <O> void ifBothPresent(@Nullable Supplier<@Nullable O> other, BiConsumer<T, @Nullable O> accumulator) {
+    default <O> void ifBothPresent(@Nullable Supplier<O> other, BiConsumer<@NotNull T, @NotNull O> accumulator) {
         if (other != null) {
             O o = other.get();
-            if (o != null)
-                accumulator.accept(get(), o);
+            if (isNonNull() && o != null)
+                accumulator.accept(assertion(), o);
         }
+    }
+
+    default <O, R> @Nullable R ifBothPresentMap(@Nullable Supplier<O> other, BiFunction<@NotNull T, @NotNull O, R> accumulator) {
+        if (other != null) {
+            O o = other.get();
+            if (isNonNull() && o != null)
+                return accumulator.apply(assertion(), o);
+        }
+        return null;
     }
 
     default Rewrapper<T> or(final Supplier<? extends T> orElse) {

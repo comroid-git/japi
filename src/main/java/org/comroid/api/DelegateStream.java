@@ -17,16 +17,15 @@ import org.slf4j.event.Level;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
+import java.util.function.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.comroid.api.Rewrapper.*;
 import static org.comroid.util.StackTraceUtils.lessSimpleName;
 
 public interface DelegateStream extends Container, Closeable, Named {
@@ -37,9 +36,9 @@ public interface DelegateStream extends Container, Closeable, Named {
         return 0;
     }
 
-    default Rewrapper<InputStream> input() {return Rewrapper.empty();}
-    default Rewrapper<OutputStream> output() {return Rewrapper.empty();}
-    default Rewrapper<OutputStream> error() {return Rewrapper.empty();}
+    default Rewrapper<InputStream> input() {return empty();}
+    default Rewrapper<OutputStream> output() {return empty();}
+    default Rewrapper<OutputStream> error() {return empty();}
 
     static Input wrap(final InputStream stream) {
         return wrap(stream, Log.get());
@@ -125,9 +124,10 @@ public interface DelegateStream extends Container, Closeable, Named {
     enum EndlMode implements IntegerAttribute {Manual, OnNewLine, OnDelegate}
 
     @Slf4j
-    @Value
+    @Getter
     @EqualsAndHashCode(callSuper = true)
-    class Input extends InputStream implements DelegateStream {
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    class Input extends InputStream implements DelegateStream, Provider<String> {
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<Input> container = new Delegate<>(this);
         @NonFinal @NonNull @Setter String name;
@@ -275,6 +275,17 @@ public interface DelegateStream extends Container, Closeable, Named {
         }
 
         @Override
+        public CompletableFuture<String> get() {
+            return CompletableFuture.supplyAsync(()->{
+                var buf = new StringWriter();
+                int i;
+                while ((i = read())!=-1)
+                    buf.write(i);
+                return buf.toString();
+            });
+        }
+
+        @Override
         @SneakyThrows
         public void closeSelf() {
             if (delegate != null)
@@ -288,9 +299,10 @@ public interface DelegateStream extends Container, Closeable, Named {
     }
 
     @Slf4j
-    @Value
+    @Getter
     @EqualsAndHashCode(callSuper = true)
-    class Output extends OutputStream implements DelegateStream {
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    class Output extends OutputStream implements DelegateStream, Consumer<String> {
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<Output> container = new Delegate<>(this);
         @NonFinal @NonNull @Setter String name;
@@ -334,6 +346,17 @@ public interface DelegateStream extends Container, Closeable, Named {
             this.name = lessSimpleName(handler.getClass()) + " OutputStream @ " + caller();
         }
 
+        public Output(@NotNull final PipelineAdapter adapter) {
+            final var writer = new AtomicReference<>(new StringWriter());
+            this.write = c -> writer.get().write(c);
+            this.flush = () -> writer.getAndUpdate(buf -> {
+                adapter.apply(buf.toString()).forEachOrdered(adapter);
+                return new StringWriter();
+            });
+            this.delegate = adapter;
+            this.name = "Pipeline OutputStream @ " + caller();
+        }
+
         @ApiStatus.Experimental
         public Output peek(final Consumer<@NotNull String> action) {
             return filter(txt -> {
@@ -347,17 +370,17 @@ public interface DelegateStream extends Container, Closeable, Named {
         }
         @ApiStatus.Experimental
         public Output map(final Function<@NotNull String, @Nullable String> action) {
-            //if (!(delegate instanceof PipelineAdapter))
-                return new Output((Consumer<String>) new PipelineAdapter(this, action));
-            //((PipelineAdapter) delegate).actions.add(action);
-            //return this;
+            return flatMap(str -> Stream.of(action.apply(str)));
         }
         @ApiStatus.Experimental
         public Output flatMap(final Function<@NotNull String, Stream<@Nullable String>> action) {
-            //if (!(delegate instanceof PipelineAdapter$flatMap))
-                return new Output((Consumer<String>) new PipelineAdapter$flatMap(this, action));
-            //((PipelineAdapter$flatMap) delegate).actions.add(action);
-            //return this;
+            Output out = this;
+            if (!(out.delegate instanceof PipelineAdapter))
+                out = new Output(new PipelineAdapter(this, action.andThen(x->x
+                        .filter(Objects::nonNull)
+                        .map(y->y+'\n'))));
+            else ((PipelineAdapter) out.delegate).actions.add(action);
+            return out;
         }
 
         @Override
@@ -400,49 +423,37 @@ public interface DelegateStream extends Container, Closeable, Named {
             return getName();
         }
 
-        @Value
-        @EqualsAndHashCode(callSuper = true)
-        private static class PipelineAdapter extends PrintStream implements Consumer<String> {
-            List<Function<String, String>> actions;
-
-            private PipelineAdapter(OutputStream output, Function<String, String> action) {
-                super(output);
-                this.actions = new ArrayList<>(Collections.singletonList(action));
-            }
-
-            @Override
-            @SneakyThrows
-            public void accept(String txt) {
-                for (var action : actions) {
-                    txt = action.apply(txt);
-                    if (txt == null)
-                        return;
-                }
-                print(txt);
-                flush();
-            }
+        @Override
+        @SneakyThrows
+        public void accept(String s) {
+            write(s.getBytes());
+            flush();
         }
 
         @Value
         @EqualsAndHashCode(callSuper = true)
-        private static class PipelineAdapter$flatMap extends PrintStream implements Consumer<String> {
+        private static class PipelineAdapter extends PrintStream
+                implements Consumer<@Nullable String>, Function<@NotNull String, Stream<@Nullable String>> {
             List<Function<String, Stream<String>>> actions;
 
-            private PipelineAdapter$flatMap(OutputStream output, Function<String, Stream<String>> action) {
+            private PipelineAdapter(OutputStream output, Function<String, Stream<String>> action) {
                 super(output);
                 this.actions = new ArrayList<>(Collections.singletonList(action));
             }
 
             @Override
-            @SneakyThrows
-            public void accept(String txt) {
+            public Stream<@Nullable String> apply(@NotNull String txt) {
                 var stream = Stream.of(txt);
                 for (var action : actions)
                     stream = stream.flatMap(action).filter(Objects::nonNull);
-                stream.forEachOrdered(s -> {
-                    print(s);
-                    flush();
-                });
+                return stream;
+            }
+
+            @Override
+            @SneakyThrows
+            public void accept(String txt) {
+                print(txt);
+                flush();
             }
         }
     }
@@ -461,13 +472,16 @@ public interface DelegateStream extends Container, Closeable, Named {
         Deque<IO> redirects;
         @NonFinal @NonNull @Setter String name;
         @NonFinal @Nullable IO parent;
-        @Nullable InputStream in;
-        @Nullable OutputStream out;
-        @Nullable OutputStream err;
+        @NonFinal @Nullable InputStream input;
+        @NonFinal @Nullable OutputStream output;
+        @NonFinal @Nullable OutputStream error;
+        @NonFinal @Setter OutputMode inputMode = OutputMode.FirstOnly;
+        @NonFinal @Setter OutputMode outputMode = OutputMode.All;
+        @NonFinal @Setter OutputMode errorMode = OutputMode.All;
         @Getter AutoCloseable delegate;
 
         public IO name(String name) {this.name = name;return this;}
-        public boolean isRedirect() {return in instanceof RedirectInput || out instanceof RedirectOutput || err instanceof RedirectOutput;}
+        public boolean isRedirect() {return initialCapabilities != 0;}
         public boolean isNull() {return NULL.equals(this);}
         public boolean isSystem() {return SYSTEM.equals(this);}
 
@@ -477,9 +491,7 @@ public interface DelegateStream extends Container, Closeable, Named {
                 it = it.parent;
             if (it.isRedirect())
                 return it;
-            var io = new IO();
-            io.redirect(this);
-            return io;
+            throw new RuntimeException("Could not find Redirect IO to attach to");
         }
         public IO dev_null() {return redirect(NULL);}
         public IO log(Logger log) {return redirect(slf4j(log));}
@@ -492,14 +504,66 @@ public interface DelegateStream extends Container, Closeable, Named {
         public IO redirect(@Nullable InputStream in, @Nullable OutputStream out, @Nullable OutputStream err) { return redirect(new IO(in,out,err));}
         public IO redirect(@NotNull IO redirect) {
             if (!isRedirect()) {
-                log.warn(String.format("Cannot attach redirect to IO container %s; returning IO.NULL", this));
-                return NULL;
+                log.warn(String.format("Cannot attach redirect to %s", this));
+                return and().redirect(redirect);
             }
             if (redirect.parent != null && !redirect.isSystem())
                 redirect.detach();
             redirects.push(redirect);
             redirect.parent = this;
-            return redirect;
+            return this;
+        }
+        //public IO rewireInput(@Nullable Function<@NotNull Input, ? extends InputStream> in) {}
+        //public IO rewireOutput(@Nullable Function<@NotNull Output, ? extends OutputStream> out) {}
+        //public IO rewireError(@Nullable Function<@NotNull Output, ? extends OutputStream> err) {}
+        public IO rewire(@Nullable Function<@NotNull Input,  ? extends InputStream>   in,
+                         @Nullable Function<@NotNull Output, ? extends OutputStream> out,
+                         @Nullable Function<@NotNull Output, ? extends OutputStream> err) {
+            this.name = "Rewired " + name;
+            this.input = mapStream(Input.class,  RedirectInput.class,  input(),  Input::new,  in,         RedirectInput::new,                          RedirectInput::new);
+            this.output =mapStream(Output.class, RedirectOutput.class, output(), Output::new, out, s->new RedirectOutput(s,Capability.Output), ()->new RedirectOutput(Capability.Output));
+            this.error =mapStream(Output.class, RedirectOutput.class, error(),  Output::new, err, s->new RedirectOutput(s,Capability.Error),  ()->new RedirectOutput(Capability.Error));
+            return this;
+        }
+        private static <Base, Adapter extends DelegateStream, Result extends DelegateStream> @Nullable Result mapStream(
+                final Class<Adapter> typeA,
+                final Class<Result> typeR,
+                final @NotNull Rewrapper<@Nullable Base> supp,
+                final @NotNull Function<@NotNull Base, ? extends Adapter> prep,
+                final @Nullable Function<@NotNull Adapter, ? extends Base> func,
+                final @NotNull Function<@NotNull Base, @NotNull Result> wrap,
+                final @Nullable Rewrapper<Result> def
+        ) {
+            // ((supp -> cast/prep -> func) / supp) -> cast/wrap
+            return Optional.ofNullable(func)
+                    // supp -> cast/prep -> func
+                    .flatMap(fx->supp.wrap()
+                            // cast/prep
+                            .flatMap(x -> Optional.of(x)
+                                    // cast
+                                    .filter(typeA::isInstance)
+                                    .map(typeA::cast)
+                                    // prep
+                                    .or(()->Optional.of(x).map(prep)))
+                            // func
+                            .map(fx))
+                    .map(Polyfill::<Base>uncheckedCast)
+                    // supp
+                    .or(supp::wrap)
+                    // cast/wrap
+                    .flatMap(x->Optional.of(x)
+                            // cast
+                            .filter(typeR::isInstance)
+                            .map(typeR::cast)
+                            // wrap
+                            .or(()->Optional.of(x).map(wrap)))
+                    // default if possible
+                    .or(()->Optional.ofNullable(def)
+                            .flatMap(Rewrapper::wrap))
+                    // adjust name
+                    .map(x->x.setName("Rewired " + x.getName()))
+                    .map(Polyfill::<Result>uncheckedCast)
+                    .orElse(null);
         }
         public void detach() {
             if (parent == null || parent.redirects.remove(this))
@@ -517,21 +581,21 @@ public interface DelegateStream extends Container, Closeable, Named {
         }
 
         public IO(
-                @Nullable InputStream in,
-                @Nullable OutputStream out,
-                @Nullable OutputStream err,
+                @Nullable InputStream input,
+                @Nullable OutputStream output,
+                @Nullable OutputStream error,
                 Capability... capabilities
         ) {
-            this("IO @ " + caller(), null, in, out, err, Set.of(capabilities), Set.of());
+            this((capabilities.length == 0 ? "Container" : "Redirect") + " IO @ " + caller(), null, input, output, error, Set.of(capabilities), Set.of());
         }
 
         @lombok.Builder(builderClassName = "Builder")
         private IO(
                 @NotNull String name,
                 @Nullable IO parent,
-                @Nullable InputStream in,
-                @Nullable OutputStream out,
-                @Nullable OutputStream err,
+                @Nullable InputStream input,
+                @Nullable OutputStream output,
+                @Nullable OutputStream error,
                 @Singular Set<Capability> initialCapabilities,
                 @Singular Set<IO> redirects
         ) { // builder constructor
@@ -539,28 +603,28 @@ public interface DelegateStream extends Container, Closeable, Named {
             this.parent = parent;
             this.initialCapabilities = Bitmask.combine(initialCapabilities.toArray(Capability[]::new));
             this.redirects = new ArrayDeque<>(redirects);
-            this.in = obtainStream(in,Capability.Input, RedirectInput::new);
-            this.out = obtainStream(out,Capability.Output,()->new RedirectOutput(Capability.Output));
-            this.err = obtainStream(err,Capability.Error,()->new RedirectOutput(Capability.Error));
+            this.input = obtainStream(input,Capability.Input, RedirectInput::new);
+            this.output = obtainStream(output,Capability.Output,()->new RedirectOutput(Capability.Output));
+            this.error = obtainStream(error,Capability.Error,()->new RedirectOutput(Capability.Error));
             this.delegate = ()->{
-                if (this.in!=null)this.in.close();
-                if (this.out!=null)this.out.close();
-                if (this.err!=null)this.err.close();
+                if (this.input !=null)this.input.close();
+                if (this.output !=null)this.output.close();
+                if (this.error !=null)this.error.close();
             };
         }
 
         @Override
         public int getCapabilities() {
-            return Bitmask.arrange(in != null, out != null, err != null);
+            return Bitmask.arrange(input != null, output != null, error != null);
         }
 
         public boolean hasCapability(Capability capability) {
             return Bitmask.isFlagSet(getCapabilities(), capability);
         }
 
-        @Override public Rewrapper<InputStream> input() {return Rewrapper.ofSupplier(()->in);}
-        @Override public Rewrapper<OutputStream> output() {return Rewrapper.ofSupplier(()->out);}
-        @Override public Rewrapper<OutputStream> error() {return Rewrapper.ofSupplier(()->err);}
+        @Override public Rewrapper<InputStream> input() {return ofSupplier(()-> input);}
+        @Override public Rewrapper<OutputStream> output() {return ofSupplier(()-> output);}
+        @Override public Rewrapper<OutputStream> error() {return ofSupplier(()-> error);}
 
         public String getAlternateName() {return toInfoString(1, false);}
 
@@ -589,7 +653,7 @@ public interface DelegateStream extends Container, Closeable, Named {
                 if (list.isEmpty()) {
                     continue;
                 }
-                sb.append(here).append(capability.getName()).append(":");
+                sb.append(here).append(capability.getName()).append(" (").append(mode(capability).getName()).append("):");
                 stream(capability).forEach(tgt -> {
                     sb.append(tabs).append(tgt);
                     Optional.of(tgt)
@@ -612,38 +676,6 @@ public interface DelegateStream extends Container, Closeable, Named {
                     .orElse(null);
         }
 
-        @Override
-        @SneakyThrows
-        public void closeSelf() {
-            detach();
-            for (var redirect : redirects)
-                redirect.close();
-            delegate.close();
-        }
-
-        private int runOnInput(ThrowingToIntFunction<InputStream, ? extends Throwable> action) {
-            return this.<InputStream>stream(Capability.Input)
-                    .mapToInt(action.wrap())
-                    .findFirst()
-                    .orElseThrow(() -> unsupported(this, Capability.Input));
-        }
-        private void runOnOutput(Capability capability, ThrowingConsumer<OutputStream, ? extends Throwable> action) {
-            this.<OutputStream>stream(capability).forEachOrdered(action.wrap(null));
-        }
-        private <T extends Closeable> Stream<T> stream(final Capability capability) {
-            return redirects.stream() // Stream.concat(redirect.stream(), Stream.of(SYSTEM))
-                    .filter(it->Bitmask.isFlagSet(it.getCapabilities(), capability))
-                    .map(it->{switch(capability){
-                        case Input: return it.input();
-                        case Output: return it.output();
-                        case Error: return it.error();}
-                        return null;})
-                    .flatMap(Rewrapper::stream)
-                    .filter(Objects::nonNull)
-                    .distinct()
-                    .map(Polyfill::uncheckedCast);
-        }
-
         // todo: accept(Object) with autoconfiguration for any object
 
         public void accept(
@@ -664,57 +696,144 @@ public interface DelegateStream extends Container, Closeable, Named {
             Rewrapper.of(err).ifBothPresent(error(), java.util.function.Consumer::accept);
         }
 
+        @Override
+        @SneakyThrows
+        public void closeSelf() {
+            detach();
+            for (var redirect : redirects)
+                redirect.close();
+            delegate.close();
+        }
+
+        private int runOnInput(ThrowingToIntFunction<InputStream, ? extends Throwable> action) throws Throwable {
+            if (inputMode == OutputMode.All)
+                throw new UnsupportedOperationException("Input mode "+inputMode.name()+" is not supported");
+            var array = this.<InputStream>stream(Capability.Input).toArray(InputStream[]::new);
+            if (array.length == 0)
+                throw unsupported(this, Capability.Input);
+            InputStream use;
+            switch (inputMode) {
+                case FirstOnly:
+                    use = array[0];
+                    break;
+                case LastOnly:
+                    use = array[array.length - 1];
+                    break;
+                default:
+                    throw new RuntimeException("invalid input mode " + inputMode);
+            }
+            return action.applyAsInt(use);
+        }
+        private void runOnOutput(Capability capability, ThrowingConsumer<OutputStream, ? extends Throwable> action) throws Throwable {
+            var array = this.<OutputStream>stream(capability).toArray(OutputStream[]::new);
+            switch (outputMode) {
+                case FirstOnly:
+                    action.accept(array[0]);
+                    break;
+                case LastOnly:
+                    action.accept(array[array.length - 1]);
+                    break;
+                case All:
+                    for (var use : array)
+                        action.accept(use);
+                    break;
+            }
+        }
+        private <T extends Closeable> Stream<T> stream(final Capability capability) {
+            return redirects.stream() // Stream.concat(redirect.stream(), Stream.of(SYSTEM))
+                    .filter(it->Bitmask.isFlagSet(it.getCapabilities(), capability))
+                    .map(it->{switch(capability){
+                        case Input: return it.input();
+                        case Output: return it.output();
+                        case Error: return it.error();}
+                        return null;})
+                    .flatMap(Rewrapper::stream)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .map(Polyfill::uncheckedCast);
+        }
+        private OutputMode mode(Capability capability) {
+            switch (capability) {
+                case Input: return inputMode;
+                case Output: return outputMode;
+                case Error: return errorMode;
+            }
+            throw new RuntimeException("unreachable");
+        }
+
+        public enum OutputMode implements IntegerAttribute { FirstOnly, LastOnly, All }
+
         @Value
         @EqualsAndHashCode(callSuper = true)
-        private class RedirectInput extends InputStream {
-            Object monitor = new Object();
+        private class RedirectInput extends Input {
 
-            @Override
-            @Synchronized("monitor")
-            public int read() {
-                try {
-                    return runOnInput(InputStream::read);
-                } catch (Throwable t) {
-                    log.error("Error reading from InputStream", t);
-                    return -1;
-                }
+            private RedirectInput() {
+                this(new InputStream() {
+                    private final Object monitor = new Object();
+                    @Override
+                    @Synchronized("monitor")
+                    public int read() {
+                        try {
+                            return runOnInput(InputStream::read);
+                        } catch (Throwable t) {
+                            log.error("Error reading from InputStream", t);
+                            return -1;
+                        }
+                    }
+                });
             }
 
+            private RedirectInput(InputStream delegate) {
+                super(delegate);
+            }
+
+            @NotNull
             @Override
-            public String toString() {
-                return "RedirectInput of " + getName();
+            public String getName() {
+                return "RedirectInput of " + super.getName();
             }
         }
 
         @Value
         @EqualsAndHashCode(callSuper = true)
-        private class RedirectOutput extends OutputStream {
-            Object monitor = new Object();
+        private class RedirectOutput extends Output {
             Capability capability;
 
-            @Override
-            @Synchronized("monitor")
-            public void write(final int b) {
-                try {
-                    runOnOutput(capability, s->s.write(b));
-                } catch (Throwable t) {
-                    log.error("Error writing to Output", t);
-                }
+            private RedirectOutput(Capability capability) {
+                this(new OutputStream() {
+                    private final Object monitor = new Object();
+
+                    @Override
+                    @Synchronized("monitor")
+                    public void write(final int b) {
+                        try {
+                            runOnOutput(capability, s->s.write(b));
+                        } catch (Throwable t) {
+                            log.error("Error writing to Output", t);
+                        }
+                    }
+
+                    @Override
+                    @Synchronized("monitor")
+                    public void flush() {
+                        try {
+                            runOnOutput(capability, OutputStream::flush);
+                        } catch (Throwable t) {
+                            log.error("Error flushing Output", t);
+                        }
+                    }
+                }, capability);
             }
 
-            @Override
-            @Synchronized("monitor")
-            public void flush() {
-                try {
-                    runOnOutput(capability, OutputStream::flush);
-                } catch (Throwable t) {
-                    log.error("Error flushing Output", t);
-                }
+            private RedirectOutput(OutputStream delegate, Capability capability) {
+                super(delegate);
+                this.capability = capability;
             }
 
+            @NotNull
             @Override
-            public String toString() {
-                return "RedirectOutput of " + getName();
+            public String getName() {
+                return "RedirectOutput of " + super.getName();
             }
         }
     }
