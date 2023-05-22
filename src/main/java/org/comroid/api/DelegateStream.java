@@ -485,14 +485,6 @@ public interface DelegateStream extends Container, Closeable, Named {
         public boolean isNull() {return NULL.equals(this);}
         public boolean isSystem() {return SYSTEM.equals(this);}
 
-        public IO and() {
-            var it = this;
-            while (!it.isRedirect() && it.parent != null)
-                it = it.parent;
-            if (it.isRedirect())
-                return it;
-            throw new RuntimeException("Could not find Redirect IO to attach to");
-        }
         public IO dev_null() {return redirect(NULL);}
         public IO log(Logger log) {return redirect(slf4j(log));}
         public IO redirectToSystem() {return redirect(SYSTEM);}
@@ -504,8 +496,8 @@ public interface DelegateStream extends Container, Closeable, Named {
         public IO redirect(@Nullable InputStream in, @Nullable OutputStream out, @Nullable OutputStream err) { return redirect(new IO(in,out,err));}
         public IO redirect(@NotNull IO redirect) {
             if (!isRedirect()) {
-                log.warn(String.format("Cannot attach redirect to %s", this));
-                return and().redirect(redirect);
+                log.warn(String.format("Cannot attach redirect to %s; returning /dev/null", this));
+                return NULL;
             }
             if (redirect.parent != null && !redirect.isSystem())
                 redirect.detach();
@@ -513,9 +505,19 @@ public interface DelegateStream extends Container, Closeable, Named {
             redirect.parent = this;
             return this;
         }
-        //public IO rewireInput(@Nullable Function<@NotNull Input, ? extends InputStream> in) {}
-        //public IO rewireOutput(@Nullable Function<@NotNull Output, ? extends OutputStream> out) {}
-        //public IO rewireError(@Nullable Function<@NotNull Output, ? extends OutputStream> err) {}
+        public IO rewireInput(@Nullable Function<@NotNull Input, ? extends InputStream> in) {
+            return rewire(in,null);
+        }
+        public IO rewireOutput(@Nullable Function<@NotNull Output, ? extends OutputStream> out) {
+            return rewire(null,out);
+        }
+        public IO rewireError(@Nullable Function<@NotNull Output, ? extends OutputStream> err) {
+            return rewire(null,null,err);
+        }
+        public IO rewire(@Nullable Function<@NotNull Input,  ? extends InputStream>   in,
+                         @Nullable Function<@NotNull Output, ? extends OutputStream> out) {
+            return rewire(in,out,null);
+        }
         public IO rewire(@Nullable Function<@NotNull Input,  ? extends InputStream>   in,
                          @Nullable Function<@NotNull Output, ? extends OutputStream> out,
                          @Nullable Function<@NotNull Output, ? extends OutputStream> err) {
@@ -532,9 +534,9 @@ public interface DelegateStream extends Container, Closeable, Named {
                 final @NotNull Function<@NotNull Base, ? extends Adapter> prep,
                 final @Nullable Function<@NotNull Adapter, ? extends Base> func,
                 final @NotNull Function<@NotNull Base, @NotNull Result> wrap,
-                final @Nullable Rewrapper<Result> def
+                final @NotNull Rewrapper<Result> def
         ) {
-            // ((supp -> cast/prep -> func) / supp) -> cast/wrap
+            // ((supp -> cast/prep -> func) / supp) -> cast/wrap/def
             return Optional.ofNullable(func)
                     // supp -> cast/prep -> func
                     .flatMap(fx->supp.wrap()
@@ -557,9 +559,8 @@ public interface DelegateStream extends Container, Closeable, Named {
                             .map(typeR::cast)
                             // wrap
                             .or(()->Optional.of(x).map(wrap)))
-                    // default if possible
-                    .or(()->Optional.ofNullable(def)
-                            .flatMap(Rewrapper::wrap))
+                    // default if necessary
+                    .or(()->def.wrap().filter($->func!=null))
                     // adjust name
                     .map(x->x.setName("Rewired " + x.getName()))
                     .map(Polyfill::<Result>uncheckedCast)
@@ -626,9 +627,9 @@ public interface DelegateStream extends Container, Closeable, Named {
         @Override public Rewrapper<OutputStream> output() {return ofSupplier(()-> output);}
         @Override public Rewrapper<OutputStream> error() {return ofSupplier(()-> error);}
 
-        public String getAlternateName() {return toInfoString(1, false);}
+        public String getAlternateName() {return toInfoString(1);}
 
-        private String toInfoString(int indent, boolean slim) {
+        private String toInfoString(int indent) {
             var sb = new StringBuilder(getName());
 
             final String here = '\n'+"|\t".repeat(indent-1)+"==> ";
@@ -636,14 +637,14 @@ public interface DelegateStream extends Container, Closeable, Named {
             final String desc = '\n'+"|\t".repeat(indent-1)+"  - ";
 
             if (parent != null)
-                sb.append(here).append("Parent:").append(tabs).append(parent.toInfoString(indent+1,true));
+                sb.append(here).append("Parent:").append(tabs).append(parent.getName());
 
-            if (!slim && redirects.size() != 0) {
+            if (redirects.size() != 0) {
                 sb.append(here).append("Redirects:");
                 for (var redirect : redirects) {
                     sb.append(tabs);
                     if (redirect != null)
-                        sb.append(redirect.toInfoString(indent+1, slim));
+                        sb.append(redirect.toInfoString(indent+1));
                     else sb.append("null");
                 }
             }
