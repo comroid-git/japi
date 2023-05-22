@@ -249,8 +249,7 @@ public interface DelegateStream extends Container, Closeable, Named {
             handler.addChildren(source);
             this.delegate = handler;
 
-            source//.setExecutor(Executors.newSingleThreadExecutor())
-                    .listen(handler);
+            source.listen(IO.EventKey_Input, handler);
             this.read = handler;
         }
 
@@ -335,6 +334,17 @@ public interface DelegateStream extends Container, Closeable, Named {
             this.name = "Log delegating OutputStream @ " + caller();
         }
 
+        public Output(final Consumer<byte[]> handler, final int bufferSize) {
+            final var writer = new AtomicReference<>(new ByteArrayOutputStream(bufferSize));
+            this.write = b -> writer.get().write(b);
+            this.flush = () -> writer.getAndUpdate(buf -> {
+                handler.accept(buf.toByteArray());
+                return new ByteArrayOutputStream(bufferSize);
+            });
+            this.delegate = handler instanceof AutoCloseable ? (AutoCloseable) handler : null;
+            this.name = lessSimpleName(handler.getClass()) + " OutputStream @ " + caller();
+        }
+
         public Output(final Consumer<String> handler) {
             final var writer = new AtomicReference<>(new StringWriter());
             this.write = c -> writer.get().write(c);
@@ -346,7 +356,18 @@ public interface DelegateStream extends Container, Closeable, Named {
             this.name = lessSimpleName(handler.getClass()) + " OutputStream @ " + caller();
         }
 
-        public Output(@NotNull final PipelineAdapter adapter) {
+        public Output(final Event.Bus<String> bus, Capability capability) {
+            final var writer = new AtomicReference<>(new StringWriter());
+            this.write = c -> writer.get().write(c);
+            this.flush = () -> writer.getAndUpdate(buf -> {
+                bus.publish(IO.eventKey(capability), buf.toString());
+                return new StringWriter();
+            });
+            this.delegate = bus;
+            this.name = lessSimpleName(bus.getClass()) + " OutputStream @ " + caller();
+        }
+
+        private Output(@NotNull final PipelineAdapter adapter) {
             final var writer = new AtomicReference<>(new StringWriter());
             this.write = c -> writer.get().write(c);
             this.flush = () -> writer.getAndUpdate(buf -> {
@@ -462,6 +483,9 @@ public interface DelegateStream extends Container, Closeable, Named {
     @Getter
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     class IO implements DelegateStream, N.Consumer.$3<@Nullable Consumer<InputStream>, @Nullable Consumer<OutputStream>, @Nullable Consumer<OutputStream>> {
+        public static final String EventKey_Input = "stdin";
+        public static final String EventKey_Output = "stdout";
+        public static final String EventKey_Error = "stderr";
         public static final IO NULL = new IO(new ByteArrayInputStream(new byte[0]),StreamUtil.voidOutputStream(),StreamUtil.voidOutputStream());
         public static final IO SYSTEM = new IO(System.in, System.out, System.err);
         public static IO slf4j(Logger log) {return new IO(null,new Output(log::info), new Output(log::error));}
@@ -485,9 +509,15 @@ public interface DelegateStream extends Container, Closeable, Named {
         public boolean isNull() {return NULL.equals(this);}
         public boolean isSystem() {return SYSTEM.equals(this);}
 
-        public IO dev_null() {return redirect(NULL);}
-        public IO log(Logger log) {return redirect(slf4j(log));}
+        public IO redirectToNull() {return redirect(NULL);}
+        public IO redirectToLogger(Logger log) {return redirect(slf4j(log));}
         public IO redirectToSystem() {return redirect(SYSTEM);}
+        public IO redirectToEventBus(Event.Bus<String> bus) {
+            return redirect(
+                    new Input(bus),
+                    new Output(bus, Capability.Output),
+                    new Output(bus, Capability.Error));
+        }
         public IO redirectErr(@Nullable OutputStream err) { return redirect(new IO(null,null,err));}
         public IO redirect(@Nullable InputStream in) { return redirect(new IO(in,null,null));}
         public IO redirect(@Nullable OutputStream out) { return redirect(new IO(null,out,null));}
@@ -513,6 +543,9 @@ public interface DelegateStream extends Container, Closeable, Named {
         }
         public IO rewireError(@Nullable Function<@NotNull Output, ? extends OutputStream> err) {
             return rewire(null,null,err);
+        }
+        public IO rewireOE(@Nullable Function<@NotNull Output, ? extends OutputStream> out) {
+            return rewire(null,out,out);
         }
         public IO rewire(@Nullable Function<@NotNull Input,  ? extends InputStream>   in,
                          @Nullable Function<@NotNull Output, ? extends OutputStream> out) {
@@ -680,10 +713,10 @@ public interface DelegateStream extends Container, Closeable, Named {
         // todo: accept(Object) with autoconfiguration for any object
 
         public void accept(
-                @Nullable Consumer<OutputStream> out,
-                @Nullable Consumer<OutputStream> err
+                @Nullable Consumer<InputStream> in,
+                @Nullable Consumer<OutputStream> out
         ) {
-            accept(null, out, err);
+            accept(in, out, null);
         }
 
         @Override
@@ -740,7 +773,7 @@ public interface DelegateStream extends Container, Closeable, Named {
                     break;
             }
         }
-        private <T extends Closeable> Stream<T> stream(final Capability capability) {
+        public <T extends Closeable> Stream<T> stream(final Capability capability) {
             return redirects.stream() // Stream.concat(redirect.stream(), Stream.of(SYSTEM))
                     .filter(it->Bitmask.isFlagSet(it.getCapabilities(), capability))
                     .map(it->{switch(capability){
@@ -753,11 +786,19 @@ public interface DelegateStream extends Container, Closeable, Named {
                     .distinct()
                     .map(Polyfill::uncheckedCast);
         }
-        private OutputMode mode(Capability capability) {
+        public OutputMode mode(Capability capability) {
             switch (capability) {
                 case Input: return inputMode;
                 case Output: return outputMode;
                 case Error: return errorMode;
+            }
+            throw new RuntimeException("unreachable");
+        }
+        public static String eventKey(Capability capability) {
+            switch (capability) {
+                case Input: return EventKey_Input;
+                case Output: return EventKey_Output;
+                case Error: return EventKey_Error;
             }
             throw new RuntimeException("unreachable");
         }

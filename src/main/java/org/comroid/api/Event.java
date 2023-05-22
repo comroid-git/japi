@@ -71,7 +71,7 @@ public class Event<T> implements Rewrapper<T> {
     @EqualsAndHashCode(exclude = "bus")
     @FieldDefaults(level = AccessLevel.PRIVATE)
     @ToString(of = "location", includeFieldNames = false)
-    public static class Listener<T> implements Predicate<Event<T>>, Consumer<Event<T>>, Comparable<Listener<?>>, Closeable {
+    public static class Listener<T> implements Predicate<Event<T>>, Consumer<Event<T>>, Comparable<Listener<?>>, Closeable, Named {
         @NotNull
         static Comparator<Listener<?>> Comparator = java.util.Comparator.<Listener<?>>comparingInt(Listener::getPriority).reversed();
         @NotNull Event.Bus<T> bus;
@@ -84,9 +84,14 @@ public class Event<T> implements Rewrapper<T> {
         @Setter
         int priority = 0;
         @NonFinal
+        @Setter
+        @Nullable
+        String name;
+        @NonFinal
         boolean active = true;
 
-        private Listener(@NotNull Bus<T> bus, Predicate<Event<T>> requirement, Consumer<Event<T>> action) {
+        private Listener(@Nullable String key, @NotNull Bus<T> bus, Predicate<Event<T>> requirement, Consumer<Event<T>> action) {
+            this.name = key;
             this.bus = bus;
             this.requirement = requirement;
             this.action = action;
@@ -107,13 +112,12 @@ public class Event<T> implements Rewrapper<T> {
         }
     }
 
-    @Value
     @Slf4j
-    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @Getter
     @EqualsAndHashCode(of = {}, callSuper = true)
     @ToString(of = {"parent", "factory", "active"})
-    public static class Bus<T> extends UUIDContainer.Base
-            implements Named, N.Consumer.$2<T, String>, Provider<T>, Closeable {
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    public static class Bus<T> extends UUIDContainer.Base implements Named, N.Consumer.$2<T, String>, Provider<T>, Closeable {
         @Nullable
         @NonFinal
         Event.Bus<?> parent;
@@ -192,24 +196,32 @@ public class Event<T> implements Rewrapper<T> {
             if (parent != null) parent.children.add(this);
         }
 
-        public <R extends T> Event.Listener<T> listen(final Class<R> type, final Consumer<Event<R>> action) {
-            return listen(e -> type.isInstance(e.getData()), uncheckedCast(action));
+        public <R extends T> Listener<T> listen(Class<R> type, Consumer<Event<R>> action) {
+            return listen(null, type, action);
         }
 
-        public Event.Listener<T> listen(final Consumer<Event<T>> action) {
-            return listen($ -> true, action);
+        public <R extends T> Event.Listener<T> listen(@Nullable String key, final Class<R> type, Consumer<Event<R>> action) {
+            return listen(key, e -> type.isInstance(e.getData()), uncheckedCast(action));
         }
 
-        public Event.Listener<T> listen(final String key, final Consumer<Event<T>> action) {
-            return listen(e -> e.key.equals(key), action);
+        public Listener<T> listen(Consumer<Event<T>> action) {
+            return listen((String)null, action);
+        }
+
+        public Event.Listener<T> listen(@Nullable String key, Consumer<Event<T>> action) {
+            return listen(key, $->true, action);
 
         }
 
-        public Event.Listener<T> listen(final Predicate<Event<T>> requirement, final Consumer<Event<T>> action) {
+        public Listener<T> listen(final Predicate<Event<T>> predicate, Consumer<Event<T>> action) {
+            return listen(null, predicate, action);
+        }
+
+        public Event.Listener<T> listen(final @Nullable String key, Predicate<Event<T>> predicate, Consumer<Event<T>> action) {
             Event.Listener<T> listener;
             if (action instanceof Event.Listener)
                 listener = (Event.Listener<T>) action;
-            else listener = new Event.Listener<>(this, requirement, action);
+            else listener = new Event.Listener<>(key, this, predicate.and(e -> Objects.equals(e.key, key)), action);
             synchronized (listeners) {
                 listeners.add(listener);
             }
@@ -273,11 +285,16 @@ public class Event<T> implements Rewrapper<T> {
             return listen(e -> log.atLevel(level).log(e.getData().toString()));
         }
 
-        @Override
-        public void close() {
-            active = false;
-            for (var listener : listeners)
-                listener.close();
+        public Consumer<T> withKey(final String key) {
+            return data -> publish(key, data);
+        }
+
+        public void publish(T data) {
+            publish(null, data);
+        }
+
+        public void publish(String key, T data) {
+            accept(data, key);
         }
 
         @Override
@@ -295,6 +312,13 @@ public class Event<T> implements Rewrapper<T> {
                     log.error("Unable to publish event to " + this, t);
                 }
             });
+        }
+
+        @Override
+        public void close() {
+            active = false;
+            for (var listener : listeners)
+                listener.close();
         }
 
         private void publish(Event<T> event) {

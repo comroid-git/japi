@@ -45,8 +45,8 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
         @Override
         @SneakyThrows
         public final void close() {
-            final List<Throwable> errors = Stream.concat(streamChildren(AutoCloseable.class), Stream.of(this::closeSelf)
-                    ).parallel()
+            final List<Throwable> errors = Stream.concat(Stream.concat(streamChildren(AutoCloseable.class), moreMembers()), Stream.of(this::closeSelf))
+                    .parallel()
                     .filter(Objects::nonNull)
                     .flatMap(closeable -> {
                         try {
@@ -69,6 +69,10 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
 
         @Override
         public void closeSelf() throws Exception {
+        }
+
+        protected Stream<AutoCloseable> moreMembers() {
+            return Stream.empty();
         }
     }
 
