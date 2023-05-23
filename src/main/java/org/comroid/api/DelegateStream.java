@@ -400,7 +400,8 @@ public interface DelegateStream extends Container, Closeable, Named {
             if (!(out.delegate instanceof PipelineAdapter))
                 out = new Output(new PipelineAdapter(this, action.andThen(x->x
                         .filter(Objects::nonNull)
-                        .map(y->y+'\n'))));
+                //        .map(y->y+'\n')
+                )));
             else ((PipelineAdapter) out.delegate).actions.add(action);
             return out;
         }
