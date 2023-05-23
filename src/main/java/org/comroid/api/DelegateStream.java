@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.event.Level;
 
 import java.io.*;
+import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -517,6 +518,10 @@ public interface DelegateStream extends Container, Closeable, Named {
                     new Input(bus),
                     new Output(bus, Capability.Output),
                     new Output(bus, Capability.Error));
+        }
+        @SneakyThrows
+        public IO redirectToSocket(Socket socket) {
+            return redirect(socket.getInputStream(), socket.getOutputStream());
         }
         public IO redirectErr(@Nullable OutputStream err) { return redirect(new IO(null,null,err));}
         public IO redirect(@Nullable InputStream in) { return redirect(new IO(in,null,null));}
