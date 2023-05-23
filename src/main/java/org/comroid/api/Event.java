@@ -122,7 +122,7 @@ public class Event<T> implements Rewrapper<T> {
         @NonFinal
         Event.Bus<?> parent;
         @NotNull Set<Event.Bus<?>> children = new HashSet<>();
-        @NotNull SortedSet<Event.Listener<T>> listeners = new ConcurrentSkipListSet<>(Listener.Comparator);
+        @NotNull Queue<Event.Listener<T>> listeners = new ConcurrentLinkedQueue<>();
         @Nullable
         @NonFinal
         Function<?, @Nullable T> function;
@@ -177,7 +177,7 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         public Bus() {
-            this("EventBus @ "+caller(1).toString());
+            this("EventBus @ " + caller(1).toString());
         }
 
         public Bus(@Nullable String name) {
@@ -205,11 +205,11 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         public Listener<T> listen(Consumer<Event<T>> action) {
-            return listen((String)null, action);
+            return listen((String) null, action);
         }
 
         public Event.Listener<T> listen(@Nullable String key, Consumer<Event<T>> action) {
-            return listen(key, $->true, action);
+            return listen(key, $ -> true, action);
 
         }
 
@@ -323,11 +323,13 @@ public class Event<T> implements Rewrapper<T> {
 
         private void publish(Event<T> event) {
             synchronized (listeners) {
-                for (var listener : listeners)
+                //Collections.sort(listeners, Listener.Comparator);
+                listeners.stream().sorted(Listener.Comparator).forEach(listener -> {
                     if (!listener.isActive() || event.isCancelled())
-                        break;
+                        return;
                     else if (listener.test(event))
                         listener.accept(event);
+                });
             }
         }
 
