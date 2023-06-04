@@ -3,10 +3,13 @@ package org.comroid.api;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import org.jetbrains.annotations.Contract;
 
 import java.util.Arrays;
+import java.util.function.BiFunction;
 import java.util.function.DoubleUnaryOperator;
 import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
 
 import static java.lang.Math.pow;
 import static java.lang.Math.sqrt;
@@ -17,6 +20,8 @@ public interface Vector {
     int IndexY = 1;
     int IndexZ = 2;
     int IndexW = 3;
+    Vector Zero = units(4,0);
+    Vector One = units(4,1);
     N4 UnitX = new N4(1,0,0,0);
     N4 UnitY = new N4(0,1,0,0);
     N4 UnitZ = new N4(0,0,1,0);
@@ -53,15 +58,18 @@ public interface Vector {
         }
         throw outOfBounds(dim+1);
     }
-    default double getX() {return get(IndexX);}
-    default double getY() {return get(IndexY);}
-    default double getZ() {return get(IndexZ);}
-    default double getW() {return get(IndexW);}
-    default Vector setX(double value) {return set(IndexX, value);}
-    default Vector setY(double value) {return set(IndexY, value);}
-    default Vector setZ(double value) {return set(IndexZ, value);}
-    default Vector setW(double value) {return set(IndexW, value);}
+    double getX();
+    double getY();
+    double getZ();
+    double getW();
+    Vector setX(double value);
+    Vector setY(double value);
+    Vector setZ(double value);
+    Vector setW(double value);
 
+    @Contract(mutates = "this") default void $(BiFunction<Vector, Vector, Vector> mod, Vector other) {var result = mod.apply(this, other);Assert.Equal(n(),result.n());IntStream.range(0, n()).forEach(i->set(i,result.get(i)));}
+    @Contract(mutates = "this") default void $(BiFunction<Vector, Double, Vector> mod, double other) {var result = mod.apply(this, other);Assert.Equal(n(),result.n());IntStream.range(0, n()).forEach(i->set(i,result.get(i)));}
+    default Vector not() {return muli(-1);}
     default Vector addi(double other) {return addi(units(n(), other));}
     default Vector subi(double other) {return subi(units(n(), other));}
     default Vector muli(double other) {return muli(units(n(), other));}
@@ -81,8 +89,7 @@ public interface Vector {
     }
     
     default Vector normalize() {
-        final var mag = magnitude();
-        return map(x -> x / mag);
+        return divi(magnitude());
     }
     
     static Vector of(double... dim) {
@@ -129,6 +136,26 @@ public interface Vector {
         @Override
         public Vector.N2 ctor(double... dim) {
             return new N2(dim[0],dim[1]);
+        }
+
+        @Override
+        public double getZ() {
+            return 0;
+        }
+
+        @Override
+        public double getW() {
+            return 0;
+        }
+
+        @Override
+        public Vector setZ(double value) {
+            throw Vector.outOfBounds(IndexZ);
+        }
+
+        @Override
+        public Vector setW(double value) {
+            throw Vector.outOfBounds(IndexW);
         }
     }
 

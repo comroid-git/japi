@@ -1,5 +1,6 @@
 package org.comroid.api;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,11 +19,13 @@ public interface Named extends WrappedFormattable {
      * @return The primary name.
      */
     @Override
+    @JsonIgnore
     default String getPrimaryName() {
         return getName();
     }
 
     @Override
+    @JsonIgnore
     default String getAlternateName() {
         return toString();
     }

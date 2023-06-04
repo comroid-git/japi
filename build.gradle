@@ -81,7 +81,9 @@ repositories {
 }
 
 dependencies {
+    // annotations
     api 'org.jetbrains:annotations:+'
+    compileOnly 'com.fasterxml.jackson.core:jackson-annotations:2.+'
 
     // logging dependencies
     api 'org.slf4j:slf4j-api:+' // SLF4J API library
