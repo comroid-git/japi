@@ -29,7 +29,7 @@ import static org.comroid.util.StackTraceUtils.caller;
 public class Event<T> implements Rewrapper<T> {
     long unixNanos = System.nanoTime();
     long seq;
-    String key;
+    @Nullable String key;
     T data;
     @NonFinal
     boolean cancelled = false;
@@ -41,6 +41,10 @@ public class Event<T> implements Rewrapper<T> {
     @Override
     public @Nullable T get() {
         return data;
+    }
+
+    public @NotNull Rewrapper<String> wrapKey() {
+        return this::getKey;
     }
 
     public Instant getTimestamp() {
