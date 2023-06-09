@@ -20,6 +20,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.util.Objects.isNull;
 
@@ -260,5 +261,9 @@ public final class Polyfill {
         if (plural.charAt(0) == '+')
             return singular + plural.substring(1);
         return plural;
+    }
+
+    public static <I,O> Function<I, Stream<O>> flatCast(final Class<O> type) {
+        return obj -> Stream.of(obj).filter(type::isInstance).map(type::cast);
     }
 }
