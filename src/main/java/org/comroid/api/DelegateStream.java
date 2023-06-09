@@ -163,7 +163,7 @@ public interface DelegateStream extends Container, Closeable, Named {
                 private final AtomicInteger i = new AtomicInteger(-1);
                 private final AtomicInteger c = new AtomicInteger(0);
                 private boolean endl = false;
-                private boolean pad = true;
+                //private boolean pad = true;
 
                 @Override
                 public void accept(Event<String> event) {
@@ -181,7 +181,7 @@ public interface DelegateStream extends Container, Closeable, Named {
                 @SneakyThrows
                 public int getAsInt() {
                     if (endl) return $endl();
-                    if (pad) return $pad();
+                    //if (pad) return $pad();
 
                     while (buf == null) {
                         synchronized (queue) {
@@ -230,12 +230,12 @@ public interface DelegateStream extends Container, Closeable, Named {
 
                 private int $endl() {
                     endl = false;
-                    pad = true;
+                    //pad = true;
                     return -1;
                 }
 
                 private int $pad() {
-                    pad = false;
+                    //pad = false;
                     return ' ';
                 }
 
