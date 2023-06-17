@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
+import org.comroid.annotations.Convert;
 import org.comroid.api.info.Log;
 import org.comroid.util.Bitmask;
 import org.comroid.util.StackTraceUtils;
@@ -29,7 +30,7 @@ import java.util.stream.Stream;
 import static org.comroid.api.Rewrapper.*;
 import static org.comroid.util.StackTraceUtils.lessSimpleName;
 
-public interface DelegateStream extends Container, Closeable, Named {
+public interface DelegateStream extends Container, Closeable, Named, Convertible {
     AutoCloseable getDelegate();
 
     @MagicConstant(flagsFromClass = Capability.class)
@@ -113,6 +114,11 @@ public interface DelegateStream extends Container, Closeable, Named {
             }
         }
         return new Output(new WrapOutputStream(stream, logger));
+    }
+
+    @Convert
+    default PrintStream toPrintStream() {
+        return output().ifPresentMap(PrintStream::new);
     }
 
     private static UnsupportedOperationException unsupported(DelegateStream stream, Capability capability) {

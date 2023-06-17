@@ -1,7 +1,6 @@
 package org.comroid.api;
 
 import lombok.SneakyThrows;
-import lombok.experimental.Delegate;
 import org.comroid.annotations.inheritance.MustExtend;
 import org.comroid.util.Debug;
 import org.comroid.util.ReflectionHelper;
@@ -39,7 +38,7 @@ import static org.comroid.util.StackTraceUtils.callerClass;
  */
 @Experimental
 @MustExtend(Context.Base.class)
-public interface Context extends Named, Upgradeable, LoggerCarrier {
+public interface Context extends Named, Convertible, LoggerCarrier {
     @Internal
     default @Nullable Context getParentContext() {
         return null;

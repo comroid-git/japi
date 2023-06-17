@@ -2,6 +2,8 @@ package org.comroid.util;
 
 import org.comroid.api.DelegateStream;
 
+import java.io.PrintStream;
+import java.io.StringWriter;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,5 +78,11 @@ public final class StackTraceUtils {
         return Optional.ofNullable(type.getCanonicalName())
                 .map(name->name.substring(type.getPackageName().length() + 1))
                 .orElseGet(type::getSimpleName);
+    }
+
+    public static String toString(Throwable t) {
+        var buf = new StringWriter();
+        t.printStackTrace(new DelegateStream.Output(buf).convert(PrintStream.class));
+        return buf.toString();
     }
 }
