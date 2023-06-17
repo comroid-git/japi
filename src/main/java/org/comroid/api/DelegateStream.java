@@ -466,7 +466,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             List<Function<String, Stream<String>>> actions;
 
             private PipelineAdapter(OutputStream output, Function<String, Stream<String>> action) {
-                super(output);
+                super(output, true);
                 this.actions = new ArrayList<>(Collections.singletonList(action));
             }
 
@@ -482,7 +482,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             @SneakyThrows
             public void accept(String txt) {
                 print(txt);
-                flush();
+                //flush();
             }
         }
     }
