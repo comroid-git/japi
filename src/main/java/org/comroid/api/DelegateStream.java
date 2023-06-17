@@ -581,11 +581,11 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 final @NotNull Function<@NotNull Base, @NotNull Result> wrap,
                 final @NotNull Rewrapper<Result> def
         ) {
-            // ((supp -> cast/prep -> func) / supp) -> cast/wrap/def
+            // ((supp -> cast+prep -> func) / supp) -> cast/wrap/def
             return Optional.ofNullable(func)
-                    // supp -> cast/prep -> func
+                    // supp -> cast+prep -> func
                     .flatMap(fx->supp.wrap()
-                            // cast/prep
+                            // cast+prep
                             .flatMap(x -> Optional.of(x)
                                     // cast
                                     .filter(typeA::isInstance)
@@ -597,7 +597,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                     .map(Polyfill::<Base>uncheckedCast)
                     // supp
                     .or(supp::wrap)
-                    // cast/wrap
+                    // cast+wrap
                     .flatMap(x->Optional.of(x)
                             // cast
                             .filter(typeR::isInstance)
