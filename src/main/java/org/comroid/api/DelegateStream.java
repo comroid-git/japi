@@ -39,8 +39,8 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     }
 
     default Rewrapper<InputStream> input() {return empty();}
-    default Rewrapper<OutputStream> output() {return empty();}
-    default Rewrapper<OutputStream> error() {return empty();}
+    default Rewrapper<OutputStream> output() {return Rewrapper.<OutputStream>empty().or(error());}
+    default Rewrapper<OutputStream> error() {return Rewrapper.<OutputStream>empty().or(output());}
 
     static Input wrap(final InputStream stream) {
         return wrap(stream, Log.get());
