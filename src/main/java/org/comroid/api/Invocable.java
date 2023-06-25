@@ -512,7 +512,7 @@ public interface Invocable<T> extends Named {
             }
         }
 
-        private final static class OfClass<T> implements Invocable<T> {
+        private static final class OfClass<T> implements Invocable<T> {
             private final Class<? extends T> type;
 
             @Override
