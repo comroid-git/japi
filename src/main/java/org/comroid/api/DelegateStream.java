@@ -444,7 +444,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
         //region Segment OPs
         @ApiStatus.Experimental
-        public Output peekSegment(final Consumer<byte@NotNull[]> action) throws IllegalStateException {
+        public Output peekSegment(final Consumer<byte @NotNull []> action) throws IllegalStateException {
             return filterSegment(data -> {
                 action.accept(data);
                 return true;
@@ -452,12 +452,12 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
 
         @ApiStatus.Experimental
-        public Output filterSegment(final Predicate<byte@NotNull[]> action) throws IllegalStateException {
+        public Output filterSegment(final Predicate<byte @NotNull []> action) throws IllegalStateException {
             return mapSegment(data -> action.test(data) ? data : null);
         }
 
         @ApiStatus.Experimental
-        public Output mapSegment(final Function<byte@NotNull[], byte@Nullable[]> action) throws IllegalStateException {
+        public Output mapSegment(final Function<byte @NotNull [], byte @Nullable []> action) throws IllegalStateException {
             Output out = this;
             if (out.delegate instanceof SegmentAdapter)
                 ((SegmentAdapter) out.delegate).actions.add(action);
