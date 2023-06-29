@@ -308,7 +308,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     @Getter
     @EqualsAndHashCode(callSuper = true)
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    class Output extends OutputStream implements DelegateStream, Consumer<String> {
+    class Output extends OutputStream implements DelegateStream {
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<Output> container = new Delegate<>(this);
         @NonFinal @NonNull @Setter String name;
@@ -378,13 +378,38 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             final var writer = new AtomicReference<>(new StringWriter());
             this.write = c -> writer.get().write(c);
             this.flush = () -> writer.getAndUpdate(buf -> {
-                adapter.apply(buf.toString()).forEachOrdered(adapter);
+                adapter.apply(buf.toString())
+                        .filter(Objects::nonNull)
+                        .forEachOrdered(adapter::apply);
                 return new StringWriter();
             });
             this.delegate = adapter;
             this.name = "Pipeline OutputStream @ " + caller();
         }
 
+        private Output(@NotNull final SegmentAdapter adapter, final int length) {
+            final var buffer = new AtomicReference<>(new byte[length]);
+            final var cursor = new AtomicInteger(0);
+            this.write = c -> {
+                var b = (byte) c;
+                buffer.updateAndGet(data -> {
+                    if (cursor.get() < data.length)
+                        data[cursor.getAndIncrement()] = b;
+                    else {
+                        data = adapter.apply(data);
+                        if (data != null)
+                            adapter.accept(data);
+                        cursor.set(0);
+                    }
+                    return Objects.requireNonNullElseGet(data, () -> new byte[length]);
+                });
+            };
+            this.flush = ()->{};
+            this.delegate = adapter;
+            this.name = "Segmented OutputStream @ " + caller();
+        }
+
+        //region Stream OPs
         @ApiStatus.Experimental
         public Output peek(final Consumer<@NotNull String> action) {
             return filter(txt -> {
@@ -392,14 +417,17 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 return true;
             });
         }
+
         @ApiStatus.Experimental
         public Output filter(final Predicate<@NotNull String> action) {
             return map(str -> action.test(str) ? str : null);
         }
+
         @ApiStatus.Experimental
         public Output map(final Function<@NotNull String, @Nullable String> action) {
             return flatMap(str -> Stream.of(action.apply(str)));
         }
+
         @ApiStatus.Experimental
         public Output flatMap(final Function<@NotNull String, Stream<@Nullable String>> action) {
             Output out = this;
@@ -411,6 +439,36 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             else ((PipelineAdapter) out.delegate).actions.add(action);
             return out;
         }
+        //endregion
+
+        //region Segment OPs
+        @ApiStatus.Experimental
+        public Output peekSegment(final Consumer<byte@NotNull[]> action) throws IllegalStateException {
+            return filterSegment(data -> {
+                action.accept(data);
+                return true;
+            });
+        }
+
+        @ApiStatus.Experimental
+        public Output filterSegment(final Predicate<byte@NotNull[]> action) throws IllegalStateException {
+            return mapSegment(data -> action.test(data) ? data : null);
+        }
+
+        @ApiStatus.Experimental
+        public Output mapSegment(final Function<byte@NotNull[], byte@Nullable[]> action) throws IllegalStateException {
+            Output out = this;
+            if (out.delegate instanceof SegmentAdapter)
+                ((SegmentAdapter) out.delegate).actions.add(action);
+            else throw new IllegalStateException("Segment OPs are only allowed after segment(int) has been called");
+            return out;
+        }
+
+        @ApiStatus.Experimental
+        public Output segment(int length) {
+            return new Output(new SegmentAdapter(this), length);
+        }
+        //endregion
 
         @Override
         public void write(int b) {
@@ -452,17 +510,20 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             return getName();
         }
 
-        @Override
         @SneakyThrows
-        public void accept(String s) {
-            write(s.getBytes());
+        public void accept(String txt) {
+            accept(txt.getBytes());
+        }
+
+        @SneakyThrows
+        public void accept(byte[] data) {
+            write(data);
             flush();
         }
 
         @Value
         @EqualsAndHashCode(callSuper = true)
-        private static class PipelineAdapter extends PrintStream
-                implements Consumer<@Nullable String>, Function<@NotNull String, Stream<@Nullable String>> {
+        private static class PipelineAdapter extends PrintStream {
             List<Function<String, Stream<String>>> actions;
 
             private PipelineAdapter(OutputStream output, Function<String, Stream<String>> action) {
@@ -470,19 +531,29 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 this.actions = new ArrayList<>(Collections.singletonList(action));
             }
 
-            @Override
             public Stream<@Nullable String> apply(@NotNull String txt) {
                 var stream = Stream.of(txt);
                 for (var action : actions)
                     stream = stream.flatMap(action).filter(Objects::nonNull);
                 return stream;
             }
+        }
 
-            @Override
-            @SneakyThrows
-            public void accept(String txt) {
-                print(txt);
-                //flush();
+        @Value
+        @EqualsAndHashCode(callSuper = true)
+        private static class SegmentAdapter extends DelegateStream.Output {
+            List<Function<byte@NotNull[], byte@Nullable[]>> actions = new ArrayList<>();
+
+            private SegmentAdapter(OutputStream output) {
+                super(output);
+            }
+
+            public byte@Nullable[] apply(byte@NotNull[] data) {
+                for (var action : actions)
+                    if (data != null)
+                        data = action.apply(data);
+                    else return null;
+                return data;
             }
         }
     }
