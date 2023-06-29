@@ -18,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.event.Level;
 
 import java.io.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -150,6 +152,16 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
         public Input(final Reader delegate) {
             this.read = delegate::read;
+            this.delegate = delegate;
+            this.name = "Reader delegating InputStream @ " + caller();
+        }
+
+        public Input(final DatagramSocket socket, final int bufferSize) {
+            var buffer = new AtomicReference<>(new DatagramPacket(new byte[bufferSize], bufferSize));
+            var cursor = new AtomicInteger(0);
+            this.read = () -> {
+                socket.receive(buffer.get());
+            };
             this.delegate = delegate;
             this.name = "Reader delegating InputStream @ " + caller();
         }
