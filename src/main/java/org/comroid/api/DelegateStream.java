@@ -1,6 +1,7 @@
 package org.comroid.api;
 
 import lombok.*;
+import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
@@ -470,6 +471,18 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
         //endregion
 
+        //region Packet Converter
+        @ApiStatus.Experimental
+        public <H,B> Packet<H,B> packet(
+                int headLength,
+                Function<byte@NotNull[], H> headFactory,
+                ToIntFunction<H> bodyLength,
+                Function<byte@NotNull[], B> bodyFactory
+        ) {
+            return new Packet<>(headLength, headFactory, bodyLength, bodyFactory);
+        }
+        //endregion
+
         @Override
         public void write(int b) {
             try {
@@ -555,6 +568,67 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                     else return null;
                 return data;
             }
+        }
+    }
+
+    @Value
+    @EqualsAndHashCode(callSuper = true)
+    class Packet<H,B> extends ByteArrayOutputStream {
+        @lombok.experimental.Delegate(excludes = {Named.class, N.Consumer.$2.class})
+        Event.Bus<Packet<H,B>.Pair> bus = new Event.Bus<>();
+        int headLength;
+        Function<byte @NotNull [], H> headFactory;
+        ToIntFunction<H> bodyLength;
+        Function<byte @NotNull [], B> bodyFactory;
+        AtomicReference<@Nullable H> head = new AtomicReference<>();
+
+        public Packet(int headLength,
+                      Function<byte @NotNull [], H> headFactory,
+                      ToIntFunction<H> bodyLength,
+                      Function<byte @NotNull [], B> bodyFactory) {
+            this.headLength = headLength;
+            this.headFactory = headFactory;
+            this.bodyLength = bodyLength;
+            this.bodyFactory = bodyFactory;
+
+            buf = new byte[headLength];
+        }
+
+        @Override
+        @SneakyThrows
+        public synchronized void write(int b) {
+            super.write(b);
+            if (count == headLength)
+                flush();
+        }
+
+        @Override
+        public void flush() {
+            H head = this.head.get();
+            if (head != null) {
+                var body = bodyFactory.apply(buf);
+                publish(new Pair(head, body));
+                clear(headLength);
+            } else {
+                head = headFactory.apply(buf);
+                var bodyLen = bodyLength.applyAsInt(head);
+                this.head.set(head);
+                clear(bodyLen);
+            }
+        }
+
+        public void clear(int len) {
+            buf = new byte[len];
+            count = 0;
+            if (len == headLength)
+                this.head.set(null);
+        }
+
+        @Value
+        @AllArgsConstructor(access = AccessLevel.PRIVATE)
+        public class Pair {
+            H head;
+            B body;
         }
     }
 
