@@ -2,12 +2,13 @@ package org.comroid.api;
 
 import org.comroid.util.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @SuppressWarnings({"removal", "rawtypes"}) // todo: Fix removal warning
 public interface Module extends Named, LifeCycle, Context.Underlying {
@@ -39,11 +40,11 @@ public interface Module extends Named, LifeCycle, Context.Underlying {
                 } catch (IOException e) {
                     throw new RuntimeException("Could not find Modules for class " + forClass.getClass());
                 } catch (ClassNotFoundException e) {
-                    forClass.getLogger().warn("Could not find module class", e);
+                    forClass.getLogger().log(Level.WARNING, "Could not find module class", e);
                 }
             }
         } catch (IOException e) {
-            forClass.getLogger().warn("No Modules found for " + cname);
+            forClass.getLogger().warning("No Modules found for " + cname);
         }
 
         return found;
@@ -77,9 +78,9 @@ public interface Module extends Named, LifeCycle, Context.Underlying {
 
             for (Module module : modules) {
                 try {
-                    logger.debug("Initializing Module: " + module.getName());
+                    logger.log(Level.FINE, "Initializing Module: " + module.getName());
                     module.initialize();
-                    logger.info("Module {} initialized", module.getName());
+                    logger.log(Level.INFO, "Module {} initialized", module.getName());
                 } catch (Throwable throwable) {
                     throwable.printStackTrace();
                 }
@@ -92,9 +93,9 @@ public interface Module extends Named, LifeCycle, Context.Underlying {
 
             for (Module module : modules) {
                 try {
-                    logger.debug("Terminating Module: " + module.getName());
+                    logger.log(Level.FINE, "Terminating Module: " + module.getName());
                     module.terminate();
-                    logger.info("Module {} terminated", module.getName());
+                    logger.log(Level.INFO, "Module {} terminated", module.getName());
                 } catch (Throwable throwable) {
                     throwable.printStackTrace();
                 }

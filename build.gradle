@@ -85,14 +85,6 @@ dependencies {
     api 'org.jetbrains:annotations:+'
     compileOnly 'com.fasterxml.jackson.core:jackson-annotations:2.+'
 
-    // logging dependencies
-    api 'org.slf4j:slf4j-api:+' // SLF4J API library
-    runtimeOnly 'ch.qos.logback:logback-classic:+' // Logback Classic adapter for SLF4J
-    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j-impl:2+' // Log4j 2 SLF4J adapter
-    runtimeOnly 'org.slf4j:jul-to-slf4j:+' // JUL to SLF4J adapter
-    runtimeOnly 'org.slf4j:log4j-over-slf4j:+' // Log4j 1.2 SLF4J adapter
-    runtimeOnly 'org.slf4j:jcl-over-slf4j:+' // Commons Logging to SLF4J adapter
-
     // lombok
     api 'org.projectlombok:lombok:+'
     annotationProcessor 'org.projectlombok:lombok:+'

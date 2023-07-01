@@ -2,9 +2,10 @@ package org.comroid.api.info;
 
 import lombok.experimental.UtilityClass;
 import org.comroid.util.StackTraceUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
+
+import java.util.logging.Level;
+import java.util.logging.LogManager;
+import java.util.logging.Logger;
 
 @UtilityClass
 public class Log {
@@ -13,18 +14,18 @@ public class Log {
     }
 
     public Logger get(String name) {
-        return LoggerFactory.getLogger(name);
+        return LogManager.getLogManager().getLogger(name);
     }
 
     public Logger get(Class<?> cls) {
-        return LoggerFactory.getLogger(cls);
+        return get(cls.getCanonicalName());
     }
 
     public void at(Level level, String message) {
-        getForCaller(1).atLevel(level).log(message);
+        getForCaller(1).log(level, message);
     }
 
     private Logger getForCaller(int skip) {
-        return LoggerFactory.getLogger(StackTraceUtils.callerClass(skip + 1));
+        return get(StackTraceUtils.callerClass(skip + 1));
     }
 }

@@ -14,8 +14,6 @@ import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.event.Level;
 
 import java.io.*;
 import java.net.DatagramPacket;
@@ -27,6 +25,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -61,7 +61,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 try {
                     return delegate.read();
                 } catch (Throwable t) {
-                    log.error("Could not read from " + delegate, t);
+                    log.log(Level.SEVERE, "Could not read from " + delegate, t);
                     return -1;
                 }
             }
@@ -71,7 +71,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 try {
                     delegate.close();
                 } catch (Throwable t) {
-                    log.error("Could not close " + delegate, t);
+                    log.log(Level.SEVERE, "Could not close " + delegate, t);
                 }
             }
         }
@@ -94,7 +94,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 try {
                     delegate.write(b);
                 } catch (Throwable t) {
-                    log.error("Could not write to " + delegate, t);
+                    log.log(Level.SEVERE, "Could not write to " + delegate, t);
                 }
             }
 
@@ -103,7 +103,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 try {
                     delegate.flush();
                 } catch (Throwable t) {
-                    log.error("Could not flush " + delegate, t);
+                    log.log(Level.SEVERE, "Could not flush " + delegate, t);
                 }
             }
 
@@ -112,7 +112,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 try {
                     delegate.close();
                 } catch (Throwable t) {
-                    log.error("Could not close " + delegate, t);
+                    log.log(Level.SEVERE, "Could not close " + delegate, t);
                 }
             }
         }
@@ -133,7 +133,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
     enum EndlMode implements IntegerAttribute {Manual, OnNewLine, OnDelegate}
 
-    @Slf4j
+    @lombok.extern.java.Log
     @Getter
     @EqualsAndHashCode(callSuper = true)
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -179,10 +179,10 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                     synchronized (queue) {
                         int c = this.c.incrementAndGet();
                         if (c != event.getSeq())
-                            log.warn("Event received in invalid order; got " + event.getSeq() + ", expected " + c + "\nData: " + event.getData());
+                            log.log(Level.WARNING, "Event received in invalid order; got " + event.getSeq() + ", expected " + c + "\nData: " + event.getData());
                         if (event.test(queue::add))
                             queue.notify();
-                        else log.error("Failed to queue new input " + event);
+                        else log.log(Level.SEVERE, "Failed to queue new input " + event);
                     }
                 }
 
@@ -207,7 +207,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                         else setBuf(null);
                     }
                     if (buf == null) {
-                        log.error("buf was unexpectedly null");
+                        log.log(Level.SEVERE, "buf was unexpectedly null");
                         return -1;
                     }
 
@@ -268,7 +268,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             try {
                 return read.getAsInt();
             } catch (Throwable t) {
-                log.error("Could not read from " + this, t);
+                log.log(Level.SEVERE, "Could not read from " + this, t);
                 return -1;
             }
         }
@@ -307,7 +307,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
     }
 
-    @Slf4j
+    @lombok.extern.java.Log
     @Getter
     @EqualsAndHashCode(callSuper = true)
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -337,7 +337,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             final var writer = new AtomicReference<>(new StringWriter());
             this.write = c -> writer.get().write(c);
             this.flush = () -> writer.updateAndGet(buf -> {
-                log.atLevel(level).log(buf.toString());
+                log.log(level, buf.toString());
                 return new StringWriter();
             });
             this.delegate = null;
@@ -490,7 +490,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             try {
                 write.accept(b);
             } catch (Throwable t) {
-                log.error("Could not read from " + this, t);
+                log.log(Level.SEVERE, "Could not read from " + this, t);
             }
         }
 
@@ -499,7 +499,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             try {
                 flush.run();
             } catch (Throwable t) {
-                log.error("Could not read from " + this, t);
+                log.log(Level.SEVERE, "Could not read from " + this, t);
             }
         }
 
@@ -576,7 +576,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     @Value
     @EqualsAndHashCode(callSuper = true)
     class Packet<H,B> extends ByteArrayOutputStream {
-        @lombok.experimental.Delegate(excludes = {Named.class, N.Consumer.$2.class})
+        @lombok.experimental.Delegate(excludes = {Named.class, BiConsumer.class})
         Event.Bus<Packet<H,B>.Pair> bus = new Event.Bus<>();
         int headLength;
         Function<byte @NotNull [], H> headFactory;
@@ -634,7 +634,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
     }
 
-    @Slf4j
+    @lombok.extern.java.Log
     @Getter
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     class IO implements DelegateStream, N.Consumer.$3<@Nullable Consumer<InputStream>, @Nullable Consumer<OutputStream>, @Nullable Consumer<OutputStream>> {
@@ -643,7 +643,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         public static final String EventKey_Error = "stderr";
         public static final IO NULL = new IO(new ByteArrayInputStream(new byte[0]),StreamUtil.voidOutputStream(),StreamUtil.voidOutputStream());
         public static final IO SYSTEM = new IO(System.in, System.out, System.err);
-        public static IO slf4j(Logger log) {return new IO(null,new Output(log::info), new Output(log::error));}
+        public static IO slf4j(Logger log) {return new IO(null,new Output(log::info), new Output(log::severe));}
 
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<IO> container = new Delegate<>(this);
@@ -685,7 +685,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         public IO redirect(@Nullable InputStream in, @Nullable OutputStream out, @Nullable OutputStream err) { return redirect(new IO(in,out,err));}
         public IO redirect(@NotNull IO redirect) {
             if (!isRedirect()) {
-                log.warn(String.format("Cannot attach redirect to %s; returning /dev/null", this));
+                log.log(Level.WARNING, String.format("Cannot attach redirect to %s; returning /dev/null", this));
                 return NULL;
             }
             if (redirect.parent != null && !redirect.isSystem())
@@ -760,7 +760,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
         public void detach() {
             if (parent == null || parent.redirects.remove(this))
-                log.warn("Could not remove redirect from parent");
+                log.log(Level.WARNING, "Could not remove redirect from parent");
             else parent = null;
         }
 
@@ -977,7 +977,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                         try {
                             return runOnInput(InputStream::read);
                         } catch (Throwable t) {
-                            log.error("Error reading from InputStream", t);
+                            log.log(Level.SEVERE, "Error reading from InputStream", t);
                             return -1;
                         }
                     }
@@ -1010,7 +1010,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                         try {
                             runOnOutput(capability, s->s.write(b));
                         } catch (Throwable t) {
-                            log.error("Error writing to Output", t);
+                            log.log(Level.SEVERE, "Error writing to Output", t);
                         }
                     }
 
@@ -1020,7 +1020,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                         try {
                             runOnOutput(capability, OutputStream::flush);
                         } catch (Throwable t) {
-                            log.error("Error flushing Output", t);
+                            log.log(Level.SEVERE, "Error flushing Output", t);
                         }
                     }
                 }, capability);

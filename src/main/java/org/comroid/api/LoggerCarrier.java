@@ -1,14 +1,15 @@
 package org.comroid.api;
 
+import org.comroid.api.info.Log;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.util.logging.Logger;
 
 @Deprecated
 public interface LoggerCarrier {
     default Logger getLogger() {
         if (this instanceof Named)
-            return LoggerFactory.getLogger(((Named) this).getName());
-        return LoggerFactory.getLogger(getClass());
+            return Log.get(((Named) this).getName());
+        return Log.get(getClass());
     }
 }

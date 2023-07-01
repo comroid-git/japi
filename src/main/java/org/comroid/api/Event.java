@@ -4,12 +4,11 @@ import lombok.*;
 import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
+import lombok.extern.java.Log;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.event.Level;
 
 import java.io.Closeable;
 import java.time.Duration;
@@ -18,6 +17,8 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.util.StackTraceUtils.caller;
@@ -116,12 +117,12 @@ public class Event<T> implements Rewrapper<T> {
         }
     }
 
-    @Slf4j
+    @Log
     @Getter
     @EqualsAndHashCode(of = {}, callSuper = true)
     @ToString(of = {"parent", "factory", "active"})
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    public static class Bus<T> extends UUIDContainer.Base implements Named, N.Consumer.$2<T, String>, Provider<T>, Closeable {
+    public static class Bus<T> extends UUIDContainer.Base implements Named, BiConsumer<T, String>, Provider<T>, Closeable {
         @Nullable
         @NonFinal
         Event.Bus<?> parent;
@@ -286,7 +287,7 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         public Listener<T> log(final Logger log, final Level level) {
-            return listen(e -> log.atLevel(level).log(e.getData().toString()));
+            return listen(e -> log.log(level, e.getData().toString()));
         }
 
         public Consumer<T> withKey(final String key) {
@@ -313,7 +314,7 @@ public class Event<T> implements Rewrapper<T> {
                             child.$publishDownstream(data, key);
                     }
                 } catch (Throwable t) {
-                    log.error("Unable to publish event to " + this, t);
+                    log.log(Level.SEVERE, "Unable to publish event to " + this, t);
                 }
             });
         }

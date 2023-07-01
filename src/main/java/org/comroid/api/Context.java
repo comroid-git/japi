@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 import java.util.stream.Stream;
 
 import static org.comroid.api.Polyfill.uncheckedCast;
@@ -281,7 +282,7 @@ public interface Context extends Named, Convertible, LoggerCarrier {
                         createInstance(targetClass).ifPresent(it -> values[fc] = it);
                         c++;
                     }
-                    Debug.logger.debug("Initializing ContextualProvider Root with: {}", Arrays.toString(values));
+                    Debug.logger.log(Level.FINE, "Initializing ContextualProvider Root with: {}", Arrays.toString(values));
                     ROOT.addToContext(values);
                 }
             } catch (IOException e) {

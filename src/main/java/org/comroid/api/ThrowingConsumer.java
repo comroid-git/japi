@@ -1,12 +1,13 @@
 package org.comroid.api;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
 
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public interface ThrowingConsumer<I, T extends Throwable> {
     @Deprecated(forRemoval = true)
@@ -50,7 +51,7 @@ public interface ThrowingConsumer<I, T extends Throwable> {
             try {
                 accept(in);
             } catch (Throwable t) {
-                log.error(Objects.requireNonNullElse(message, "An internal Exception occurred"), t);
+                log.log(Level.SEVERE, Objects.requireNonNullElse(message, "An internal Exception occurred"), t);
             }
         };
     }
