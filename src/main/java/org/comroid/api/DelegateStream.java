@@ -156,16 +156,6 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             this.name = "Reader delegating InputStream @ " + caller();
         }
 
-        public Input(final DatagramSocket socket, final int bufferSize) {
-            var buffer = new AtomicReference<>(new DatagramPacket(new byte[bufferSize], bufferSize));
-            var cursor = new AtomicInteger(0);
-            this.read = () -> {
-                socket.receive(buffer.get());
-            };
-            this.delegate = delegate;
-            this.name = "Reader delegating InputStream @ " + caller();
-        }
-
         @ApiStatus.Experimental
         public Input(final Event.Bus<String> source) {
             this(source, EndlMode.OnDelegate);
@@ -414,7 +404,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                             adapter.accept(data);
                         cursor.set(0);
                     }
-                    return Objects.requireNonNullElseGet(data, () -> new byte[length]);
+                    return Optional.ofNullable(data).orElseGet(() -> new byte[length]);
                 });
             };
             this.flush = ()->{};
