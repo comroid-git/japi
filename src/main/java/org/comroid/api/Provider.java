@@ -37,7 +37,13 @@ public interface Provider<T> extends Supplier<CompletableFuture<T>> {
     }
 
     @Blocking
+    @Deprecated
     default T now() {
+        return block();
+    }
+
+    @Blocking
+    default T block() {
         return get().join();
     }
 

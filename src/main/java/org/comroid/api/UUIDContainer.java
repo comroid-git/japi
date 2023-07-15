@@ -7,7 +7,14 @@ import org.jetbrains.annotations.Nullable;
 import java.util.UUID;
 
 public interface UUIDContainer {
-    UUID getUUID();
+    default UUID getUuid() {
+        return getUUID();
+    }
+
+    @Deprecated
+    default UUID getUUID() {
+        return getUuid();
+    }
 
     @ToString(of="id")
     @EqualsAndHashCode(of="id")

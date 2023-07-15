@@ -18,7 +18,7 @@ public class EventTest {
         Context.root().addToContext((Executor)Runnable::run);
 
         busA = new Event.Bus<>();
-        busB = new Event.Bus<>().setParent(busA);
+        busB = new Event.Bus<>().setUpstream(busA);
         busC = busB.map(Object::toString).map(StandardValueType.INTEGER::parse);
 
         busA.listen(e -> System.out.println("Bus A had data: "+e));

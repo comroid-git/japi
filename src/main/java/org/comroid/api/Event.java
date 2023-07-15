@@ -5,7 +5,6 @@ import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.java.Log;
-import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -152,25 +151,25 @@ public class Event<T> implements Rewrapper<T> {
     @Log
     @Getter
     @EqualsAndHashCode(of = {}, callSuper = true)
-    @ToString(of = {"parent", "factory", "active"})
+    @ToString(of = {"upstream", "factory", "active"})
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    public static class Bus<T> extends UUIDContainer.Base implements Named, N.Consumer.$2<T, String>, Provider<T>, Closeable, IBus<T> {
+    public static class Bus<O> extends Container.Base implements Named, N.Consumer.$2<O, String>, Provider<O>, UUIDContainer, IBus<O> {
         @Nullable
         @NonFinal
-        Event.Bus<?> parent;
-        @NotNull Set<Event.Bus<?>> children = new HashSet<>();
-        @NotNull Queue<Event.Listener<T>> listeners = new ConcurrentLinkedQueue<>();
+        Event.Bus<?> upstream;
+        @NotNull Set<Event.Bus<?>> downstream = new HashSet<>();
+        @NotNull Queue<Event.Listener<O>> listeners = new ConcurrentLinkedQueue<>();
         @Nullable
         @NonFinal
-        Function<?, @Nullable T> function;
+        Function<?, @Nullable O> function;
         @Nullable
         @NonFinal
         Function<String, String> keyFunction;
         @NonFinal
         @Setter
-        Event.Factory<T, ? extends Event<T>> factory = new Factory<>() {
+        Event.Factory<O, ? extends Event<O>> factory = new Factory<>() {
             @Override
-            public Event<T> factory(long seq, String key, T data) {
+            public Event<O> factory(long seq, String key, O data) {
                 return new Event<>(seq, key, data);
             }
         };
@@ -185,36 +184,66 @@ public class Event<T> implements Rewrapper<T> {
         String name = null;
 
         @Contract(value = "_ -> this", mutates = "this")
-        public Event.Bus<T> setParent(@Nullable Event.Bus<? extends T> parent) {
-            return setParent(parent, Function.identity());
+        public Event.Bus<O> setUpstream(@NotNull Event.Bus<? extends O> parent) {
+            return setUpstream(parent, Function.identity());
         }
 
         @Contract(value = "_, _ -> this", mutates = "this")
-        public <P> Bus<T> setParent(
-                @Nullable Event.Bus<? extends P> parent,
-                @NotNull Function<P, T> function
+        public <I> Bus<O> setUpstream(
+                @NotNull Event.Bus<? extends I> parent,
+                @NotNull Function<I, O> function
         ) {
-            return setParent(parent, function, UnaryOperator.identity());
+            return setUpstream(parent, function, UnaryOperator.identity());
         }
 
         @Contract(value = "_, _, _ -> this", mutates = "this")
-        public <P> Event.Bus<T> setParent(
-                @Nullable Event.Bus<? extends P> parent,
-                @NotNull Function<P, T> function,
+        public <I> Event.Bus<O> setUpstream(
+                @NotNull Event.Bus<? extends I> parent,
+                @NotNull Function<I, O> function,
                 @Nullable Function<String, String> keyFunction
         ) {
-            if (this.parent != null)
-                this.parent.children.remove(this);
-            this.parent = parent;
+            return setDependent(parent, function, keyFunction, true);
+        }
+
+        /*
+        @Contract(value = "_, _ -> this", mutates = "this")
+        public <I> Bus<O> setJunction(
+                @NotNull Event.Bus<I> other,
+                @NotNull Junction<I, O> junction
+        ) {
+            return setJunction(other, junction, null);
+        }
+
+        @Contract(value = "_, _, _ -> this", mutates = "this")
+        public <I> Event.Bus<O> setJunction(
+                @NotNull Event.Bus<I> other,
+                @NotNull Junction<I, O> junction,
+                @Nullable Junction<String, String> keyJunction
+        ) {
+            if (keyJunction == null)
+                keyJunction = Junction.identity();
+            other.setDependent(this, junction::backward, keyJunction::backward, false);
+            return setDependent(other, junction::forward, keyJunction::forward, false);
+        }
+         */
+
+        private <I> Bus<O> setDependent(
+                final @NotNull Bus<? extends I> parent,
+                final @NotNull Function<I,O> function,
+                final @Nullable Function<String, String> keyFunction,
+                final boolean cleanup
+        ) {
+            if (cleanup && this.upstream != null)
+                this.upstream.downstream.remove(this);
+            this.upstream = parent;
             this.function = function;
             this.keyFunction = keyFunction;
-            if (this.parent != null)
-                this.parent.children.add(this);
+            this.upstream.downstream.add(this);
             return this;
         }
 
         public Bus() {
-            this("EventBus @ " + caller(1).toString());
+            this("EventBus @ " + caller(1));
         }
 
         public Bus(@Nullable String name) {
@@ -222,48 +251,48 @@ public class Event<T> implements Rewrapper<T> {
             this.name = name;
         }
 
-        private Bus(@Nullable Event.Bus<? extends T> parent) {
-            this(parent, Polyfill::uncheckedCast);
+        private Bus(@Nullable Event.Bus<? extends O> upstream) {
+            this(upstream, Polyfill::uncheckedCast);
         }
 
-        private <P> Bus(@Nullable Event.Bus<P> parent, @Nullable Function<@NotNull P, @Nullable T> function) {
-            this.parent = parent;
+        private <P> Bus(@Nullable Event.Bus<P> upstream, @Nullable Function<@NotNull P, @Nullable O> function) {
+            this.upstream = upstream;
             this.function = function;
 
-            if (parent != null) parent.children.add(this);
+            if (upstream != null) upstream.downstream.add(this);
         }
 
         @Override
-        public <R extends T> Listener<T> listen(Class<R> type, Consumer<Event<R>> action) {
+        public <R extends O> Listener<O> listen(Class<R> type, Consumer<Event<R>> action) {
             return listen(null, type, action);
         }
 
         @Override
-        public <R extends T> Event.Listener<T> listen(@Nullable String key, final Class<R> type, Consumer<Event<R>> action) {
+        public <R extends O> Event.Listener<O> listen(@Nullable String key, final Class<R> type, Consumer<Event<R>> action) {
             return listen(key, e -> type.isInstance(e.getData()), uncheckedCast(action));
         }
 
         @Override
-        public Listener<T> listen(Consumer<Event<T>> action) {
+        public Listener<O> listen(Consumer<Event<O>> action) {
             return listen((String) null, action);
         }
 
         @Override
-        public Event.Listener<T> listen(@Nullable String key, Consumer<Event<T>> action) {
+        public Event.Listener<O> listen(@Nullable String key, Consumer<Event<O>> action) {
             return listen(key, $ -> true, action);
 
         }
 
         @Override
-        public Listener<T> listen(final Predicate<Event<T>> predicate, Consumer<Event<T>> action) {
+        public Listener<O> listen(final Predicate<Event<O>> predicate, Consumer<Event<O>> action) {
             return listen(null, predicate, action);
         }
 
         @Override
-        public Event.Listener<T> listen(final @Nullable String key, Predicate<Event<T>> predicate, Consumer<Event<T>> action) {
-            Event.Listener<T> listener;
+        public Event.Listener<O> listen(final @Nullable String key, Predicate<Event<O>> predicate, Consumer<Event<O>> action) {
+            Event.Listener<O> listener;
             if (action instanceof Event.Listener)
-                listener = (Event.Listener<T>) action;
+                listener = (Event.Listener<O>) action;
             else listener = new Event.Listener<>(key, this, predicate.and(e -> Objects.equals(e.key, key)), action);
             synchronized (listeners) {
                 listeners.add(listener);
@@ -272,27 +301,27 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         @Override
-        public <R extends T> CompletableFuture<Event<R>> next() {
+        public <R extends O> CompletableFuture<Event<R>> next() {
             return next($ -> true);
         }
 
         @Override
-        public <R extends T> CompletableFuture<Event<R>> next(final Class<R> type) {
+        public <R extends O> CompletableFuture<Event<R>> next(final Class<R> type) {
             return next(type, null);
         }
 
         @Override
-        public <R extends T> CompletableFuture<Event<R>> next(final Class<R> type, final @Nullable Duration timeout) {
+        public <R extends O> CompletableFuture<Event<R>> next(final Class<R> type, final @Nullable Duration timeout) {
             return next(e -> type.isInstance(e.getData()), timeout);
         }
 
         @Override
-        public <R extends T> CompletableFuture<Event<R>> next(final Predicate<Event<T>> requirement) {
+        public <R extends O> CompletableFuture<Event<R>> next(final Predicate<Event<O>> requirement) {
             return next(requirement, null);
         }
 
         @Override
-        public <R extends T> CompletableFuture<Event<R>> next(final Predicate<Event<T>> requirement, final @Nullable Duration timeout) {
+        public <R extends O> CompletableFuture<Event<R>> next(final Predicate<Event<O>> requirement, final @Nullable Duration timeout) {
             final var future = new CompletableFuture<Event<R>>();
             final var listener = listen(e -> Optional.ofNullable(e)
                     .filter(requirement)
@@ -306,7 +335,7 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         @Override
-        public Event.Bus<T> peek(final Consumer<@NotNull T> action) {
+        public Event.Bus<O> peek(final Consumer<@NotNull O> action) {
             return filter(it -> {
                 action.accept(it);
                 return true;
@@ -314,50 +343,50 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         @Override
-        public Event.Bus<T> filter(final Predicate<@NotNull T> predicate) {
+        public Event.Bus<O> filter(final Predicate<@NotNull O> predicate) {
             return map(x -> predicate.test(x) ? x : null);
         }
 
         @Override
-        public <R> Event.Bus<R> map(final Function<@NotNull T, @Nullable R> function) {
+        public <R> Event.Bus<R> map(final Function<@NotNull O, @Nullable R> function) {
             return new Event.Bus<>(this, function);
         }
 
         @Override
-        public <R extends T> Event.Bus<R> flatMap(final Class<R> type) {
+        public <R extends O> Event.Bus<R> flatMap(final Class<R> type) {
             return filter(type::isInstance).map(type::cast);
         }
 
         @Override
-        public CompletableFuture<T> get() {
+        public CompletableFuture<O> get() {
             return next().thenApply(Event::getData);
         }
 
-        public Listener<T> log(final Logger log, final Level level) {
+        public Listener<O> log(final Logger log, final Level level) {
             return listen(e -> log.log(level, e.getData().toString()));
         }
 
-        public Consumer<T> withKey(final String key) {
+        public Consumer<O> withKey(final String key) {
             return data -> publish(key, data);
         }
 
-        public void publish(T data) {
+        public void publish(O data) {
             publish(null, data);
         }
 
-        public void publish(String key, T data) {
+        public void publish(String key, O data) {
             accept(data, key);
         }
 
         @Override
-        public void accept(final T data, @Nullable final String key) {
+        public void accept(final O data, @Nullable final String key) {
             if (!active)
                 return;
             executor.execute(() -> {
                 try {
                     publish(factory.apply(data, key));
-                    synchronized (children) {
-                        for (var child : children)
+                    synchronized (downstream) {
+                        for (var child : downstream)
                             child.$publishDownstream(data, key);
                     }
                 } catch (Throwable t) {
@@ -367,13 +396,13 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         @Override
-        public void close() {
+        public void closeSelf() {
             active = false;
             for (var listener : listeners)
                 listener.close();
         }
 
-        private void publish(Event<T> event) {
+        private void publish(Event<O> event) {
             synchronized (listeners) {
                 //Collections.sort(listeners, Listener.Comparator);
                 listeners.stream().sorted(Listener.Comparator).forEach(listener -> {
@@ -388,7 +417,7 @@ public class Event<T> implements Rewrapper<T> {
         private <P> void $publishDownstream(final P data, @Nullable final String key) {
             if (function == null)
                 return;
-            Function<@NotNull P, @Nullable T> func = uncheckedCast(function);
+            Function<@NotNull P, @Nullable O> func = uncheckedCast(function);
             var it = func.apply(data);
             if (it == null)
                 return;

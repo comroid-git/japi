@@ -12,8 +12,14 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
     Object addChildren(Object... children);
     Set<Object> getChildren();
 
+    default Stream<Object> streamOwnChildren() {
+        return Stream.empty();
+    }
+
     default <T> Stream<T> streamChildren(Class<T> type) {
-        return getChildren().stream().filter(type::isInstance).map(type::cast);
+        return Stream.concat(getChildren().stream(), streamOwnChildren())
+                .filter(type::isInstance)
+                .map(type::cast);
     }
 
     static Container of(Object... children) {
@@ -29,9 +35,10 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
     }
 
     @Getter
-    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     class Base implements Container {
-        private final Set<Object> children;
+        final Set<Object> children;
+        boolean closed;
 
         public Base(Object... children) {
             this.children = new HashSet<>(Set.of(children));
@@ -57,6 +64,7 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
                         return Stream.empty();
                     })
                     .collect(Collectors.toUnmodifiableList());
+            closed = true;
             if (errors.isEmpty())
                 return;
             if (errors.size() == 1)

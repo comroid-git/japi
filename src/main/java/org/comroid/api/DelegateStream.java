@@ -1,10 +1,8 @@
 package org.comroid.api;
 
 import lombok.*;
-import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
-import lombok.extern.slf4j.Slf4j;
 import org.comroid.annotations.Convert;
 import org.comroid.api.info.Log;
 import org.comroid.util.Bitmask;
@@ -16,8 +14,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -120,6 +116,31 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     }
 
     @Convert
+    default InputStream toInputStream() {
+        return input().get();
+    }
+
+    @Convert
+    default Reader toReader() {
+        return input().ifPresentMap(InputStreamReader::new);
+    }
+
+    @Convert
+    default BufferedReader toBufferedReader() {
+        return Rewrapper.of(toReader()).ifPresentMap(BufferedReader::new);
+    }
+
+    @Convert
+    default OutputStream toOutputStream() {
+        return output().or(error()).get();
+    }
+
+    @Convert
+    default Writer toWriter() {
+        return output().ifPresentMap(OutputStreamWriter::new);
+    }
+
+    @Convert
     default PrintStream toPrintStream() {
         return output().ifPresentMap(PrintStream::new);
     }
@@ -131,7 +152,35 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     private static String caller() {return StackTraceUtils.caller(1);}
 
     enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
-    enum EndlMode implements IntegerAttribute {Manual, OnNewLine, OnDelegate}
+    enum EndlMode implements IntegerAttribute {
+        Manual, OnNewLine, OnDelegate;
+
+        public boolean canContinue(int b) {
+            return !(this == OnNewLine && b == '\n');
+        }
+    }
+
+    @Value
+    @EqualsAndHashCode(callSuper = true)
+    class ReaderAdapter<D extends InputStream> extends InputStreamReader {
+        D delegate;
+
+        public ReaderAdapter(@NotNull D delegate) {
+            super(delegate);
+            this.delegate = delegate;
+        }
+    }
+
+    @Value
+    @EqualsAndHashCode(callSuper = true)
+    class WriterAdapter<D extends OutputStream> extends OutputStreamWriter {
+        D delegate;
+
+        public WriterAdapter(@NotNull D delegate) {
+            super(delegate);
+            this.delegate = delegate;
+        }
+    }
 
     @lombok.extern.java.Log
     @Getter
@@ -140,6 +189,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     class Input extends InputStream implements DelegateStream, Provider<String> {
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<Input> container = new Delegate<>(this);
+        @NonFinal @NonNull @Setter EndlMode endlMode;
         @NonFinal @NonNull @Setter String name;
         ThrowingIntSupplier<IOException> read;
         @Nullable AutoCloseable delegate;
@@ -162,7 +212,8 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
 
         @ApiStatus.Experimental
-        public Input(final Event.Bus<String> source, final EndlMode endlMode) {
+        public Input(final Event.Bus<String> source, final @NotNull EndlMode endlMode) {
+            this.endlMode = endlMode;
             class EventBusHandler
                     extends Container.Base
                     implements Consumer<Event<String>>, ThrowingIntSupplier<IOException> {
@@ -202,7 +253,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
                     int i = this.i.incrementAndGet();
                     if (i == buf.length()) {
-                        if (endlMode == EndlMode.OnDelegate)
+                        if (Input.this.endlMode == EndlMode.OnDelegate)
                             return declareEndl();
                         else setBuf(null);
                     }
@@ -217,7 +268,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                             // ignore CR
                             return getAsInt();
                         case '\n':
-                            if (endlMode == EndlMode.OnNewLine)
+                            if (Input.this.endlMode == EndlMode.OnNewLine)
                                 return declareEndl();
                     }
                     return c;
@@ -263,6 +314,89 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             this.read = handler;
         }
 
+        //region Stream OPs
+        @ApiStatus.Experimental
+        public Input peek(final Consumer<@NotNull String> action) {
+            return filter(txt -> {
+                action.accept(txt);
+                return true;
+            });
+        }
+
+        @ApiStatus.Experimental
+        public Input filter(final Predicate<@NotNull String> action) {
+            return map(str -> action.test(str) ? str : null);
+        }
+
+        @ApiStatus.Experimental
+        public Input map(final Function<@NotNull String, @Nullable String> action) {
+            return flatMap(str -> Stream.of(action.apply(str)));
+        }
+
+        @ApiStatus.Experimental
+        public Input flatMap(final Function<@NotNull String, Stream<@Nullable String>> action) {
+            Input in = this;
+            if (!(in.delegate instanceof EndlDelimitedAdapter))
+                in = new PipelineAdapter<>(new EndlDelimitedAdapter(in), action.andThen(x->x
+                                .filter(Objects::nonNull)
+                        //        .map(y->y+'\n')
+                ));
+            else Polyfill.<PipelineAdapter<String>>uncheckedCast(in).actions.add(action);
+            return in;
+        }
+
+        @ApiStatus.Experimental
+        public BackgroundTask<Input> subscribe(final Consumer<@NotNull String> action) {
+            var stream = flatMap(str -> {
+                action.accept(str);
+                return Stream.empty();
+            });
+            return new BackgroundTask<>(stream, ThrowingConsumer.rethrowing(InputStream::readAllBytes), 0);
+        }
+        //endregion
+
+        //region Segment OPs
+        @ApiStatus.Experimental
+        public Input peekSegment(final Consumer<byte @NotNull []> action) throws IllegalStateException {
+            return filterSegment(data -> {
+                action.accept(data);
+                return true;
+            });
+        }
+
+        @ApiStatus.Experimental
+        public Input filterSegment(final Predicate<byte @NotNull []> action) throws IllegalStateException {
+            return mapSegment(data -> action.test(data) ? data : null);
+        }
+
+        @ApiStatus.Experimental
+        public Input mapSegment(final Function<byte @NotNull [], byte @Nullable []> action) throws IllegalStateException {
+            return flatMapSegment(action.andThen(Stream::of));
+        }
+
+        @ApiStatus.Experimental
+        public Input flatMapSegment(final Function<byte @NotNull [], Stream<byte @Nullable []>> action) throws IllegalStateException {
+            Input in = this;
+            if (in.delegate instanceof SegmentAdapter)
+                Polyfill.<PipelineAdapter<byte[]>>uncheckedCast(in).actions.add(action);
+            else throw new IllegalStateException("Segment OPs are only allowed after segment(int) has been called");
+            return in;
+        }
+
+        @ApiStatus.Experimental
+        public UncheckedCloseable forEachSegment(final Consumer<byte@NotNull[]> action) {
+            return flatMapSegment(data -> {
+                action.accept(data);
+                return Stream.empty();
+            });
+        }
+
+        @ApiStatus.Experimental
+        public Input segment(int length) {
+            return new PipelineAdapter<>(new SegmentAdapter(this, length), Stream::of);
+        }
+        //endregion
+
         @Override
         public int read() {
             try {
@@ -304,6 +438,124 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         @Override
         public String toString() {
             return getName();
+        }
+
+        private abstract static class DelimitedInputAdapter<T, BUF extends Reader, LOC extends Writer> extends Input {
+            protected BUF buffer;
+
+            protected DelimitedInputAdapter(InputStream delegate) {
+                super(delegate);
+                buffer = newReadBuffer(null);
+            }
+
+            @Override
+            @SneakyThrows
+            public synchronized int read() {
+                int r;
+                if ((r = buffer.read()) == -1)
+                    nextBuffer();
+                return r;
+            }
+
+            protected abstract boolean canContinue(LOC buf, int r, int c);
+            protected abstract BUF newReadBuffer(@Nullable T content);
+            protected abstract LOC newCacheBuffer();
+            protected abstract T deconstructCache(LOC buffer);
+
+            private BUF transferBuffer(LOC buffer) {
+                return newReadBuffer(deconstructCache(buffer));
+            }
+
+            @SneakyThrows
+            private void nextBuffer() {
+                try (LOC buffer = newCacheBuffer()) {
+                    int r, c = 0;
+                    do {
+                        r = super.read();
+                        c++;
+                        buffer.write(r);
+                    } while (r != -1 && canContinue(buffer, r, c));
+                    this.buffer = transferBuffer(buffer);
+                }
+            }
+
+            @Override
+            @SneakyThrows
+            public void closeSelf() {
+                super.closeSelf();
+                buffer.close();
+            }
+        }
+
+        private class EndlDelimitedAdapter extends DelimitedInputAdapter<String, StringReader, StringWriter> {
+            private EndlDelimitedAdapter(InputStream delegate) {
+                super(delegate);
+            }
+
+            @Override
+            protected boolean canContinue(StringWriter buf, int r, int c) {
+                return !(endlMode == EndlMode.OnNewLine && r == '\n');
+            }
+
+            @Override
+            protected StringWriter newCacheBuffer() {
+                return new StringWriter();
+            }
+
+            @Override
+            protected StringReader newReadBuffer(@Nullable String content) {
+                return new StringReader(content==null?"":content);
+            }
+
+            @Override
+            protected String deconstructCache(StringWriter buffer) {
+                return buffer.toString();
+            }
+        }
+
+        private static class SegmentAdapter extends DelimitedInputAdapter<byte[], ReaderAdapter<ByteArrayInputStream>, WriterAdapter<ByteArrayOutputStream>> {
+            private final int length;
+
+            private SegmentAdapter(InputStream delegate, int length) {
+                super(delegate);
+                this.length = length;
+            }
+
+            @Override
+            protected boolean canContinue(WriterAdapter<ByteArrayOutputStream> buf, int r, int c) {
+                return c < length;
+            }
+
+            @Override
+            protected ReaderAdapter<ByteArrayInputStream> newReadBuffer(byte@Nullable[] content) {
+                return new ReaderAdapter<>(new ByteArrayInputStream(content==null?new byte[0]:content));
+            }
+
+            @Override
+            protected WriterAdapter<ByteArrayOutputStream> newCacheBuffer() {
+                return new WriterAdapter<>(new ByteArrayOutputStream(length));
+            }
+
+            @Override
+            protected byte[] deconstructCache(WriterAdapter<ByteArrayOutputStream> buffer) {
+                return buffer.delegate.toByteArray();
+            }
+        }
+
+        private static class PipelineAdapter<T> extends Input {
+            List<Function<T, Stream<T>>> actions;
+
+            private PipelineAdapter(DelimitedInputAdapter<T, ?, ?> input, Function<@NotNull T, Stream<@Nullable T>> action) {
+                super(input);
+                this.actions = new ArrayList<>(Collections.singletonList(action));
+            }
+
+            public Stream<@Nullable T> apply(@NotNull T txt) {
+                var stream = Stream.of(txt);
+                for (var action : actions)
+                    stream = stream.flatMap(action).filter(Objects::nonNull);
+                return stream;
+            }
         }
     }
 
@@ -377,7 +629,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             this.name = lessSimpleName(bus.getClass()) + " OutputStream @ " + caller();
         }
 
-        private Output(@NotNull final PipelineAdapter adapter) {
+        private Output(@NotNull final DelegateStream.Output.StringPipelineAdapter adapter) {
             final var writer = new AtomicReference<>(new StringWriter());
             this.write = c -> writer.get().write(c);
             this.flush = () -> writer.getAndUpdate(buf -> {
@@ -434,12 +686,12 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         @ApiStatus.Experimental
         public Output flatMap(final Function<@NotNull String, Stream<@Nullable String>> action) {
             Output out = this;
-            if (!(out.delegate instanceof PipelineAdapter))
-                out = new Output(new PipelineAdapter(this, action.andThen(x->x
+            if (!(out.delegate instanceof StringPipelineAdapter))
+                out = new Output(new StringPipelineAdapter(this, action.andThen(x->x
                         .filter(Objects::nonNull)
                 //        .map(y->y+'\n')
                 )));
-            else ((PipelineAdapter) out.delegate).actions.add(action);
+            else ((StringPipelineAdapter) out.delegate).actions.add(action);
             return out;
         }
         //endregion
@@ -538,10 +790,10 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
         @Value
         @EqualsAndHashCode(callSuper = true)
-        private static class PipelineAdapter extends PrintStream {
+        private static class StringPipelineAdapter extends PrintStream {
             List<Function<String, Stream<String>>> actions;
 
-            private PipelineAdapter(OutputStream output, Function<String, Stream<String>> action) {
+            private StringPipelineAdapter(OutputStream output, Function<String, Stream<String>> action) {
                 super(output, true);
                 this.actions = new ArrayList<>(Collections.singletonList(action));
             }

@@ -47,4 +47,21 @@ public interface ThrowingSupplier<T, E extends Throwable> {
     }
 
     T get() throws E;
+
+    default Supplier<T> wrap() {
+        return wrap(null);
+    }
+
+    default Supplier<T> wrap(final @Nullable Function<E, ? extends RuntimeException> _remapper) {
+        return () -> {
+            try {
+                return get();
+            } catch (Throwable e) {
+                var remapper = _remapper;
+                if (remapper == null)
+                    remapper = RuntimeException::new;
+                throw remapper.apply(Polyfill.uncheckedCast(e));
+            }
+        };
+    }
 }
