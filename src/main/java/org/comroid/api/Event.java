@@ -117,12 +117,44 @@ public class Event<T> implements Rewrapper<T> {
         }
     }
 
+    public interface IBus<T> {
+        <R extends T> Event.Listener<T> listen(Class<R> type, Consumer<Event<R>> action);
+
+        <R extends T> Event.Listener<T> listen(@Nullable String key, Class<R> type, Consumer<Event<R>> action);
+
+        Event.Listener<T> listen(Consumer<Event<T>> action);
+
+        Event.Listener<T> listen(@Nullable String key, Consumer<Event<T>> action);
+
+        Event.Listener<T> listen(Predicate<Event<T>> predicate, Consumer<Event<T>> action);
+
+        Event.Listener<T> listen(@Nullable String key, Predicate<Event<T>> predicate, Consumer<Event<T>> action);
+
+        <R extends T> CompletableFuture<Event<R>> next();
+
+        <R extends T> CompletableFuture<Event<R>> next(Class<R> type);
+
+        <R extends T> CompletableFuture<Event<R>> next(Class<R> type, @Nullable Duration timeout);
+
+        <R extends T> CompletableFuture<Event<R>> next(Predicate<Event<T>> requirement);
+
+        <R extends T> CompletableFuture<Event<R>> next(Predicate<Event<T>> requirement, @Nullable Duration timeout);
+
+        Event.Bus<T> peek(Consumer<T> action);
+
+        Event.Bus<T> filter(Predicate<T> predicate);
+
+        <R> Event.Bus<R> map(Function<T, @Nullable R> function);
+
+        <R extends T> Event.Bus<R> flatMap(Class<R> type);
+    }
+
     @Log
     @Getter
     @EqualsAndHashCode(of = {}, callSuper = true)
     @ToString(of = {"parent", "factory", "active"})
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    public static class Bus<T> extends UUIDContainer.Base implements Named, BiConsumer<T, String>, Provider<T>, Closeable {
+    public static class Bus<T> extends UUIDContainer.Base implements Named, BiConsumer<T, String>, Provider<T>, Closeable, IBus<T> {
         @Nullable
         @NonFinal
         Event.Bus<?> parent;
@@ -201,27 +233,33 @@ public class Event<T> implements Rewrapper<T> {
             if (parent != null) parent.children.add(this);
         }
 
+        @Override
         public <R extends T> Listener<T> listen(Class<R> type, Consumer<Event<R>> action) {
             return listen(null, type, action);
         }
 
+        @Override
         public <R extends T> Event.Listener<T> listen(@Nullable String key, final Class<R> type, Consumer<Event<R>> action) {
             return listen(key, e -> type.isInstance(e.getData()), uncheckedCast(action));
         }
 
+        @Override
         public Listener<T> listen(Consumer<Event<T>> action) {
             return listen((String) null, action);
         }
 
+        @Override
         public Event.Listener<T> listen(@Nullable String key, Consumer<Event<T>> action) {
             return listen(key, $ -> true, action);
 
         }
 
+        @Override
         public Listener<T> listen(final Predicate<Event<T>> predicate, Consumer<Event<T>> action) {
             return listen(null, predicate, action);
         }
 
+        @Override
         public Event.Listener<T> listen(final @Nullable String key, Predicate<Event<T>> predicate, Consumer<Event<T>> action) {
             Event.Listener<T> listener;
             if (action instanceof Event.Listener)
@@ -233,22 +271,27 @@ public class Event<T> implements Rewrapper<T> {
             return listener;
         }
 
+        @Override
         public <R extends T> CompletableFuture<Event<R>> next() {
             return next($ -> true);
         }
 
+        @Override
         public <R extends T> CompletableFuture<Event<R>> next(final Class<R> type) {
             return next(type, null);
         }
 
+        @Override
         public <R extends T> CompletableFuture<Event<R>> next(final Class<R> type, final @Nullable Duration timeout) {
             return next(e -> type.isInstance(e.getData()), timeout);
         }
 
+        @Override
         public <R extends T> CompletableFuture<Event<R>> next(final Predicate<Event<T>> requirement) {
             return next(requirement, null);
         }
 
+        @Override
         public <R extends T> CompletableFuture<Event<R>> next(final Predicate<Event<T>> requirement, final @Nullable Duration timeout) {
             final var future = new CompletableFuture<Event<R>>();
             final var listener = listen(e -> Optional.ofNullable(e)
@@ -262,6 +305,7 @@ public class Event<T> implements Rewrapper<T> {
             return future.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS);
         }
 
+        @Override
         public Event.Bus<T> peek(final Consumer<@NotNull T> action) {
             return filter(it -> {
                 action.accept(it);
@@ -269,14 +313,17 @@ public class Event<T> implements Rewrapper<T> {
             });
         }
 
+        @Override
         public Event.Bus<T> filter(final Predicate<@NotNull T> predicate) {
             return map(x -> predicate.test(x) ? x : null);
         }
 
+        @Override
         public <R> Event.Bus<R> map(final Function<@NotNull T, @Nullable R> function) {
             return new Event.Bus<>(this, function);
         }
 
+        @Override
         public <R extends T> Event.Bus<R> flatMap(final Class<R> type) {
             return filter(type::isInstance).map(type::cast);
         }

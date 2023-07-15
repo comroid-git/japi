@@ -576,7 +576,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     @Value
     @EqualsAndHashCode(callSuper = true)
     class Packet<H,B> extends ByteArrayOutputStream {
-        @lombok.experimental.Delegate(excludes = {Named.class, BiConsumer.class})
+        @lombok.experimental.Delegate(types = Event.IBus.class)
         Event.Bus<Packet<H,B>.Pair> bus = new Event.Bus<>();
         int headLength;
         Function<byte @NotNull [], H> headFactory;
@@ -609,7 +609,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             H head = this.head.get();
             if (head != null) {
                 var body = bodyFactory.apply(buf);
-                publish(new Pair(head, body));
+                bus.publish(new Pair(head, body));
                 clear(headLength);
             } else {
                 head = headFactory.apply(buf);
