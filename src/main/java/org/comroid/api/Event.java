@@ -154,7 +154,7 @@ public class Event<T> implements Rewrapper<T> {
     @EqualsAndHashCode(of = {}, callSuper = true)
     @ToString(of = {"parent", "factory", "active"})
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    public static class Bus<T> extends UUIDContainer.Base implements Named, BiConsumer<T, String>, Provider<T>, Closeable, IBus<T> {
+    public static class Bus<T> extends UUIDContainer.Base implements Named, N.Consumer.$2<T, String>, Provider<T>, Closeable, IBus<T> {
         @Nullable
         @NonFinal
         Event.Bus<?> parent;
