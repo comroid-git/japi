@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.java.Log;
-import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -277,7 +276,7 @@ public class Event<T> implements Rewrapper<T> {
                 subscribers.add(new SubscriberImpl(method, Invocable.ofMethodCall(target, method), subscriber));
             }
 
-            var listener = new TargetListener(target, subscribers);
+            var listener = new SubscriberListener(target, subscribers);
             synchronized (listeners) {
                 listeners.add(listener);
             }
@@ -451,11 +450,11 @@ public class Event<T> implements Rewrapper<T> {
 
         @Value
         @EqualsAndHashCode(callSuper = true)
-        private class TargetListener extends Listener<T> {
+        private class SubscriberListener extends Listener<T> {
             @Nullable Object target;
             HashSet<SubscriberImpl> subscribers;
 
-            public TargetListener(
+            public SubscriberListener(
                     @Nullable Object target,
                     HashSet<SubscriberImpl> subscribers) {
                 super(null, Bus.this, $->true, $->{});
