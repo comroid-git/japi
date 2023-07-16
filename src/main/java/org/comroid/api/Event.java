@@ -303,7 +303,7 @@ public class Event<T> implements Rewrapper<T> {
                 }
 
                 public boolean testFlag(long x) {
-                    var y = subscriber.f();
+                    var y = subscriber.flag();
                     switch (subscriber.mode()) {
                         case Numeric:
                             return x==y;
