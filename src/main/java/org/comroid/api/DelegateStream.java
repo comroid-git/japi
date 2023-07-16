@@ -6,7 +6,6 @@ import lombok.experimental.NonFinal;
 import org.comroid.annotations.Convert;
 import org.comroid.api.info.Log;
 import org.comroid.util.Bitmask;
-import org.comroid.util.EncryptionUtil;
 import org.comroid.util.StackTraceUtils;
 import org.comroid.util.StreamUtil;
 import org.intellij.lang.annotations.MagicConstant;
@@ -31,8 +30,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-import java.util.zip.Inflater;
-import java.util.zip.InflaterInputStream;
 
 import static org.comroid.api.Rewrapper.*;
 import static org.comroid.api.ThrowingFunction.sneaky;
@@ -49,6 +46,13 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     default Rewrapper<InputStream> input() {return empty();}
     default Rewrapper<OutputStream> output() {return Rewrapper.<OutputStream>empty().or(error());}
     default Rewrapper<OutputStream> error() {return Rewrapper.<OutputStream>empty().or(output());}
+
+    @SneakyThrows
+    static void tryTransfer(InputStream in, OutputStream out) {
+        try (var _in = in; var _out = out) {
+            _in.transferTo(_out);
+        }
+    }
 
     @SneakyThrows
     static void writeAll(OutputStream out, CharSequence input) {
@@ -448,10 +452,22 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
         //endregion
 
+        private final AtomicInteger buffer = new AtomicInteger(-1);
         @Override
         public int read() {
             try {
-                return read.getAsInt();
+                int r = buffer.accumulateAndGet(-1, (it,x)->{
+                    if (it != -1)
+                        return it;
+                    return x;
+                });
+                if (r != -1)
+                    return r;
+                r = read.getAsInt();
+                if (r <= 0xFF)
+                    return r;
+                buffer.set(r >> 8);
+                return r & 0x00_FF;
             } catch (Throwable t) {
                 log.log(Level.SEVERE, "Could not read from " + this, t);
                 return -1;
@@ -789,9 +805,13 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         //endregion
 
         @Override
-        public void write(int b) {
+        public void write(int w) {
             try {
-                write.accept(b);
+                if ((w & 0xFF00) != 0) {
+                    write.accept((w & 0x00FF));
+                    w >>= 8;
+                }
+                write.accept(w);
             } catch (Throwable t) {
                 log.log(Level.SEVERE, "Could not read from " + this, t);
             }

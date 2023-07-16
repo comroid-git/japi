@@ -1,8 +1,7 @@
 package org.comroid.test.api.delegatestream;
 
-import lombok.SneakyThrows;
 import org.comroid.api.DelegateStream;
-import org.comroid.util.TestUtils;
+import org.comroid.util.TestUtil;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -13,9 +12,7 @@ import java.util.zip.GZIPOutputStream;
 
 @SuppressWarnings({"DataFlowIssue", "FieldCanBeLocal"})
 public class CompressionTest {
-    private DelegateStream.IO base;
     private DelegateStream.IO compressor;
-    private DelegateStream.IO intermediate;
 
     private File inputFile;
     private File compressedFile;
@@ -30,46 +27,51 @@ public class CompressionTest {
         // prepare files
         inputFile = File.createTempFile("input", ".txt");
         compressedFile = File.createTempFile("compressed", ".gzip");
-        compressedFile = File.createTempFile("decompressed", ".txt");
+        decompressedFile = File.createTempFile("decompressed", ".txt");
 
 
         // prepare validation data
-        validInput = TestUtils.fillWithText(inputFile, 512);
+        validInput = TestUtil.fillWithText(inputFile, 512);
 
         var buf = new StringWriter();
-        new DelegateStream.Input(new StringReader(validInput))
-                .transferTo(new GZIPOutputStream(new DelegateStream.Output(buf)));
+        DelegateStream.tryTransfer(
+                new DelegateStream.Input(new StringReader(validInput)),
+                new GZIPOutputStream(new DelegateStream.Output(buf)));
         validCompressed = buf.toString();
 
         buf = new StringWriter();
-        new GZIPInputStream(new DelegateStream.Input(new StringReader(validCompressed)))
-                .transferTo(new DelegateStream.Output(buf));
+        DelegateStream.tryTransfer(
+                new GZIPInputStream(new DelegateStream.Input(new StringReader(validCompressed))),
+                new DelegateStream.Output(buf));
         validDecompressed = buf.toString();
 
 
-        // prepare streams
-        base = DelegateStream.IO.builder()
-                .input(new FileInputStream(inputFile))
-                .output(new FileOutputStream(decompressedFile))
-                .build();
-        compressor = base.useCompression();
-        intermediate = DelegateStream.IO.builder()
-                .input(new FileInputStream(compressedFile))
-                .output(new FileOutputStream(compressedFile))
-                .build();
+        // prepare IO
+        compressor = new DelegateStream.IO().useCompression();
     }
 
     @Test
     public void test() throws Throwable {
-        // input
-        Assert.assertEquals("Input data mismatch", validInput, DelegateStream.readAll(new FileInputStream(inputFile)));
+        // input == decompressed
+        Assert.assertEquals("Input != Decompressed data mismatch", validInput, validDecompressed);
 
         // compress
-        compressor.getInput().transferTo(intermediate.getOutput());
-        Assert.assertEquals("Compressed data mismatch", validCompressed, DelegateStream.readAll(new FileInputStream(compressedFile)));
+        try (var fos = new FileOutputStream(compressedFile);
+             var fis = new FileInputStream(inputFile)) {
+            compressor.redirect(fos);
+            DelegateStream.tryTransfer(fis, compressor.getOutput());
+
+            Assert.assertEquals("Input data mismatch", validInput, DelegateStream.readAll(new FileInputStream(inputFile)));
+            Assert.assertEquals("Compressed data mismatch", validCompressed, DelegateStream.readAll(new FileInputStream(compressedFile)));
+        }
 
         // decompress
-        intermediate.getInput().transferTo(compressor.getOutput());
-        Assert.assertEquals("Decompressed data mismatch", validDecompressed, DelegateStream.readAll(new FileInputStream(decompressedFile)));
+        try (var fis = new FileInputStream(compressedFile);
+             var fos = new FileOutputStream(decompressedFile)) {
+            DelegateStream.tryTransfer(compressor.redirect(fis).getInput(), fos);
+
+            Assert.assertEquals("Decompressed data mismatch", validInput, DelegateStream.readAll(new FileInputStream(decompressedFile)));
+            Assert.assertEquals("Decompressed data mismatch", validDecompressed, DelegateStream.readAll(new FileInputStream(decompressedFile)));
+        }
     }
 }
