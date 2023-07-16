@@ -6,6 +6,7 @@ import lombok.experimental.NonFinal;
 import org.comroid.annotations.Convert;
 import org.comroid.api.info.Log;
 import org.comroid.util.Bitmask;
+import org.comroid.util.EncryptionUtil;
 import org.comroid.util.StackTraceUtils;
 import org.comroid.util.StreamUtil;
 import org.intellij.lang.annotations.MagicConstant;
@@ -34,6 +35,7 @@ import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 
 import static org.comroid.api.Rewrapper.*;
+import static org.comroid.api.ThrowingFunction.sneaky;
 import static org.comroid.util.StackTraceUtils.lessSimpleName;
 
 public interface DelegateStream extends Container, Closeable, Named, Convertible {
@@ -152,14 +154,6 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         return output().ifPresentMap(PrintStream::new);
     }
 
-    default Input decrypt(final Cipher cipher) {
-        return input().ifPresentMap(is -> new Input(new CipherInputStream(is, cipher)));
-    }
-
-    default Output encrypt(final Cipher cipher) {
-        return output().ifPresentMap(out -> new Output(new CipherOutputStream(out, cipher)));
-    }
-
     default Input decompress() {
         return input().ifPresentMap(is -> {
             try {
@@ -177,6 +171,14 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 throw new RuntimeException(e);
             }
         });
+    }
+
+    default Input decrypt(final Cipher cipher) {
+        return input().ifPresentMap(is -> new Input(new CipherInputStream(is, cipher)));
+    }
+
+    default Output encrypt(final Cipher cipher) {
+        return output().ifPresentMap(out -> new Output(new CipherOutputStream(out, cipher)));
     }
 
     private static UnsupportedOperationException unsupported(DelegateStream stream, Capability capability) {
@@ -961,6 +963,16 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         @SneakyThrows
         public IO redirectToSocket(Socket socket) {
             return redirect(socket.getInputStream(), socket.getOutputStream());
+        }
+        public IO useCompression() {
+            return rewire(sneaky(GZIPInputStream::new), sneaky(GZIPOutputStream::new), sneaky(GZIPOutputStream::new));
+        }
+        public IO useEncryption(final @NotNull IntFunction<Cipher> cipherFactory) {
+            return rewire(
+                    sneaky(in -> new CipherInputStream(in, cipherFactory.apply(Cipher.DECRYPT_MODE))),
+                    sneaky(out -> new CipherOutputStream(out, cipherFactory.apply(Cipher.ENCRYPT_MODE))),
+                    sneaky(err -> new CipherOutputStream(err, cipherFactory.apply(Cipher.ENCRYPT_MODE)))
+            );
         }
         public IO redirectErr(@Nullable OutputStream err) { return redirect(new IO(null,null,err));}
         public IO redirect(@Nullable InputStream in) { return redirect(new IO(in,null,null));}
