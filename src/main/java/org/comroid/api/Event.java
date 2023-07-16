@@ -88,8 +88,8 @@ public class Event<T> implements Rewrapper<T> {
         public abstract E factory(long seq, T data, String key, long flag);
     }
 
-    @Value
-    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @Getter
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     @EqualsAndHashCode(exclude = "bus", callSuper = true)
     @ToString(of = "location", includeFieldNames = false)
     public static class Listener<T> extends Container.Base implements Predicate<Event<T>>, Consumer<Event<T>>, Comparable<Listener<?>>, Closeable, Named {
@@ -260,54 +260,6 @@ public class Event<T> implements Rewrapper<T> {
         private Listener<T> registerTargetListener(Class<?> type, @Nullable Object target) {
             addChildren(target);
 
-            @Value
-            class SubscriberImpl implements Predicate<Event<T>>, BiConsumer<@Nullable Object, Event<T>> {
-                Method method;
-                Invocable<?> delegate;
-                Subscriber subscriber;
-
-                @Override
-                public boolean test(Event<T> event) {
-                    var key = Optional.of(subscriber.value())
-                            .filter(Predicate.not(Subscriber.EmptyName::equals))
-                            .orElseGet(method::getName);
-                    return Rewrapper.of(event.flag).or(()->0xffff_ffff_ffff_ffffL).testIfPresent(this::testFlag)
-                            && (Objects.equals(key, event.key) || ("null".equals(key)
-                                && (Objects.isNull(event.key) || Subscriber.EmptyName.equals(event.key))));
-                }
-
-                public boolean testFlag(long x) {
-                    var y = subscriber.flag();
-                    switch (subscriber.mode()) {
-                        case Numeric:
-                            return x==y;
-                        case BitwiseOr:
-                            return (x&y)!=0;
-                        case BitwiseNot:
-                            return (x&~y)!=0;
-                    }
-                    throw new IllegalStateException("Unexpected value: " + subscriber.mode());
-                }
-
-                @Override
-                public void accept(@Nullable Object target, Event<T> event) {
-                    delegate.autoInvoke(event, event.getKey(), event.getData(), event.getSeq(), event.getTimestamp());
-                }
-            }
-            @Value
-            @EqualsAndHashCode(callSuper = true)
-            class TargetListener extends Listener<T> {
-                @Nullable Object target;
-                HashSet<SubscriberImpl> subscribers;
-
-                @Override
-                public void accept(Event<T> event) {
-                    for (var subscriber : subscribers)
-                        if (subscriber.test(event))
-                            subscriber.accept(target, event);
-                }
-            }
-
             //final var autoTypes = List.of(Event.class, String.class, Long.class, Instant.class);
             var subscribers = new HashSet<SubscriberImpl>();
             for (var method : type.getMethods()) {
@@ -460,6 +412,63 @@ public class Event<T> implements Rewrapper<T> {
             if (it == null)
                 return;
             accept(it, keyFunction == null ? key : keyFunction.apply(key), flag);
+        }
+
+        @Value
+        private class SubscriberImpl implements Predicate<Event<T>>, BiConsumer<@Nullable Object, Event<T>> {
+            Method method;
+            Invocable<?> delegate;
+            Subscriber subscriber;
+
+            @Override
+            public boolean test(Event<T> event) {
+                var key = Optional.of(subscriber.value())
+                        .filter(Predicate.not(Subscriber.EmptyName::equals))
+                        .orElseGet(method::getName);
+                return Rewrapper.of(event.flag).or(()->0xffff_ffff_ffff_ffffL).testIfPresent(this::testFlag)
+                        && (Objects.equals(key, event.key) || ("null".equals(key)
+                        && (Objects.isNull(event.key) || Subscriber.EmptyName.equals(event.key))));
+            }
+
+            public boolean testFlag(long x) {
+                var y = subscriber.flag();
+                switch (subscriber.mode()) {
+                    case Numeric:
+                        return x==y;
+                    case BitwiseOr:
+                        return (x&y)!=0;
+                    case BitwiseNot:
+                        return (x&~y)!=0;
+                }
+                throw new IllegalStateException("Unexpected value: " + subscriber.mode());
+            }
+
+            @Override
+            public void accept(@Nullable Object target, Event<T> event) {
+                delegate.autoInvoke(event, event.getKey(), event.getData(), event.getSeq(), event.getTimestamp());
+            }
+        }
+
+        @Value
+        @EqualsAndHashCode(callSuper = true)
+        private class TargetListener extends Listener<T> {
+            @Nullable Object target;
+            HashSet<SubscriberImpl> subscribers;
+
+            public TargetListener(
+                    @Nullable Object target,
+                    HashSet<SubscriberImpl> subscribers) {
+                super(null, Bus.this, $->true, $->{});
+                this.target = target;
+                this.subscribers = subscribers;
+            }
+
+            @Override
+            public void accept(Event<T> event) {
+                for (var subscriber : subscribers)
+                    if (subscriber.test(event))
+                        subscriber.accept(target, event);
+            }
         }
     }
 }

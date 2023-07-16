@@ -3,6 +3,7 @@ package org.comroid.api;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -90,7 +91,7 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
     @Getter
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     class Delegate<S extends SelfCloseable> extends Base implements Owned {
-        private final @NonNull S owner;
+        private final @NotNull S owner;
 
         @Override
         public S addChildren(Object... children) {
@@ -98,7 +99,7 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
             return owner;
         }
 
-        public Delegate(@NonNull S owner, Object... children) {
+        public Delegate(@NotNull S owner, Object... children) {
             super(children);
             this.owner = owner;
         }

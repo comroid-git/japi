@@ -26,8 +26,7 @@ public class CompressionTest {
     private String validDecompressed;
 
     @Before
-    @SneakyThrows
-    public void setup() {
+    public void setup() throws Throwable {
         // prepare files
         inputFile = File.createTempFile("input", ".txt");
         compressedFile = File.createTempFile("compressed", ".gzip");
@@ -61,8 +60,7 @@ public class CompressionTest {
     }
 
     @Test
-    @SneakyThrows
-    public void test() {
+    public void test() throws Throwable {
         // input
         Assert.assertEquals("Input data mismatch", validInput, DelegateStream.readAll(new FileInputStream(inputFile)));
 

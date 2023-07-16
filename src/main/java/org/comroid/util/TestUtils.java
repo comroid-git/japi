@@ -15,7 +15,7 @@ public class TestUtils {
         var buf = new StringWriter();
         try (FileOutputStream fos = new FileOutputStream(file, false)) {
             while (length-- > 0) {
-                int c = rng.nextInt('a', 'Z');
+                byte c = (byte) (rng.nextInt('Z', 'a') % 256);
                 buf.append((char) c);
                 fos.write(c);
             }

@@ -73,8 +73,8 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         @Value
         @EqualsAndHashCode(callSuper = true)
         class WrapInputStream extends InputStream {
-            @NonNull InputStream delegate;
-            @NonNull Logger log;
+            @NotNull InputStream delegate;
+            @NotNull Logger log;
 
             @Override
             public int read() {
@@ -106,8 +106,8 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         @Value
         @EqualsAndHashCode(callSuper = true)
         class WrapOutputStream extends OutputStream {
-            @NonNull OutputStream delegate;
-            @NonNull Logger log;
+            @NotNull OutputStream delegate;
+            @NotNull Logger log;
 
             @Override
             public void write(int b) {
@@ -240,8 +240,8 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     class Input extends InputStream implements DelegateStream, Provider<String> {
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<Input> container = new Delegate<>(this);
-        @NonFinal @NonNull @Setter EndlMode endlMode;
-        @NonFinal @NonNull @Setter String name;
+        @NonFinal @NotNull @Setter EndlMode endlMode;
+        @NonFinal @NotNull @Setter String name;
         ThrowingIntSupplier<IOException> read;
         @Nullable AutoCloseable delegate;
 
@@ -617,7 +617,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     class Output extends OutputStream implements DelegateStream {
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<Output> container = new Delegate<>(this);
-        @NonFinal @NonNull @Setter String name;
+        @NonFinal @NotNull @Setter String name;
         ThrowingIntConsumer<IOException> write;
         ThrowingRunnable<IOException> flush;
         @Nullable AutoCloseable delegate;
@@ -951,7 +951,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         Container.Delegate<IO> container = new Delegate<>(this);
         int initialCapabilities;
         Deque<IO> redirects;
-        @NonFinal @NonNull @Setter String name;
+        @NonFinal @NotNull @Setter String name;
         @NonFinal @Nullable IO parent;
         @NonFinal @Nullable InputStream input;
         @NonFinal @Nullable OutputStream output;
