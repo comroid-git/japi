@@ -179,7 +179,7 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return () -> accumulate(other, accumulator);
     }
 
-    default <X, R> @Nullable R accumulate(@Nullable Supplier<@Nullable X> other, BiFunction<T, @Nullable X, @Nullable R> accumulator) {
+    default <X, R> @Nullable R accumulate(@Nullable Supplier<@Nullable X> other, BiFunction<T, X, @Nullable R> accumulator) {
         if (other == null || other.get() == null)
             return null;
         return accumulator.apply(get(), other.get());
