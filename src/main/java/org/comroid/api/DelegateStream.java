@@ -344,7 +344,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             handler.addChildren(source);
             this.delegate = handler;
 
-            source.listen(IO.EventKey_Input, handler);
+            source.listen().setKey(IO.EventKey_Input).subscribe(handler);
             this.read = handler;
         }
 

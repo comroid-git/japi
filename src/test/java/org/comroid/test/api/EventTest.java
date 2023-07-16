@@ -15,15 +15,13 @@ public class EventTest {
 
     @Before
     public void setup() {
-        Context.root().addToContext((Executor)Runnable::run);
-
         busA = new Event.Bus<>();
         busB = new Event.Bus<>().setUpstream(busA);
         busC = busB.map(Object::toString).map(StandardValueType.INTEGER::parse);
 
-        busA.listen(e -> System.out.println("Bus A had data: "+e));
-        busB.listen(CharSequence.class, e-> System.out.println("Bus B had char sequence: "+e));
-        busC.listen(e->e.getData()>400, e->System.out.println("Bus C was larger than 400: "+e));
+        busA.listen().subscribe(e -> System.out.println("Bus A had data: "+e));
+        busB.listen().setType(CharSequence.class).subscribe(e-> System.out.println("Bus B had char sequence: "+e));
+        busC.listen().setPredicate(e->e.getData()>400).subscribe(e->System.out.println("Bus C was larger than 400: "+e));
     }
 
     @Test

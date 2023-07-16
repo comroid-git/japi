@@ -330,16 +330,17 @@ public class Event<T> implements Rewrapper<T> {
             return listener;
         }
 
-        public Filter listen() {
-            return new Filter();
+        public Event.Bus.Filter<T> listen() {
+            return new Filter<>(this);
         }
 
         @Data
-        public final class Filter {
+        public static final class Filter<T> {
+            @NotNull Event.Bus<T> bus;
             @Nullable String key;
             @Nullable Long flag;
-            @Nullable Predicate<Event<T>> predicate;
             @Nullable Class<? extends T> type;
+            @Nullable Predicate<Event<T>> predicate;
             @Nullable Duration timeout;
 
             private Predicate<Event<T>> filters() {
@@ -350,9 +351,9 @@ public class Event<T> implements Rewrapper<T> {
             }
 
             public Listener<T> subscribe(final @NotNull Consumer<Event<T>> action) {
-                var listener = new Event.Listener<>(key, Bus.this, filters(), action);
-                synchronized (listeners) {
-                    listeners.add(listener);
+                var listener = new Event.Listener<>(key, bus, filters(), action);
+                synchronized (bus.listeners) {
+                    bus.listeners.add(listener);
                 }
                 return listener;
             }
@@ -392,7 +393,7 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         public Listener<T> log(final Logger log, final Level level) {
-            return listen(e -> log.log(level, e.getData().toString()));
+            return listen().subscribe(e -> log.log(level, String.valueOf(e.getData())));
         }
 
         public Consumer<T> withKey(final String key) {
