@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class EncryptionUtil {
     private final Map<UUID, Cipher> cipherCache = new ConcurrentHashMap<>();
 
-    @Builder
+    @lombok.Builder
     @SneakyThrows
     public Cipher prepareCipher(
             UUID id,

@@ -40,7 +40,7 @@ public class BackgroundTask<T> extends Container.Base implements ValueBox<T>, Ru
         this(value, action, repeatRateMs, null);
     }
 
-    @Builder
+    @lombok.Builder
     public BackgroundTask(T value, Consumer<T> action, long repeatRateMs, @Nullable Executor executor) {
         this.value = value;
         this.action = action;

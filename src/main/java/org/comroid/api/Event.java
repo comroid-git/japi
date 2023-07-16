@@ -308,18 +308,20 @@ public class Event<T> implements Rewrapper<T> {
                 }
             }
 
-            final var autoTypes = List.of(Event.class, String.class, Long.class, Instant.class);
+            //final var autoTypes = List.of(Event.class, String.class, Long.class, Instant.class);
             var subscribers = new HashSet<SubscriberImpl>();
             for (var method : type.getMethods()) {
-                if (!method.isAnnotationPresent(Subscriber.class))
+                if (!method.canAccess(target) || !method.isAnnotationPresent(Subscriber.class))
                     continue;
                 var subscriber = method.getAnnotation(Subscriber.class);
+                /*
                 var unsatisfied = Arrays.stream(method.getParameterTypes())
                         .filter(Predicate.not(autoTypes::contains)).toArray();
                 if (unsatisfied.length > 0) {
                     log.fine(String.format("Invalid subscriber %s, unsupported method parameter: %s", method, Arrays.toString(unsatisfied)));
                     continue;
                 }
+                 */
                 subscribers.add(new SubscriberImpl(method, Invocable.ofMethodCall(target, method), subscriber));
             }
 
