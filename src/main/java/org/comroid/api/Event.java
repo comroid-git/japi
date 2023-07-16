@@ -133,55 +133,12 @@ public class Event<T> implements Rewrapper<T> {
         }
     }
 
-    @ApiStatus.Internal
-    public interface IBus<T> {
-        Event.Listener<T> register(Class<?> target);
-        Event.Listener<T> register(Object target);
-
-        @Builder(builderMethodName = "listen", builderClassName = "ListenFilter", buildMethodName = "subscribe")
-        Event.Listener<T> subscribe(
-                @Nullable String key,
-                @Nullable Long flag,
-                @Nullable Predicate<Event<T>> predicate,
-                @Nullable Class<? extends T> type,
-                @NotNull Consumer<Event<T>> action
-        );
-
-        @Builder(builderMethodName = "next", builderClassName = "AwaitFilter", buildMethodName = "await")
-        CompletableFuture<Event<T>> await(
-                @Nullable String key,
-                @Nullable Long flag,
-                @Nullable Predicate<Event<T>> predicate,
-                @Nullable Class<? extends T> type,
-                @Nullable Duration timeout
-        );
-
-        Event.Bus<T> peek(Consumer<T> action);
-        Event.Bus<T> filter(Predicate<T> predicate);
-        <R> Event.Bus<R> map(Function<T, @Nullable R> function);
-        <R extends T> Event.Bus<R> flatMap(Class<R> type);
-
-        @Deprecated <R extends T> Event.Listener<T> listen(Class<R> type, Consumer<Event<R>> action);
-        @Deprecated <R extends T> Event.Listener<T> listen(@Nullable String key, Class<R> type, Consumer<Event<R>> action);
-        @Deprecated Event.Listener<T> listen(Consumer<Event<T>> action);
-        @Deprecated Event.Listener<T> listen(@Nullable String key, Consumer<Event<T>> action);
-        @Deprecated Event.Listener<T> listen(Predicate<Event<T>> predicate, Consumer<Event<T>> action);
-        @Deprecated Event.Listener<T> listen(@Nullable String key, Predicate<Event<T>> predicate, Consumer<Event<T>> action);
-
-        @Deprecated <R extends T> CompletableFuture<Event<T>> next(Class<R> type);
-        @Deprecated <R extends T> CompletableFuture<Event<T>> next(Class<R> type, @Nullable Duration timeout);
-        @Deprecated <R extends T> CompletableFuture<Event<T>> next(@Nullable String key);
-        @Deprecated <R extends T> CompletableFuture<Event<T>> next(@Nullable String key, @Nullable Duration timeout);
-        @Deprecated <R extends T> CompletableFuture<Event<T>> next(Predicate<Event<T>> requirement);
-        @Deprecated <R extends T> CompletableFuture<Event<T>> next(Predicate<Event<T>> requirement, @Nullable Duration timeout);
-    }
-
     @Log
     @Getter
     @EqualsAndHashCode(of = {}, callSuper = true)
     @ToString(of = {"upstream", "factory", "active"})
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    public static class Bus<T> extends Container.Base implements Named, N.Consumer.$3<T, String, Long>, Provider<T>, UUIDContainer, IBus<T> {
+    public static class Bus<T> extends Container.Base implements Named, N.Consumer.$3<T, String, Long>, Provider<T>, UUIDContainer {
         @Nullable
         @NonFinal
         Event.Bus<?> upstream;
@@ -292,12 +249,10 @@ public class Event<T> implements Rewrapper<T> {
             register(this);
         }
 
-        @Override
         public Listener<T> register(Class<?> target) {
             return registerTargetListener(target, null);
         }
 
-        @Override
         public Listener<T> register(Object target) {
             return registerTargetListener(target.getClass(), target);
         }
@@ -375,148 +330,65 @@ public class Event<T> implements Rewrapper<T> {
             return listener;
         }
 
-        @Override
-        @Deprecated
-        public <R extends T> Listener<T> listen(Class<R> type, Consumer<Event<R>> action) {
-            return listen(null, type, action);
+        public Filter listen() {
+            return new Filter();
         }
 
-        @Override
-        @Deprecated
-        public <R extends T> Event.Listener<T> listen(@Nullable String key, final Class<R> type, Consumer<Event<R>> action) {
-            return listen(key, e -> type.isInstance(e.getData()), uncheckedCast(action));
-        }
+        @Data
+        public final class Filter {
+            @Nullable String key;
+            @Nullable Long flag;
+            @Nullable Predicate<Event<T>> predicate;
+            @Nullable Class<? extends T> type;
+            @Nullable Duration timeout;
 
-        @Override
-        @Deprecated
-        public Listener<T> listen(Consumer<Event<T>> action) {
-            return listen((String) null, action);
-        }
-
-        @Override
-        @Deprecated
-        public Event.Listener<T> listen(@Nullable String key, Consumer<Event<T>> action) {
-            return listen(key, $ -> true, action);
-
-        }
-
-        @Override
-        @Deprecated
-        public Listener<T> listen(final Predicate<Event<T>> predicate, Consumer<Event<T>> action) {
-            return listen(null, predicate, action);
-        }
-
-        @Override
-        @Deprecated
-        public Event.Listener<T> listen(final @Nullable String key, Predicate<Event<T>> predicate, Consumer<Event<T>> action) {
-            return subscribe(key,null,predicate,null,action);
-        }
-
-        @Override
-        @Deprecated
-        public <R extends T> CompletableFuture<Event<T>> next(final Class<R> type) {
-            return next(type, null);
-        }
-
-        @Override
-        @Deprecated
-        public <R extends T> CompletableFuture<Event<T>> next(final Class<R> type, final @Nullable Duration timeout) {
-            return next(e -> type.isInstance(e.getData()), timeout);
-        }
-
-        @Override
-        @Deprecated
-        public <R extends T> CompletableFuture<Event<T>> next(final @Nullable String key) {
-            return next(key, null);
-        }
-
-        @Override
-        @Deprecated
-        public <R extends T> CompletableFuture<Event<T>> next(final @Nullable String key, final @Nullable Duration timeout) {
-            return next(e -> Objects.equals(e.getKey(), key), timeout);
-        }
-
-        @Override
-        @Deprecated
-        public <R extends T> CompletableFuture<Event<T>> next(final Predicate<Event<T>> requirement) {
-            return next(requirement, null);
-        }
-
-        @Override
-        @Deprecated
-        public <R extends T> CompletableFuture<Event<T>> next(final Predicate<Event<T>> requirement, final @Nullable Duration timeout) {
-            return await(null,null,requirement,null,timeout);
-        }
-
-        @Override
-        @Builder(builderMethodName = "listen", builderClassName = "Filter", buildMethodName = "subscribe")
-        public Listener<T> subscribe(
-                final @Nullable String key,
-                final @Nullable Long flag,
-                final @Nullable Predicate<Event<T>> predicate,
-                final @Nullable Class<? extends T> type,
-                final @NotNull Consumer<Event<T>> action
-        ) {
-            var filterChain = ((Predicate<Event<T>>)(e -> Objects.equals(e.key, key)))
-                    .and(e -> Objects.equals(e.flag, flag))
-                    .and(Objects.requireNonNullElse(predicate, $->true))
-                    .and(e -> type == null || e.testIfPresent(type::isInstance));
-            var listener = new Event.Listener<>(key, this, filterChain, action);
-            synchronized (listeners) {
-                listeners.add(listener);
+            private Predicate<Event<T>> filters() {
+                return ((Predicate<Event<T>>)(e -> Objects.equals(e.key, key)))
+                        .and(e -> Objects.equals(e.flag, flag))
+                        .and(Objects.requireNonNullElse(predicate, $->true))
+                        .and(e -> type == null || e.testIfPresent(type::isInstance));
             }
-            return listener;
+
+            public Listener<T> subscribe(final @NotNull Consumer<Event<T>> action) {
+                var listener = new Event.Listener<>(key, Bus.this, filters(), action);
+                synchronized (listeners) {
+                    listeners.add(listener);
+                }
+                return listener;
+            }
+
+            public CompletableFuture<Event<T>> await() {
+                final var future = new CompletableFuture<Event<T>>();
+                final var filters = filters();
+                final var listener = subscribe(e -> {
+                    if (future.isDone() || !filters.test(e))
+                        return;
+                    future.complete(e);
+                });
+                future.whenComplete((e, t) -> listener.close());
+                return timeout == null ? future : future.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            }
         }
 
-        @Override
-        @Builder(builderMethodName = "next", builderClassName = "AwaitFilter", buildMethodName = "await")
-        public CompletableFuture<Event<T>> await(
-                @Nullable String key,
-                @Nullable Long flag,
-                @Nullable Predicate<Event<T>> predicate,
-                @Nullable Class<? extends T> type,
-                @Nullable Duration timeout
-        ) {
-            final var filterChain = ((Predicate<Event<T>>)(e -> Objects.equals(e.key, key)))
-                    .and(e -> Objects.equals(e.flag, flag))
-                    .and(Objects.requireNonNullElse(predicate, $->true))
-                    .and(e -> type == null || e.testIfPresent(type::isInstance));
-            final var future = new CompletableFuture<Event<T>>();
-            final var listener = listen(e -> Optional.ofNullable(e)
-                    .filter(filterChain)
-                    .filter($ -> !future.isDone())
-                    .map(Polyfill::<Event<T>>uncheckedCast)
-                    .ifPresent(future::complete));
-            future.whenComplete((e, t) -> listener.close());
-            return timeout == null ? future : future.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS);
-        }
-
-        @Override
         public Event.Bus<T> peek(final Consumer<@NotNull T> action) {
             return filter(it -> {
                 action.accept(it);
                 return true;
             });
         }
-
-        @Override
         public Event.Bus<T> filter(final Predicate<@NotNull T> predicate) {
             return map(x -> predicate.test(x) ? x : null);
         }
-
-        @Override
         public <R> Event.Bus<R> map(final Function<@NotNull T, @Nullable R> function) {
             return new Event.Bus<>(this, function);
         }
-
-        @Override
         public <R extends T> Event.Bus<R> flatMap(final Class<R> type) {
             return filter(type::isInstance).map(type::cast);
         }
 
         @Override
         public CompletableFuture<T> get() {
-            return next().await().thenApply(Event::getData);
+            return listen().await().thenApply(Event::getData);
         }
 
         public Listener<T> log(final Logger log, final Level level) {
