@@ -3,6 +3,7 @@ package org.comroid.api;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -44,8 +45,10 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
             this.children = new HashSet<>(Set.of(children));
         }
 
-        public Object addChildren(Object... children) {
-            this.children.addAll(List.of(children));
+        public Object addChildren(@Nullable Object... children) {
+            Stream.of(children)
+                    .filter(Objects::nonNull)
+                    .forEach(this.children::add);
             return this;
         }
 

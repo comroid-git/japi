@@ -13,6 +13,9 @@ import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.CipherOutputStream;
 import java.io.*;
 import java.net.Socket;
 import java.util.*;
@@ -25,6 +28,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
 
 import static org.comroid.api.Rewrapper.*;
 import static org.comroid.util.StackTraceUtils.lessSimpleName;
@@ -143,6 +150,33 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     @Convert
     default PrintStream toPrintStream() {
         return output().ifPresentMap(PrintStream::new);
+    }
+
+    default Input decrypt(final Cipher cipher) {
+        return input().ifPresentMap(is -> new Input(new CipherInputStream(is, cipher)));
+    }
+
+    default Output encrypt(final Cipher cipher) {
+        return output().ifPresentMap(out -> new Output(new CipherOutputStream(out, cipher)));
+    }
+
+    default Input decompress() {
+        return input().ifPresentMap(is -> {
+            try {
+                return new Input(new GZIPInputStream(is));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+    default Output compress() {
+        return output().ifPresentMap(out -> {
+            try {
+                return new Output(new GZIPOutputStream(out));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private static UnsupportedOperationException unsupported(DelegateStream stream, Capability capability) {
