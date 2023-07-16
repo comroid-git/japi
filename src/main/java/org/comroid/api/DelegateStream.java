@@ -50,6 +50,21 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     default Rewrapper<OutputStream> output() {return Rewrapper.<OutputStream>empty().or(error());}
     default Rewrapper<OutputStream> error() {return Rewrapper.<OutputStream>empty().or(output());}
 
+    @SneakyThrows
+    static void writeAll(OutputStream out, CharSequence input) {
+        try {
+            input.chars().forEachOrdered(ThrowingIntConsumer.sneaky(out::write));
+        } finally {
+            out.flush();
+            out.close();
+        }
+    }
+
+    @SneakyThrows
+    static String readAll(InputStream in) {
+        return new String(in.readAllBytes());
+    }
+
     static Input wrap(final InputStream stream) {
         return wrap(stream, Log.get());
     }
