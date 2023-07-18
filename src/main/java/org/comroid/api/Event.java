@@ -311,7 +311,7 @@ public class Event<T> implements Rewrapper<T> {
                 return listener;
             }
 
-            public CompletableFuture<Event<T>> await() {
+            public CompletableFuture<Event<T>> once() {
                 final var future = new CompletableFuture<Event<T>>();
                 final var filters = filters();
                 final var listener = subscribe(e -> {
@@ -342,7 +342,7 @@ public class Event<T> implements Rewrapper<T> {
 
         @Override
         public CompletableFuture<T> get() {
-            return listen().await().thenApply(Event::getData);
+            return listen().once().thenApply(Event::getData);
         }
 
         public Listener<T> log(final Logger log, final Level level) {
