@@ -297,8 +297,8 @@ public class Event<T> implements Rewrapper<T> {
             @Nullable Duration timeout;
 
             private Predicate<Event<T>> filters() {
-                return ((Predicate<Event<T>>)(e -> Objects.equals(e.key, key)))
-                        .and(e -> Objects.equals(e.flag, flag))
+                return ((Predicate<Event<T>>)(e -> key == null || Subscriber.EmptyName.equals(key) || Objects.equals(e.key, key)))
+                        .and(e -> flag == null || flag == Subscriber.DefaultFlag || Objects.equals(e.flag, flag))
                         .and(Objects.requireNonNullElse(predicate, $->true))
                         .and(e -> type == null || e.testIfPresent(type::isInstance));
             }
