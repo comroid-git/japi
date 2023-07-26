@@ -41,6 +41,6 @@ public interface Convertible {
                         throw new RuntimeException("Error occurred during Upgrade", t);
                     }
                 })
-                .orElseThrow(() -> new NoSuchElementException("Could not find suitable upgrade method in " + target));
+                .orElseThrow(() -> new NoSuchElementException("Could not find suitable converter method from "+it+" to " + target));
     }
 }

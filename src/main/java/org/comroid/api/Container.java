@@ -67,7 +67,8 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
                         }
                         return Stream.empty();
                     })
-                    .collect(Collectors.toUnmodifiableList());
+                    .distinct()
+                    .toList();
             closed = true;
             if (errors.isEmpty())
                 return;
