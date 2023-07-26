@@ -2,21 +2,21 @@ package org.comroid.util;
 
 import lombok.Data;
 import lombok.SneakyThrows;
+import lombok.Synchronized;
 import lombok.experimental.Delegate;
 import org.comroid.annotations.Instance;
 import org.comroid.api.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
-import java.io.StringReader;
+import javax.sound.sampled.AudioFormat;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-public enum JSON implements Serializer<JSON.Node> {
+public enum JSON implements org.comroid.api.Serializer<JSON.Node> {
     @Instance Parser;
     public static final String MimeType = "application/json";
 
@@ -42,6 +42,21 @@ public enum JSON implements Serializer<JSON.Node> {
     @Override
     public Node.Array createArrayNode() {
         return new Node.Array();
+    }
+
+    public static class Serializer extends DelegateStream.Output {
+        public Serializer(OutputStream delegate) {
+            super(delegate);
+        }
+
+        public Serializer(Writer delegate) {
+            super(delegate);
+        }
+
+        @SneakyThrows
+        public void write(JSON.Node node) {
+            write(StandardCharsets.US_ASCII.encode(node.toString()).array());
+        }
     }
 
     public static class Deserializer extends DelegateStream.Input {
