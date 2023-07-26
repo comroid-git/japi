@@ -154,6 +154,10 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return remapper.apply(get());
     }
 
+    default <R> R require(Function<? super @NotNull T, R> remapper, String message) {
+        return remapper.apply(assertion(message));
+    }
+
     /**
      * @deprecated Use {@link #cast(Class)}
      */
@@ -271,5 +275,9 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
 
     default Rewrapper<T> orOpt(final Supplier<Optional<? extends T>> orElse) {
         return orRef(() -> Rewrapper.ofOptional(orElse.get()));
+    }
+
+    default <O> Rewrapper<O> map(final Function<@NotNull T, @Nullable O> mapper) {
+        return () -> into(mapper);
     }
 }

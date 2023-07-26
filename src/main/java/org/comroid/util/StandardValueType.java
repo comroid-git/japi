@@ -6,10 +6,12 @@ import org.comroid.api.ValueType;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 
 import java.util.Arrays;
+import java.util.UUID;
 import java.util.function.Function;
 
 public final class StandardValueType<R> implements ValueType<R> {
     public static final ValueType<Boolean> BOOLEAN;
+    public static final ValueType<Byte> BYTE;
     public static final ValueType<Character> CHARACTER;
     public static final ValueType<Double> DOUBLE;
     public static final ValueType<Float> FLOAT;
@@ -17,6 +19,7 @@ public final class StandardValueType<R> implements ValueType<R> {
     public static final ValueType<Long> LONG;
     public static final ValueType<Short> SHORT;
     public static final ValueType<String> STRING;
+    public static final ValueType<UUID> UUID;
 
     public static final ValueType<Void> VOID;
     public static final ValueType<Object> OBJECT;
@@ -25,6 +28,8 @@ public final class StandardValueType<R> implements ValueType<R> {
     public static final ValueType<?>[] values;
 
     static {
+        BOOLEAN = new StandardValueType<>(Boolean.class, "boolean", Boolean::parseBoolean);
+        BYTE = new StandardValueType<>(Byte.class, "byte", Byte::parseByte);
         CHARACTER = new StandardValueType<>(Character.class, "char", str -> str.toCharArray()[0]);
         DOUBLE = new StandardValueType<>(Double.class, "double", Double::parseDouble);
         FLOAT = new StandardValueType<>(Float.class, "float", Float::parseFloat);
@@ -32,12 +37,12 @@ public final class StandardValueType<R> implements ValueType<R> {
         LONG = new StandardValueType<>(Long.class, "long", Long::parseLong);
         SHORT = new StandardValueType<>(Short.class, "short", Short::parseShort);
         STRING = new StandardValueType<>(String.class, "String", Function.identity());
-        BOOLEAN = new StandardValueType<>(Boolean.class, "boolean", Boolean::parseBoolean);
+        UUID = new StandardValueType<>(UUID.class, "UUID", java.util.UUID::fromString);
         VOID = new StandardValueType<>(void.class, "Void", it -> null);
         OBJECT = new StandardValueType<>(Object.class, "Object", it -> it);
         ARRAY = new StandardValueType<>(Object[].class, "Array", it -> new Object[]{it});
 
-        values = new ValueType[]{CHARACTER, DOUBLE, FLOAT, INTEGER, LONG, SHORT, STRING, BOOLEAN, VOID, ARRAY, OBJECT};
+        values = new ValueType[]{BYTE, CHARACTER, DOUBLE, FLOAT, INTEGER, LONG, SHORT, STRING, BOOLEAN, VOID, ARRAY, OBJECT};
     }
 
     private final Class<R> type;
