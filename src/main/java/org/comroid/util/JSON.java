@@ -2,21 +2,18 @@ package org.comroid.util;
 
 import lombok.Data;
 import lombok.SneakyThrows;
-import lombok.Synchronized;
-import lombok.experimental.Delegate;
+import org.comroid.abstr.DataNode;
 import org.comroid.annotations.Instance;
-import org.comroid.api.*;
+import org.comroid.api.DelegateStream;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.sound.sampled.AudioFormat;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
-public enum JSON implements org.comroid.api.Serializer<JSON.Node> {
+public enum JSON implements org.comroid.api.Serializer<DataNode> {
     @Instance Parser;
     public static final String MimeType = "application/json";
 
@@ -26,22 +23,22 @@ public enum JSON implements org.comroid.api.Serializer<JSON.Node> {
     }
 
     @Override
-    public @NotNull JSON.Node parse(@Nullable String data) {
+    public @NotNull DataNode parse(@Nullable String data) {
         if (data == null)
-            return Node.Value.NULL;
+            return Value.NULL;
         try (var reader = new Deserializer(new StringReader(data))) {
             return reader.readNode();
         }
     }
 
     @Override
-    public Node.Object createObjectNode() {
-        return new Node.Object();
+    public Object createObjectNode() {
+        return new Object();
     }
 
     @Override
-    public Node.Array createArrayNode() {
-        return new Node.Array();
+    public Array createArrayNode() {
+        return new Array();
     }
 
     public static class Serializer extends DelegateStream.Output {
@@ -54,8 +51,8 @@ public enum JSON implements org.comroid.api.Serializer<JSON.Node> {
         }
 
         @SneakyThrows
-        public void write(JSON.Node node) {
-            write(StandardCharsets.US_ASCII.encode(node.toString()).array());
+        public void write(DataNode dataNode) {
+            write(StandardCharsets.US_ASCII.encode(dataNode.toString()).array());
         }
     }
 
@@ -71,19 +68,19 @@ public enum JSON implements org.comroid.api.Serializer<JSON.Node> {
         }
 
         @SneakyThrows
-        public Node readNode() {
+        public DataNode readNode() {
             return switch (getOrAdvance()) {
                 case '{' -> readObject();
                 case '[' -> readArray();
-                default -> new Node.Value<>(readToken());
+                default -> new Value<>(readToken());
             };
         }
 
         @SneakyThrows
-        public Node.Object readObject() {
+        public Object readObject() {
             if (getOrAdvanceAndTake() != '{')
                 throw err(c, '{', "start of object");
-            var obj = new Node.Object();
+            var obj = new Object();
 
             while (getOrAdvance() != '}') {
                 if (getOrAdvance() == ',')
@@ -93,30 +90,30 @@ public enum JSON implements org.comroid.api.Serializer<JSON.Node> {
                     throw err(this.c, ':', "key/value delimiter");
                 take();
                 var val = readNode();
-                obj.map.put(key, val);
+                obj.put(key, val);
             }
             take();
             return obj;
         }
 
         @SneakyThrows
-        public Node.Array readArray() {
+        public Array readArray() {
             if (getOrAdvanceAndTake() != '[')
                 throw err(c, '[', "start of array");
-            var arr = new Node.Array();
+            var arr = new Array();
 
             while (getOrAdvance() != ']') {
                 if (getOrAdvance() == ',')
                     take();
                 var val = readNode();
-                arr.list.add(val);
+                arr.add(val);
             }
             take();
             return arr;
         }
 
         @SneakyThrows
-        private Object readToken() {
+        private java.lang.Object readToken() {
             // first char may have been read to buffer by previous call
             var c = getOrAdvanceAndTake();
             var numeric = Character.isDigit(c) || c == '-';
@@ -182,104 +179,40 @@ public enum JSON implements org.comroid.api.Serializer<JSON.Node> {
     }
 
     @Data
-    public static abstract class Node implements Specifiable<Node> {
-        public Object asObject() {
-            return as(Object.class).assertion();
+    public static final class Object extends DataNode.Object {
+        @Override
+        public String toString() {
+            return map.entrySet().stream()
+                    .map(e -> "\"%s\": %s".formatted(e.getKey(), e.getValue()))
+                    .collect(Collectors.joining(", ", "{", "}"));
+        }
+    }
+
+    @Data
+    public static final class Array extends DataNode.Array {
+        @Override
+        public String toString() {
+            return list.stream()
+                    .map(Objects::toString)
+                    .collect(Collectors.joining(", ", "[", "]"));
+        }
+    }
+
+    @Data
+    public static final class Value<T> extends DataNode.Value<T> {
+        public Value() {
         }
 
-        public Array asArray() {
-            return as(Array.class).assertion();
+        public Value(T value) {
+            super(value);
         }
 
-        public <T> Value<T> asValue() {
-            return as(Value.class).map(Polyfill::<Value<T>>uncheckedCast).assertion();
-        }
-
-        public <T> T as(ValueType<T> type) {
-            var node = asValue();
-            var val = node.value;
-            if (!type.test(val))
-                return type.parse(val.toString());
-            return type.getTargetClass().cast(val);
-        }
-
-        public boolean asBoolean() {
-            return as(StandardValueType.BOOLEAN);
-        }
-
-        public byte asByte() {
-            return as(StandardValueType.BYTE);
-        }
-
-        public char asChar() {
-            return as(StandardValueType.CHARACTER);
-        }
-
-        public short asShort() {
-            return as(StandardValueType.SHORT);
-        }
-
-        public int asInt() {
-            return as(StandardValueType.INTEGER);
-        }
-
-        public long asLong() {
-            return as(StandardValueType.LONG);
-        }
-
-        public float asFloat() {
-            return as(StandardValueType.FLOAT);
-        }
-
-        public double asDouble() {
-            return as(StandardValueType.DOUBLE);
-        }
-
-        public String asString() {
-            return as(StandardValueType.STRING);
-        }
-
-        public UUID asUUID() {
-            return as(StandardValueType.UUID);
-        }
-
-        @Data
-        public static final class Value<T> extends Node implements ValueBox<T> {
-            public static final Node NULL = new Value<>(null);
-            private final T value;
-
-            @Override
-            public String toString() {
-                if (value instanceof String)
-                    return "\"%s\"".formatted(value);
-                return value.toString();
-            }
-        }
-
-        @Data
-        public static final class Object extends Node implements Map<String, Node> {
-            @Delegate
-            private final Map<String, Node> map = new ConcurrentHashMap<>();
-
-            @Override
-            public String toString() {
-                return map.entrySet().stream()
-                        .map(e -> "\"%s\": %s".formatted(e.getKey(), e.getValue()))
-                        .collect(Collectors.joining(", ", "{", "}"));
-            }
-        }
-
-        @Data
-        public static final class Array extends Node implements List<Node> {
-            @Delegate
-            private final List<Node> list = new ArrayList<>();
-
-            @Override
-            public String toString() {
-                return list.stream()
-                        .map(Objects::toString)
-                        .collect(Collectors.joining(", ", "[", "]"));
-            }
+        @Override
+        public String toString() {
+            var str = String.valueOf(value);
+            if (value instanceof String)
+                return "\"%s\"".formatted(str);
+            return str;
         }
     }
 }
