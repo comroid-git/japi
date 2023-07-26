@@ -5,7 +5,13 @@ import org.jetbrains.annotations.Nullable;
 import java.util.function.Function;
 
 public interface Serializer<T> extends Function<String, T> {
-    CharSequence getMimeType();
+    default MimeType getMimeType() {
+        return getMimeTypes()[0];
+    }
+
+    default MimeType[] getMimeTypes() {
+        return new MimeType[]{getMimeType()};
+    }
 
     @Nullable T parse(@Nullable String data);
 

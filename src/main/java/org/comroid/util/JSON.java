@@ -5,6 +5,7 @@ import lombok.SneakyThrows;
 import org.comroid.abstr.DataNode;
 import org.comroid.annotations.Instance;
 import org.comroid.api.DelegateStream;
+import org.comroid.api.MimeType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,11 +16,10 @@ import java.util.stream.Collectors;
 
 public enum JSON implements org.comroid.api.Serializer<DataNode> {
     @Instance Parser;
-    public static final String MimeType = "application/json";
 
     @Override
-    public CharSequence getMimeType() {
-        return MimeType;
+    public MimeType getMimeType() {
+        return MimeType.JSON;
     }
 
     @Override
