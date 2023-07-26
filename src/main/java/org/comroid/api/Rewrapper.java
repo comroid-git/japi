@@ -154,6 +154,9 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return remapper.apply(get());
     }
 
+    default <R> R require(Function<? super @NotNull T, R> remapper) {
+        return require(remapper, "Required value was not present");
+    }
     default <R> R require(Function<? super @NotNull T, R> remapper, String message) {
         return remapper.apply(assertion(message));
     }

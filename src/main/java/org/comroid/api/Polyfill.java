@@ -21,6 +21,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static java.util.Objects.isNull;
 
@@ -265,5 +266,9 @@ public final class Polyfill {
 
     public static <I,O> Function<I, Stream<O>> flatCast(final Class<O> type) {
         return obj -> Stream.of(obj).filter(type::isInstance).map(type::cast);
+    }
+
+    public static <T> List<T> list(Iterable<T> iterable) {
+        return StreamSupport.stream(iterable.spliterator(), false).toList();
     }
 }
