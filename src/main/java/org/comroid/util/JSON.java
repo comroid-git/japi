@@ -60,10 +60,7 @@ public enum JSON implements Serializer<JSON.Node> {
             return switch (getOrAdvance()) {
                 case '{' -> readObject();
                 case '[' -> readArray();
-                default -> {
-                    //take();
-                    yield new Node.Value<>(readToken());
-                }
+                default -> new Node.Value<>(readToken());
             };
         }
 
@@ -129,15 +126,9 @@ public enum JSON implements Serializer<JSON.Node> {
             return StandardValueType.findGoodType(str);
         }
 
-        //private char expect(char c, boolean take) {}
         private char getOrAdvanceAndTake() {
             if (c == 0)
                 advance();
-            return take();
-        }
-
-        private char advanceAndTake() {
-            advance();
             return take();
         }
 
