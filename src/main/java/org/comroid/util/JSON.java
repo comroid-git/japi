@@ -1,12 +1,10 @@
 package org.comroid.util;
 
 import lombok.Data;
-import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.experimental.Delegate;
 import org.comroid.annotations.Instance;
 import org.comroid.api.*;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,7 +29,7 @@ public enum JSON implements Serializer<JSON.Node> {
     public @NotNull JSON.Node parse(@Nullable String data) {
         if (data == null)
             return Node.Value.NULL;
-        try (var reader = new Stream(new StringReader(data))) {
+        try (var reader = new Deserializer(new StringReader(data))) {
             return reader.readNode();
         }
     }
@@ -46,14 +44,14 @@ public enum JSON implements Serializer<JSON.Node> {
         return new Node.Array();
     }
 
-    public static class Stream extends DelegateStream.Input {
+    public static class Deserializer extends DelegateStream.Input {
         private char c;
 
-        public Stream(InputStream delegate) {
+        public Deserializer(InputStream delegate) {
             super(delegate);
         }
 
-        public Stream(Reader delegate) {
+        public Deserializer(Reader delegate) {
             super(delegate);
         }
 
