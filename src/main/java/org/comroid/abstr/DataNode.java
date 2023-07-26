@@ -3,6 +3,7 @@ package org.comroid.abstr;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.experimental.Delegate;
 import org.comroid.api.*;
 import org.comroid.util.StandardValueType;
@@ -10,11 +11,17 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.OutputStream;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Data
-public abstract class DataNode implements Specifiable<DataNode> {
+public abstract class DataNode implements Specifiable<DataNode>, Named {
+    protected final List<DataNode> children = new ArrayList<>();
+    protected String name;
+
     public Object asObject() {
         return as(Object.class).assertion();
     }
@@ -129,6 +136,21 @@ public abstract class DataNode implements Specifiable<DataNode> {
         return as(StandardValueType.UUID).orElse(fallback);
     }
 
+    public static class Serializer extends DelegateStream.Output {
+        public Serializer(OutputStream delegate) {
+            super(delegate);
+        }
+
+        public Serializer(Writer delegate) {
+            super(delegate);
+        }
+
+        @SneakyThrows
+        public void write(DataNode dataNode) {
+            write(StandardCharsets.US_ASCII.encode(dataNode.toString()).array());
+        }
+    }
+
     @Data
     public abstract static class Object extends DataNode implements Map<String, DataNode> {
         @Delegate
@@ -144,14 +166,21 @@ public abstract class DataNode implements Specifiable<DataNode> {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public abstract static class Value<T> extends DataNode implements ValueBox<T> {
-        public static final DataNode NULL = new Value<>(null) {
-        };
+    public static class Value<T> extends DataNode implements ValueBox<T> {
+        public static final DataNode NULL = new Value<>(null);
         protected @Nullable T value;
 
         @Override
         public int size() {
             return isNull() ? 0 : 1;
+        }
+
+        @Override
+        public String toString() {
+            var str = String.valueOf(value);
+            if (value instanceof String)
+                return "\"%s\"".formatted(str);
+            return str;
         }
     }
 }

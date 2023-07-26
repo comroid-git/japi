@@ -9,8 +9,10 @@ import org.comroid.api.MimeType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.io.StringReader;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -25,7 +27,7 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
     @Override
     public @NotNull DataNode parse(@Nullable String data) {
         if (data == null)
-            return Value.NULL;
+            return DataNode.Value.NULL;
         try (var reader = new Deserializer(new StringReader(data))) {
             return reader.readNode();
         }
@@ -39,21 +41,6 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
     @Override
     public Array createArrayNode() {
         return new Array();
-    }
-
-    public static class Serializer extends DelegateStream.Output {
-        public Serializer(OutputStream delegate) {
-            super(delegate);
-        }
-
-        public Serializer(Writer delegate) {
-            super(delegate);
-        }
-
-        @SneakyThrows
-        public void write(DataNode dataNode) {
-            write(StandardCharsets.US_ASCII.encode(dataNode.toString()).array());
-        }
     }
 
     public static class Deserializer extends DelegateStream.Input {
@@ -72,7 +59,7 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
             return switch (getOrAdvance()) {
                 case '{' -> readObject();
                 case '[' -> readArray();
-                default -> new Value<>(readToken());
+                default -> new DataNode.Value<>(readToken());
             };
         }
 
@@ -195,24 +182,6 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
             return list.stream()
                     .map(Objects::toString)
                     .collect(Collectors.joining(", ", "[", "]"));
-        }
-    }
-
-    @Data
-    public static final class Value<T> extends DataNode.Value<T> {
-        public Value() {
-        }
-
-        public Value(T value) {
-            super(value);
-        }
-
-        @Override
-        public String toString() {
-            var str = String.valueOf(value);
-            if (value instanceof String)
-                return "\"%s\"".formatted(str);
-            return str;
         }
     }
 }
