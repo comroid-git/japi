@@ -4,10 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Delegate;
-import org.comroid.api.Polyfill;
-import org.comroid.api.Specifiable;
-import org.comroid.api.ValueBox;
-import org.comroid.api.ValueType;
+import org.comroid.api.*;
 import org.comroid.util.StandardValueType;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -40,14 +37,14 @@ public abstract class DataNode implements Specifiable<DataNode> {
         return Objects.requireNonNullElse(asArray().get(index), Value.NULL);
     }
 
-    public <T> @Nullable T as(ValueType<T> type) {
+    public <T> Rewrapper<T> as(ValueType<T> type) {
         var node = asValue();
         var val = node.value;
         if (val == null)
             return null;
         if (!type.test(val))
-            return type.parse(val.toString());
-        return type.getTargetClass().cast(val);
+            return Rewrapper.of(type.parse(val.toString()));
+        return Rewrapper.of(type.getTargetClass().cast(val));
     }
 
     public boolean asBoolean() {
@@ -91,45 +88,45 @@ public abstract class DataNode implements Specifiable<DataNode> {
     }
 
     public boolean asBoolean(boolean fallback) {
-        return Objects.requireNonNullElse(as(StandardValueType.BOOLEAN), fallback);
+        return as(StandardValueType.BOOLEAN).orElse(fallback);
     }
 
     public byte asByte(byte fallback) {
-        return Objects.requireNonNullElse(as(StandardValueType.BYTE), fallback);
+        return as(StandardValueType.BYTE).orElse(fallback);
     }
 
     public char asChar(char fallback) {
-        return Objects.requireNonNullElse(as(StandardValueType.CHARACTER), fallback);
+        return as(StandardValueType.CHARACTER).orElse(fallback);
     }
 
     public short asShort(short fallback) {
-        return Objects.requireNonNullElse(as(StandardValueType.SHORT), fallback);
+        return as(StandardValueType.SHORT).orElse(fallback);
     }
 
     public int asInt(int fallback) {
-        return Objects.requireNonNullElse(as(StandardValueType.INTEGER), fallback);
+        return as(StandardValueType.INTEGER).orElse(fallback);
     }
 
     public long asLong(long fallback) {
-        return Objects.requireNonNullElse(as(StandardValueType.LONG), fallback);
+        return as(StandardValueType.LONG).orElse(fallback);
     }
 
     public float asFloat(float fallback) {
-        return Objects.requireNonNullElse(as(StandardValueType.FLOAT), fallback);
+        return as(StandardValueType.FLOAT).orElse(fallback);
     }
 
     public double asDouble(double fallback) {
-        return Objects.requireNonNullElse(as(StandardValueType.DOUBLE), fallback);
+        return as(StandardValueType.DOUBLE).orElse(fallback);
     }
 
     @Contract("null -> _; !null -> !null")
     public String asString(String fallback) {
-        return Objects.requireNonNullElse(as(StandardValueType.STRING), fallback);
+        return as(StandardValueType.STRING).orElse(fallback);
     }
 
     @Contract("null -> _; !null -> !null")
     public UUID asUUID(UUID fallback) {
-        return Objects.requireNonNullElse(as(StandardValueType.UUID), fallback);
+        return as(StandardValueType.UUID).orElse(fallback);
     }
 
     @Data
