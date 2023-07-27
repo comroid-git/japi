@@ -37,6 +37,13 @@ public class Event<T> implements Rewrapper<T> {
     @NonFinal
     boolean cancelled = false;
 
+    public <R> Event<R> withData(R data) {
+        return new Event<>(seq, flag, key, data).setCancelled(cancelled);
+    }
+    public <R> Event<R> withDataBy(@NotNull Function<@Nullable T, @Nullable R> function) {
+        return withData(function.apply(getData()));
+    }
+
     public boolean cancel() {
         return !cancelled && (cancelled = true);
     }
@@ -145,7 +152,7 @@ public class Event<T> implements Rewrapper<T> {
         @NotNull Queue<Event.Listener<T>> listeners = new ConcurrentLinkedQueue<>();
         @Nullable
         @NonFinal
-        Function<?, @Nullable T> function;
+        Function<@NotNull Event<?>, @Nullable Event<T>> function;
         @Nullable
         @NonFinal
         Function<String, String> keyFunction;
@@ -175,7 +182,7 @@ public class Event<T> implements Rewrapper<T> {
         @Contract(value = "_, _ -> this", mutates = "this")
         public <I> Bus<T> setUpstream(
                 @NotNull Event.Bus<? extends I> parent,
-                @NotNull Function<I, T> function
+                @NotNull Function<@NotNull Event<I>, @Nullable Event<T>> function
         ) {
             return setUpstream(parent, function, UnaryOperator.identity());
         }
@@ -183,7 +190,7 @@ public class Event<T> implements Rewrapper<T> {
         @Contract(value = "_, _, _ -> this", mutates = "this")
         public <I> Event.Bus<T> setUpstream(
                 @NotNull Event.Bus<? extends I> parent,
-                @NotNull Function<I, T> function,
+                @NotNull Function<@NotNull Event<I>, @Nullable Event<T>> function,
                 @Nullable Function<String, String> keyFunction
         ) {
             return setDependent(parent, function, keyFunction, true);
@@ -213,14 +220,14 @@ public class Event<T> implements Rewrapper<T> {
 
         private <I> Bus<T> setDependent(
                 final @NotNull Bus<? extends I> parent,
-                final @NotNull Function<I, T> function,
+                final @NotNull Function<@NotNull Event<I>, @Nullable Event<T>> function,
                 final @Nullable Function<String, String> keyFunction,
                 final boolean cleanup
         ) {
             if (cleanup && this.upstream != null)
                 this.upstream.downstream.remove(this);
             this.upstream = parent;
-            this.function = function;
+            this.function = Polyfill.uncheckedCast(function);
             this.keyFunction = keyFunction;
             this.upstream.downstream.add(this);
             return this;
@@ -239,9 +246,9 @@ public class Event<T> implements Rewrapper<T> {
             this(upstream, Polyfill::uncheckedCast);
         }
 
-        private <P> Bus(@Nullable Event.Bus<P> upstream, @Nullable Function<@NotNull P, @Nullable T> function) {
+        private <P> Bus(@Nullable Event.Bus<P> upstream, @Nullable Function<@NotNull Event<P>, @Nullable Event<T>> function) {
             this.upstream = upstream;
-            this.function = function;
+            this.function = Polyfill.uncheckedCast(function);
 
             if (upstream != null)
                 upstream.downstream.add(this);
@@ -305,6 +312,9 @@ public class Event<T> implements Rewrapper<T> {
                         .and(e -> type == null || e.testIfPresent(type::isInstance));
             }
 
+            public Listener<T> subscribeData(final @NotNull Consumer<T> action) {
+                return subscribe(e->action.accept(e.getData()));
+            }
             public Listener<T> subscribe(final @NotNull Consumer<Event<T>> action) {
                 var listener = new Event.Listener<>(key, bus, filters(), action);
                 synchronized (bus.listeners) {
@@ -326,20 +336,37 @@ public class Event<T> implements Rewrapper<T> {
             }
         }
 
-        public Event.Bus<T> peek(final Consumer<@NotNull T> action) {
+        public Event.Bus<T> peekData(final Consumer<@NotNull T> action) {
+            return filterData(it -> {
+                action.accept(it);
+                return true;
+            });
+        }
+        public Event.Bus<T> filterData(final Predicate<@NotNull T> predicate) {
+            return mapData(x -> predicate.test(x) ? x : null);
+        }
+        public <R> Event.Bus<R> mapData(final @NotNull Function<T, @Nullable R> function) {
+            return map(e->e.withDataBy(function));
+        }
+        public <R extends T> Event.Bus<R> flatMapData(final Class<R> type) {
+            return filterData(type::isInstance).mapData(type::cast);
+        }
+
+        public Event.Bus<T> peek(final Consumer<Event<@NotNull T>> action) {
             return filter(it -> {
                 action.accept(it);
                 return true;
             });
         }
-        public Event.Bus<T> filter(final Predicate<@NotNull T> predicate) {
+        public Event.Bus<T> filter(final Predicate<Event<@NotNull T>> predicate) {
             return map(x -> predicate.test(x) ? x : null);
         }
-        public <R> Event.Bus<R> map(final Function<@NotNull T, @Nullable R> function) {
+        public <R> Event.Bus<R> map(final @NotNull Function<@NotNull Event<T>, @Nullable Event<R>> function) {
             return new Event.Bus<>(this, function);
         }
         public <R extends T> Event.Bus<R> flatMap(final Class<R> type) {
-            return filter(type::isInstance).map(type::cast);
+            return filter(e -> type.isInstance(e.getData()))
+                    .map(e->e.withDataBy(type::cast));
         }
 
         @Override
@@ -373,12 +400,17 @@ public class Event<T> implements Rewrapper<T> {
             if (!active)
                 return;
             final var flag = flag_ == null ? Subscriber.DefaultFlag : flag_;
+            final var event = factory.apply(data, key, flag);
+            accept(event);
+        }
+
+        public void accept(final @Nullable Event<T> event) {
             executor.execute(() -> {
                 try {
-                    publish(factory.apply(data, key, flag));
+                    publish(event);
                     synchronized (downstream) {
                         for (var child : downstream)
-                            child.$publishDownstream(data, key, flag);
+                            child.$publishDownstream(event);
                     }
                 } catch (Throwable t) {
                     log.log(Level.SEVERE, "Unable to publish event to " + this, t);
@@ -405,14 +437,14 @@ public class Event<T> implements Rewrapper<T> {
             }
         }
 
-        private <P> void $publishDownstream(final P data, final @Nullable String key, final long flag) {
+        private <P> void $publishDownstream(final Event<P> data) {
             if (function == null)
                 return;
-            Function<@NotNull P, @Nullable T> func = uncheckedCast(function);
+            Function<@NotNull Event<P>, @Nullable Event<T>> func = uncheckedCast(function);
             var it = func.apply(data);
             if (it == null)
                 return;
-            accept(it, keyFunction == null ? key : keyFunction.apply(key), flag);
+            accept(it);
         }
 
         @Value

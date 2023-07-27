@@ -37,7 +37,6 @@ public interface Provider<T> extends Supplier<CompletableFuture<T>> {
     }
 
     @Blocking
-    @Deprecated
     default T now() {
         return block();
     }
