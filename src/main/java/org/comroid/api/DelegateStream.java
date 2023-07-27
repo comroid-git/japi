@@ -965,7 +965,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         public static final String EventKey_Error = "stderr";
         public static final IO NULL = new IO(new ByteArrayInputStream(new byte[0]),StreamUtil.voidOutputStream(),StreamUtil.voidOutputStream());
         public static final IO SYSTEM = new IO(System.in, System.out, System.err);
-        public static IO slf4j(Logger log) {return new IO(null,new Output(log::info), new Output(log::severe));}
+        public static IO log(Logger log) {return new IO(null,new Output(log::info), new Output(log::severe));}
 
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<IO> container = new Delegate<>(this);
@@ -987,7 +987,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         public boolean isSystem() {return SYSTEM.equals(this);}
 
         public IO redirectToNull() {return redirect(NULL);}
-        public IO redirectToLogger(Logger log) {return redirect(slf4j(log));}
+        public IO redirectToLogger(Logger log) {return redirect(log(log));}
         public IO redirectToSystem() {return redirect(SYSTEM);}
         public IO redirectToEventBus(Event.Bus<String> bus) {
             return redirect(

@@ -121,8 +121,11 @@ public @interface Command {
             try {
                 if ("help".equals(name) && !commands.containsKey("help")) {
                     var sb = new StringBuilder("Commands");
-                    for (var each : commands.values())
+                    for (var each : commands.values()) {
                         sb.append("\n\t- ").append(each.name);
+                        if (each.usage != null)
+                            sb.append(' ').append(each.usage.hint);
+                    }
                     str = sb.toString();
                 } else {
                     var result = cmd.execute(args, extraArgs);
@@ -205,9 +208,9 @@ public @interface Command {
 
             private void validate(String[] args) {
                 if (args.length < required)
-                    throw new Error(Delegate.this, "not enough arguments; usage: " + name + " " + hint, args);
+                    throw new MildError("not enough arguments; usage: " + name + " " + hint);
                 if (!ellipsis && args.length > total)
-                    throw new Error(Delegate.this, "too many arguments; usage: " + name + " " + hint, args);
+                    throw new MildError("too many arguments; usage: " + name + " " + hint);
             }
         }
     }
