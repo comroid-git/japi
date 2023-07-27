@@ -268,7 +268,7 @@ public final class Polyfill {
         return obj -> Stream.of(obj).filter(type::isInstance).map(type::cast);
     }
 
-    public static <T> List<T> list(Iterable<T> iterable) {
-        return StreamSupport.stream(iterable.spliterator(), false).toList();
+    public static <T> Stream<T> stream(Iterable<T> iterable) {
+        return StreamSupport.stream(iterable.spliterator(), false);
     }
 }
