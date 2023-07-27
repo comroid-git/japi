@@ -50,6 +50,13 @@ public @interface Command {
         }
     }
 
+    @Value
+    class ArgumentError extends Error {
+        public ArgumentError(String nameof, @Nullable String detail) {
+            super("Invalid argument '" + nameof + "'" + Optional.ofNullable(detail).map(d -> "; " + d).orElse(""));
+        }
+    }
+
     @Data
     class Manager {
         private final Map<String, Delegate> commands = new ConcurrentHashMap<>();
@@ -115,6 +122,8 @@ public @interface Command {
 
                 handler.handleResponse(str);
                 return str;
+            } catch (ArgumentError e) {
+                error = e.withCmd(cmd).withArgs(args);
             } catch (Error e) {
                 error = e;
                 if (e.getCmd() == null)
