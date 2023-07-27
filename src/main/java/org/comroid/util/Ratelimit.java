@@ -10,28 +10,30 @@ import org.jetbrains.annotations.Nullable;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayDeque;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-import java.util.function.Function;
+
+import static java.util.concurrent.CompletableFuture.*;
 
 @Log
 @Value
 public class Ratelimit<T, Acc> {
     static Map<Object, Ratelimit<?, ?>> cache = new ConcurrentHashMap<>();
     @NotNull Duration cooldown;
-    @NotNull CompletableFuture<T> source;
+    @NotNull AtomicReference<CompletableFuture<@Nullable T>> source;
     @NotNull BiFunction<T, Queue<Acc>, CompletableFuture<T>> accumulator;
+    @NotNull Queue<Acc> queue = new LinkedBlockingQueue<>();
+    @NonFinal @Nullable CompletableFuture<T> result;
     @NonFinal Instant last = Instant.EPOCH;
-    @NonFinal @Nullable CompletableFuture<T> timeout;
-    @NonFinal Queue<Acc> values = new ArrayDeque<>();
 
     public Ratelimit(@NotNull Duration cooldown,
-                     @NotNull CompletableFuture<T> source,
+                     @NotNull AtomicReference<CompletableFuture<@Nullable T>> source,
                      @NotNull BiFunction<T, Queue<Acc>, CompletableFuture<T>> accumulator) {
         this.cooldown = cooldown;
         this.source = source;
@@ -40,37 +42,43 @@ public class Ratelimit<T, Acc> {
 
     @SneakyThrows
     public synchronized CompletableFuture<T> push(Acc value) {
-        if (timeout != null && timeout.isDone())
-            timeout = null;
-        values.add(value);
-        var now = Instant.now();
-        var next = last.plus(cooldown);
-        if (timeout == null) {
-            var time = Duration.between(now, next).toMillis();
-            log.info("timeout:"+time);
-            timeout = (time <= 0 ? CompletableFuture.completedFuture(values)
-                    : new CompletableFuture<Queue<Acc>>().completeOnTimeout(values, time, TimeUnit.MILLISECONDS))
-                    .thenCombine(source, (queue,src) -> {
-                        if (queue.isEmpty())
-                            return CompletableFuture.<T>completedFuture(null);
-                        return accumulator.apply(src,queue);
-                    })
-                    .thenCompose(Function.identity())
-                    .thenApply(it->{
-                        if (it != null)
-                            last = Instant.now();
-                        values = new ArrayDeque<>();
-                        return it;
-                    });
+        synchronized (queue) {
+            queue.add(value);
         }
-        return timeout;
+        System.out.println("Ratelimit.push('" + value+"')");
+        if (result != null && result.isDone())
+            result = null;
+        if (result == null) {
+            var now = Instant.now();
+            var next = last.plus(cooldown);
+            var time = Duration.between(now, next).toMillis();
+            log.info("wait for next = " + time);
+            result = (time <= 0 ? completedFuture(null)
+                    : supplyAsync(() -> null, delayedExecutor(time, TimeUnit.MILLISECONDS)))
+                    .thenCompose($ -> source.updateAndGet(stage -> stage
+                                    .thenCompose(src -> {
+                                        if (queue.isEmpty())
+                                            return completedFuture(src);
+                                        synchronized (queue) {
+                                            return accumulator.apply(src, queue);
+                                        }
+                                    }))
+                            .thenApply(it -> {
+                                if (it != null) {
+                                    last = Instant.now();
+                                }
+                                return it;
+                            })
+                            .exceptionally(Polyfill.exceptionLogger()));
+        }
+        return result;
     }
 
     public static <T, Acc> CompletableFuture<T> run(
             Acc value,
             Duration cooldown,
-            CompletableFuture<@Nullable T> source,
-            BiFunction<T, Queue<Acc>, CompletableFuture<T>> task
+            AtomicReference<CompletableFuture<@Nullable T>> source,
+            BiFunction<@NotNull T, Queue<@NotNull Acc>, CompletableFuture<@Nullable T>> task
     ) {
         return Polyfill.<Ratelimit<T, Acc>>uncheckedCast(cache.computeIfAbsent(task.getClass(),
                 $-> new Ratelimit<>(cooldown, source, task))).push(value);
