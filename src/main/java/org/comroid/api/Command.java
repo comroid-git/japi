@@ -28,10 +28,11 @@ public @interface Command {
         void handleError(Error error);
     }
 
-    @Value
+    @Getter
+    @Setter
     class Error extends RuntimeException {
-        @With Delegate command;
-        @With String[] args;
+        private Delegate command;
+        private String[] args;
 
         public Error(String message) {
             this(null, message, null);
@@ -50,7 +51,6 @@ public @interface Command {
         }
     }
 
-    @Value
     class MildError extends Error {
         public MildError(String message) {
             super(message);
@@ -62,7 +62,6 @@ public @interface Command {
         }
     }
 
-    @Value
     class ArgumentError extends MildError {
         public ArgumentError(String nameof, @Nullable String detail) {
             super("Invalid argument '" + nameof + "'" + Optional.ofNullable(detail).map(d -> "; " + d).orElse(""));
@@ -132,13 +131,13 @@ public @interface Command {
                     str = String.valueOf(result);
                 }
             } catch (MildError e) {
-                str = e.withCommand(cmd).withArgs(args).toString();
+                str = e.setCommand(cmd).setArgs(args).toString();
             } catch (Error e) {
                 error = e;
                 if (e.getCommand() == null)
-                    error = e.withCommand(cmd);
-                if (e.getArgs() == null)
-                    error = e.withArgs(args);
+                    error = e.setCommand(cmd);
+                if (e.getArgs() == null || e.getArgs().length == 0)
+                    error = e.setArgs(args);
             } catch (Throwable t) {
                 error = new Error(cmd, "A fatal error occurred during command execution", t, args);
             }
