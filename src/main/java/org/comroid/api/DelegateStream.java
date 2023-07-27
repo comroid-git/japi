@@ -643,6 +643,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     class Output extends OutputStream implements DelegateStream {
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<Output> container = new Delegate<>(this);
+        @NonFinal @Setter boolean autoFlush = true;
         @NonFinal @NotNull @Setter String name;
         ThrowingIntConsumer<IOException> write;
         ThrowingRunnable<IOException> flush;
@@ -822,6 +823,8 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                     w >>= 8;
                 }
                 write.accept(w);
+                if (autoFlush && w == '\n')
+                    flush();
             } catch (Throwable t) {
                 log.log(Level.SEVERE, "Could not read from " + this, t);
             }
