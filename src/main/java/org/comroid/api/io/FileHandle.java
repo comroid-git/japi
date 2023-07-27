@@ -44,7 +44,7 @@ public final class FileHandle extends File implements Named, ContentParser {
 
     @Override
     public FileHandle getParentFile() {
-        return new FileHandle(super.getParentFile());
+        return new FileHandle(super.getParentFile().getAbsolutePath(), true);
     }
 
     public List<String> getLines() {
