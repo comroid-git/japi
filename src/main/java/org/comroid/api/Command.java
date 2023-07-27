@@ -156,7 +156,8 @@ public @interface Command {
                     var result = cmd.execute(args, extraArgs);
                     if (result instanceof Error)
                         throw (Error)result;
-                    str = String.valueOf(result);
+                    if (result != null)
+                        str = String.valueOf(result);
                 }
             } catch (MildError e) {
                 str = "Command.MildError: "+ e;
