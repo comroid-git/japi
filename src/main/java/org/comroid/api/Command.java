@@ -1,6 +1,7 @@
 package org.comroid.api;
 
 import lombok.*;
+import lombok.experimental.StandardException;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.*;
@@ -24,7 +25,25 @@ public @interface Command {
 
     interface Handler {
         void handleResponse(String text);
-        void handleError(Throwable t, Delegate cmd, String[] args);
+        void handleError(Error error);
+    }
+
+    @Value
+    class Error extends RuntimeException {
+        Delegate cmd;
+        String[] args;
+
+        public Error(Delegate cmd, String message, String... args) {
+            super(message);
+            this.cmd = cmd;
+            this.args = args;
+        }
+
+        public Error(Delegate cmd, String message, Throwable cause, String... args) {
+            super(message, cause);
+            this.cmd = cmd;
+            this.args = args;
+        }
     }
 
     @Data
@@ -40,8 +59,8 @@ public @interface Command {
                 }
 
                 @Override
-                public void handleError(Throwable t, Command.Delegate cmd, String[] args) {
-                    t.printStackTrace(System.err);
+                public void handleError(Error error) {
+                    error.printStackTrace(System.err);
                 }
             });
         }
@@ -70,6 +89,7 @@ public @interface Command {
             var name = split[0];
             var cmd = commands.get(name);
             var args = Arrays.stream(split).skip(1).toArray(String[]::new);
+            Error error = null;
             try {
                 String str;
                 if ("help".equals(name) && !commands.containsKey("help")) {
@@ -82,9 +102,12 @@ public @interface Command {
 
                 handler.handleResponse(str);
                 return str;
+            } catch (Error e) {
+                error = e;
             } catch (Throwable t) {
-                handler.handleError(t, cmd, args);
+                error = new Error(cmd, "A fatal error occurred during command execution", t, args);
             }
+            handler.handleError(error);
             return null;
         }
     }
