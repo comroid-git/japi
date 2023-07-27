@@ -68,8 +68,14 @@ public @interface Command {
             var cmd = commands.get(name);
             var args = Arrays.stream(split).skip(1).toArray(String[]::new);
             try {
-                var resp = cmd.delegate.autoInvoke(name, args);
-                var str = String.valueOf(resp);
+                String str;
+                if ("help".equals(name) && !commands.containsKey("help")) {
+                    var sb = new StringBuilder("Commands");
+                    for (var each : commands.values())
+                        sb.append("\n\t- ").append(each.name);
+                    str = sb.toString();
+                } else str = String.valueOf(cmd.delegate.autoInvoke(name, args));
+
                 handler.handleResponse(str);
                 return str;
             } catch (Throwable t) {
