@@ -30,28 +30,40 @@ public @interface Command {
 
     @Value
     class Error extends RuntimeException {
-        @With Delegate cmd;
+        @With Delegate command;
         @With String[] args;
 
         public Error(String message) {
             this(null, message, null);
         }
 
-        public Error(Delegate cmd, String message, String[] args) {
+        public Error(Delegate command, String message, String[] args) {
             super(message);
-            this.cmd = cmd;
+            this.command = command;
             this.args = args;
         }
 
-        public Error(Delegate cmd, String message, Throwable cause, String[] args) {
+        public Error(Delegate command, String message, Throwable cause, String[] args) {
             super(message, cause);
-            this.cmd = cmd;
+            this.command = command;
             this.args = args;
         }
     }
 
     @Value
-    class ArgumentError extends Error {
+    class MildError extends Error {
+        public MildError(String message) {
+            super(message);
+        }
+
+        @Override
+        public String toString() {
+            return "Error in command '"+ getCommand().name+"': " + getMessage();
+        }
+    }
+
+    @Value
+    class ArgumentError extends MildError {
         public ArgumentError(String nameof, @Nullable String detail) {
             super("Invalid argument '" + nameof + "'" + Optional.ofNullable(detail).map(d -> "; " + d).orElse(""));
         }
@@ -106,8 +118,8 @@ public @interface Command {
             var cmd = commands.get(name);
             var args = Arrays.stream(split).skip(1).toArray(String[]::new);
             Error error = null;
+            String str = null;
             try {
-                String str;
                 if ("help".equals(name) && !commands.containsKey("help")) {
                     var sb = new StringBuilder("Commands");
                     for (var each : commands.values())
@@ -119,21 +131,23 @@ public @interface Command {
                         throw (Error)result;
                     str = String.valueOf(result);
                 }
-
-                handler.handleResponse(str);
-                return str;
-            } catch (ArgumentError e) {
-                error = e.withCmd(cmd).withArgs(args);
+            } catch (MildError e) {
+                str = e.withCommand(cmd).withArgs(args).toString();
             } catch (Error e) {
                 error = e;
-                if (e.getCmd() == null)
-                    error = e.withCmd(cmd);
+                if (e.getCommand() == null)
+                    error = e.withCommand(cmd);
                 if (e.getArgs() == null)
                     error = e.withArgs(args);
             } catch (Throwable t) {
                 error = new Error(cmd, "A fatal error occurred during command execution", t, args);
             }
-            handler.handleError(error);
+            if (error != null)
+                handler.handleError(error);
+            else {
+                handler.handleResponse(str);
+                return str;
+            }
             return null;
         }
     }
