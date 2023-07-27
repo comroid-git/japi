@@ -102,7 +102,12 @@ public @interface Command {
                     for (var each : commands.values())
                         sb.append("\n\t- ").append(each.name);
                     str = sb.toString();
-                } else str = cmd.execute(args, extraArgs);
+                } else {
+                    var result = cmd.execute(args, extraArgs);
+                    if (result instanceof Error)
+                        throw (Error)result;
+                    str = String.valueOf(result);
+                }
 
                 handler.handleResponse(str);
                 return str;
@@ -145,12 +150,12 @@ public @interface Command {
             return Command.class;
         }
 
-        public String execute(String[] args, Object... extraArgs) {
+        public Object execute(String[] args, Object... extraArgs) {
             if (usage != null)
                 usage.validate(args);
-            return String.valueOf(delegate.autoInvoke(Stream
+            return delegate.autoInvoke(Stream
                     .concat(Arrays.stream(extraArgs), Stream.of(this, args))
-                    .toArray()));
+                    .toArray());
         }
 
         private UsageInfo parseUsageInfo(String usage) {
