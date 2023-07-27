@@ -85,6 +85,8 @@ dependencies {
     api 'org.jetbrains:annotations:+'
     compileOnly 'com.fasterxml.jackson.core:jackson-annotations:2.+'
 
+    compileOnly 'org.slf4j:slf4j-api:1.+'
+
     // lombok
     api 'org.projectlombok:lombok:+'
     annotationProcessor 'org.projectlombok:lombok:+'

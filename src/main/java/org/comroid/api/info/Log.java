@@ -7,25 +7,30 @@ import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
-@UtilityClass
-public class Log {
-    public Logger get() {
+public final class Log extends Logger {
+    private Log(String name) {
+        super(name, null);
+    }
+
+    public static Logger get() {
         return getForCaller(1);
     }
 
-    public Logger get(String name) {
-        return LogManager.getLogManager().getLogger(name);
+    public static Logger get(String name) {
+        var logger = new Log(name);
+        LogManager.getLogManager().addLogger(logger);
+        return logger;
     }
 
-    public Logger get(Class<?> cls) {
+    public static Logger get(Class<?> cls) {
         return get(cls.getCanonicalName());
     }
 
-    public void at(Level level, String message) {
+    public static void at(Level level, String message) {
         getForCaller(1).log(level, message);
     }
 
-    private Logger getForCaller(int skip) {
+    private static Logger getForCaller(int skip) {
         return get(StackTraceUtils.callerClass(skip + 1));
     }
 }

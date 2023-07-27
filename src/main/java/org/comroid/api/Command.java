@@ -21,6 +21,7 @@ public @interface Command {
     String value() default EmptyAttribute;
 
     String usage() default EmptyAttribute;
+    boolean defaultHandler() default false;
 
     @Target(ElementType.PARAMETER)
     @Retention(RetentionPolicy.RUNTIME)

@@ -20,6 +20,7 @@ import java.io.*;
 import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -67,6 +68,15 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     @SneakyThrows
     static String readAll(InputStream in) {
         return new String(in.readAllBytes());
+    }
+
+    static BackgroundTask<?> redirect(final InputStream in, final OutputStream out, Executor executor) {
+        return BackgroundTask.builder()
+                .executor(executor)
+                .action($ -> tryTransfer(in, out))
+                .repeatRateMs(-1)
+                .build()
+                .activate();
     }
 
     static Input wrap(final InputStream stream) {
@@ -966,6 +976,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         public static final IO NULL = new IO(new ByteArrayInputStream(new byte[0]),StreamUtil.voidOutputStream(),StreamUtil.voidOutputStream());
         public static final IO SYSTEM = new IO(System.in, System.out, System.err);
         public static IO log(Logger log) {return new IO(null,new Output(log::info), new Output(log::severe));}
+        public static IO log(org.slf4j.Logger log) {return new IO(null,new Output(log::info), new Output(log::error ));}
 
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<IO> container = new Delegate<>(this);
@@ -988,6 +999,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
         public IO redirectToNull() {return redirect(NULL);}
         public IO redirectToLogger(Logger log) {return redirect(log(log));}
+        public IO redirectToLogger(org.slf4j.Logger log) {return redirect(log(log));}
         public IO redirectToSystem() {return redirect(SYSTEM);}
         public IO redirectToEventBus(Event.Bus<String> bus) {
             return redirect(
