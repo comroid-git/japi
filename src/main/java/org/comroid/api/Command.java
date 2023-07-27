@@ -6,6 +6,8 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.annotation.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})
@@ -48,6 +50,7 @@ public @interface Command {
             register(this.handler = handler);
         }
 
+        @SuppressWarnings("UnusedReturnValue")
         public int register(final Object target) {
             var cls = target.getClass();
             return (int) Arrays.stream(cls.getMethods())
@@ -62,7 +65,7 @@ public @interface Command {
                     .count();
         }
 
-        public @Nullable String execute(String command) {
+        public @Nullable String execute(String command, Object... extraArgs) {
             var split = command.split(" ");
             var name = split[0];
             var cmd = commands.get(name);
@@ -74,7 +77,8 @@ public @interface Command {
                     for (var each : commands.values())
                         sb.append("\n\t- ").append(each.name);
                     str = sb.toString();
-                } else str = String.valueOf(cmd.delegate.autoInvoke(name, args));
+                } else str = String.valueOf(cmd.delegate.autoInvoke(Stream.concat(Stream.of(extraArgs),
+                        Stream.of(cmd, args)).toArray()));
 
                 handler.handleResponse(str);
                 return str;
