@@ -1,26 +1,26 @@
 package org.comroid.api;
 
 import lombok.*;
-import lombok.experimental.StandardException;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})
 public @interface Command {
-    String EmptyName = "@@@";
+    String EmptyAttribute = "@@@";
 
-    String value() default EmptyName;
+    String value() default EmptyAttribute;
+
+    String usage() default EmptyAttribute;
 
     @Target(ElementType.PARAMETER)
     @Retention(RetentionPolicy.RUNTIME)
     @interface Arg {
-        String value() default EmptyName;
+        String value() default EmptyAttribute;
     }
 
     interface Handler {
@@ -74,12 +74,17 @@ public @interface Command {
             var cls = target.getClass();
             return (int) Arrays.stream(cls.getMethods())
                     .filter(mtd -> mtd.isAnnotationPresent(Command.class))
-                    .map(mtd -> new Delegate(
-                            Invocable.ofMethodCall(target, mtd),
-                            Optional.of(mtd.getAnnotation(Command.class))
-                                    .map(Command::value)
-                                    .filter(name -> !name.equals(EmptyName))
-                                    .orElseGet(mtd::getName)))
+                    .map(mtd -> {
+                        var cmd = Optional.of(mtd.getAnnotation(Command.class));
+                        return new Delegate(
+                                Invocable.ofMethodCall(target, mtd),
+                                cmd.map(Command::value)
+                                        .filter(x -> !EmptyAttribute.equals(x))
+                                        .orElseGet(mtd::getName),
+                                cmd.map(Command::usage)
+                                        .filter(x -> !EmptyAttribute.equals(x))
+                                        .orElse(null));
+                    })
                     .peek(cmd -> commands.put(cmd.name, cmd))
                     .count();
         }
@@ -97,8 +102,7 @@ public @interface Command {
                     for (var each : commands.values())
                         sb.append("\n\t- ").append(each.name);
                     str = sb.toString();
-                } else str = String.valueOf(cmd.delegate.autoInvoke(Stream.concat(Stream.of(extraArgs),
-                        Stream.of(cmd, args)).toArray()));
+                } else str = cmd.execute(args, extraArgs);
 
                 handler.handleResponse(str);
                 return str;
@@ -117,15 +121,57 @@ public @interface Command {
     class Delegate implements Command, Named {
         Invocable<?> delegate;
         String name;
+        @Nullable UsageInfo usage;
+
+        private Delegate(Invocable<?> delegate, String name, @Nullable String usage) {
+            this.delegate = delegate;
+            this.name = name;
+            this.usage = usage == null ? null : parseUsageInfo(usage);
+        }
 
         @Override
         public String value() {
-            return null;
+            return name;
+        }
+
+        @Override
+        @Nullable
+        public String usage() {
+            return usage != null ? usage.hint : null;
         }
 
         @Override
         public Class<? extends Annotation> annotationType() {
             return Command.class;
+        }
+
+        public String execute(String[] args, Object... extraArgs) {
+            if (usage != null)
+                usage.validate(args);
+            return String.valueOf(delegate.autoInvoke(Stream
+                    .concat(Arrays.stream(extraArgs), Stream.of(this, args))
+                    .toArray()));
+        }
+
+        private UsageInfo parseUsageInfo(String usage) {
+            var split = usage.split(" ");
+            return new UsageInfo(usage,
+                    (int) Arrays.stream(split).filter(s->s.startsWith("<")).count(),
+                    split.length);
+        }
+
+        @Value
+        private class UsageInfo {
+            String hint;
+            int required;
+            int maximum;
+
+            private void validate(String[] args) {
+                if (args.length < required)
+                    throw new Error(Delegate.this, "not enough arguments; usage: " + name + " " + hint, args);
+                if (args.length > maximum)
+                    throw new Error(Delegate.this, "too many arguments; usage: " + name + " " + hint, args);
+            }
         }
     }
 }
