@@ -158,7 +158,7 @@ public @interface Command {
             return Command.class;
         }
 
-        public Object execute(String[] args, Object... extraArgs) {
+        private Object execute(String[] args, Object... extraArgs) {
             if (usage != null)
                 usage.validate(args);
             return delegate.autoInvoke(Stream
