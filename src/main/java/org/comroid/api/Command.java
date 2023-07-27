@@ -170,19 +170,21 @@ public @interface Command {
             var split = usage.split(" ");
             return new UsageInfo(usage,
                     (int) Arrays.stream(split).filter(s->s.startsWith("<")).count(),
-                    Arrays.stream(split).anyMatch(s->s.contains("..")) ? Integer.MAX_VALUE : split.length);
+                    split.length,
+                    Arrays.stream(split).skip(split.length-1).anyMatch(s->s.contains("..")));
         }
 
         @Value
         private class UsageInfo {
             String hint;
             int required;
-            int maximum;
+            int total;
+            boolean ellipsis;
 
             private void validate(String[] args) {
                 if (args.length < required)
                     throw new Error(Delegate.this, "not enough arguments; usage: " + name + " " + hint, args);
-                if (args.length > maximum)
+                if (!ellipsis && args.length > total)
                     throw new Error(Delegate.this, "too many arguments; usage: " + name + " " + hint, args);
             }
         }
