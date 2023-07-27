@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -40,7 +41,7 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     class Base implements Container {
         final Set<Object> children;
-        boolean closed;
+        protected boolean closed;
 
         public Base(Object... children) {
             this.children = new HashSet<>(Set.of(children));
@@ -59,6 +60,7 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
             final List<Throwable> errors = Stream.concat(Stream.concat(streamChildren(AutoCloseable.class), moreMembers()), Stream.of(this::closeSelf))
                     .parallel()
                     .filter(Objects::nonNull)
+                    .filter(Predicate.not(this::equals))
                     .flatMap(closeable -> {
                         try {
                             closeable.close();

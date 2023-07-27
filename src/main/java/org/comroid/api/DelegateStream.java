@@ -73,10 +73,17 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     static BackgroundTask<?> redirect(final InputStream in, final OutputStream out, Executor executor) {
         return BackgroundTask.builder()
                 .executor(executor)
-                .action($ -> tryTransfer(in, out))
+                .action($ -> infiniteTransfer(in, out))
                 .repeatRateMs(-1)
                 .build()
                 .activate();
+    }
+
+    @SneakyThrows
+    private static void infiniteTransfer(InputStream in, OutputStream out) {
+        //noinspection InfiniteLoopStatement
+        while (true)
+            in.transferTo(out);
     }
 
     static Input wrap(final InputStream stream) {
