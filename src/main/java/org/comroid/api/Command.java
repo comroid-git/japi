@@ -30,16 +30,20 @@ public @interface Command {
 
     @Value
     class Error extends RuntimeException {
-        Delegate cmd;
-        String[] args;
+        @With Delegate cmd;
+        @With String[] args;
 
-        public Error(Delegate cmd, String message, String... args) {
+        public Error(String message) {
+            this(null, message, null);
+        }
+
+        public Error(Delegate cmd, String message, String[] args) {
             super(message);
             this.cmd = cmd;
             this.args = args;
         }
 
-        public Error(Delegate cmd, String message, Throwable cause, String... args) {
+        public Error(Delegate cmd, String message, Throwable cause, String[] args) {
             super(message, cause);
             this.cmd = cmd;
             this.args = args;
@@ -113,6 +117,10 @@ public @interface Command {
                 return str;
             } catch (Error e) {
                 error = e;
+                if (e.getCmd() == null)
+                    error = e.withCmd(cmd);
+                if (e.getArgs() == null)
+                    error = e.withArgs(args);
             } catch (Throwable t) {
                 error = new Error(cmd, "A fatal error occurred during command execution", t, args);
             }
