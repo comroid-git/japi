@@ -170,7 +170,7 @@ public @interface Command {
             var split = usage.split(" ");
             return new UsageInfo(usage,
                     (int) Arrays.stream(split).filter(s->s.startsWith("<")).count(),
-                    split.length);
+                    Arrays.stream(split).anyMatch(s->s.contains("..")) ? Integer.MAX_VALUE : split.length);
         }
 
         @Value
