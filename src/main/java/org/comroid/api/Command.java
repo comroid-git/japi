@@ -1,9 +1,14 @@
 package org.comroid.api;
 
 import lombok.*;
+import org.comroid.util.StackTraceUtils;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.annotation.*;
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -25,7 +30,25 @@ public @interface Command {
 
     interface Handler {
         void handleResponse(String text);
-        void handleError(Error error);
+
+        default @Nullable String handleError(Error error) {
+            var msg = "%s: %s".formatted(StackTraceUtils.lessSimpleName(error.getClass()), error.getMessage());
+            if (error instanceof MildError)
+                return msg;
+            var buf = new StringWriter();
+            var out = new PrintWriter(buf);
+            out.println(msg);
+            Throwable cause = error;
+            do {
+                var c = cause.getCause();
+                if (c == null)
+                    break;
+                cause = c;
+            } while (cause instanceof InvocationTargetException
+                    || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
+            cause.printStackTrace(out);
+            return buf.toString();
+        }
     }
 
     @Getter
@@ -58,11 +81,20 @@ public @interface Command {
 
         @Override
         public String toString() {
-            return "Error in command '"+ getCommand().name+"': " + getMessage();
+            var str = "";
+            if (getCommand()!=null)
+                str += "Could not execute command '"+getCommand().name+"'";
+            if (str.length() > 0)
+                str += "; ";
+            return str + getMessage();
         }
     }
 
     class ArgumentError extends MildError {
+        public ArgumentError(String message) {
+            super(message);
+        }
+
         public ArgumentError(String nameof, @Nullable String detail) {
             super("Invalid argument '" + nameof + "'" + Optional.ofNullable(detail).map(d -> "; " + d).orElse(""));
         }
@@ -74,17 +106,7 @@ public @interface Command {
         private final Handler handler;
 
         public Manager() {
-            this(new Command.Handler(){
-                @Override
-                public void handleResponse(String text) {
-                    System.out.println(text);
-                }
-
-                @Override
-                public void handleError(Error error) {
-                    error.printStackTrace(System.err);
-                }
-            });
+            this(System.out::println);
         }
 
         public Manager(Handler handler) {
@@ -114,7 +136,7 @@ public @interface Command {
         public @Nullable String execute(String command, Object... extraArgs) {
             var split = command.split(" ");
             var name = split[0];
-            var cmd = commands.get(name);
+            var cmd = commands.getOrDefault(name,null);
             var args = Arrays.stream(split).skip(1).toArray(String[]::new);
             Error error = null;
             String str = null;
@@ -128,29 +150,30 @@ public @interface Command {
                     }
                     str = sb.toString();
                 } else {
+                    if (cmd==null)
+                        throw new MildError("Command not found: " + name);
                     var result = cmd.execute(args, extraArgs);
                     if (result instanceof Error)
                         throw (Error)result;
                     str = String.valueOf(result);
                 }
             } catch (MildError e) {
-                str = e.setCommand(cmd).setArgs(args).toString();
+                str = "Command.MildError: "+ e;
             } catch (Error e) {
                 error = e;
-                if (e.getCommand() == null)
-                    error = e.setCommand(cmd);
-                if (e.getArgs() == null || e.getArgs().length == 0)
-                    error = e.setArgs(args);
             } catch (Throwable t) {
                 error = new Error(cmd, "A fatal error occurred during command execution", t, args);
             }
-            if (error != null)
-                handler.handleError(error);
-            else {
-                handler.handleResponse(str);
-                return str;
+            if (error != null) {
+                if (error.getCommand() == null)
+                    error = error.setCommand(cmd);
+                if (error.getArgs() == null || error.getArgs().length == 0)
+                    error = error.setArgs(args);
+                str = handler.handleError(error);
             }
-            return null;
+            if (str != null)
+                handler.handleResponse(str);
+            return str;
         }
     }
 

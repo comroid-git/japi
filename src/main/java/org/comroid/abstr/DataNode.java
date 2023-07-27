@@ -36,8 +36,8 @@ public abstract class DataNode implements Specifiable<DataNode>, Named {
 
     public abstract int size();
 
-    public @NotNull DataNode get(String key) {
-        return Objects.requireNonNullElse(asObject().get(key), Value.NULL);
+    public @NotNull DataNode get(java.lang.Object key) {
+        return Objects.requireNonNullElse(asObject().get(String.valueOf(key)), Value.NULL);
     }
 
     public @NotNull DataNode get(int index) {
