@@ -248,15 +248,15 @@ public class Event<T> implements Rewrapper<T> {
             register(this);
         }
 
-        public Listener<T> register(Class<?> target) {
+        public @Nullable Listener<T> register(Class<?> target) {
             return registerTargetListener(target, null);
         }
 
-        public Listener<T> register(Object target) {
+        public @Nullable Listener<T> register(Object target) {
             return registerTargetListener(target.getClass(), target);
         }
 
-        private Listener<T> registerTargetListener(Class<?> type, @Nullable Object target) {
+        private @Nullable Listener<T> registerTargetListener(Class<?> type, @Nullable Object target) {
             addChildren(target);
 
             //final var autoTypes = List.of(Event.class, String.class, Long.class, Instant.class);
@@ -276,6 +276,8 @@ public class Event<T> implements Rewrapper<T> {
                 subscribers.add(new SubscriberImpl(method, Invocable.ofMethodCall(target, method), subscriber));
             }
 
+            if (subscribers.isEmpty())
+                return null;
             var listener = new SubscriberListener(target, subscribers);
             synchronized (listeners) {
                 listeners.add(listener);

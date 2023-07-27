@@ -319,7 +319,7 @@ public interface Context extends Named, Convertible, LoggerCarrier {
             this(ROOT, name, initialMembers);
         }
 
-        protected Base(@NotNull Context parent, String name, Object... initialMembers) {
+        protected Base(Context parent, String name, Object... initialMembers) {
             this.myMembers = new HashSet<>();
             this.children = new HashSet<>();
             this.parent = name.equals("ROOT") && callerClass(1).equals(Context.Base.class)
