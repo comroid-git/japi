@@ -303,6 +303,11 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
         @ApiStatus.Experimental
         public Input(final Event.Bus<String> source, final @NotNull EndlMode endlMode) {
+            this(source, endlMode, IO.EventKey_Input);
+        }
+
+        @ApiStatus.Experimental
+        public Input(final Event.Bus<String> source, final @NotNull EndlMode endlMode, String key) {
             this.endlMode = endlMode;
             class EventBusHandler
                     extends Container.Base
@@ -400,7 +405,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             handler.addChildren(source);
             this.delegate = handler;
 
-            source.listen().setKey(IO.EventKey_Input).subscribe(handler);
+            source.listen().setKey(key).subscribe(handler);
             this.read = handler;
         }
 
@@ -732,9 +737,10 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
         public Output(final Event.Bus<String> bus, Capability capability) {
             final var writer = new AtomicReference<>(new StringWriter());
+            final var key = IO.eventKey(capability);
             this.write = c -> writer.get().write(c);
             this.flush = () -> writer.getAndUpdate(buf -> {
-                bus.publish(IO.eventKey(capability), buf.toString());
+                bus.publish(key, buf.toString());
                 return new StringWriter();
             });
             this.delegate = bus;
@@ -1084,8 +1090,11 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
 
         public IO redirectToEventBus(Event.Bus<String> bus) {
+            return redirectToEventBus(bus, EventKey_Input);
+        }
+        public IO redirectToEventBus(Event.Bus<String> bus, String inputKey) {
             return redirect(new IO(
-                    new Input(bus),
+                    new Input(bus, EndlMode.OnDelegate, inputKey),
                     new Output(bus, Capability.Output),
                     new Output(bus, Capability.Error)));
         }
