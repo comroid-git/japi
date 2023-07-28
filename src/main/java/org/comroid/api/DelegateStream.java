@@ -325,10 +325,10 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                     synchronized (queue) {
                         int c = this.c.incrementAndGet();
                         if (c != event.getSeq())
-                            log.log(Level.WARNING, "Event received in invalid order; got " + event.getSeq() + ", expected " + c + "\nData: " + event.getData());
+                            ;//log.log(Level.FINE, "Event received in invalid order; got " + event.getSeq() + ", expected " + c + "\nData: " + event.getData());
                         if (event.test(queue::add))
                             queue.notify();
-                        else log.log(Level.SEVERE, "Failed to queue new input " + event);
+                        else ;//log.log(Level.SEVERE, "Failed to queue new input " + event);
                     }
                 }
 
