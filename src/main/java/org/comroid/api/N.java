@@ -249,8 +249,8 @@ public class N {
 
             @NotNull
             default $4<X, Y, Z, W> andThen(final @NotNull java.util.function.Consumer<? super X> after) {
-                return (x, y, z) -> {
-                    accept(x, y, z);
+                return (x, y, z, w) -> {
+                    accept(x, y, z, w);
                     after.accept(x);
                 };
             }
@@ -258,8 +258,8 @@ public class N {
             @Override
             @NotNull
             default $4<X, Y, Z, W> andThen(final @NotNull BiConsumer<? super X, ? super Y> after) {
-                return (x, y, z) -> {
-                    accept(x, y, z);
+                return (x, y, z, w) -> {
+                    accept(x, y, z, w);
                     after.accept(x, y);
                 };
             }
