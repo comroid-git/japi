@@ -436,9 +436,7 @@ public class Event<T> implements Rewrapper<T> {
             synchronized (listeners) {
                 //Collections.sort(listeners, Listener.Comparator);
                 listeners.stream().sorted(Listener.Comparator).forEach(listener -> {
-                    if (!listener.isActive() || event.isCancelled())
-                        return;
-                    else if (listener.test(event))
+                    if (listener.isActive() && !event.isCancelled() && listener.test(event))
                         listener.accept(event);
                 });
             }
