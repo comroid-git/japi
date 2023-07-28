@@ -14,6 +14,7 @@ import java.net.*;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -280,5 +281,19 @@ public final class Polyfill {
         for (int i = 1; i < streams.length; i++)
             stream = Stream.concat(stream, streams[i]);
         return stream.map(Polyfill::uncheckedCast);
+    }
+
+    public static <T> Stream<Collection<T>> batches(final int maxSize, final Stream<T> stream) {
+        final var split = stream.spliterator();
+        return StreamSupport.stream(new Spliterators.AbstractSpliterator<>(Long.MAX_VALUE, Spliterator.CONCURRENT) {
+            @Override
+            public boolean tryAdvance(Consumer<? super Collection<T>> action) {
+                final var ls = new ArrayList<T>();
+                var cont = true;
+                while (ls.size() < maxSize && (cont = split.tryAdvance(ls::add)))
+                    action.accept(ls);
+                return cont;
+            }
+        }, true);
     }
 }
