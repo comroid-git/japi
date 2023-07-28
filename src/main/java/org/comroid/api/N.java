@@ -240,11 +240,11 @@ public class N {
 
         @FunctionalInterface
         interface $4<X, Y, Z, W> extends $3<X, Y, Z>, dim.I4<X, Y, Z, W>, dim.O0 {
-            void accept(X x, Y y, Z z);
+            void accept(X x, Y y, Z z, W w);
 
             @Override
-            default void accept(X x, Y y) {
-                accept(x, y, getDefaultZ());
+            default void accept(X x, Y y, Z z) {
+                accept(x, y, z, getDefaultW());
             }
 
             @NotNull
