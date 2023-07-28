@@ -17,7 +17,7 @@ public class EventTest {
     public void setup() {
         busA = new Event.Bus<>();
         busB = new Event.Bus<>().setUpstream(busA);
-        busC = busB.map(Object::toString).map(StandardValueType.INTEGER::parse);
+        busC = busB.mapData(Object::toString).mapData(StandardValueType.INTEGER::parse);
 
         busA.listen().subscribe(e -> System.out.println("Bus A had data: "+e));
         busB.listen().setType(CharSequence.class).subscribe(e-> System.out.println("Bus B had char sequence: "+e));
