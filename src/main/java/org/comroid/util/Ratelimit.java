@@ -12,10 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
@@ -25,12 +22,25 @@ import static java.util.concurrent.CompletableFuture.*;
 @Value
 public class Ratelimit<T, Acc> {
     static Map<Object, Ratelimit<?, ?>> cache = new ConcurrentHashMap<>();
+
+    public static <T, Acc> CompletableFuture<T> run(
+            Acc value,
+            Duration cooldown,
+            AtomicReference<CompletableFuture<@Nullable T>> source,
+            BiFunction<@NotNull T, Queue<@NotNull Acc>, CompletableFuture<@Nullable T>> task
+    ) {
+        return Polyfill.<Ratelimit<T, Acc>>uncheckedCast(cache.computeIfAbsent(task.getClass(),
+                $ -> new Ratelimit<>(cooldown, source, task))).push(value);
+    }
+
     @NotNull Duration cooldown;
     @NotNull AtomicReference<CompletableFuture<@Nullable T>> source;
     @NotNull BiFunction<T, Queue<Acc>, CompletableFuture<T>> accumulator;
     @NotNull Queue<Acc> queue = new LinkedBlockingQueue<>();
-    @NonFinal @Nullable CompletableFuture<T> result;
-    @NonFinal Instant last = Instant.EPOCH;
+    @NonFinal
+    @Nullable CompletableFuture<T> result;
+    @NonFinal
+    Instant last = Instant.EPOCH;
 
     public Ratelimit(@NotNull Duration cooldown,
                      @NotNull AtomicReference<CompletableFuture<@Nullable T>> source,
@@ -45,42 +55,44 @@ public class Ratelimit<T, Acc> {
         synchronized (queue) {
             queue.add(value);
         }
-        System.out.println("Ratelimit.push('" + value+"')");
         if (result != null && result.isDone())
             result = null;
-        if (result == null) {
-            var now = Instant.now();
-            var next = last.plus(cooldown);
-            var time = Duration.between(now, next).toMillis();
-            log.info("wait for next = " + time);
-            result = (time <= 0 ? completedFuture(null)
-                    : supplyAsync(() -> null, delayedExecutor(time, TimeUnit.MILLISECONDS)))
-                    .thenCompose($ -> source.updateAndGet(stage -> stage
-                                    .thenCompose(src -> {
-                                        if (queue.isEmpty())
-                                            return completedFuture(src);
-                                        synchronized (queue) {
-                                            return accumulator.apply(src, queue);
-                                        }
-                                    }))
-                            .thenApply(it -> {
-                                if (it != null) {
-                                    last = Instant.now();
-                                }
-                                return it;
-                            })
-                            .exceptionally(Polyfill.exceptionLogger()));
-        }
+        if (result == null)
+            result = start();
         return result;
     }
 
-    public static <T, Acc> CompletableFuture<T> run(
-            Acc value,
-            Duration cooldown,
-            AtomicReference<CompletableFuture<@Nullable T>> source,
-            BiFunction<@NotNull T, Queue<@NotNull Acc>, CompletableFuture<@Nullable T>> task
-    ) {
-        return Polyfill.<Ratelimit<T, Acc>>uncheckedCast(cache.computeIfAbsent(task.getClass(),
-                $-> new Ratelimit<>(cooldown, source, task))).push(value);
+    private CompletableFuture<T> start() {
+        var now = Instant.now();
+        var next = last.plus(cooldown);
+        var time = Duration.between(now, next).toMillis();
+        log.fine("wait for next = " + time);
+        return supplyAsync(() -> null, delayedExecutor(time, TimeUnit.MILLISECONDS))
+                .thenCompose(this::wrap);
+    }
+
+    private CompletableFuture<T> wrap(final @Nullable Object $) {
+        return accumulate().thenCompose(it -> {
+                    last = Instant.now();
+                    synchronized (queue) {
+                        if (!queue.isEmpty()) {
+                            log.fine("there is still %d items in the queue, repeating".formatted(queue.size()));
+                            return start();
+                        }
+                        return completedFuture(it);
+                    }
+                })
+                .exceptionally(Polyfill.exceptionLogger());
+    }
+
+    private CompletableFuture<@Nullable T> accumulate() {
+        return source.updateAndGet(stage -> stage
+                .thenCompose(src -> {
+                    if (queue.isEmpty())
+                        return completedFuture(src);
+                    synchronized (queue) {
+                        return accumulator.apply(src, queue);
+                    }
+                }));
     }
 }
