@@ -37,10 +37,10 @@ public class Event<T> implements Rewrapper<T> {
     @NonFinal
     boolean cancelled = false;
 
-    public <R> Event<R> withData(R data) {
-        return new Event<>(seq, flag, key, data).setCancelled(cancelled);
+    public <R> @Nullable Event<R> withData(@Nullable R data) {
+        return data == null ? null : new Event<>(seq, flag, key, data).setCancelled(cancelled);
     }
-    public <R> Event<R> withDataBy(@NotNull Function<@Nullable T, @Nullable R> function) {
+    public <R> @Nullable Event<R> withDataBy(@NotNull Function<@Nullable T, @Nullable R> function) {
         return withData(function.apply(getData()));
     }
 
@@ -334,6 +334,13 @@ public class Event<T> implements Rewrapper<T> {
                 future.whenComplete((e, t) -> listener.close());
                 return timeout == null ? future : future.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS);
             }
+        }
+
+        public Listener<T> subscribeData(final @NotNull Consumer<T> action) {
+            return subscribe(e->action.accept(e.getData()));
+        }
+        public Listener<T> subscribe(final @NotNull Consumer<Event<T>> action) {
+            return listen().subscribe(action);
         }
 
         public Event.Bus<T> peekData(final Consumer<@NotNull T> action) {

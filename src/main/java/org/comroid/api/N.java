@@ -1,26 +1,18 @@
 package org.comroid.api;
 
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Function;
+import java.util.Optional;
+import java.util.function.*;
+import java.util.stream.Stream;
 
 @UtilityClass
 public class N {
     private interface dim {
-        interface O0 extends dim {
-        }
-
-        interface O1<R> extends O0 {
-            @Nullable
-            default R getDefaultR() {
-                return null;
-            }
-        }
-
         interface I0 extends dim {
         }
 
@@ -51,28 +43,37 @@ public class N {
                 return null;
             }
         }
-    }
 
-    interface Runnable extends java.lang.Runnable, dim.I0, dim.O0 {
-        @Override
-        void run();
-    }
+        interface O0 extends dim {
+        }
 
-    interface Supplier {
-        @FunctionalInterface
-        interface $1<R> extends java.util.function.Supplier<R>, dim.I0, dim.O1<R> {
-            @Override
-            R get();
-
-            default <O> $1<O> then(final java.util.function.Function<R, O> function) {
-                return ()->function.apply(get());
+        interface O1<R> extends O0 {
+            @Nullable
+            default R getDefaultR() {
+                return null;
             }
         }
     }
 
-    interface Function {
+    @FunctionalInterface
+    public interface Runnable extends java.lang.Runnable, dim.I0, dim.O0 {
+        @Override
+        void run();
+    }
+
+    @FunctionalInterface
+    public interface Supplier<R> extends java.util.function.Supplier<R>, dim.I0, dim.O1<R> {
+        @Override
+        R get();
+
+        default <O> Supplier<O> then(final java.util.function.Function<R, O> function) {
+            return () -> function.apply(get());
+        }
+    }
+
+    public interface Function {
         @FunctionalInterface
-        interface $1<X, R> extends java.util.function.Function<X, R>, dim.I1<X>, dim.O1<R> {
+        interface $1<X, R> extends Function, java.util.function.Function<X, R>, dim.I1<X>, dim.O1<R> {
             @Override
             R apply(X x);
 
@@ -163,9 +164,9 @@ public class N {
         }
     }
 
-    interface Consumer {
+    public interface Consumer {
         @FunctionalInterface
-        interface $1<X> extends java.util.function.Consumer<X>, dim.I1<X>, dim.O0 {
+        interface $1<X> extends Consumer, java.util.function.Consumer<X>, dim.I1<X>, dim.O0 {
             @Override
             void accept(X x);
 
@@ -236,5 +237,125 @@ public class N {
                 };
             }
         }
+
+        @FunctionalInterface
+        interface $4<X, Y, Z, W> extends $3<X, Y, Z>, dim.I4<X, Y, Z, W>, dim.O0 {
+            void accept(X x, Y y, Z z);
+
+            @Override
+            default void accept(X x, Y y) {
+                accept(x, y, getDefaultZ());
+            }
+
+            @NotNull
+            default $4<X, Y, Z, W> andThen(final @NotNull java.util.function.Consumer<? super X> after) {
+                return (x, y, z) -> {
+                    accept(x, y, z);
+                    after.accept(x);
+                };
+            }
+
+            @Override
+            @NotNull
+            default $4<X, Y, Z, W> andThen(final @NotNull BiConsumer<? super X, ? super Y> after) {
+                return (x, y, z) -> {
+                    accept(x, y, z);
+                    after.accept(x, y);
+                };
+            }
+        }
     }
+
+    /*
+    @With
+    @SuppressWarnings("ALL")
+    @NoArgsConstructor(access = AccessLevel.PRIVATE)
+    @FieldDefaults(level = AccessLevel.PUBLIC, makeFinal = true)
+    public final class Adapter<I extends dim.I0,O extends dim.O0,R,X,Y,Z,W, D> {
+        //region fields
+        @Nullable I i = null;
+        @Nullable O o = null;
+        @Nullable R r = null;
+        @Nullable X x = null;
+        @Nullable Y y = null;
+        @Nullable Z z = null;
+        @Nullable W w = null;
+        //endregion
+
+        //region starters
+        public static <D extends dim.I0          & dim.O0   >            Adapter<dim.I0          ,dim.O0,    Void, Object,Object,Object,Object,D>   R0() {}
+        public static <D extends dim.I0          & dim.O1<R>, R>         Adapter<dim.I0          ,dim.O1<R>, R, Object,Object,Object,Object, D>     S1() {}
+        public static <D extends dim.I1<X>       & dim.O0   , X>         Adapter<dim.I1<X>       ,dim.O0,    Void, X,Object,Object,Object, D>  C1() {}
+        public static <D extends dim.I2<X,Y>     & dim.O0   , X,Y>       Adapter<dim.I2<X,Y>     ,dim.O0,    Void, X,Y,Object,Object, D>  C2() {}
+        public static <D extends dim.I3<X,Y,Z>   & dim.O0   , X,Y,Z>     Adapter<dim.I3<X,Y,Z>   ,dim.O0,    Void, X,Y,Z,Object, D>  C3() {}
+        public static <D extends dim.I4<X,Y,Z,W> & dim.O0   , X,Y,Z,W>   Adapter<dim.I4<X,Y,Z,W> ,dim.O0,    Void, X,Y,Z,W, D>  C4() {}
+        public static <D extends dim.I1<X>       & dim.O1<R>, R,X>       Adapter<dim.I1<X>       ,dim.O1<R>, R, X,Object,Object,Object, D>     F1() {}
+        public static <D extends dim.I2<X,Y>     & dim.O1<R>, R,X,Y>     Adapter<dim.I2<X,Y>     ,dim.O1<R>, R, X,Y,Object,Object, D>     F2() {}
+        public static <D extends dim.I3<X,Y,Z>   & dim.O1<R>, R,X,Y,Z>   Adapter<dim.I3<X,Y,Z>   ,dim.O1<R>, R, X,Y,Z,Object, D>     F3() {}
+        public static <D extends dim.I4<X,Y,Z,W> & dim.O1<R>, R,X,Y,Z,W> Adapter<dim.I4<X,Y,Z,W> ,dim.O1<R>, R, X,Y,Z,W, D>     F4() {}
+        //endregion
+
+        //region parameters
+        public <NR> Adapter<I,O,NR,X,Y,Z,W, ?> r() {}
+        public <NX> Adapter<I,O,R,NX,Y,Z,W, ?> x() {}
+        public <NY> Adapter<I,O,R,X,NY,Z,W, ?> y() {}
+        public <NZ> Adapter<I,O,R,X,Y,NZ,W, ?> z() {}
+        public <NW> Adapter<I,O,R,X,Y,Z,NW, ?> w() {}
+
+        public <NR> Adapter<I,O,NR,X,Y,Z,W, ?> r(NR nr) {}
+        public <NX> Adapter<I,O,R,NX,Y,Z,W, ?> x(NX nx) {}
+        public <NY> Adapter<I,O,R,X,NY,Z,W, ?> y(NY ny) {}
+        public <NZ> Adapter<I,O,R,X,Y,NZ,W, ?> z(NZ nz) {}
+        public <NW> Adapter<I,O,R,X,Y,Z,NW, ?> w(NW nw) {}
+
+        public <NR extends R> Adapter<I,O,NR,X,Y,Z,W, ?> rO(Optional<NR> nr) {}
+        public <NX extends X> Adapter<I,O,R,NX,Y,Z,W, ?> xO(Optional<NX> nx) {}
+        public <NY extends Y> Adapter<I,O,R,X,NY,Z,W, ?> yO(Optional<NY> ny) {}
+        public <NZ extends Z> Adapter<I,O,R,X,Y,NZ,W, ?> zO(Optional<NZ> nz) {}
+        public <NW extends W> Adapter<I,O,R,X,Y,Z,NW, ?> wO(Optional<NW> nw) {}
+
+        public <NR> Adapter<I,O,NR,X,Y,Z,W, ?> rS(Stream<NR> nr) {}
+        public <NX> Adapter<I,O,R,NX,Y,Z,W, ?> xS(Stream<NX> nx) {}
+        public <NY> Adapter<I,O,R,X,NY,Z,W, ?> yS(Stream<NY> ny) {}
+        public <NZ> Adapter<I,O,R,X,Y,NZ,W, ?> zS(Stream<NZ> nz) {}
+        public <NW> Adapter<I,O,R,X,Y,Z,NW, ?> wS(Stream<NW> nw) {}
+
+        public <NR> Adapter<I,O,NR,X,Y,Z,W, ?> rR(java.util.function.Supplier<NR> nr) {}
+        public <NX> Adapter<I,O,R,NX,Y,Z,W, ?> xR(java.util.function.Supplier<NX> nx) {}
+        public <NY> Adapter<I,O,R,X,NY,Z,W, ?> yR(java.util.function.Supplier<NY> ny) {}
+        public <NZ> Adapter<I,O,R,X,Y,NZ,W, ?> zR(java.util.function.Supplier<NZ> nz) {}
+        public <NW> Adapter<I,O,R,X,Y,Z,NW, ?> wR(java.util.function.Supplier<NW> nw) {}
+
+        public <NR> Adapter<I,O,NR,X,Y,Z,W, ?> rF(Provider<NR> nr) {}
+        public <NX> Adapter<I,O,R,NX,Y,Z,W, ?> xF(Provider<NX> nx) {}
+        public <NY> Adapter<I,O,R,X,NY,Z,W, ?> yF(Provider<NY> ny) {}
+        public <NZ> Adapter<I,O,R,X,Y,NZ,W, ?> zF(Provider<NZ> nz) {}
+        public <NW> Adapter<I,O,R,X,Y,Z,NW, ?> wF(Provider<NW> nw) {}
+        //endregion
+
+        //region delegates
+        public D d(Runnable delegate) {}
+        public D d(java.util.function.Consumer<X> delegate) {}
+        public D d(BiConsumer<X,Y> delegate) {}
+        public D d(Consumer.$3<X,Y,Z> delegate) {}
+        public D d(Consumer.$4<X,Y,Z,W> delegate) {}
+        public D d(java.util.function.Supplier<R> delegate) {}
+        public D d(java.util.function.Function<X,R> delegate) {}
+        public D d(BiFunction<X,Y,R> delegate) {}
+        public D d(Function.$3<X,Y,Z,R> delegate) {}
+        public D d(Function.$4<X,Y,Z,W,R> delegate) {}
+
+        public void $(Runnable                         delegate) {}
+        public void $(java.util.function.Consumer<X>   delegate) {}
+        public void $(BiConsumer<X,Y>                  delegate) {}
+        public void $(Consumer.$3<X,Y,Z>               delegate) {}
+        public void $(Consumer.$4<X,Y,Z,W>             delegate) {}
+        public R    $(java.util.function.Supplier<R>   delegate) {}
+        public R    $(java.util.function.Function<X,R> delegate) {}
+        public R    $(BiFunction<X,Y,R>                delegate) {}
+        public R    $(Function.$3<X,Y,Z,R>             delegate) {}
+        public R    $(Function.$4<X,Y,Z,W,R>           delegate) {}
+        //endregion
+    }
+     */
 }

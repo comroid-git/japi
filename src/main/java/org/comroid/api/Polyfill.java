@@ -271,4 +271,14 @@ public final class Polyfill {
     public static <T> Stream<T> stream(Iterable<T> iterable) {
         return StreamSupport.stream(iterable.spliterator(), false);
     }
+
+    @SafeVarargs
+    public static <T> Stream<T> stream(Stream<? extends T>... streams) {
+        if (streams.length == 0)
+            return Stream.empty();
+        var stream = streams[0];
+        for (int i = 1; i < streams.length; i++)
+            stream = Stream.concat(stream, streams[i]);
+        return stream.map(Polyfill::uncheckedCast);
+    }
 }
