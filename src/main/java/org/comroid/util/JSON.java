@@ -170,7 +170,7 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
         @Override
         public String toString() {
             return map.entrySet().stream()
-                    .map(e -> "\"%s\": %s".formatted(e.getKey(), e.getValue()))
+                    .map(e -> "\"%s\": %s".formatted(e.getKey(), e.getValue().toString()))
                     .collect(Collectors.joining(", ", "{", "}"));
         }
     }

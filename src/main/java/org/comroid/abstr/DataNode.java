@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.Delegate;
 import org.comroid.api.*;
-import org.comroid.util.StandardValueType;
+import org.comroid.util.Activator;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -16,6 +16,8 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static org.comroid.util.StandardValueType.*;
 
 @Data
 public abstract class DataNode implements Specifiable<DataNode>, Named {
@@ -95,45 +97,45 @@ public abstract class DataNode implements Specifiable<DataNode>, Named {
     }
 
     public boolean asBoolean(boolean fallback) {
-        return as(StandardValueType.BOOLEAN).orElse(fallback);
+        return as(BOOLEAN).orElse(fallback);
     }
 
     public byte asByte(byte fallback) {
-        return as(StandardValueType.BYTE).orElse(fallback);
+        return as(BYTE).orElse(fallback);
     }
 
     public char asChar(char fallback) {
-        return as(StandardValueType.CHARACTER).orElse(fallback);
+        return as(CHARACTER).orElse(fallback);
     }
 
     public short asShort(short fallback) {
-        return as(StandardValueType.SHORT).orElse(fallback);
+        return as(SHORT).orElse(fallback);
     }
 
     public int asInt(int fallback) {
-        return as(StandardValueType.INTEGER).orElse(fallback);
+        return as(INTEGER).orElse(fallback);
     }
 
     public long asLong(long fallback) {
-        return as(StandardValueType.LONG).orElse(fallback);
+        return as(LONG).orElse(fallback);
     }
 
     public float asFloat(float fallback) {
-        return as(StandardValueType.FLOAT).orElse(fallback);
+        return as(FLOAT).orElse(fallback);
     }
 
     public double asDouble(double fallback) {
-        return as(StandardValueType.DOUBLE).orElse(fallback);
+        return as(DOUBLE).orElse(fallback);
     }
 
     @Contract("null -> _; !null -> !null")
     public String asString(String fallback) {
-        return as(StandardValueType.STRING).orElse(fallback);
+        return as(STRING).orElse(fallback);
     }
 
     @Contract("null -> _; !null -> !null")
     public UUID asUUID(UUID fallback) {
-        return as(StandardValueType.UUID).orElse(fallback);
+        return as(UUID).orElse(fallback);
     }
 
     public static class Serializer extends DelegateStream.Output {
@@ -152,9 +154,20 @@ public abstract class DataNode implements Specifiable<DataNode>, Named {
     }
 
     @Data
-    public abstract static class Object extends DataNode implements Map<String, DataNode> {
+    public abstract static class Object extends DataNode implements Convertible, Map<String, DataNode> {
         @Delegate
         protected final Map<String, DataNode> map = new ConcurrentHashMap<>();
+
+        public <T> org.comroid.abstr.DataNode.Value<T> set(String key, T value) {
+            var val = new Value<>(value);
+            put(key, val);
+            return val;
+        }
+
+        @Override
+        public <R> @NotNull R convert(Class<? super R> target) {
+            return Rewrapper.of(Activator.get(target).createInstance(this)).cast();
+        }
     }
 
     @Data
