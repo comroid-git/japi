@@ -1093,10 +1093,12 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             return redirectToEventBus(bus, EventKey_Input);
         }
         public IO redirectToEventBus(Event.Bus<String> bus, String inputKey) {
-            return redirect(new IO(
+            var io = new IO(
                     new Input(bus, EndlMode.OnDelegate, inputKey),
                     new Output(bus, Capability.Output),
-                    new Output(bus, Capability.Error)));
+                    new Output(bus, Capability.Error));
+            redirect(io);
+            return io;
         }
 
         @SneakyThrows
