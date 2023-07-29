@@ -296,4 +296,12 @@ public final class Polyfill {
             }
         }, true);
     }
+
+    public static boolean updateBoolState(boolean current, boolean newState, Runnable rising, Runnable falling) {
+        if (!current && newState)
+            rising.run();
+        else if (current && !newState)
+            falling.run();
+        return current != newState;
+    }
 }
