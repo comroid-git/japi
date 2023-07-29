@@ -7,11 +7,16 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public interface Container extends UncheckedCloseable, SelfCloseable {
+import static org.comroid.api.Polyfill.flatCast;
+
+public interface Container extends Stoppable, SelfCloseable {
     Object addChildren(Object... children);
     Set<Object> getChildren();
 
@@ -37,11 +42,19 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
                 true, false){};
     }
 
-    @Getter
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    class Base implements Container {
-        final Set<Object> children;
-        protected boolean closed;
+    class Base implements Container, Reloadable {
+        private final AtomicReference<CompletableFuture<Void>> closed = new AtomicReference<>(new CompletableFuture<>());
+        @Getter final Set<Object> children;
+
+        public boolean isClosed() {
+            return closed.get().isDone();
+        }
+
+        public boolean setClosed(boolean state) {
+            return Polyfill.updateBoolState(isClosed(), state,
+                    ()->closed.get().complete(null),
+                    ()->closed.set(new CompletableFuture<>()));
+        }
 
         public Base(Object... children) {
             this.children = new HashSet<>(Set.of(children));
@@ -52,6 +65,35 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
                     .filter(Objects::nonNull)
                     .forEach(this.children::add);
             return this;
+        }
+
+        @Override
+        @SneakyThrows
+        public void start() {
+            final List<Throwable> errors = Stream.concat(Stream.concat(streamChildren(Startable.class), moreMembers())
+                            .flatMap(flatCast(Startable.class)), Stream.of(this))
+                    .parallel()
+                    .filter(Objects::nonNull)
+                    .filter(Predicate.not(this::equals))
+                    .flatMap(startable -> {
+                        try {
+                            startable.start();
+                        } catch (Throwable e) {
+                            return Stream.of(e);
+                        }
+                        return Stream.empty();
+                    })
+                    .distinct()
+                    .toList();
+            setClosed(false);
+            if (errors.isEmpty())
+                return;
+            if (errors.size() == 1)
+                throw errors.get(0);
+            throw errors.stream().collect(
+                    ()->Container.makeException(errors),
+                    Throwable::addSuppressed,
+                    (l, r) -> Arrays.stream(r.getSuppressed()).forEachOrdered(l::addSuppressed));
         }
 
         @Override
@@ -71,7 +113,7 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
                     })
                     .distinct()
                     .toList();
-            closed = true;
+            setClosed(true);
             if (errors.isEmpty())
                 return;
             if (errors.size() == 1)
@@ -84,6 +126,10 @@ public interface Container extends UncheckedCloseable, SelfCloseable {
 
         @Override
         public void closeSelf() throws Exception {
+        }
+
+        public CompletionStage<Void> onClose() {
+            return closed.get();
         }
 
         protected Stream<AutoCloseable> moreMembers() {
