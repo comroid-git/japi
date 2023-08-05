@@ -80,6 +80,10 @@ public final class StackTraceUtils {
                 .orElseGet(type::getSimpleName);
     }
 
+    public static String lessSimpleDetailedName(Class<?> type) {
+        return type.getPackageName() + '.' + lessSimpleName(type);
+    }
+
     public static String toString(Throwable t) {
         var buf = new StringWriter();
         t.printStackTrace(new DelegateStream.Output(buf).convert(PrintStream.class));
