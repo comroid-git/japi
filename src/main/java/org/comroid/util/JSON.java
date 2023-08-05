@@ -1,6 +1,5 @@
 package org.comroid.util;
 
-import lombok.Data;
 import lombok.SneakyThrows;
 import org.comroid.abstr.DataNode;
 import org.comroid.annotations.Instance;
@@ -165,7 +164,7 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
         }
     }
 
-    @Data
+    @lombok.Data
     public static final class Object extends DataNode.Object {
         @Override
         public String toString() {
@@ -175,7 +174,7 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
         }
     }
 
-    @Data
+    @lombok.Data
     public static final class Array extends DataNode.Array {
         @Override
         public String toString() {

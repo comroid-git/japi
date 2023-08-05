@@ -1,52 +1,86 @@
 package org.comroid.abstr;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.SneakyThrows;
+import lombok.*;
 import lombok.experimental.Delegate;
 import org.comroid.api.*;
-import org.comroid.util.Activator;
+import org.comroid.util.*;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.io.Writer;
+import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
+import java.util.function.BinaryOperator;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.comroid.util.StandardValueType.*;
 
-@Data
-public abstract class DataNode implements Specifiable<DataNode>, Named {
-    protected final List<DataNode> children = new ArrayList<>();
-    protected String name;
+public interface DataNode extends Specifiable<DataNode> {
+    default DelegateStream.Input toInputStream() {
+        return new DelegateStream.Input(new StringReader(toString()));
+    }
 
-    public Object asObject() {
+    default DataNode json() {
+        if (this instanceof Object) {
+            if (this instanceof JSON.Object)
+                return this;
+            else return properties().collect(JSON.Object::new, (n, e) -> n.put(e.key, e.node()), Map::putAll);
+        } else if (this instanceof Array) {
+            if (this instanceof JSON.Array)
+                return this;
+            else return properties().collect(JSON.Array::new, (n, e) -> n.add(e.node()), List::addAll);
+        }
+        return of(this).json();
+    }
+
+    default FormData.Object form() {
+        if (this instanceof Object) {
+            if (this instanceof FormData.Object)
+                return (FormData.Object) this;
+            else return properties().collect(FormData.Object::new, (n, e) -> n.put(e.key, e.node()), Map::putAll);
+        }
+        return of(this).form();
+    }
+
+    default Object asObject() {
         return as(Object.class).assertion();
     }
 
-    public Array asArray() {
+    default Array asArray() {
         return as(Array.class).assertion();
     }
 
-    public <T> Value<T> asValue() {
+    default <T> Value<T> asValue() {
         return as(Value.class).map(Polyfill::<Value<T>>uncheckedCast).assertion();
     }
 
-    public abstract int size();
+    default int size() {
+        return (int) properties().count();
+    }
 
-    public @NotNull DataNode get(java.lang.Object key) {
+    @NotNull
+    default DataNode get(java.lang.Object key) {
         return Objects.requireNonNullElse(asObject().get(String.valueOf(key)), Value.NULL);
     }
 
-    public @NotNull DataNode get(int index) {
+    @NotNull
+    default DataNode get(int index) {
         return Objects.requireNonNullElse(asArray().get(index), Value.NULL);
     }
 
-    public <T> Rewrapper<T> as(ValueType<T> type) {
+    default <T> Rewrapper<T> as(ValueType<T> type) {
         var node = asValue();
         var val = node.value;
         if (val == null)
@@ -56,89 +90,146 @@ public abstract class DataNode implements Specifiable<DataNode>, Named {
         return Rewrapper.of(type.getTargetClass().cast(val));
     }
 
-    public boolean asBoolean() {
+    default boolean asBoolean() {
         return asBoolean(false);
     }
 
-    public byte asByte() {
+    default byte asByte() {
         return asByte((byte) 0);
     }
 
-    public char asChar() {
+    default char asChar() {
         return asChar((char) 0);
     }
 
-    public short asShort() {
+    default short asShort() {
         return asShort((short) 0);
     }
 
-    public int asInt() {
+    default int asInt() {
         return asInt(0);
     }
 
-    public long asLong() {
+    default long asLong() {
         return asLong(0L);
     }
 
-    public float asFloat() {
+    default float asFloat() {
         return asFloat(0f);
     }
 
-    public double asDouble() {
+    default double asDouble() {
         return asDouble(0d);
     }
 
-    public @Nullable String asString() {
+    @Nullable
+    default String asString() {
         return asString(null);
     }
 
-    public @Nullable UUID asUUID() {
+    @Nullable
+    default UUID asUUID() {
         return asUUID(null);
     }
 
-    public boolean asBoolean(boolean fallback) {
+    default boolean asBoolean(boolean fallback) {
         return as(BOOLEAN).orElse(fallback);
     }
 
-    public byte asByte(byte fallback) {
+    default byte asByte(byte fallback) {
         return as(BYTE).orElse(fallback);
     }
 
-    public char asChar(char fallback) {
+    default char asChar(char fallback) {
         return as(CHARACTER).orElse(fallback);
     }
 
-    public short asShort(short fallback) {
+    default short asShort(short fallback) {
         return as(SHORT).orElse(fallback);
     }
 
-    public int asInt(int fallback) {
+    default int asInt(int fallback) {
         return as(INTEGER).orElse(fallback);
     }
 
-    public long asLong(long fallback) {
+    default long asLong(long fallback) {
         return as(LONG).orElse(fallback);
     }
 
-    public float asFloat(float fallback) {
+    default float asFloat(float fallback) {
         return as(FLOAT).orElse(fallback);
     }
 
-    public double asDouble(double fallback) {
+    default double asDouble(double fallback) {
         return as(DOUBLE).orElse(fallback);
     }
 
     @Contract("null -> _; !null -> !null")
-    public String asString(String fallback) {
+    default String asString(String fallback) {
         return as(STRING).orElse(fallback);
     }
 
     @Contract("null -> _; !null -> !null")
-    public UUID asUUID(UUID fallback) {
+    default UUID asUUID(UUID fallback) {
         return as(UUID).orElse(fallback);
     }
 
-    public static class Serializer extends DelegateStream.Output {
+    default Stream<Entry> properties() {
+        return properties(this);
+    }
+
+    static Stream<Entry> properties(final java.lang.Object it) {
+        if (it instanceof DataNode.Base)
+            return ((DataNode) it).properties();
+        final var get = "get";
+        return Stream.concat(
+                Stream.of(it.getClass().getFields())
+                        .filter(mtd -> !Modifier.isStatic(mtd.getModifiers()))
+                        .filter(fld -> fld.canAccess(it))
+                        .map(fld -> new Entry(fld.getName(), ThrowingSupplier.rethrowing(() -> of(fld.get(it))))),
+                Stream.of(it.getClass().getMethods())
+                        .filter(mtd -> !Modifier.isStatic(mtd.getModifiers()))
+                        .filter(mtd -> mtd.canAccess(it))
+                        .filter(mtd -> mtd.getName().startsWith(get) && mtd.getName().length() > get.length())
+                        .filter(mtd -> mtd.getParameterCount() == 0)
+                        .map(mtd -> {
+                            if ("getClass".equals(mtd.getName()))
+                                return new Entry("dtype", () -> new Value<>(StackTraceUtils.lessSimpleDetailedName(it.getClass())));
+                            else {
+                                var name = mtd.getName().substring(get.length());
+                                name = Character.toLowerCase(name.charAt(0)) + name.substring(1);
+                                return new Entry(name, () -> of(Invocable.ofMethodCall(it, mtd).invokeRethrow()));
+                            }
+                        })
+        );
+    }
+
+    static DataNode of(java.lang.Object it) {
+        if (it == null)
+            return Value.NULL;
+        else if (it instanceof DataNode.Base)
+            return (DataNode) it;
+        else if (it instanceof Iterable) {
+            // handle as array node
+            var arr = new Array();
+            ((Iterable<?>) it).iterator().forEachRemaining(arr::append);
+            return arr;
+        } else {
+            var typeOf = typeOf(it);
+            if (typeOf != null && !typeOf.equals(OBJECT))
+                return new Value<>(it);
+            var obj = new Object();
+            properties(it).forEach(e -> obj.put(e.key, e.node()));
+            return obj;
+        }
+    }
+
+    @Data
+    abstract class Base implements DataNode {
+        protected final List<DataNode> children = new ArrayList<>();
+    }
+
+    class Serializer extends DelegateStream.Output {
         public Serializer(OutputStream delegate) {
             super(delegate);
         }
@@ -154,14 +245,19 @@ public abstract class DataNode implements Specifiable<DataNode>, Named {
     }
 
     @Data
-    public abstract static class Object extends DataNode implements Convertible, Map<String, DataNode> {
+    class Object extends Base implements Convertible, Map<String, DataNode> {
         @Delegate
         protected final Map<String, DataNode> map = new ConcurrentHashMap<>();
 
-        public <T> org.comroid.abstr.DataNode.Value<T> set(String key, T value) {
-            var val = new Value<>(value);
+        public <T> DataNode set(String key, T value) {
+            var val = DataNode.of(value);
             put(key, val);
             return val;
+        }
+
+        @Override
+        public Stream<DataNode.Entry> properties() {
+            return entrySet().stream().map(e -> new DataNode.Entry(e.getKey(), () -> e.getValue() ));
         }
 
         @Override
@@ -171,15 +267,31 @@ public abstract class DataNode implements Specifiable<DataNode>, Named {
     }
 
     @Data
-    public abstract static class Array extends DataNode implements List<DataNode> {
+    class Array extends Base implements List<DataNode> {
         @Delegate
         protected final List<DataNode> list = new ArrayList<>();
+
+        public <T> DataNode append(T value) {
+            var val = DataNode.of(value);
+            add(val);
+            return val;
+        }
+
+        @Override
+        public Stream<Entry> properties() {
+            var ls = new ArrayList<Entry>();
+            for (var i = 0; i < this.size(); i++) {
+                final var fi = i;
+                ls.add(new Entry(String.valueOf(i), () -> get(fi)));
+            }
+            return ls.stream();
+        }
     }
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class Value<T> extends DataNode implements ValueBox<T> {
+    class Value<T> extends Base implements ValueBox<T> {
         public static final DataNode NULL = new Value<>(null);
         protected @Nullable T value;
 
@@ -189,11 +301,50 @@ public abstract class DataNode implements Specifiable<DataNode>, Named {
         }
 
         @Override
+        public Stream<Entry> properties() {
+            return Stream.of(new Entry("", ()->this));
+        }
+
+        @Override
         public String toString() {
             var str = String.valueOf(value);
             if (value instanceof String)
                 return "\"%s\"".formatted(str);
             return str;
+        }
+    }
+
+    class Entry implements Map.Entry<String, Rewrapper<DataNode>> {
+        private final String key;
+        private Rewrapper<DataNode> value;
+
+        public Entry(String key, Rewrapper<DataNode> value) {
+            this.key = key;
+            this.value = value;
+        }
+
+        @Override
+        public String getKey() {
+            return key;
+        }
+
+        @Override
+        public Rewrapper<DataNode> getValue() {
+            return Polyfill.uncheckedCast(value);
+        }
+
+        @Override
+        public Rewrapper<DataNode> setValue(Rewrapper<DataNode> value) {
+            var prev = this.value;
+            this.value = value;
+            return Polyfill.uncheckedCast(prev);
+        }
+
+        public DataNode node() {
+            final var it = value.get();
+            return Optional.ofNullable(StandardValueType.typeOf(it))
+                    .<DataNode>map(x -> new Value<>(it))
+                    .orElseGet(() -> DataNode.of(it));
         }
     }
 }
