@@ -157,6 +157,7 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
     default <R> R require(Function<? super @NotNull T, R> remapper) {
         return require(remapper, "Required value was not present");
     }
+
     default <R> R require(Function<? super @NotNull T, R> remapper, String message) {
         return remapper.apply(assertion(message));
     }
@@ -280,7 +281,15 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return orRef(() -> Rewrapper.ofOptional(orElse.get()));
     }
 
+    default Rewrapper<T> filter(final Predicate<@NotNull T> predicate) {
+        return () -> test(predicate) ? get() : null;
+    }
+
     default <O> Rewrapper<O> map(final Function<@NotNull T, @Nullable O> mapper) {
         return () -> into(mapper);
+    }
+
+    default <O> Rewrapper<O> flatMap(final @NotNull Class<O> type) {
+        return () -> test(type::isInstance) ? cast() : null;
     }
 }
