@@ -22,6 +22,7 @@ import java.net.http.HttpRequest;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1032,6 +1033,18 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
         public static IO log(org.slf4j.Logger log) {
             return new IO(null, new Output(log::info), new Output(log::error));
+        }
+
+        public static IO reverse(@Nullable InputStream output, @Nullable InputStream error) {
+            var cap = new ArrayList<Capability>();
+            if (output != null) cap.add(Capability.Output);
+            if (error != null) cap.add(Capability.Error);
+            var io = new IO(cap.toArray(Capability[]::new));
+            final Executor executor;
+            io.addChildren(executor = Executors.newFixedThreadPool(cap.size()));
+            if (output != null) io.addChildren(DelegateStream.redirect(output,io.output, executor));
+            if (error != null) io.addChildren(DelegateStream.redirect(error,io.error, executor));
+            return io;
         }
 
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
