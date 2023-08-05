@@ -18,6 +18,7 @@ import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
 import java.io.*;
 import java.net.Socket;
+import java.net.http.HttpRequest;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -196,6 +197,11 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     @Convert
     default PrintStream toPrintStream() {
         return output().ifPresentMap(PrintStream::new);
+    }
+
+    @Convert
+    default HttpRequest.BodyPublisher toBodyPublisher() {
+        return HttpRequest.BodyPublishers.ofInputStream(this::toInputStream);
     }
 
     default Input decompress() {
