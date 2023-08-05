@@ -215,4 +215,9 @@ public final class FileHandle extends File implements Named, ContentParser {
             throw new RuntimeException(e);
         }
     }
+
+    @Override
+    public String toString() {
+        return getAbsolutePath();
+    }
 }
