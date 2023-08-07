@@ -4,13 +4,13 @@ import lombok.Getter;
 import org.comroid.api.TextDecoration;
 
 public enum Markdown implements TextDecoration {
-    Italic("_"),
-    Bold("**"),
-    Underline("__"),
-    Strikethrough("~~"),
+    @Italic Italic("_"),
+    @Bold Bold("**"),
+    @Underline Underline("__"),
+    @Strikethrough Strikethrough("~~"),
 
-    Code("`"),
-    CodeBlock("```");
+    @Verbatim Code("`"),
+    @Verbatim CodeBlock("```");
 
     @Getter private final String wrap;
 
