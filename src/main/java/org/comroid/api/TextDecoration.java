@@ -35,15 +35,15 @@ public interface TextDecoration extends UnaryOperator<CharSequence>, Predicate<C
             Class<SRC> from,
             Class<TGT> to
     ) {
-        final var regexEscape = new char[]{'*'};
         @Language("RegExp")
         final var patternBase = "%s([\\w\\s]+)[^\\\\]??(%s)?"; // todo: escape sequences are broken
-        var str = seq.toString();
         final var styles = styles(from, to);
+
+        var str = seq.toString();
         for (var entry : styles.entrySet()) {
             var pattern = patternBase.formatted(entry.getKey().getPrefix(), entry.getKey().getSuffix());
             var replace = "%s$1%s".formatted(entry.getValue().getPrefix(), entry.getValue().getSuffix());
-            for (char x : regexEscape)
+            for (char x : new char[]{'*'})
                 pattern = pattern.replace(String.valueOf(x), "\\"+x);
             while (entry.getKey().test(str))
                 str = str.replaceAll(pattern, replace);
