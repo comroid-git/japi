@@ -55,15 +55,22 @@ public interface DataNode extends Specifiable<DataNode> {
     }
 
     default Object asObject() {
-        return as(Object.class).assertion();
+        return as(Object.class)
+                .or(() -> of(this).asObject())
+                .assertion();
     }
 
     default Array asArray() {
-        return as(Array.class).assertion();
+        return as(Array.class)
+                .or(() -> of(this).asArray())
+                .assertion();
     }
 
     default <T> Value<T> asValue() {
-        return as(Value.class).map(Polyfill::<Value<T>>uncheckedCast).assertion();
+        return as(Value.class)
+                .or(() -> of(this).asValue())
+                .map(Polyfill::<Value<T>>uncheckedCast)
+                .assertion();
     }
 
     default int size() {
@@ -257,7 +264,7 @@ public interface DataNode extends Specifiable<DataNode> {
 
         @Override
         public Stream<DataNode.Entry> properties() {
-            return entrySet().stream().map(e -> new DataNode.Entry(e.getKey(), () -> e.getValue() ));
+            return entrySet().stream().map(e -> new DataNode.Entry(e.getKey(), () -> e.getValue()));
         }
 
         @Override
@@ -302,7 +309,7 @@ public interface DataNode extends Specifiable<DataNode> {
 
         @Override
         public Stream<Entry> properties() {
-            return Stream.of(new Entry("", ()->this));
+            return Stream.of(new Entry("", () -> this));
         }
 
         @Override
