@@ -65,9 +65,10 @@ public interface TextDecoration extends UnaryOperator<CharSequence>, Predicate<C
     
     private static <T> Optional<T> findField(Class<T> type, Class<? extends Annotation> annotated) {
         return Arrays.stream(type.getFields())
-                .filter(fld->fld.isAnnotationPresent(annotated))
-                .filter(fld->Modifier.isStatic(fld.getModifiers()))
-                .filter(fld-> type.isAssignableFrom(fld.getType()))
+                .filter(fld -> type.isAssignableFrom(fld.getType()))
+                .filter(fld -> fld.isAnnotationPresent(annotated)
+                        || fld.getName().equalsIgnoreCase(annotated.getName()))
+                .filter(fld -> Modifier.isStatic(fld.getModifiers()))
                 .map(ThrowingFunction.rethrowing(fld -> fld.get(null)))
                 .map(type::cast)
                 .findAny();
