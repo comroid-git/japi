@@ -37,7 +37,7 @@ public interface TextDecoration extends UnaryOperator<CharSequence>, Predicate<C
     ) {
         final var regexEscape = new char[]{'*'};
         @Language("RegExp")
-        final var patternBase = "%s([\\w\\s]+)[^\\\\]?%s"; // todo: escape sequences are broken
+        final var patternBase = "%s([\\w\\s]+)[^\\\\]??(%s)?"; // todo: escape sequences are broken
         var str = seq.toString();
         final var styles = styles(from, to);
         for (var entry : styles.entrySet()) {
