@@ -10,7 +10,9 @@ public enum Markdown implements TextDecoration {
     @Strikethrough Strikethrough("~~"),
 
     @Verbatim Code("`"),
-    @Verbatim CodeBlock("```");
+    @Verbatim CodeBlock("```"),
+
+    None("");
 
     @Getter private final String wrap;
 

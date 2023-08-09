@@ -1,11 +1,13 @@
 package org.comroid.api;
 
+import org.comroid.util.Markdown;
 import org.comroid.util.Pair;
 import org.intellij.lang.annotations.Language;
 
 import java.lang.annotation.*;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -13,7 +15,7 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public interface TextDecoration extends UnaryOperator<CharSequence>, Predicate<CharSequence>, WrappedFormattable {
+public interface TextDecoration extends StringAttribute, UnaryOperator<CharSequence>, Predicate<CharSequence>, WrappedFormattable {
     CharSequence getPrefix();
 
     CharSequence getSuffix();
@@ -30,28 +32,36 @@ public interface TextDecoration extends UnaryOperator<CharSequence>, Predicate<C
         return i != -1 && str.indexOf(getSuffix().toString(), i) != -1;
     }
 
+    @Override
+    default String getString() {
+        return getPrefix().toString();
+    }
+
     static <SRC extends TextDecoration, TGT extends TextDecoration> String convert(
             CharSequence seq,
             Class<SRC> from,
             Class<TGT> to
     ) {
-        @Language("RegExp")
-        final var patternBase = "%s([\\w\\s]+)[^\\\\]??(%s)?"; // todo: escape sequences are broken
-        final var styles = styles(from, to);
-
         var str = seq.toString();
-        for (var entry : styles.entrySet()) {
-            var pattern = patternBase.formatted(entry.getKey().getPrefix(), entry.getKey().getSuffix());
-            var replace = "%s$1%s".formatted(entry.getValue().getPrefix(), entry.getValue().getSuffix());
-            for (char x : new char[]{'*'})
-                pattern = pattern.replace(String.valueOf(x), "\\"+x);
-            while (entry.getKey().test(str))
-                str = str.replaceAll(pattern, replace);
-        }
+        for (var pair : replacers(from, to).toList())
+            str = str.replaceAll(pair.getFirst(), pair.getSecond());
         return str;
     }
 
-    private static <SRC extends TextDecoration, TGT extends TextDecoration> Map<SRC, TGT> styles(
+    static <SRC extends TextDecoration, TGT extends TextDecoration> Stream<Pair<String, String>> replacers(
+            Class<SRC> from,
+            Class<TGT> to
+    ) {
+        @Language("RegExp")
+        final var patternBase = "(%s)([\\w\\s]+)[^\\\\]??(%s)?"; // todo: escape sequences are broken
+        return styles(from, to).entrySet().stream()
+                .map(e -> new Pair<>(
+                        patternBase.formatted(e.getKey().getPrefix(), e.getKey().getSuffix()).replace("*", "\\*"),
+                        "%s$2%s".formatted(e.getValue().getPrefix(), e.getValue().getSuffix())
+                ));
+    }
+
+    static <SRC extends TextDecoration, TGT extends TextDecoration> Map<SRC, TGT> styles(
             final Class<SRC> from,
             final Class<TGT> to
     ) {
