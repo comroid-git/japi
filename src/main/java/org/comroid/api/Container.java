@@ -128,7 +128,7 @@ public interface Container extends Stoppable, SelfCloseable {
         public void closeSelf() throws Exception {
         }
 
-        public CompletionStage<Void> onClose() {
+        public CompletableFuture<Void> onClose() {
             return closed.get();
         }
 
