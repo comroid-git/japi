@@ -67,22 +67,7 @@ public enum Archiver implements Named {
             bsdtar {
                 @Override
                 protected @NotNull Collection<String> generateCmd(File execPath, String outputPath, String inputDirectory, Stream<String> excludePaths) {
-                    //bsdtar -czvf <output_archive_path> --exclude=<exclude_pattern_1> --exclude=<exclude_pattern_2> ... <input_paths>
-                    //bsdtar -czvf backup.tar.gz --exclude='*.log' --exclude='*.tmp' --exclude='FolderToExclude/' C:\MyFiles\
-
-                    final var cmd = new ArrayList<String>();
-
-                    cmd.add(execPath.getAbsolutePath());
-                    cmd.add("-czvf");
-                    cmd.add(outputPath);
-                    excludePaths.forEach(exclude -> cmd.add("--exclude='" + exclude + "'"));
-                    walkDirectory(new File(inputDirectory))
-                            .map(Map.Entry::getValue)
-                            .filter(File::isDirectory)
-                            .map(File::getAbsolutePath)
-                            .forEach(p->cmd.add("'"+p+"'"));
-
-                    return cmd;
+                    throw new UnsupportedOperationException("bsdtar is a fucking piece of shit");
                 }
 
 
@@ -124,7 +109,7 @@ public enum Archiver implements Named {
             }
 
             @SneakyThrows
-            public static Variant detect(File exec) {
+            private static Variant detect(File exec) {
                 var execute = Runtime.getRuntime().exec(new String[]{exec.getAbsolutePath(), "--version"});
                 try (var execOutput = new BufferedReader(new InputStreamReader(execute.getInputStream()))) {
                     var info = execOutput.readLine();
