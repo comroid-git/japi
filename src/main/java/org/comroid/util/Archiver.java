@@ -173,7 +173,8 @@ public enum Archiver implements Named {
         final var cmd = generateCmd(execPath, outputPath, inputDirectory, excludePaths);
         //var output = String.join(" ", cmd);
         var io = DelegateStream.IO.execute(cmd.toArray(String[]::new));
-        if (Debug.isDebug()) io.redirectToSystem();
+        //if (Debug.isDebug())
+            io.redirectToSystem();
         return io.onClose().thenApply($ -> new File(outputPath));
     }
 
