@@ -1035,6 +1035,30 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             return new IO(null, new Output(log::info), new Output(log::error));
         }
 
+        @SneakyThrows
+        public static IO execute(String... cmd) {
+            return execute(null, cmd);
+        }
+
+        @SneakyThrows
+        public static IO execute(@Nullable File workingDir, String... cmd) {
+            var exec = Runtime.getRuntime().exec(cmd, new String[0], workingDir);
+            return process(exec);
+        }
+
+        @SneakyThrows
+        public static IO process(Process process) {
+            var io = new IO(Capability.Output, Capability.Error);
+            var executor = Executors.newFixedThreadPool(2);
+            io.addChildren(
+                    (Closeable)process::destroy,
+                    (Closeable)executor::shutdown,
+                    DelegateStream.redirect(process.getInputStream(), io.output, executor),
+                    DelegateStream.redirect(process.getErrorStream(), io.error, executor));
+            process.onExit().thenRun(io::close);
+            return io;
+        }
+
         public static IO reverse(@Nullable InputStream output, @Nullable InputStream error) {
             var cap = new ArrayList<Capability>();
             if (output != null) cap.add(Capability.Output);
