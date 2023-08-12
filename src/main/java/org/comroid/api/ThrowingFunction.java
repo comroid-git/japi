@@ -1,8 +1,10 @@
 package org.comroid.api;
 
 import lombok.SneakyThrows;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public interface ThrowingFunction<I, O, T extends Throwable> {
     static <I, O> Function<I, O> sneaky(
@@ -35,6 +37,16 @@ public interface ThrowingFunction<I, O, T extends Throwable> {
                 if (remapper != null)
                     throw remapper.apply(error);
                 return null;
+            }
+        };
+    }
+
+    static <I,O> Function<I,@Nullable O> fallback(ThrowingFunction<I, O, ?> function, Supplier<O> fallback) {
+        return x -> {
+            try {
+                return function.apply(x);
+            } catch (Throwable ignored) {
+                return fallback.get();
             }
         };
     }
