@@ -14,4 +14,11 @@ public class PathUtil {
                 .filter(File::exists)
                 .findAny();
     }
+
+    public static String sanitize(Object string) {
+        var str = string.toString();
+        for (var c : new char[]{'<','>',':','"','|','?','*'/*,'/','\\'*/})
+            str = str.replace(c, '_');
+        return str;
+    }
 }
