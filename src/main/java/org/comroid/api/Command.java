@@ -2,9 +2,9 @@ package org.comroid.api;
 
 import lombok.*;
 import org.comroid.util.StackTraceUtils;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.annotation.*;
@@ -29,7 +29,7 @@ public @interface Command {
     }
 
     interface Handler {
-        void handleResponse(String text);
+        void handleResponse(Delegate cmd, @NotNull Object response, Object... args);
 
         default @Nullable String handleError(Error error) {
             var msg = "%s: %s".formatted(StackTraceUtils.lessSimpleName(error.getClass()), error.getMessage());
@@ -106,7 +106,7 @@ public @interface Command {
         private final Handler handler;
 
         public Manager() {
-            this(System.out::println);
+            this((cmd, x, args) -> System.out.println(x));
         }
 
         public Manager(Handler handler) {
@@ -173,7 +173,7 @@ public @interface Command {
                 str = handler.handleError(error);
             }
             if (str != null)
-                handler.handleResponse(str);
+                handler.handleResponse(cmd, str);
             return str;
         }
     }
