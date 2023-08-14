@@ -2,6 +2,7 @@ package org.comroid.api;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.comroid.util.Streams;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -68,8 +69,8 @@ public interface Container extends Stoppable, SelfCloseable {
         @Override
         @SneakyThrows
         public void start() {
-            final List<Throwable> errors = Stream.concat(Stream.concat(streamChildren(Startable.class), moreMembers())
-                            .flatMap(cast(Startable.class)), Stream.of(this))
+            final List<Throwable> errors = streamChildren(Startable.class)
+                    .collect(Streams.append(moreMembers().flatMap(cast(Startable.class))))
                     .parallel()
                     .filter(Objects::nonNull)
                     .filter(Predicate.not(this::equals))
@@ -97,7 +98,8 @@ public interface Container extends Stoppable, SelfCloseable {
         @Override
         @SneakyThrows
         public final void close() {
-            final List<Throwable> errors = Stream.concat(Stream.concat(streamChildren(AutoCloseable.class), moreMembers()), Stream.of(this::closeSelf))
+            final List<Throwable> errors = streamChildren(AutoCloseable.class)
+                    .collect(Streams.append(moreMembers().flatMap(cast(AutoCloseable.class))))
                     .parallel()
                     .filter(Objects::nonNull)
                     .filter(Predicate.not(this::equals))
