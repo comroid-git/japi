@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static org.comroid.util.Streams.flatCast;
+import static org.comroid.util.Streams.cast;
 
 public interface Container extends Stoppable, SelfCloseable {
     Object addChildren(Object... children);
@@ -69,7 +69,7 @@ public interface Container extends Stoppable, SelfCloseable {
         @SneakyThrows
         public void start() {
             final List<Throwable> errors = Stream.concat(Stream.concat(streamChildren(Startable.class), moreMembers())
-                            .flatMap(flatCast(Startable.class)), Stream.of(this))
+                            .flatMap(cast(Startable.class)), Stream.of(this))
                     .parallel()
                     .filter(Objects::nonNull)
                     .filter(Predicate.not(this::equals))

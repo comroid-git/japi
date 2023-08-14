@@ -48,7 +48,7 @@ public class Streams {
         };
     }
 
-    public static <I, O> Function<I, Stream<O>> flatCast(final Class<O> type) {
+    public static <I, O> Function<I, Stream<O>> cast(final Class<O> type) {
         return obj -> Stream.of(obj).filter(type::isInstance).map(type::cast);
     }
 }
