@@ -2,7 +2,6 @@ package org.comroid.api;
 
 import lombok.experimental.UtilityClass;
 import org.comroid.util.RegExpUtil;
-import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -11,8 +10,8 @@ import org.jetbrains.annotations.Nullable;
 import java.awt.*;
 import java.lang.ref.WeakReference;
 import java.net.*;
+import java.time.Duration;
 import java.util.*;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -303,5 +302,24 @@ public final class Polyfill {
         else if (current && !newState)
             falling.run();
         return current != newState;
+    }
+
+    public static String durationString(Duration d) {
+        long seconds = d.getSeconds();
+        long absSeconds = Math.abs(seconds);
+        var t = "";
+        if (absSeconds > 60 * 60) {
+            var diff = absSeconds / (60 * 60);
+            t += diff + "h";
+            absSeconds -= diff * 60 * 60;
+        }
+        if (absSeconds > 60) {
+            var diff = absSeconds / 60;
+            t += diff + "min";
+            absSeconds -= diff * 60;
+        }
+        if (absSeconds > 0)
+            t += (absSeconds) + "sec";
+        return t;
     }
 }

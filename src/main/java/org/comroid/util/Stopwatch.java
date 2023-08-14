@@ -19,8 +19,8 @@ public final class Stopwatch {
         return cache.computeIfAbsent(key, Stopwatch::new);
     }
 
-    public static void start(Object key) {
-        get(key).start();
+    public static Stopwatch start(Object key) {
+        return get(key).start();
     }
 
     public static Duration stop(Object key) {
@@ -30,8 +30,9 @@ public final class Stopwatch {
     private final Object key;
     private Instant start;
 
-    public void start() {
+    public Stopwatch start() {
         start = now();
+        return this;
     }
 
     public Duration stop() {
