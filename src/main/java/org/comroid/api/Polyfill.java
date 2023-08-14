@@ -264,14 +264,6 @@ public final class Polyfill {
         return plural;
     }
 
-    public static <I,O> Function<I, Stream<O>> flatCast(final Class<O> type) {
-        return obj -> Stream.of(obj).filter(type::isInstance).map(type::cast);
-    }
-
-    public static <T> Stream<T> stream(Iterable<T> iterable) {
-        return StreamSupport.stream(iterable.spliterator(), false);
-    }
-
     @SafeVarargs
     public static <T> Stream<T> stream(Stream<? extends T>... streams) {
         if (streams.length == 0)

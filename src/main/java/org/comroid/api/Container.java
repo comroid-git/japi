@@ -8,13 +8,11 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.comroid.api.Polyfill.flatCast;
+import static org.comroid.util.Streams.flatCast;
 
 public interface Container extends Stoppable, SelfCloseable {
     Object addChildren(Object... children);
