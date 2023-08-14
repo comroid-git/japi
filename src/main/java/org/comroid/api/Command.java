@@ -22,6 +22,8 @@ public @interface Command {
 
     String usage() default EmptyAttribute;
 
+    boolean ephemeral() default false;
+
     @Target(ElementType.PARAMETER)
     @Retention(RetentionPolicy.RUNTIME)
     @interface Arg {
@@ -125,6 +127,7 @@ public @interface Command {
                                 cmd.map(Command::value)
                                         .filter(x -> !EmptyAttribute.equals(x))
                                         .orElseGet(mtd::getName),
+                                cmd.map(Command::ephemeral).orElse(false),
                                 cmd.map(Command::usage)
                                         .filter(x -> !EmptyAttribute.equals(x))
                                         .orElse(null));
@@ -183,11 +186,13 @@ public @interface Command {
     class Delegate implements Command, Named {
         Invocable<?> delegate;
         String name;
+        boolean ephemeral;
         @Nullable UsageInfo usage;
 
-        private Delegate(Invocable<?> delegate, String name, @Nullable String usage) {
+        private Delegate(Invocable<?> delegate, String name, boolean ephemeral, @Nullable String usage) {
             this.delegate = delegate;
             this.name = name;
+            this.ephemeral = ephemeral;
             this.usage = usage == null ? null : parseUsageInfo(usage);
         }
 
@@ -200,6 +205,11 @@ public @interface Command {
         @Nullable
         public String usage() {
             return usage != null ? usage.hint : null;
+        }
+
+        @Override
+        public boolean ephemeral() {
+            return ephemeral;
         }
 
         @Override

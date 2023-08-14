@@ -10,18 +10,19 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public interface TextDecoration extends StringAttribute, UnaryOperator<CharSequence>, Predicate<CharSequence>, WrappedFormattable {
+public interface TextDecoration extends StringAttribute, Function<CharSequence, String>, Predicate<CharSequence>, WrappedFormattable {
     CharSequence getPrefix();
 
     CharSequence getSuffix();
 
     @Override
-    default CharSequence apply(CharSequence seq) {
+    default String apply(CharSequence seq) {
         return String.valueOf(getPrefix()) + seq + getSuffix();
     }
 
