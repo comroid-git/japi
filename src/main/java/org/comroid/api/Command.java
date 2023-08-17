@@ -2,6 +2,7 @@ package org.comroid.api;
 
 import lombok.*;
 import org.comroid.util.StackTraceUtils;
+import org.comroid.util.Streams;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -136,13 +137,13 @@ public @interface Command {
                     .count();
         }
 
-        public @Nullable String execute(String command, Object... extraArgs) {
+        public Object execute(String command, Object... extraArgs) {
             var split = command.split(" ");
             var name = split[0];
             var cmd = commands.getOrDefault(name,null);
             var args = Arrays.stream(split).skip(1).toArray(String[]::new);
             Error error = null;
-            String str = null;
+            Object response = null;
             try {
                 if ("help".equals(name) && !commands.containsKey("help")) {
                     var sb = new StringBuilder("Commands");
@@ -151,7 +152,7 @@ public @interface Command {
                         if (each.usage != null)
                             sb.append(' ').append(each.usage.hint);
                     }
-                    str = sb.toString();
+                    response = sb.toString();
                 } else {
                     if (cmd==null)
                         throw new MildError("Command not found: " + name);
@@ -159,10 +160,10 @@ public @interface Command {
                     if (result instanceof Error)
                         throw (Error)result;
                     if (result != null)
-                        str = String.valueOf(result);
+                        response = result;
                 }
             } catch (MildError e) {
-                str = "Command.MildError: "+ e;
+                response = "Command.MildError: "+ e;
             } catch (Error e) {
                 error = e;
             } catch (Throwable t) {
@@ -173,11 +174,11 @@ public @interface Command {
                     error = error.setCommand(cmd);
                 if (error.getArgs() == null || error.getArgs().length == 0)
                     error = error.setArgs(args);
-                str = handler.handleError(error);
+                response = handler.handleError(error);
             }
-            if (str != null)
-                handler.handleResponse(cmd, str);
-            return str;
+            if (response != null)
+                handler.handleResponse(cmd, response, Stream.of(args).collect(Streams.append(extraArgs)).toArray());
+            return response;
         }
     }
 
@@ -220,9 +221,7 @@ public @interface Command {
         private Object execute(String[] args, Object... extraArgs) {
             if (usage != null)
                 usage.validate(args);
-            return delegate.autoInvoke(Stream
-                    .concat(Arrays.stream(extraArgs), Stream.of(this, args))
-                    .toArray());
+            return delegate.autoInvoke(Stream.of(this, args).collect(Streams.append(extraArgs)).toArray());
         }
 
         private UsageInfo parseUsageInfo(String usage) {
