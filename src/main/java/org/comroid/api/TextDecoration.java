@@ -2,7 +2,10 @@ package org.comroid.api;
 
 import org.comroid.util.Markdown;
 import org.comroid.util.Pair;
+import org.comroid.util.Streams;
 import org.intellij.lang.annotations.Language;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.*;
 import java.lang.reflect.Modifier;
@@ -36,6 +39,31 @@ public interface TextDecoration extends StringAttribute, Function<CharSequence, 
     @Override
     default String getString() {
         return getPrefix().toString();
+    }
+
+    @Contract("null, _ -> null; !null, _ -> !null")
+    static <SRC extends TextDecoration> String sanitize(
+            @Nullable CharSequence seq,
+            Class<SRC> of
+    ) {
+        return sanitize(seq, of, null);
+    }
+
+    @Contract("null, _, _ -> null; !null, _, _ -> !null")
+    static <SRC extends TextDecoration, TGT extends TextDecoration> String sanitize(
+            @Nullable CharSequence seq,
+            Class<SRC> of,
+            @Nullable Class<TGT> output
+    ) {
+        if (seq == null) return null;
+        var str = convert(seq, of, output);
+        for (SRC decorator : Arrays.stream(of.getFields())
+                .filter(fld -> Modifier.isStatic(fld.getModifiers()))
+                .map(ThrowingFunction.rethrowing(fld -> fld.get(null)))
+                .flatMap(Streams.cast(of))
+                .toList())
+            str = str.replace(decorator.getPrefix(), "").replace(decorator.getSuffix(), "");
+        return str;
     }
 
     static <SRC extends TextDecoration, TGT extends TextDecoration> String convert(
