@@ -389,26 +389,28 @@ public class Event<T> implements Rewrapper<T> {
             return data -> publish(key, data);
         }
 
-        public void publish(@Nullable T data) {
-            publish(null, data);
+        public Event<T> publish(@Nullable T data) {
+            return publish(null, data);
         }
 
-        public void publish(@Nullable String key, @Nullable T data) {
-            publish(key, data, null);
+        public Event<T> publish(@Nullable String key, @Nullable T data) {
+            return publish(key, null, data);
         }
 
         @Builder(builderClassName = "Publisher", buildMethodName = "publish", builderMethodName = "publisher")
-        public void publish(@Nullable String key, @Nullable T data, @Nullable Long flag) {
-            accept(data, key, flag);
-        }
-
-        @Override
-        public void accept(final @Nullable T data, final @Nullable String key, final @Nullable Long flag_) {
+        public Event<T> publish(@Nullable String key, @Nullable Long flag_, @Nullable T data) {
             if (!active)
-                return;
+                return null;
             final var flag = flag_ == null ? Subscriber.DefaultFlag : flag_;
             final var event = factory.apply(data, key, flag);
             accept(event);
+            return event;
+        }
+
+        @Override
+        @Deprecated
+        public void accept(final @Nullable T data, final @Nullable String key, final @Nullable Long flag) {
+            publish(key, flag, data);
         }
 
         public void accept(final @Nullable Event<T> event) {
