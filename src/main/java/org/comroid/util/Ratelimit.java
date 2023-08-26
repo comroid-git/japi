@@ -66,7 +66,7 @@ public class Ratelimit<T, Acc> {
         var now = Instant.now();
         var next = last.plus(cooldown);
         var time = Duration.between(now, next).toMillis();
-        log.fine("wait for next = " + time);
+        log.finer("wait for next = " + time);
         return supplyAsync(() -> null, delayedExecutor(time, TimeUnit.MILLISECONDS))
                 .thenCompose(this::wrap);
     }
@@ -76,7 +76,7 @@ public class Ratelimit<T, Acc> {
                     last = Instant.now();
                     synchronized (queue) {
                         if (!queue.isEmpty()) {
-                            log.fine("there is still %d items in the queue, repeating".formatted(queue.size()));
+                            log.finer("there is still %d items in the queue, repeating".formatted(queue.size()));
                             return start();
                         }
                         return completedFuture(it);

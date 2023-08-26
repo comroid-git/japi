@@ -135,6 +135,11 @@ public interface TextDecoration extends StringAttribute, Function<CharSequence, 
 
     @Target(ElementType.FIELD)
     @Retention(RetentionPolicy.RUNTIME)
+    @interface Quote {
+    }
+
+    @Target(ElementType.FIELD)
+    @Retention(RetentionPolicy.RUNTIME)
     @interface Verbatim {
     }
 }

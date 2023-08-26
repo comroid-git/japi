@@ -1,5 +1,7 @@
 package org.comroid.api.os;
 
+import org.comroid.api.DelegateStream;
+import org.comroid.api.Event;
 import org.comroid.api.Named;
 import org.jetbrains.annotations.NotNull;
 
@@ -7,12 +9,23 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
 
 public enum OS implements Named {
-    WINDOWS(".dll", "win"),
+    WINDOWS(".dll", "win") {
+        @Override
+        public CompletableFuture<Long> getRamUsage(long pid) {
+            return CompletableFuture.completedFuture(0L); // todo
+        }
+    },
     MAC(".so", "mac"),
     UNIX(".so", "nix", "nux", "aix"),
-    SOLARIS(".so", "sunos");
+    SOLARIS(".so", "sunos") {
+        @Override
+        public CompletableFuture<Long> getRamUsage(long pid) {
+            return CompletableFuture.completedFuture(0L); // todo
+        }
+    };
 
     public static final OS current;
     public static final boolean isWindows;
@@ -59,4 +72,17 @@ public enum OS implements Named {
         throw new NoSuchElementException("Unknown OS: " + osName);
     }
 
+    public CompletableFuture<Long> getRamUsage(long pid) {
+        var bus = new Event.Bus<String>();
+        var future = bus.listen()
+                .setKey(DelegateStream.IO.EventKey_Output)
+                .once()
+                .thenApply(Event::getData)
+                .thenApply(Long::parseLong);
+        var exec = DelegateStream.IO.execute("ps -o rss= -p " + pid)
+                .redirectToEventBus(bus)
+                .addChildren(bus);
+        future.thenRun(exec::close);
+        return future;
+    }
 }

@@ -2,7 +2,10 @@ package org.comroid.util;
 
 import lombok.Getter;
 import org.comroid.api.TextDecoration;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+@Getter
 public enum Markdown implements TextDecoration {
     @Italic Italic("_"),
     @Bold Bold("**"),
@@ -12,27 +15,43 @@ public enum Markdown implements TextDecoration {
     @Verbatim Code("`"),
     @Verbatim CodeBlock("```"),
 
+    @Quote Quote("> ", "\n"),
+
     None("");
 
-    @Getter private final String wrap;
+    private final @Nullable String wrap;
+    private final @Nullable String prefix;
+    private final @Nullable String suffix;
 
-    Markdown(String wrap) {
-        this.wrap = wrap;
+    Markdown(@NotNull String prefix, @NotNull String suffix) {
+        this.wrap = null;
+        this.prefix = prefix;
+        this.suffix = suffix;
     }
 
+    Markdown(@NotNull String wrap) {
+        this.wrap = wrap;
+        this.prefix = null;
+        this.suffix = null;
+    }
+
+    @NotNull
     @Override
     public CharSequence getPrefix() {
-        return wrap;
+        if (wrap == null) {
+            assert prefix != null;
+            return prefix;
+        } else return wrap;
     }
 
     @Override
     public CharSequence getSuffix() {
-        return wrap;
+        return wrap == null ? suffix : wrap;
     }
 
     @Override
     public String getPrimaryName() {
-        return wrap;
+        return getPrefix().toString();
     }
 
     @Override
