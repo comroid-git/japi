@@ -79,7 +79,7 @@ public enum OS implements Named {
                 .once()
                 .thenApply(Event::getData)
                 .thenApply(Long::parseLong);
-        var exec = DelegateStream.IO.execute("ps -o rss= -p " + pid)
+        var exec = DelegateStream.IO.execute("ps", "-o", "rss=", "-p", String.valueOf(pid))
                 .redirectToEventBus(bus)
                 .addChildren(bus);
         future.thenRun(exec::close);
