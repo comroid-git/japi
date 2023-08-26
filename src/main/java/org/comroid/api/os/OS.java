@@ -78,6 +78,7 @@ public enum OS implements Named {
                 .setKey(DelegateStream.IO.EventKey_Output)
                 .once()
                 .thenApply(Event::getData)
+                .thenApply(str -> str.replaceAll("\n", ""))
                 .thenApply(Long::parseLong);
         var exec = DelegateStream.IO.execute("ps", "-o", "rss=", "-p", String.valueOf(pid))
                 .redirectToEventBus(bus)
