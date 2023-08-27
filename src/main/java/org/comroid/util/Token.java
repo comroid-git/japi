@@ -11,12 +11,11 @@ public class Token {
             char c = 0;
             byte[] b = new byte[1];
             while (!Character.isDigit(c) && !Character.isLetter(c)){
-                rng.nextBytes(b);
-                c=(char)b[0];
+                c=(char)(rng.nextInt(26)+'A');
             }
             str.append(c);
         }
-        if (base64) str = new StringBuilder(Base64.encode(str.toString()));
+        //if (base64) str = new StringBuilder(Base64.encode(str.toString()));
         return str.toString();
     }
 }
