@@ -84,6 +84,8 @@ dependencies {
     // annotations
     api 'org.jetbrains:annotations:+'
     compileOnly 'com.fasterxml.jackson.core:jackson-annotations:2.+'
+    compileOnly 'javax.persistence:javax.persistence-api:2.+'
+    compileOnly 'org.apache.tomcat:tomcat-annotations-api:10.+'
 
     compileOnly 'org.slf4j:slf4j-api:1.+'
 

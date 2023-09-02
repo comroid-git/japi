@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static org.comroid.util.Streams.append;
 import static org.comroid.util.Streams.cast;
 
 public interface Container extends Stoppable, SelfCloseable {
@@ -23,10 +24,9 @@ public interface Container extends Stoppable, SelfCloseable {
         return Stream.empty();
     }
 
-    default <T> Stream<T> streamChildren(Class<T> type) {
+    default <T> Stream<T> streamChildren(@Nullable Class<T> type) {
         return Stream.concat(getChildren().stream(), streamOwnChildren())
-                .filter(type::isInstance)
-                .map(type::cast);
+                .flatMap(Streams.cast(type));
     }
 
     static Container of(Object... children) {
@@ -69,43 +69,28 @@ public interface Container extends Stoppable, SelfCloseable {
         @Override
         @SneakyThrows
         public void start() {
-            final List<Throwable> errors = streamChildren(Startable.class)
-                    .collect(Streams.append(moreMembers().flatMap(cast(Startable.class))))
-                    .parallel()
-                    .filter(Objects::nonNull)
-                    .filter(Predicate.not(this::equals))
-                    .flatMap(startable -> {
-                        try {
-                            startable.start();
-                        } catch (Throwable e) {
-                            return Stream.of(e);
-                        }
-                        return Stream.empty();
-                    })
-                    .distinct()
-                    .toList();
+            runOnChildren(Startable.class, Startable::start);
             setClosed(false);
-            if (errors.isEmpty())
-                return;
-            if (errors.size() == 1)
-                throw errors.get(0);
-            throw errors.stream().collect(
-                    ()->Container.makeException(errors),
-                    Throwable::addSuppressed,
-                    (l, r) -> Arrays.stream(r.getSuppressed()).forEachOrdered(l::addSuppressed));
         }
 
         @Override
         @SneakyThrows
         public final void close() {
-            final List<Throwable> errors = streamChildren(AutoCloseable.class)
-                    .collect(Streams.append(moreMembers().flatMap(cast(AutoCloseable.class))))
-                    .parallel()
+            runOnChildren(AutoCloseable.class, AutoCloseable::close, this::closeSelf);
+            setClosed(true);
+        }
+
+        @SafeVarargs
+        @SneakyThrows
+        protected final <T> void runOnChildren(Class<T> type, ThrowingConsumer<T, Throwable> task, T... extra) {
+            final List<Throwable> errors = streamChildren(type)
+                    .collect(append(moreMembers().flatMap(cast(type))))
+                    .collect(append(extra))
                     .filter(Objects::nonNull)
                     .filter(Predicate.not(this::equals))
-                    .flatMap(closeable -> {
+                    .flatMap(it -> {
                         try {
-                            closeable.close();
+                            task.accept(it);
                         } catch (Throwable e) {
                             return Stream.of(e);
                         }
@@ -113,7 +98,6 @@ public interface Container extends Stoppable, SelfCloseable {
                     })
                     .distinct()
                     .toList();
-            setClosed(true);
             if (errors.isEmpty())
                 return;
             if (errors.size() == 1)
