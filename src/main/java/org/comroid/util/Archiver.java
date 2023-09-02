@@ -58,6 +58,7 @@ public enum Archiver implements Named {
                     cmd.add(execPath.getAbsolutePath());
                     cmd.add("-czvf");
                     cmd.add(outputPath);
+                    cmd.add("--hard-dereference");
                     excludePaths.forEach(exclude -> cmd.add("--exclude='" + exclude + "'"));
                     cmd.add(inputDirectory);
 
