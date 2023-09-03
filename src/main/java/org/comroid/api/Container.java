@@ -69,25 +69,26 @@ public interface Container extends Stoppable, SelfCloseable {
         @Override
         @SneakyThrows
         public void start() {
-            runOnChildren(Startable.class, Startable::start);
+            runOnChildren(Startable.class, Startable::start, $->true);
             setClosed(false);
         }
 
         @Override
         @SneakyThrows
         public final void close() {
-            runOnChildren(AutoCloseable.class, AutoCloseable::close, this::closeSelf);
+            runOnChildren(AutoCloseable.class, AutoCloseable::close, $->true, this::closeSelf);
             setClosed(true);
         }
 
         @SafeVarargs
         @SneakyThrows
-        protected final <T> void runOnChildren(Class<T> type, ThrowingConsumer<T, Throwable> task, T... extra) {
+        protected final <T> void runOnChildren(Class<T> type, ThrowingConsumer<T, Throwable> task, Predicate<T> test, T... extra) {
             final List<Throwable> errors = streamChildren(type)
                     .collect(append(moreMembers().flatMap(cast(type))))
                     .collect(append(extra))
                     .filter(Objects::nonNull)
                     .filter(Predicate.not(this::equals))
+                    .filter(test)
                     .flatMap(it -> {
                         try {
                             task.accept(it);

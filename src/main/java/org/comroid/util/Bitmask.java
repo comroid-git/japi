@@ -41,17 +41,19 @@ public final class Bitmask {
     public static boolean isFlagSet(int mask, int flag) {
         return (mask & flag) != 0;
     }
-    //@CallerSensitive
 
+    //@CallerSensitive
     public static int nextFlag() {
-        return nextFlag(0);
+        return nextFlag(1);
     }
+
     //@CallerSensitive
-
     public static int nextFlag(int traceDelta) {
-        final AtomicInteger atom = LAST_FLAG.computeIfAbsent(StackTraceUtils
-                .callerClass(1 + traceDelta), key -> new AtomicInteger(-1));
+        return nextFlag(StackTraceUtils.callerClass(traceDelta));
+    }
 
+    public static int nextFlag(Class<?> type) {
+        final AtomicInteger atom = LAST_FLAG.computeIfAbsent(type, key -> new AtomicInteger(-1));
         atom.accumulateAndGet(1, Integer::sum);
         return 1 << atom.get();
     }

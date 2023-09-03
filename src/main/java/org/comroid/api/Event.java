@@ -355,7 +355,7 @@ public class Event<T> implements Rewrapper<T> {
         public <R> Event.Bus<R> mapData(final @NotNull Function<T, @Nullable R> function) {
             return map(e->e.withDataBy(function));
         }
-        public <R extends T> Event.Bus<R> flatMapData(final Class<R> type) {
+        public <R extends T> Event.Bus<R> flatMap(final Class<R> type) {
             return filterData(type::isInstance).mapData(type::cast);
         }
 
@@ -370,10 +370,6 @@ public class Event<T> implements Rewrapper<T> {
         }
         public <R> Event.Bus<R> map(final @NotNull Function<@NotNull Event<T>, @Nullable Event<R>> function) {
             return new Event.Bus<>(this, function);
-        }
-        public <R extends T> Event.Bus<R> flatMap(final Class<R> type) {
-            return filter(e -> type.isInstance(e.getData()))
-                    .map(e->e.withDataBy(type::cast));
         }
 
         @Override
@@ -432,6 +428,8 @@ public class Event<T> implements Rewrapper<T> {
             active = false;
             for (var listener : listeners)
                 listener.close();
+            for (var bus : downstream)
+                bus.close();
         }
 
         private void publish(Event<T> event) {

@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.java.Log;
 import org.comroid.util.Bitmask;
+import org.comroid.util.StackTraceUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,15 +16,24 @@ import javax.persistence.PreRemove;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static org.comroid.util.StackTraceUtils.lessSimpleName;
-
 public interface Component extends Container, LifeCycle, Tickable, Named {
     State getCurrentState();
+
+    default boolean isActive() {
+        return getCurrentState() == State.Active;
+    }
 
     @Nullable Component getParent();
 
     @Contract("_ -> this")
     Component setParent(@Nullable Component parent);
+
+    default String getFullName() {
+        return Optional.ofNullable(getParent())
+                .map(Component::getFullName)
+                .map(pName -> pName + '.' + getName())
+                .orElseGet(this::getName);
+    }
 
     default <T extends Component> Stream<T> components(@Nullable Class<T> type) {
         return streamChildren(type);
@@ -42,12 +52,12 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
 
         EarlyTerminate,
         Terminate(EarlyTerminate),
-        PostTerminate;
+        PostTerminate(PreInit);
 
         private final int mask;
 
         State(State... ext) {
-            this.mask = Bitmask.nextFlag() | Bitmask.combine(ext);
+            this.mask = Bitmask.nextFlag(State.class) | Bitmask.combine(ext);
         }
 
         public int getAsInt() {
@@ -57,31 +67,43 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
 
     @Log
     @Getter
-    @RequiredArgsConstructor
     class Base extends Container.Base implements Component {
         private State currentState = State.PreInit;
         private State previousState = State.PreInit;
         private @Setter @Nullable Component parent;
-        private @Setter @Nullable String name = Optional.ofNullable(parent)
-                .map(parent -> parent.getName()+'.'+ lessSimpleName(getClass())+'#'+hashCode())
-                .orElseGet(() -> lessSimpleName(getClass()));
+        private @Setter @Nullable String name = StackTraceUtils.lessSimpleName(getClass()) + '#' + hashCode();
 
-        public boolean isActive() {
-            return currentState == State.Active;
+        public Base(Object... children) {
+            this((Component)null, children);
         }
-        
+
+        public Base(@Nullable Component parent, Object... children) {
+            super(children);
+            this.parent = parent;
+        }
+
+        public Base(@Nullable String name, Object... children) {
+            this(null, name, children);
+        }
+
+        public Base(@Nullable Component parent, @Nullable String name, Object... children) {
+            super(children);
+            this.parent = parent;
+            this.name = name;
+        }
+
         @Override
         @PostLoad
         @PostConstruct
         public final void initialize() {
             try {
-                pushState(State.Init);
-                runOnChildren(Initializable.class, Initializable::initialize);
+                if (!test(this, State.PreInit))
+                    return;
+                runOnChildren(Initializable.class, Initializable::initialize, it -> test(it, State.PreInit));
                 $initialize();
+                pushState(State.LateInit);
 
                 lateInitialize();
-
-                pushState(State.Active);
             } catch (InitFailed ife) {
                 log.severe("Could not initialize "+getName()+"; " + ife.getMessage());
                 terminate();
@@ -90,21 +112,24 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
 
         @Override
         public final void lateInitialize() {
-            pushState(State.LateInit);
-            runOnChildren(LifeCycle.class, LifeCycle::lateInitialize);
+            if (!test(this, State.Init) && !pushState(State.LateInit))
+                return;
+            runOnChildren(LifeCycle.class, LifeCycle::lateInitialize,it->test(it,State.Init));
+
             $lateInitialize();
+            pushState(State.Active);
         }
 
         @Override
         public void tick() {
             $tick();
-            runOnChildren(Tickable.class, Tickable::tick);
+            runOnChildren(Tickable.class, Tickable::tick, it->test(it,State.Active));
         }
 
         @Override
         public final void earlyTerminate() {
             pushState(State.EarlyTerminate);
-            runOnChildren(LifeCycle.class, LifeCycle::earlyTerminate);
+            runOnChildren(LifeCycle.class, LifeCycle::earlyTerminate,it->test(it,State.Active));
             $earlyTerminate();
         }
 
@@ -116,7 +141,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
 
             pushState(State.Terminate);
             $terminate();
-            runOnChildren(LifeCycle.class, LifeCycle::terminate);
+            runOnChildren(LifeCycle.class, LifeCycle::terminate,it->test(it,State.EarlyTerminate));
 
             pushState(State.PostTerminate);
         }
@@ -136,11 +161,17 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         protected void $terminate() {
         }
 
-        private void pushState(State state) {
+        private static <T> boolean test(T it, State state) {
+            return !(it instanceof Component)||Bitmask.isFlagSet(((Component) it).getCurrentState().mask, state);
+        }
+
+        private boolean pushState(State state) {
             if (currentState == state)
-                return; // avoid pushing same state twice
+                return false; // avoid pushing same state twice
             previousState = currentState;
             currentState = state;
+            log.fine(getName() + " changed into state: " + currentState);
+            return true;
         }
     }
 }

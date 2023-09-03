@@ -253,9 +253,9 @@ public interface Rewrapper<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
     }
 
     default <O> void ifBothPresent(@Nullable Supplier<O> other, BiConsumer<@NotNull T, @NotNull O> accumulator) {
-        if (other != null) {
+        if (isNonNull() && other != null) {
             O o = other.get();
-            if (isNonNull() && o != null)
+            if (o != null)
                 accumulator.accept(assertion(), o);
         }
     }
