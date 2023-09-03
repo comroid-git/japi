@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.Closeable;
 import java.lang.annotation.*;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -269,7 +270,7 @@ public class Event<T> implements Rewrapper<T> {
             //final var autoTypes = List.of(Event.class, String.class, Long.class, Instant.class);
             var subscribers = new HashSet<SubscriberImpl>();
             for (var method : type.getMethods()) {
-                if (!method.canAccess(target) || !method.isAnnotationPresent(Subscriber.class))
+                if ((target!=null&&!Modifier.isStatic(method.getModifiers())&&!method.canAccess(target)) || !method.isAnnotationPresent(Subscriber.class))
                     continue;
                 var subscriber = method.getAnnotation(Subscriber.class);
                 /*
