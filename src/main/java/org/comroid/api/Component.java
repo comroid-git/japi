@@ -3,20 +3,37 @@ package org.comroid.api;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import lombok.extern.java.Log;
+import org.comroid.api.info.Log;
 import org.comroid.util.Bitmask;
 import org.comroid.util.StackTraceUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 import javax.persistence.PostLoad;
+import javax.persistence.PostUpdate;
 import javax.persistence.PreRemove;
+import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.logging.Level;
 import java.util.stream.Stream;
 
 public interface Component extends Container, LifeCycle, Tickable, Named {
+    @Override
+    @PostLoad
+    @PostConstruct
+    void initialize();
+
+    @Override
+    @PostUpdate
+    void tick();
+
+    @Override
+    @PreRemove
+    @PreDestroy
+    void terminate();
+
     State getCurrentState();
 
     default boolean isActive() {
@@ -43,6 +60,11 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         return () -> components(type).findAny().orElse(null);
     }
 
+    default BackgroundTask<Component> execute(ScheduledExecutorService scheduler, Duration tickRate) {
+        initialize();
+        return new BackgroundTask<>(this, Component::tick, tickRate.toMillis(), scheduler);
+    }
+
     enum State implements BitmaskAttribute<State> {
         PreInit,
         Init,
@@ -65,7 +87,6 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
     }
 
-    @Log
     @Getter
     class Base extends Container.Base implements Component {
         private State currentState = State.PreInit;
@@ -93,8 +114,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         @Override
-        @PostLoad
-        @PostConstruct
+        //@PreRemove @PreDestroy
         public final void initialize() {
             try {
                 if (!test(this, State.PreInit))
@@ -105,7 +125,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
 
                 lateInitialize();
             } catch (InitFailed ife) {
-                log.severe("Could not initialize "+getName()+"; " + ife.getMessage());
+                Log.at(Level.SEVERE, "Could not initialize "+getName()+"; " + ife.getMessage());
                 terminate();
             }
         }
@@ -121,7 +141,8 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         @Override
-        public void tick() {
+        //@PostUpdate
+        public final void tick() {
             $tick();
             runOnChildren(Tickable.class, Tickable::tick, it->test(it,State.Active));
         }
@@ -134,8 +155,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         @Override
-        @PreRemove
-        @PreDestroy
+        //@PreRemove @PreDestroy
         public final void terminate() {
             earlyTerminate();
 
@@ -170,7 +190,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                 return false; // avoid pushing same state twice
             previousState = currentState;
             currentState = state;
-            log.fine(getName() + " changed into state: " + currentState);
+            Log.at(Level.FINE, getName() + " changed into state: " + currentState);
             return true;
         }
     }
