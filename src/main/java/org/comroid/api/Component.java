@@ -114,6 +114,14 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         @Override
+        public Object addChildren(@Nullable Object... children) {
+            for (Object child : children)
+                if (child instanceof Component)
+                    ((Component) child).setParent(this);
+            return super.addChildren(children);
+        }
+
+        @Override
         //@PreRemove @PreDestroy
         public final void initialize() {
             try {
@@ -124,8 +132,8 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                 pushState(State.LateInit);
 
                 lateInitialize();
-            } catch (InitFailed ife) {
-                Log.at(Level.SEVERE, "Could not initialize "+getName()+"; " + ife.getMessage());
+            } catch (Throwable t) {
+                Log.at(Level.SEVERE, "Could not initialize "+getName()+"; " + t.getMessage());
                 terminate();
             }
         }
@@ -182,7 +190,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         private static <T> boolean test(T it, State state) {
-            return !(it instanceof Component)||Bitmask.isFlagSet(((Component) it).getCurrentState().mask, state);
+            return it instanceof Component && Bitmask.isFlagSet(((Component) it).getCurrentState().mask, state);
         }
 
         private boolean pushState(State state) {
@@ -190,7 +198,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                 return false; // avoid pushing same state twice
             previousState = currentState;
             currentState = state;
-            Log.at(Level.FINE, getName() + " changed into state: " + currentState);
+            Log.at(Level.INFO, getName() + " changed into state: " + currentState);
             return true;
         }
     }
