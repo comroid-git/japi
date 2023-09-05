@@ -1,9 +1,13 @@
 package org.comroid.util;
 
+import org.comroid.api.Polyfill;
+import org.comroid.api.info.Log;
+
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
 public final class MultithreadUtil {
     public static <T> CompletableFuture<T> submitQuickTask(
@@ -39,5 +43,14 @@ public final class MultithreadUtil {
             }
             return value;
         });
+    }
+
+    public static <T> CompletableFuture<T> firstOf(CompletableFuture<?>... futures) {
+        final var future = new CompletableFuture<T>();
+        for (var each : futures)
+            each.thenApply(Polyfill::<T>uncheckedCast)
+                    .thenAccept(future::complete)
+                    .exceptionally(Polyfill.exceptionLogger(Log.get("firstOf"), Level.FINE, "Error in .firstOf() member"));
+        return future;
     }
 }

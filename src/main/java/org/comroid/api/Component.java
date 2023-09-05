@@ -5,21 +5,29 @@ import jakarta.annotation.PreDestroy;
 import lombok.Getter;
 import lombok.Setter;
 import org.comroid.api.info.Log;
-import org.comroid.util.Bitmask;
-import org.comroid.util.StackTraceUtils;
+import org.comroid.util.*;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.persistence.PostLoad;
 import javax.persistence.PostUpdate;
 import javax.persistence.PreRemove;
+import java.lang.annotation.*;
 import java.time.Duration;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.BiPredicate;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.comroid.util.Streams.*;
+
 public interface Component extends Container, LifeCycle, Tickable, Named {
+
     @Override
     @PostLoad
     @PostConstruct
@@ -60,6 +68,15 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         return () -> components(type).findAny().orElse(null);
     }
 
+    default List<Class<? extends Component>> requires() {
+        final var type = getClass();
+        return Cache.get(type.getCanonicalName() + "@Requires", () -> Arrays
+                .stream(type.getAnnotationsByType(Requires.class))
+                .map(Requires::value)
+                .flatMap(Arrays::stream)
+                .toList());
+    }
+
     default BackgroundTask<Component> execute(ScheduledExecutorService scheduler, Duration tickRate) {
         initialize();
         return new BackgroundTask<>(this, Component::tick, tickRate.toMillis(), scheduler);
@@ -85,6 +102,15 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         public int getAsInt() {
             return mask;
         }
+    }
+
+    /**
+     * declare a module dependency
+     */
+    @Target(ElementType.TYPE)
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Requires {
+        Class<? extends Component>[] value();
     }
 
     @Getter
@@ -127,13 +153,26 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
             try {
                 if (!test(this, State.PreInit))
                     return;
-                runOnChildren(Initializable.class, Initializable::initialize, it -> test(it, State.PreInit));
-                $initialize();
+                var components = Stream.of(this).collect(append(getChildren()))
+                        .flatMap(cast(Component.class))
+                        .collect(Collectors.toMap(Object::getClass, Function.identity()));
+                for (var load : components.values()) {
+                    for (var dependency : load.requires())
+                        components.entrySet().stream()
+                                .filter(e->dependency.isAssignableFrom(e.getKey()))
+                                .map(Map.Entry::getValue)
+                                .peek(c->Log.at(Level.FINE,"Loading "+c))
+                                .filter(c->c.getCurrentState()==State.PreInit)
+                                .forEach(Component::initialize);
+                    if (load == this)
+                        $initialize();
+                    else load.initialize();
+                }
                 pushState(State.LateInit);
 
                 lateInitialize();
             } catch (Throwable t) {
-                Log.at(Level.SEVERE, "Could not initialize "+getName()+"; " + t.getMessage());
+                Log.at(Level.SEVERE, "Could not initialize " + getName() + "; " + t.getMessage(), t);
                 terminate();
             }
         }

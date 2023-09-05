@@ -6,12 +6,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Spliterator;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import static java.util.stream.Stream.empty;
 
 @UtilityClass
 public class Streams {
@@ -39,12 +42,26 @@ public class Streams {
         }, is -> Stream.concat(is.stream(), values));
     }
 
+    public static <I> Function<I, Stream<I>> yield(final int next, final Consumer<I> elseConsumer) {
+        return new Function<>() {
+            final AtomicInteger count = new AtomicInteger(0);
+
+            @Override
+            public Stream<I> apply(I obj) {
+                if (count.incrementAndGet() >= next)
+                    return Stream.of(obj);
+                elseConsumer.accept(obj);
+                return empty();
+            }
+        };
+    }
+
     public static <I> Function<I, Stream<I>> yield(final Predicate<I> filter, final Consumer<I> elseConsumer) {
         return obj -> {
             if (filter.test(obj))
                 return Stream.of(obj);
             elseConsumer.accept(obj);
-            return Stream.empty();
+            return empty();
         };
     }
 

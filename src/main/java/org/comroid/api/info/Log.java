@@ -26,7 +26,10 @@ public final class Log extends Logger {
         return get(cls.getCanonicalName());
     }
 
-    public static void at(Level level, String message) {
+    public static void at(Level level, String message, Throwable t) {
+        getForCaller(1).log(level, message, t);
+    }
+        public static void at(Level level, String message) {
         getForCaller(1).log(level, message);
     }
 
