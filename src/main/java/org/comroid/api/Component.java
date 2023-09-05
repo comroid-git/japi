@@ -16,6 +16,8 @@ import javax.persistence.PreRemove;
 import java.lang.annotation.*;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -78,8 +80,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
     }
 
     default BackgroundTask<Component> execute(ScheduledExecutorService scheduler, Duration tickRate) {
-        initialize();
-        return new BackgroundTask<>(this, Component::tick, tickRate.toMillis(), scheduler);
+        return new BackgroundTask<>(this, Component::tick, tickRate.toMillis(), scheduler).activate(ForkJoinPool.commonPool());
     }
 
     enum State implements BitmaskAttribute<State> {
@@ -156,18 +157,22 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                 var components = Stream.of(this).collect(append(getChildren()))
                         .flatMap(cast(Component.class))
                         .collect(Collectors.toMap(Object::getClass, Function.identity()));
-                for (var load : components.values()) {
-                    for (var dependency : load.requires())
-                        components.entrySet().stream()
-                                .filter(e->dependency.isAssignableFrom(e.getKey()))
-                                .map(Map.Entry::getValue)
-                                .peek(c->Log.at(Level.FINE,"Loading "+c))
-                                .filter(c->c.getCurrentState()==State.PreInit)
-                                .forEach(Component::initialize);
-                    if (load == this)
-                        $initialize();
-                    else load.initialize();
-                }
+                Log.at(Level.FINE, "Initializing "+this);
+                var futures = new ArrayList<CompletableFuture<?>>();
+                for (var dependency : requires())
+                    components.entrySet().stream()
+                            .filter(e -> dependency.isAssignableFrom(e.getKey()))
+                            .map(Map.Entry::getValue)
+                            .filter(c -> c.getCurrentState() == State.PreInit)
+                            .peek(c -> Log.at(Level.FINE, "Initializing dependency of " + this + " first: " + c))
+                            .map(c -> CompletableFuture.supplyAsync(() -> {
+                                c.initialize();
+                                return null;
+                            }))
+                            .forEach(futures::add);
+                CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+                $initialize();
+                runOnChildren(Initializable.class, Initializable::initialize,it->test(it,State.PreInit));
                 pushState(State.LateInit);
 
                 lateInitialize();
