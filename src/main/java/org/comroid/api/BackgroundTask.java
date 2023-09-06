@@ -63,6 +63,7 @@ public class BackgroundTask<T> extends Container.Base implements ValueBox<T>, Ru
     }
 
     public BackgroundTask<T> activate(@Nullable Executor executor_) {
+        start();
         if (repeatRateMs == NoRepeat)
             exec(executor_);
         else timer.block().scheduleAtFixedRate(new TimerTask() {

@@ -4,6 +4,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.SneakyThrows;
 import org.comroid.api.info.Log;
 import org.comroid.util.*;
 import org.jetbrains.annotations.Contract;
@@ -83,6 +84,14 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         return new BackgroundTask<>(this, Component::tick, tickRate.toMillis(), scheduler).activate(ForkJoinPool.commonPool());
     }
 
+    default void start() {
+        initialize();
+    }
+
+    default void stop() {
+        terminate();
+    }
+
     enum State implements BitmaskAttribute<State> {
         PreInit,
         Init,
@@ -149,6 +158,12 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         @Override
+        public void start() {
+            initialize();
+        }
+
+        @Override
+        @SneakyThrows
         //@PreRemove @PreDestroy
         public final void initialize() {
             try {
@@ -197,6 +212,11 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         public final void tick() {
             $tick();
             runOnChildren(Tickable.class, Tickable::tick, it->test(it,State.Active));
+        }
+
+        @Override
+        public void stop() {
+            terminate();
         }
 
         @Override
