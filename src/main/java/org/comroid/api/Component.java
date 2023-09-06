@@ -169,9 +169,10 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
             try {
                 if (!test(this, State.PreInit))
                     return;
-                var components = Stream.of(this).collect(append(getChildren()))
+                var components = parent != null ? parent.getChildren().stream()
                         .flatMap(cast(Component.class))
-                        .collect(Collectors.toMap(Object::getClass, Function.identity()));
+                        .collect(Collectors.toMap(Object::getClass, Function.identity()))
+                        : Map.<Class<?>, Component>of();
                 Log.at(Level.FINE, "Initializing "+this);
                 var futures = new ArrayList<CompletableFuture<?>>();
                 for (var dependency : requires())
