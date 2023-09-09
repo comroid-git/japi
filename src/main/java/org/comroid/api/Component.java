@@ -203,8 +203,12 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         @Override
         //@PostUpdate
         public final void tick() {
-            $tick();
-            runOnChildren(Tickable.class, Tickable::tick, it -> test(it, State.Active));
+            try {
+                $tick();
+                runOnChildren(Tickable.class, Tickable::tick, it -> test(it, State.Active));
+            } catch (Throwable t) {
+                Log.at(Level.WARNING, "Error in tick for %s".formatted(this));
+            }
         }
 
         @Override
@@ -222,13 +226,17 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         @Override
         //@PreRemove @PreDestroy
         public final void terminate() {
-            earlyTerminate();
+            try {
+                earlyTerminate();
 
-            pushState(State.Terminate);
-            $terminate();
-            runOnChildren(LifeCycle.class, LifeCycle::terminate, it -> test(it, State.EarlyTerminate));
+                pushState(State.Terminate);
+                $terminate();
+                runOnChildren(LifeCycle.class, LifeCycle::terminate, it -> test(it, State.EarlyTerminate));
 
-            pushState(State.PostTerminate);
+                pushState(State.PostTerminate);
+            } catch (Throwable t) {
+                Log.at(Level.WARNING, "Could not correctly terminate %s".formatted(this));
+            }
         }
 
         protected void $initialize() {

@@ -7,19 +7,14 @@ import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
-public final class Log extends Logger {
-    private Log(String name) {
-        super(name, null);
-    }
-
+@UtilityClass
+public final class Log {
     public static Logger get() {
         return getForCaller(1);
     }
 
     public static Logger get(String name) {
-        var logger = new Log(name);
-        LogManager.getLogManager().addLogger(logger);
-        return logger;
+        return Logger.getLogger(name);
     }
 
     public static Logger get(Class<?> cls) {
