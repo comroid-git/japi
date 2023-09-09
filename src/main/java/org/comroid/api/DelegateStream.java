@@ -742,9 +742,13 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             this.name = lessSimpleName(handler.getClass()) + " OutputStream @ " + caller();
         }
 
+        @Deprecated
         public Output(final Event.Bus<String> bus, Capability capability) {
+            this(bus, IO.eventKey(capability));
+        }
+
+        public Output(final Event.Bus<String> bus, final String key) {
             final var writer = new AtomicReference<>(new StringWriter());
-            final var key = IO.eventKey(capability);
             this.write = c -> writer.get().write(c);
             this.flush = () -> writer.getAndUpdate(buf -> {
                 bus.publish(key, buf.toString());
@@ -1133,13 +1137,17 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
 
         public IO redirectToEventBus(Event.Bus<String> bus) {
-            return redirectToEventBus(bus, EventKey_Input);
+            return redirectToEventBus(bus, EventKey_Input, EventKey_Output, EventKey_Error);
         }
+        @Deprecated
         public IO redirectToEventBus(Event.Bus<String> bus, String inputKey) {
+            return redirectToEventBus(bus, inputKey, EventKey_Output, EventKey_Error);
+        }
+        public IO redirectToEventBus(Event.Bus<String> bus, String inputKey, String outputKey, String errorKey) {
             var io = new IO(
                     new Input(bus, EndlMode.OnDelegate, inputKey),
-                    new Output(bus, Capability.Output),
-                    new Output(bus, Capability.Error));
+                    new Output(bus, outputKey),
+                    new Output(bus, errorKey));
             redirect(io);
             return io;
         }
