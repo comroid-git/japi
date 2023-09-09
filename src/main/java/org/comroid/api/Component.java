@@ -129,7 +129,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         private State currentState = State.PreInit;
         private State previousState = State.PreInit;
         private @Setter @Nullable Component parent;
-        private @Setter @Nullable String name = StackTraceUtils.lessSimpleName(getClass()) + '#' + hashCode();
+        private @Setter @Nullable String name = "%s#%x".formatted(StackTraceUtils.lessSimpleName(getClass()), hashCode());
 
         public Base(Object... children) {
             this((Component)null, children);
