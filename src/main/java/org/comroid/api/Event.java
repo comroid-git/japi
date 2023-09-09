@@ -161,8 +161,8 @@ public class Event<T> implements Rewrapper<T> {
             }
         };
         @Setter
-        private Executor executor = Context.wrap(Executor.class).orElseGet(()->Runnable::run);
-        //private Executor executor = Context.wrap(Executor.class).orElseGet(()->Executors.newFixedThreadPool(4));
+        //private Executor executor = Context.wrap(Executor.class).orElseGet(()->Runnable::run);
+        private Executor executor = Context.wrap(Executor.class).orElseGet(()->Executors.newFixedThreadPool(4));
         @Setter
         private boolean active = true;
         @Setter
