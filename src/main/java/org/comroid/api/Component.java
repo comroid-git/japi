@@ -203,9 +203,9 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         @Override
         //@PostUpdate
         public final void tick() {
+            if (!testState(State.Active))
+                return;
             try {
-                if (!testState(State.Active))
-                    return;
                 $tick();
                 runOnChildren(Tickable.class, Tickable::tick, it -> test(it, State.Active));
             } catch (Throwable t) {
@@ -228,6 +228,8 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         @Override
         //@PreRemove @PreDestroy
         public final void terminate() {
+            if (testState(State.PostTerminate))
+                return;
             try {
                 earlyTerminate();
 
