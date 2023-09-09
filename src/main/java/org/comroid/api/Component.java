@@ -81,7 +81,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
     }
 
     default BackgroundTask<Component> execute(ScheduledExecutorService scheduler, Duration tickRate) {
-        Runtime.getRuntime().addShutdownHook(new Thread(this::close));
+        Runtime.getRuntime().addShutdownHook(new Thread(this::terminate));
         return new BackgroundTask<>(this, Component::tick, tickRate.toMillis(), scheduler).activate(ForkJoinPool.commonPool());
     }
 
@@ -170,24 +170,8 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
             try {
                 if (!test(this, State.PreInit))
                     return;
-                var components = parent != null ? parent.getChildren().stream()
-                        .flatMap(cast(Component.class))
-                        .collect(Collectors.toMap(Object::getClass, Function.identity()))
-                        : Map.<Class<?>, Component>of();
                 Log.at(Level.FINE, "Initializing "+this);
-                var futures = new ArrayList<CompletableFuture<?>>();
-                for (var dependency : requires())
-                    components.entrySet().stream()
-                            .filter(e -> dependency.isAssignableFrom(e.getKey()))
-                            .map(Map.Entry::getValue)
-                            .filter(c -> c.getCurrentState() == State.PreInit)
-                            .peek(c -> Log.at(Level.FINE, "Initializing dependency of " + this + " first: " + c))
-                            .map(c -> CompletableFuture.supplyAsync(() -> {
-                                c.initialize();
-                                return null;
-                            }))
-                            .forEach(futures::add);
-                CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+                runOnDependencies(Component::initialize).join();
                 $initialize();
                 runOnChildren(Initializable.class, Initializable::initialize,it->test(it,State.PreInit));
                 pushState(State.LateInit);
@@ -203,9 +187,10 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         public final void lateInitialize() {
             if (!test(this, State.Init) && !pushState(State.LateInit))
                 return;
+            runOnDependencies(Component::lateInitialize).join();
+            $lateInitialize();
             runOnChildren(LifeCycle.class, LifeCycle::lateInitialize,it->test(it,State.Init));
 
-            $lateInitialize();
             pushState(State.Active);
         }
 
@@ -266,6 +251,27 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
             currentState = state;
             Log.at(Level.INFO, getName() + " changed into state: " + currentState);
             return true;
+        }
+
+        private CompletableFuture<Void> runOnDependencies(final ThrowingConsumer<Component, Throwable> action) {
+            final var wrap = action.wrap();
+            final var components = parent != null ? parent.getChildren().stream()
+                    .flatMap(cast(Component.class))
+                    .collect(Collectors.toMap(Object::getClass, Function.identity()))
+                    : Map.<Class<?>, Component>of();
+            final var futures = new ArrayList<CompletableFuture<?>>();
+            for (var dependency : requires())
+                components.entrySet().stream()
+                        .filter(e -> dependency.isAssignableFrom(e.getKey()))
+                        .map(Map.Entry::getValue)
+                        .filter(c -> c.getCurrentState() == State.PreInit)
+                        .peek(c -> Log.at(Level.FINE, "Initializing dependency of " + this + " first: " + c))
+                        .map(c -> CompletableFuture.supplyAsync(() -> {
+                            wrap.accept(c);
+                            return null;
+                        }))
+                        .forEach(futures::add);
+            return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
         }
     }
 }
