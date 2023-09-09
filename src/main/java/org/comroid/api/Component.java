@@ -93,6 +93,10 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         terminate();
     }
 
+    default boolean testState(State state) {
+        return Bitmask.isFlagSet(getCurrentState().mask, state);
+    }
+
     enum State implements BitmaskAttribute<State> {
         PreInit,
         Init,
@@ -128,11 +132,13 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
     class Base extends Container.Base implements Component {
         private State currentState = State.PreInit;
         private State previousState = State.PreInit;
-        private @Setter @Nullable Component parent;
-        private @Setter @Nullable String name = "%s#%x".formatted(StackTraceUtils.lessSimpleName(getClass()), hashCode());
+        private @Setter
+        @Nullable Component parent;
+        private @Setter
+        @Nullable String name = "%s#%x".formatted(StackTraceUtils.lessSimpleName(getClass()), hashCode());
 
         public Base(Object... children) {
-            this((Component)null, children);
+            this((Component) null, children);
         }
 
         public Base(@Nullable Component parent, Object... children) {
@@ -170,10 +176,10 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
             try {
                 if (!test(this, State.PreInit))
                     return;
-                Log.at(Level.FINE, "Initializing "+this);
+                Log.at(Level.FINE, "Initializing " + this);
                 runOnDependencies(Component::initialize).join();
                 $initialize();
-                runOnChildren(Initializable.class, Initializable::initialize,it->test(it,State.PreInit));
+                runOnChildren(Initializable.class, Initializable::initialize, it -> test(it, State.PreInit));
                 pushState(State.LateInit);
 
                 lateInitialize();
@@ -189,7 +195,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                 return;
             runOnDependencies(Component::lateInitialize).join();
             $lateInitialize();
-            runOnChildren(LifeCycle.class, LifeCycle::lateInitialize,it->test(it,State.Init));
+            runOnChildren(LifeCycle.class, LifeCycle::lateInitialize, it -> test(it, State.Init));
 
             pushState(State.Active);
         }
@@ -198,7 +204,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         //@PostUpdate
         public final void tick() {
             $tick();
-            runOnChildren(Tickable.class, Tickable::tick, it->test(it,State.Active));
+            runOnChildren(Tickable.class, Tickable::tick, it -> test(it, State.Active));
         }
 
         @Override
@@ -209,7 +215,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         @Override
         public final void earlyTerminate() {
             pushState(State.EarlyTerminate);
-            runOnChildren(LifeCycle.class, LifeCycle::earlyTerminate,it->test(it,State.Active));
+            runOnChildren(LifeCycle.class, LifeCycle::earlyTerminate, it -> test(it, State.Active));
             $earlyTerminate();
         }
 
@@ -220,7 +226,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
 
             pushState(State.Terminate);
             $terminate();
-            runOnChildren(LifeCycle.class, LifeCycle::terminate,it->test(it,State.EarlyTerminate));
+            runOnChildren(LifeCycle.class, LifeCycle::terminate, it -> test(it, State.EarlyTerminate));
 
             pushState(State.PostTerminate);
         }
@@ -241,7 +247,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         private static <T> boolean test(T it, State state) {
-            return it instanceof Component && Bitmask.isFlagSet(((Component) it).getCurrentState().mask, state);
+            return it instanceof Component && ((Component) it).testState(state);
         }
 
         private boolean pushState(State state) {
@@ -254,24 +260,21 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         private CompletableFuture<Void> runOnDependencies(final ThrowingConsumer<Component, Throwable> action) {
+            if (getParent() == null)
+                return CompletableFuture.completedFuture(null);
             final var wrap = action.wrap();
-            final var components = parent != null ? parent.getChildren().stream()
-                    .flatMap(cast(Component.class))
-                    .collect(Collectors.toMap(Object::getClass, Function.identity()))
-                    : Map.<Class<?>, Component>of();
-            final var futures = new ArrayList<CompletableFuture<?>>();
-            for (var dependency : requires())
-                components.entrySet().stream()
-                        .filter(e -> dependency.isAssignableFrom(e.getKey()))
-                        .map(Map.Entry::getValue)
-                        .filter(c -> c.getCurrentState() == State.PreInit)
-                        .peek(c -> Log.at(Level.FINE, "Initializing dependency of " + this + " first: " + c))
-                        .map(c -> CompletableFuture.supplyAsync(() -> {
-                            wrap.accept(c);
-                            return null;
-                        }))
-                        .forEach(futures::add);
-            return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
+            final var futures = requires().stream()
+                    .flatMap(dependency -> getParent().getChildren().stream()
+                            .filter(e -> dependency.isAssignableFrom(e.getClass()))
+                            .flatMap(cast(Component.class)))
+                    .filter(c -> c.testState(State.PreInit))
+                    .peek(c -> Log.at(Level.FINE, "Initializing dependency of %s first: %s".formatted(this, c)))
+                    .map(c -> CompletableFuture.supplyAsync(() -> {
+                        wrap.accept(c);
+                        return null;
+                    }))
+                    .toArray(CompletableFuture[]::new);
+            return CompletableFuture.allOf(futures);
         }
     }
 }

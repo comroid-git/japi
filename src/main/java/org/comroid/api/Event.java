@@ -143,37 +143,29 @@ public class Event<T> implements Rewrapper<T> {
     @Log
     @Getter
     @EqualsAndHashCode(of = {}, callSuper = true)
-    @ToString(of = {"upstream", "factory", "active"})
-    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    public static class Bus<T> extends Container.Base implements Named, N.Consumer.$3<T, String, Long>, Provider<T>, UUIDContainer {
+    @ToString(of = {"name", "upstream", "factory", "active"})
+    public static class Bus<T> extends Component.Base implements Named, N.Consumer.$3<T, String, Long>, Provider<T>, UUIDContainer {
         @Nullable
-        @NonFinal
-        Event.Bus<?> upstream;
+        private Event.Bus<?> upstream;
         @NotNull Set<Event.Bus<?>> downstream = new HashSet<>();
         @NotNull Queue<Event.Listener<T>> listeners = new ConcurrentLinkedQueue<>();
         @Nullable
-        @NonFinal
-        Function<@NotNull Event<?>, @Nullable Event<T>> function;
+        private Function<@NotNull Event<?>, @Nullable Event<T>> function;
         @Nullable
-        @NonFinal
-        Function<String, String> keyFunction;
-        @NonFinal
+        private Function<String, String> keyFunction;
         @Setter
-        Event.Factory<T, ? extends Event<T>> factory = new Factory<>() {
+        private Event.Factory<T, ? extends Event<T>> factory = new Factory<>() {
             @Override
             public Event<T> factory(long seq, T data, String key, long flag) {
                 return new Event<>(seq, flag, key, data);
             }
         };
-        @NonFinal
         @Setter
-        Executor executor = Context.wrap(Executor.class).orElseGet(() -> Executors.newFixedThreadPool(4));
-        @NonFinal
+        private Executor executor = Context.wrap(Executor.class).orElseGet(() -> Runnable::run);
         @Setter
-        boolean active = true;
-        @NonFinal
+        private boolean active = true;
         @Setter
-        String name = null;
+        private String name = null;
 
         @Contract(value = "_ -> this", mutates = "this")
         public Event.Bus<T> setUpstream(@NotNull Event.Bus<? extends T> parent) {
@@ -419,7 +411,7 @@ public class Event<T> implements Rewrapper<T> {
                             child.$publishDownstream(event);
                     }
                 } catch (Throwable t) {
-                    log.log(Level.SEVERE, "Unable to publish event to " + this, t);
+                    log.log(Level.SEVERE, "Error in event handler " + this, t);
                 }
             });
         }
