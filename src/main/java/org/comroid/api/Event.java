@@ -66,7 +66,7 @@ public class Event<T> implements Rewrapper<T> {
     @Retention(RetentionPolicy.RUNTIME)
     public @interface Subscriber {
         String EmptyName = "@@@";
-        long DefaultFlag = Long.MAX_VALUE;
+        long DefaultFlag = 0xffffffffffffffffL;
 
         String value() default EmptyName;
         long flag() default DefaultFlag;
