@@ -174,7 +174,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         //@PreRemove @PreDestroy
         public final void initialize() {
             try {
-                if (!test(this, State.PreInit))
+                if (!testState(State.PreInit))
                     return;
                 Log.at(Level.FINE, "Initializing " + this);
                 runOnDependencies(Component::initialize).join();
@@ -191,7 +191,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
 
         @Override
         public final void lateInitialize() {
-            if (!test(this, State.Init) && !pushState(State.LateInit))
+            if (!testState(State.Init) && !pushState(State.LateInit))
                 return;
             runOnDependencies(Component::lateInitialize).join();
             $lateInitialize();
@@ -204,6 +204,8 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         //@PostUpdate
         public final void tick() {
             try {
+                if (!testState(State.Active))
+                    return;
                 $tick();
                 runOnChildren(Tickable.class, Tickable::tick, it -> test(it, State.Active));
             } catch (Throwable t) {
