@@ -36,6 +36,7 @@ import java.util.zip.GZIPOutputStream;
 
 import static org.comroid.api.Rewrapper.*;
 import static org.comroid.api.ThrowingFunction.sneaky;
+import static org.comroid.util.StackTraceUtils.caller;
 import static org.comroid.util.StackTraceUtils.lessSimpleName;
 
 public interface DelegateStream extends Container, Closeable, Named, Convertible {
@@ -237,10 +238,6 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         return new UnsupportedOperationException(String.format("%s has no support for %s", stream, capability));
     }
 
-    private static String caller() {
-        return StackTraceUtils.caller(1);
-    }
-
     enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
 
     enum EndlMode implements IntegerAttribute {
@@ -294,13 +291,13 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         public Input(final InputStream delegate) {
             this.read = delegate::read;
             this.delegate = delegate;
-            this.name = "Proxy InputStream @ " + caller();
+            this.name = "Proxy InputStream @ " + caller(1);
         }
 
         public Input(final Reader delegate) {
             this.read = delegate::read;
             this.delegate = delegate;
-            this.name = "Reader delegating InputStream @ " + caller();
+            this.name = "Reader delegating InputStream @ " + caller(1);
         }
 
         @ApiStatus.Experimental
@@ -406,7 +403,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                     queue.clear();
                 }
             }
-            this.name = lessSimpleName(source.getClass()) + " InputStream @ " + caller();
+            this.name = lessSimpleName(source.getClass()) + " InputStream @ " + caller(1);
             var handler = new EventBusHandler();
 
             handler.addChildren(source);
@@ -699,14 +696,14 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             this.write = delegate::write;
             this.flush = delegate::flush;
             this.delegate = delegate;
-            this.name = "Proxy OutputStream @ " + caller();
+            this.name = "Proxy OutputStream @ " + caller(1);
         }
 
         public Output(final Writer delegate) {
             this.write = delegate::write;
             this.flush = delegate::flush;
             this.delegate = delegate;
-            this.name = "Writer delegating OutputStream @ " + caller();
+            this.name = "Writer delegating OutputStream @ " + caller(1);
         }
 
         public Output(final Logger log, final Level level) {
@@ -717,7 +714,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 return new StringWriter();
             });
             this.delegate = null;
-            this.name = "Log delegating OutputStream @ " + caller();
+            this.name = "Log delegating OutputStream @ " + caller(1);
         }
 
         public Output(final Consumer<byte[]> handler, final int bufferSize) {
@@ -728,7 +725,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 return new ByteArrayOutputStream(bufferSize);
             });
             this.delegate = handler instanceof AutoCloseable ? (AutoCloseable) handler : null;
-            this.name = lessSimpleName(handler.getClass()) + " OutputStream @ " + caller();
+            this.name = lessSimpleName(handler.getClass()) + " OutputStream @ " + caller(1);
         }
 
         public Output(final Consumer<String> handler) {
@@ -739,7 +736,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 return new StringWriter();
             });
             this.delegate = handler instanceof AutoCloseable ? (AutoCloseable) handler : null;
-            this.name = lessSimpleName(handler.getClass()) + " OutputStream @ " + caller();
+            this.name = lessSimpleName(handler.getClass()) + " OutputStream @ " + caller(1);
         }
 
         @Deprecated
@@ -755,7 +752,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 return new StringWriter();
             });
             this.delegate = bus;
-            this.name = lessSimpleName(bus.getClass()) + " OutputStream @ " + caller();
+            this.name = lessSimpleName(bus.getClass()) + " OutputStream @ " + caller(1);
         }
 
         private Output(@NotNull final DelegateStream.Output.StringPipelineAdapter adapter) {
@@ -768,7 +765,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 return new StringWriter();
             });
             this.delegate = adapter;
-            this.name = "Pipeline OutputStream @ " + caller();
+            this.name = "Pipeline OutputStream @ " + caller(1);
         }
 
         private Output(@NotNull final SegmentAdapter adapter, final int length) {
@@ -791,7 +788,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             this.flush = () -> {
             };
             this.delegate = adapter;
-            this.name = "Segmented OutputStream @ " + caller();
+            this.name = "Segmented OutputStream @ " + caller(1);
         }
 
         //region Stream OPs
@@ -1103,11 +1100,6 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         @Getter
         AutoCloseable delegate;
 
-        public IO name(String name) {
-            this.name = name;
-            return this;
-        }
-
         public boolean isRedirect() {
             return initialCapabilities != 0;
         }
@@ -1299,7 +1291,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 @Nullable OutputStream error,
                 Capability... capabilities
         ) {
-            this((capabilities.length == 0 ? "Container" : "Redirect") + " IO @ " + caller(), null, input, output, error, Set.of(capabilities), Set.of());
+            this((capabilities.length == 0 ? "Container" : "Redirect") + " IO @ " + caller(1), null, input, output, error, Set.of(capabilities), Set.of());
         }
 
         @lombok.Builder(builderClassName = "Builder")

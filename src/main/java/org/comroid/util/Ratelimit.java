@@ -21,16 +21,13 @@ import static java.util.concurrent.CompletableFuture.*;
 @Log
 @Value
 public class Ratelimit<T, Acc> {
-    static Map<Object, Ratelimit<?, ?>> cache = new ConcurrentHashMap<>();
-
     public static <T, Acc> CompletableFuture<T> run(
             Acc value,
             Duration cooldown,
             AtomicReference<CompletableFuture<@Nullable T>> source,
             BiFunction<@NotNull T, Queue<@NotNull Acc>, CompletableFuture<@Nullable T>> task
     ) {
-        return Polyfill.<Ratelimit<T, Acc>>uncheckedCast(cache.computeIfAbsent(task.getClass(),
-                $ -> new Ratelimit<>(cooldown, source, task))).push(value);
+        return Cache.get(task.getClass(), () -> new Ratelimit<>(cooldown, source, task)).push(value);
     }
 
     @NotNull Duration cooldown;

@@ -162,6 +162,7 @@ public class Event<T> implements Rewrapper<T> {
         };
         @Setter
         private Executor executor = Context.wrap(Executor.class).orElseGet(()->Runnable::run);
+        //private Executor executor = Context.wrap(Executor.class).orElseGet(()->Executors.newFixedThreadPool(4));
         @Setter
         private boolean active = true;
         @Setter
@@ -231,15 +232,24 @@ public class Event<T> implements Rewrapper<T> {
         }
 
         public Bus(@Nullable String name) {
-            this(null, null);
+            this(Objects.requireNonNullElseGet(name,()->"Event.Bus @ " + caller(3)), null);
             this.name = name;
         }
 
         private Bus(@Nullable Event.Bus<? extends T> upstream) {
-            this(upstream, Polyfill::uncheckedCast);
+            this("Event.Bus @ " + caller(1), upstream);
+        }
+
+        private Bus(@NotNull String name, @Nullable Event.Bus<? extends T> upstream) {
+            this(name, upstream, Polyfill::uncheckedCast);
         }
 
         private <P> Bus(@Nullable Event.Bus<P> upstream, @Nullable Function<@NotNull Event<P>, @Nullable Event<T>> function) {
+            this("Event.Bus @ " + caller(1), upstream, function);
+        }
+
+        private <P> Bus(@NotNull String name, @Nullable Event.Bus<P> upstream, @Nullable Function<@NotNull Event<P>, @Nullable Event<T>> function) {
+            this.name = name;
             this.upstream = upstream;
             this.function = Polyfill.uncheckedCast(function);
 
