@@ -81,6 +81,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
     }
 
     default BackgroundTask<Component> execute(ScheduledExecutorService scheduler, Duration tickRate) {
+        Runtime.getRuntime().addShutdownHook(new Thread(this::close));
         return new BackgroundTask<>(this, Component::tick, tickRate.toMillis(), scheduler).activate(ForkJoinPool.commonPool());
     }
 
