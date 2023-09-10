@@ -256,6 +256,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                 runOnChildren(LifeCycle.class, LifeCycle::terminate, it -> test(it, State.EarlyTerminate));
 
                 pushState(State.PostTerminate);
+                close();
             } catch (Throwable t) {
                 Log.at(Level.WARNING, "Could not correctly terminate %s".formatted(this));
             }
