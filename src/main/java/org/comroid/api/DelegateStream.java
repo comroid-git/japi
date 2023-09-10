@@ -1026,7 +1026,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         public static final String EventKey_Output = "stdout";
         public static final String EventKey_Error = "stderr";
         public static final IO NULL = new IO(new ByteArrayInputStream(new byte[0]), StreamUtil.voidOutputStream(), StreamUtil.voidOutputStream());
-        public static final IO SYSTEM = new IO(System.in, System.out, System.err);
+        public static final IO SYSTEM = new IO(System.in, System.out, System.err).setDoNotCloseCapabilities(7);
 
         public static IO log(Logger log) {
             return new IO(null, new Output(log::info), new Output(log::severe));
@@ -1075,6 +1075,9 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<IO> container = new Delegate<>(this);
         int initialCapabilities;
+        @NonFinal
+        @Setter
+        int doNotCloseCapabilities = 0;
         Deque<IO> redirects;
         @NonFinal
         @NotNull
@@ -1312,9 +1315,9 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             this.output = obtainStream(output, Capability.Output, () -> new RedirectOutput(Capability.Output));
             this.error = obtainStream(error, Capability.Error, () -> new RedirectOutput(Capability.Error));
             this.delegate = () -> {
-                if (this.input != null) this.input.close();
-                if (this.output != null) this.output.close();
-                if (this.error != null) this.error.close();
+                if (this.input != null && !Bitmask.isFlagSet(doNotCloseCapabilities, Capability.Input)) this.input.close();
+                if (this.output != null && !Bitmask.isFlagSet(doNotCloseCapabilities, Capability.Output)) this.output.close();
+                if (this.error != null && !Bitmask.isFlagSet(doNotCloseCapabilities, Capability.Error)) this.error.close();
             };
         }
 
