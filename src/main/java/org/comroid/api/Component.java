@@ -81,8 +81,9 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
     }
 
     default BackgroundTask<Component> execute(ScheduledExecutorService scheduler, Duration tickRate) {
-        Runtime.getRuntime().addShutdownHook(new Thread(this::terminate));
-        return new BackgroundTask<>(this, Component::tick, tickRate.toMillis(), scheduler).activate(ForkJoinPool.commonPool());
+        final var task = new BackgroundTask<>(this, Component::tick, tickRate.toMillis(), scheduler);
+        Runtime.getRuntime().addShutdownHook(new Thread(task::close));
+        return task.activate(ForkJoinPool.commonPool());
     }
 
     default void start() {
@@ -95,6 +96,11 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
 
     default boolean testState(State state) {
         return Bitmask.isFlagSet(getCurrentState().mask, state);
+    }
+
+    @Override
+    default void closeSelf() throws Exception {
+        terminate();
     }
 
     enum State implements BitmaskAttribute<State> {
