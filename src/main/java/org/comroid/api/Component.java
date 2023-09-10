@@ -285,7 +285,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                 return false; // avoid pushing same state twice
             previousState = currentState;
             currentState = state;
-            Log.at(Level.INFO, getName() + " changed into state: " + currentState);
+            Log.at(Level.FINE, getName() + " changed into state: " + currentState);
             return true;
         }
 
