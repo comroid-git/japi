@@ -15,6 +15,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.function.Consumer;
 
+@Deprecated // broken
 @ApiStatus.Experimental
 @EqualsAndHashCode(callSuper = true)
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)

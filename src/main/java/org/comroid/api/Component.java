@@ -14,12 +14,15 @@ import org.jetbrains.annotations.Nullable;
 import javax.persistence.PostLoad;
 import javax.persistence.PostUpdate;
 import javax.persistence.PreRemove;
+import java.io.Closeable;
 import java.lang.annotation.*;
+import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -80,10 +83,15 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                 .toList());
     }
 
-    default BackgroundTask<Component> execute(ScheduledExecutorService scheduler, Duration tickRate) {
-        final var task = new BackgroundTask<>(this, Component::tick, tickRate.toMillis(), scheduler);
-        Runtime.getRuntime().addShutdownHook(new Thread(task::close));
-        return task.activate(ForkJoinPool.commonPool());
+    default UncheckedCloseable execute(ScheduledExecutorService scheduler, Duration tickRate) {
+        initialize();
+        var task = scheduler.scheduleAtFixedRate(this::tick,0,tickRate.toMillis(), TimeUnit.MILLISECONDS);
+        final UncheckedCloseable closeable = ()-> {
+            task.cancel(true);
+            terminate();
+        };
+        Runtime.getRuntime().addShutdownHook(new Thread(closeable::close));
+        return closeable;
     }
 
     default void start() {
@@ -212,10 +220,11 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
             if (!testState(State.Active))
                 return;
             try {
+                Log.at(Level.FINE, MessageFormat.format("Ticking {0}", this));
                 $tick();
                 runOnChildren(Tickable.class, Tickable::tick, it -> test(it, State.Active));
             } catch (Throwable t) {
-                Log.at(Level.WARNING, "Error in tick for %s".formatted(this));
+                Log.at(Level.WARNING, "Error in tick for %s".formatted(this), t);
             }
         }
 
