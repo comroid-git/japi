@@ -223,7 +223,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
             if (!testState(State.Active))
                 return;
             try {
-                Log.at(Level.FINE, MessageFormat.format("Ticking {0}", this));
+                Log.at(Level.FINER, MessageFormat.format("Ticking {0}", this));
                 $tick();
                 runOnChildren(Tickable.class, Tickable::tick, it -> test(it, State.Active));
             } catch (Throwable t) {
