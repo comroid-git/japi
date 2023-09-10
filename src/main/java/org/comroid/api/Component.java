@@ -84,8 +84,11 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
     }
 
     default UncheckedCloseable execute(ScheduledExecutorService scheduler, Duration tickRate) {
-        initialize();
-        var task = scheduler.scheduleAtFixedRate(this::tick,0,tickRate.toMillis(), TimeUnit.MILLISECONDS);
+        var task = scheduler.scheduleAtFixedRate(() -> {
+            if (testState(State.PreInit))
+                initialize();
+            tick();
+        },0,tickRate.toMillis(), TimeUnit.MILLISECONDS);
         final UncheckedCloseable closeable = ()-> {
             task.cancel(true);
             terminate();
