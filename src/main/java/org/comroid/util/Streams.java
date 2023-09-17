@@ -1,16 +1,13 @@
 package org.comroid.util;
 
 import lombok.experimental.UtilityClass;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Spliterator;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.function.*;
 import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -67,5 +64,19 @@ public class Streams {
 
     public static <I, O> Function<I, Stream<O>> cast(final Class<O> type) {
         return obj -> Stream.of(obj).filter(type::isInstance).map(type::cast);
+    }
+
+    public static <T> Collector<T, List<T>, Optional<T>> oneOrNone(final @Nullable Supplier<RuntimeException> exception) {
+        return Collector.of(ArrayList::new, List::add, (l, r) -> {
+            l.addAll(r);
+            return l;
+        }, ls -> {
+            if (ls.size() > 1) {
+                if (exception != null)
+                    throw exception.get();
+                else return Optional.empty();
+            }
+            return ls.isEmpty() ? Optional.empty() : Optional.of(ls.get(0));
+        });
     }
 }
