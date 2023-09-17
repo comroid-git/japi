@@ -34,14 +34,14 @@ public @interface Command {
     interface Handler {
         void handleResponse(Delegate cmd, @NotNull Object response, Object... args);
 
-        default @Nullable String handleError(Error error) {
-            var msg = "%s: %s".formatted(StackTraceUtils.lessSimpleName(error.getClass()), error.getMessage());
-            if (error instanceof MildError)
+        default @Nullable String handleThrowable(Throwable throwable) {
+            var msg = "%s: %s".formatted(StackTraceUtils.lessSimpleName(throwable.getClass()), throwable.getMessage());
+            if (throwable instanceof Error)
                 return msg;
             var buf = new StringWriter();
             var out = new PrintWriter(buf);
             out.println(msg);
-            Throwable cause = error;
+            Throwable cause = throwable;
             do {
                 var c = cause.getCause();
                 if (c == null)
@@ -50,7 +50,10 @@ public @interface Command {
             } while (cause instanceof InvocationTargetException
                     || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
             cause.printStackTrace(out);
-            return buf.toString();
+            var str = buf.toString();
+            if (str.length()>1950)
+                str=str.substring(0,1950);
+            return str;
         }
     }
 
@@ -77,23 +80,7 @@ public @interface Command {
         }
     }
 
-    class MildError extends Error {
-        public MildError(String message) {
-            super(message);
-        }
-
-        @Override
-        public String toString() {
-            var str = "";
-            if (getCommand()!=null)
-                str += "Could not execute command '"+getCommand().name+"'";
-            if (str.length() > 0)
-                str += "; ";
-            return str + getMessage();
-        }
-    }
-
-    class ArgumentError extends MildError {
+    class ArgumentError extends Error {
         public ArgumentError(String message) {
             super(message);
         }
@@ -140,9 +127,9 @@ public @interface Command {
         public Object execute(String command, Object... extraArgs) {
             var split = command.split(" ");
             var name = split[0];
-            var cmd = commands.getOrDefault(name,null);
+            var cmd = commands.getOrDefault(name, null);
             var args = Arrays.stream(split).skip(1).toArray(String[]::new);
-            Error error = null;
+            Throwable thr = null;
             Object response = null;
             try {
                 if ("help".equals(name) && !commands.containsKey("help")) {
@@ -154,28 +141,29 @@ public @interface Command {
                     }
                     response = sb.toString();
                 } else {
-                    if (cmd==null)
-                        throw new MildError("Command not found: " + name);
-                    var result = cmd.execute(args, extraArgs);
+                    if (cmd == null)
+                        throw new Error("Command not found: " + name);
+                    Object result;
+                    try {
+                        result = cmd.execute(args, extraArgs);
+                    } catch (InvocationTargetException e) {
+                        throw e.getTargetException();
+                    } catch (IllegalAccessException | InstantiationException e) {
+                        throw new RuntimeException(e);
+                    }
                     if (result instanceof Error)
-                        throw (Error)result;
+                        throw (Error) result;
                     if (result != null)
                         response = result;
                 }
-            } catch (MildError e) {
-                response = "Command.MildError: "+ e;
             } catch (Error e) {
-                error = e;
+                response = e.getClass().getSimpleName() + ": " + e.getMessage();
             } catch (Throwable t) {
-                error = new Error(cmd, "A fatal error occurred during command execution", t, args);
+                assert cmd != null;
+                thr = new RuntimeException("A fatal error occurred during execution of command " + cmd.getName(), t);
             }
-            if (error != null) {
-                if (error.getCommand() == null)
-                    error = error.setCommand(cmd);
-                if (error.getArgs() == null || error.getArgs().length == 0)
-                    error = error.setArgs(args);
-                response = handler.handleError(error);
-            }
+            if (thr != null)
+                response = handler.handleThrowable(thr);
             if (response != null)
                 handler.handleResponse(cmd, response, Stream.of(args).collect(Streams.append(extraArgs)).toArray());
             return response;
@@ -218,18 +206,18 @@ public @interface Command {
             return Command.class;
         }
 
-        private Object execute(String[] args, Object... extraArgs) {
+        private Object execute(String[] args, Object... extraArgs) throws InvocationTargetException, IllegalAccessException, InstantiationException {
             if (usage != null)
                 usage.validate(args);
-            return delegate.autoInvoke(Stream.of(this, args).collect(Streams.append(extraArgs)).toArray());
+            return delegate.invokeAutoOrder(Stream.of(this, args).collect(Streams.append(extraArgs)).toArray());
         }
 
         private UsageInfo parseUsageInfo(String usage) {
             var split = usage.split(" ");
             return new UsageInfo(usage,
-                    (int) Arrays.stream(split).filter(s->s.startsWith("<")).count(),
+                    (int) Arrays.stream(split).filter(s -> s.startsWith("<")).count(),
                     split.length,
-                    Arrays.stream(split).skip(split.length-1).anyMatch(s->s.contains("..")));
+                    Arrays.stream(split).skip(split.length - 1).anyMatch(s -> s.contains("..")));
         }
 
         @Value
@@ -241,9 +229,9 @@ public @interface Command {
 
             private void validate(String[] args) {
                 if (args.length < required)
-                    throw new MildError("not enough arguments; usage: " + name + " " + hint);
+                    throw new Error("not enough arguments; usage: " + name + " " + hint);
                 if (!ellipsis && args.length > total)
-                    throw new MildError("too many arguments; usage: " + name + " " + hint);
+                    throw new Error("too many arguments; usage: " + name + " " + hint);
             }
         }
     }
