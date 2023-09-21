@@ -5,6 +5,7 @@ import jakarta.annotation.PreDestroy;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
+import lombok.experimental.StandardException;
 import org.comroid.api.info.Log;
 import org.comroid.util.*;
 import org.jetbrains.annotations.Contract;
@@ -19,10 +20,7 @@ import java.lang.annotation.*;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -189,7 +187,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         @Override
         @SneakyThrows
         //@PreRemove @PreDestroy
-        public final void initialize() {
+        public final synchronized void initialize() {
             try {
                 if (!testState(State.PreInit))
                     return;
@@ -207,7 +205,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         @Override
-        public final void lateInitialize() {
+        public final synchronized void lateInitialize() {
             if (!testState(State.Init) && !pushState(State.LateInit))
                 return;
             runOnDependencies(Component::lateInitialize).join();
@@ -219,7 +217,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
 
         @Override
         //@PostUpdate
-        public final void tick() {
+        public final synchronized void tick() {
             if (!testState(State.Active))
                 return;
             try {
@@ -237,7 +235,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         @Override
-        public final void earlyTerminate() {
+        public final synchronized void earlyTerminate() {
             pushState(State.EarlyTerminate);
             runOnChildren(LifeCycle.class, LifeCycle::earlyTerminate, it -> test(it, State.Active));
             $earlyTerminate();
@@ -245,7 +243,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
 
         @Override
         //@PreRemove @PreDestroy
-        public final void terminate() {
+        public final synchronized void terminate() {
             if (testState(State.PostTerminate))
                 return;
             try {
