@@ -1,6 +1,7 @@
 package org.comroid.api;
 
 import lombok.*;
+import org.comroid.util.Debug;
 import org.comroid.util.StackTraceUtils;
 import org.comroid.util.Streams;
 import org.jetbrains.annotations.NotNull;
@@ -49,7 +50,7 @@ public @interface Command {
                 cause = c;
             } while (cause instanceof InvocationTargetException
                     || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
-            cause.printStackTrace(out);
+            StackTraceUtils.wrap(cause, out);
             var str = buf.toString();
             if (str.length()>1950)
                 str=str.substring(0,1950);

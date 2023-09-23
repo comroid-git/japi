@@ -3,9 +3,11 @@ package org.comroid.util;
 import org.comroid.api.DelegateStream;
 
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 public final class StackTraceUtils {
     public static String callerString(StackTraceElement[] trace, int index) {
@@ -88,5 +90,24 @@ public final class StackTraceUtils {
         var buf = new StringWriter();
         t.printStackTrace(new DelegateStream.Output(buf).convert(PrintStream.class));
         return buf.toString();
+    }
+
+    public static void wrap(Throwable cause, PrintWriter out) {
+        if (!Debug.isDebug()){
+            writeFilteredStacktrace(cause, out);
+        }else cause.printStackTrace(out);
+    }
+
+    public static void writeFilteredStacktrace(Throwable cause, PrintWriter out, String... pkgs) {
+        do {
+            var stackTrace = cause.getStackTrace();
+            out.println("%s: %s".formatted(cause.getClass().getName(), cause.getMessage()));
+            for (var element : stackTrace) {
+                if (Stream.of("org.comroid","java")
+                        .collect(Streams.append(pkgs))
+                        .anyMatch(element.getClassName()::startsWith))
+                    out.println("\tat " + element);
+            }
+        } while ((cause = cause.getCause()) != null);
     }
 }
