@@ -2,30 +2,24 @@ package org.comroid.api;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
-import lombok.experimental.StandardException;
 import org.comroid.api.info.Log;
 import org.comroid.util.*;
 import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.persistence.PostLoad;
 import javax.persistence.PostUpdate;
 import javax.persistence.PreRemove;
-import java.io.Closeable;
 import java.lang.annotation.*;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.BiPredicate;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.logging.Level;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.util.Streams.*;
@@ -57,6 +51,10 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
     @Contract("_ -> this")
     Component setParent(@Nullable Component parent);
 
+    default boolean isSubComponent() {
+        return false;
+    }
+
     default String getFullName() {
         return Optional.ofNullable(getParent())
                 .map(Component::getFullName)
@@ -65,7 +63,11 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
     }
 
     default <T extends Component> Stream<T> components(@Nullable Class<T> type) {
-        return streamChildren(type);
+        return Stream.concat(
+                streamChildren(type),
+                isSubComponent() ? Stream.of(getParent())
+                        .filter(Objects::nonNull)
+                        .flatMap(comp -> comp.components(type)) : Stream.empty());
     }
 
     default <T extends Component> Rewrapper<T> component(@Nullable Class<T> type) {
@@ -304,6 +306,26 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                     }))
                     .toArray(CompletableFuture[]::new);
             return CompletableFuture.allOf(futures);
+        }
+    }
+
+    @Data
+    class Sub<Parent extends Component> extends Base {
+        protected final Parent parent;
+
+        @Override
+        public final boolean isSubComponent() {
+            return true;
+        }
+
+        @Override
+        public final @Nullable Parent getParent() {
+            return parent;
+        }
+
+        @Override
+        public final Component.Base setParent(@Nullable Component parent) {
+            return this; // do nothing, parent is final
         }
     }
 }
