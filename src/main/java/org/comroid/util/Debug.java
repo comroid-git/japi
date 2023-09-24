@@ -13,7 +13,7 @@ import java.util.logging.Logger;
 
 @lombok.extern.java.Log
 public final class Debug {
-    public static String[] DEBUG_ENV_KEYS = new String[]{"DEBUG", "DEBUG_ENV", "IS_DEBUG"};
+    public static String[] DEBUG_ENV_KEYS = new String[]{"DEBUG", "DEBUG_ENV", "IS_DEBUG", "TRACE", "TRACE_ENV", "IS_TRACE"};
     public static BooleanSupplier[] IS_DEBUG_CHECKS = new BooleanSupplier[]{Debug::isDebugEnv};
     public static Logger logger = Log.get(Debug.class);
 
