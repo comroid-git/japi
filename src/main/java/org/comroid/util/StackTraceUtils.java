@@ -92,8 +92,8 @@ public final class StackTraceUtils {
         return buf.toString();
     }
 
-    public static void wrap(Throwable cause, PrintWriter out) {
-        if (!Debug.isDebug()){
+    public static void wrap(Throwable cause, PrintWriter out, boolean shorten) {
+        if (shorten || !Debug.isDebug()){
             writeFilteredStacktrace(cause, out);
         }else cause.printStackTrace(out);
     }
@@ -101,8 +101,14 @@ public final class StackTraceUtils {
     public static void writeFilteredStacktrace(Throwable cause, PrintWriter out, String... pkgs) {
         do {
             var stackTrace = cause.getStackTrace();
-            out.println("%s: %s".formatted(cause.getClass().getName(), cause.getMessage()));
+            out.println("%s: %s".formatted(cause.getClass().getCanonicalName(), cause.getMessage()));
+            boolean first = true;
             for (var element : stackTrace) {
+                if (first) {
+                    out.println("\tat " + element);
+                    first = false;
+                    continue;
+                }
                 if (Stream.of("org.comroid","java")
                         .collect(Streams.append(pkgs))
                         .anyMatch(element.getClassName()::startsWith))

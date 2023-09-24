@@ -50,7 +50,7 @@ public @interface Command {
                 cause = c;
             } while (cause instanceof InvocationTargetException
                     || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
-            StackTraceUtils.wrap(cause, out);
+            StackTraceUtils.wrap(cause, out, true);
             var str = buf.toString();
             if (str.length()>1950)
                 str=str.substring(0,1950);
