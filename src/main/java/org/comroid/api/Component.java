@@ -305,6 +305,8 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                         return null;
                     }))
                     .toArray(CompletableFuture[]::new);
+            if (futures.length != requires().size())
+                Log.at(Level.WARNING, "Could not run on all dependencies of %s".formatted(this));
             return CompletableFuture.allOf(futures);
         }
     }
