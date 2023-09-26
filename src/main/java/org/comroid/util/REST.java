@@ -1,12 +1,14 @@
 package org.comroid.util;
 
-import lombok.Builder;
+import lombok.RequiredArgsConstructor;
 import lombok.Singular;
 import lombok.Value;
 import lombok.With;
 import org.comroid.abstr.DataNode;
 import org.comroid.api.Polyfill;
 import org.comroid.api.Serializer;
+import org.comroid.util.REST.Request;
+import org.comroid.util.REST.Response;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -14,16 +16,39 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @Value
 public class REST {
-    public static final REST Default = new REST(HttpClient.newHttpClient());
+    public static final REST Default = new REST(new Function<>() {
+        private final HttpClient client = HttpClient.newHttpClient();
 
-    HttpClient client;
+        @Override
+        public CompletableFuture<Response> apply(Request request) {
+            var pub = Stream.of(Method.GET, Method.OPTIONS, Method.TRACE)
+                    .noneMatch(request.method::equals)
+                    || request.body == null
+                    ? HttpRequest.BodyPublishers.noBody()
+                    : HttpRequest.BodyPublishers.ofString(request.body.toString());
+            var req = HttpRequest.newBuilder()
+                    .uri(request.uri)
+                    .method(request.method.name(), pub)
+                    .build();
+            var res = HttpResponse.BodyHandlers.ofString();
+            return client.sendAsync(req, res).thenApply(response -> {
+                var body = response.body().isBlank() ? DataNode.of(null) : request.serializer.parse(response.body());
+                return Default.new Response(request, response.statusCode(), body, response.headers().map());
+            }).thenCompose(request::handleRedirect);
+        }
+    });
+
+    Function<Request, CompletableFuture<Response>> executor;
 
     public static CompletableFuture<Response> get(String uri) {return request(Method.GET, uri).execute(); }
     public static CompletableFuture<Response> post(String uri, @Nullable DataNode body) {return request(Method.POST, uri).withBody(body).execute(); }
@@ -42,7 +67,7 @@ public class REST {
     @Value
     public class Request {
         Method method;
-        URI uri;
+        @With URI uri;
         @With @Nullable DataNode body;
         @With Serializer<DataNode> serializer;
         @Singular Map<String, String> headers = new ConcurrentHashMap<>();
@@ -63,27 +88,29 @@ public class REST {
         }
 
         public CompletableFuture<Response> execute() {
-            var pub = Stream.of(Method.GET, Method.OPTIONS, Method.TRACE)
-                    .noneMatch(method::equals)
-                    || body == null
-                    ? HttpRequest.BodyPublishers.noBody()
-                    : HttpRequest.BodyPublishers.ofString(body.toString());
-            var req = HttpRequest.newBuilder()
-                    .uri(uri)
-                    .method(method.name(), pub)
-                    .build();
-            var res = HttpResponse.BodyHandlers.ofString();
-            return client.sendAsync(req, res).thenApply(response -> {
-                var body = serializer.parse(response.body());
-                return new Response(this, body);
-            });
+            return executor.apply(this);
+        }
+
+        private CompletableFuture<Response> handleRedirect(Response response) {
+            if (response.responseCode / 100 != 3)
+                return CompletableFuture.completedFuture(response);
+            var location = response.headers.get("Location").get(0);
+            return withUri(Polyfill.uri(location)).execute()
+                    .thenCompose(this::handleRedirect);
         }
     }
 
     @Value
     public class Response {
         Request request;
+        int responseCode;
         DataNode body;
+        Map<String, List<String>> headers;
+
+        public void require(int... statusCodes) {
+            if (IntStream.of(statusCodes).noneMatch(x->responseCode==x))
+                throw new RuntimeException("Invalid response received: " + responseCode);
+        }
     }
 
     public enum Method {
