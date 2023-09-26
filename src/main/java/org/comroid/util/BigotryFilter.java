@@ -11,12 +11,12 @@ import java.nio.file.Path;
 @UtilityClass
 @SuppressWarnings("ALL")
 public class BigotryFilter {
-    public static final @Language("RegExp") String Separator = "[/,\\s]";
+    public static final @Language("RegExp") String Separator = "[/,\\s\r\n]";
     public static final String[] Pronouns;
 
     static {
         try {
-            var file = new FileHandle(Path.of(System.getProperty("user.home"), "comroid", "pronouns.txt").toFile());
+            var file = new FileHandle(Path.of(System.getProperty("user.home"), "pronouns.txt").toFile());
             file.mkdirs();
             if (file.exists())
                 Pronouns = file.getContent(true).split(Separator);
