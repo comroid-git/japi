@@ -13,7 +13,6 @@ import java.nio.file.Path;
 public class BigotryFilter {
     public static final @Language("RegExp") String Separator = "[/,\\s]";
     public static final String[] Pronouns;
-    private boolean init = false;
 
     static {
         try {
