@@ -3,6 +3,7 @@ package org.comroid.api.os;
 import org.comroid.api.DelegateStream;
 import org.comroid.api.Event;
 import org.comroid.api.Named;
+import org.comroid.api.io.FileHandle;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;

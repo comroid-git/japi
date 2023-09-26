@@ -17,6 +17,10 @@ public final class Debug {
     public static BooleanSupplier[] IS_DEBUG_CHECKS = new BooleanSupplier[]{Debug::isDebugEnv};
     public static Logger logger = Log.get(Debug.class);
 
+    static {
+        BigotryFilter.init();
+    }
+
     public static boolean isDebug() {
         return Arrays.stream(IS_DEBUG_CHECKS).allMatch(BooleanSupplier::getAsBoolean);
     }
