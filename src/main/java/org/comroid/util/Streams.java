@@ -1,13 +1,13 @@
 package org.comroid.util;
 
 import lombok.experimental.UtilityClass;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.*;
 import java.util.stream.Collector;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -78,5 +78,39 @@ public class Streams {
             }
             return ls.isEmpty() ? Optional.empty() : Optional.of(ls.get(0));
         });
+    }
+
+    public static <T> Function<T, Stream<T>> skip(Strategy strat, final Predicate<T> test) {
+        return new Function<>() {
+            private final Strategy.Filter filter = strat.new Filter();
+
+            @Override
+            public Stream<T> apply(T obj) {
+                if (filter.apply(test.test(obj)))
+                    return Stream.of(obj);
+                return empty();
+            }
+        };
+    }
+
+    public enum Strategy {
+        Every,
+        Opposite,
+        While,
+        Until;
+
+        private class Filter implements UnaryOperator<@NotNull Boolean> {
+            private boolean state = Strategy.this == Until;
+
+            @Override
+            public @NotNull Boolean apply(@NotNull Boolean testResult) {
+                return (state = switch (Strategy.this) {
+                    case Every -> testResult;
+                    case Opposite -> !testResult;
+                    case While -> state && testResult;
+                    case Until -> !state && !testResult;
+                });
+            }
+        }
     }
 }
