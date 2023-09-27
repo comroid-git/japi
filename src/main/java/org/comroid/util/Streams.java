@@ -100,7 +100,7 @@ public class Streams {
         Until;
 
         private class Filter implements UnaryOperator<@NotNull Boolean> {
-            private boolean state = Strategy.this == Until;
+            private boolean state = Strategy.this == While;
 
             @Override
             public @NotNull Boolean apply(@NotNull Boolean testResult) {
