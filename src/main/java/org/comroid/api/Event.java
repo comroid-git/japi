@@ -144,7 +144,7 @@ public class Event<T> implements Rewrapper<T> {
     @Getter
     @EqualsAndHashCode(of = {}, callSuper = true)
     @ToString(of = {"name", "upstream", "factory", "active"})
-    public static class Bus<T> extends Component.Base implements Named, N.Consumer.$3<T, String, Long>, Provider<T>, UUIDContainer {
+    public static class Bus<T> extends Container.Base implements Named, N.Consumer.$3<T, String, Long>, Provider<T>, UUIDContainer {
         @Nullable
         private Event.Bus<?> upstream;
         @NotNull Set<Event.Bus<?>> downstream = new HashSet<>();

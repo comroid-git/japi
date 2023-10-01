@@ -17,7 +17,10 @@ import static org.comroid.util.Streams.append;
 import static org.comroid.util.Streams.cast;
 
 public interface Container extends Stoppable, SelfCloseable {
-    Object addChildren(Object... children);
+    Object addChildren(@Nullable Object @NotNull ... children);
+
+    int removeChildren(@Nullable Object @NotNull ... children);
+
     Set<Object> getChildren();
 
     default Stream<Object> streamOwnChildren() {
@@ -38,12 +41,14 @@ public interface Container extends Stoppable, SelfCloseable {
                 errors.size(),
                 Polyfill.plural(errors, "exception", "+s")),
                 null,
-                true, false){};
+                true, false) {
+        };
     }
 
     class Base implements Container, Reloadable {
         private final AtomicReference<CompletableFuture<Void>> closed = new AtomicReference<>(new CompletableFuture<>());
-        @Getter final Set<Object> children;
+        @Getter
+        final Set<Object> children;
 
         public boolean isClosed() {
             return closed.get().isDone();
@@ -51,15 +56,15 @@ public interface Container extends Stoppable, SelfCloseable {
 
         public boolean setClosed(boolean state) {
             return Polyfill.updateBoolState(isClosed(), state,
-                    ()->closed.get().complete(null),
-                    ()->closed.set(new CompletableFuture<>()));
+                    () -> closed.get().complete(null),
+                    () -> closed.set(new CompletableFuture<>()));
         }
 
         public Base(Object... children) {
             this.children = new HashSet<>(Set.of(children));
         }
 
-        public Object addChildren(@Nullable Object... children) {
+        public Object addChildren(@Nullable Object @NotNull ... children) {
             Stream.of(children)
                     .filter(Objects::nonNull)
                     .forEach(this.children::add);
@@ -67,16 +72,23 @@ public interface Container extends Stoppable, SelfCloseable {
         }
 
         @Override
+        public int removeChildren(Object @NotNull ... children) {
+            return (int)Stream.of(children)
+                    .filter(this.children::remove)
+                    .count();
+        }
+
+        @Override
         @SneakyThrows
         public void start() {
-            runOnChildren(Startable.class, Startable::start, $->true);
+            runOnChildren(Startable.class, Startable::start, $ -> true);
             setClosed(false);
         }
 
         @Override
         @SneakyThrows
         public final void close() {
-            runOnChildren(AutoCloseable.class, AutoCloseable::close, $->true, this::closeSelf);
+            runOnChildren(AutoCloseable.class, AutoCloseable::close, $ -> true, this::closeSelf);
             setClosed(true);
         }
 
@@ -104,7 +116,7 @@ public interface Container extends Stoppable, SelfCloseable {
             if (errors.size() == 1)
                 throw errors.get(0);
             throw errors.stream().collect(
-                    ()->Container.makeException(errors),
+                    () -> Container.makeException(errors),
                     Throwable::addSuppressed,
                     (l, r) -> Arrays.stream(r.getSuppressed()).forEachOrdered(l::addSuppressed));
         }
@@ -128,7 +140,7 @@ public interface Container extends Stoppable, SelfCloseable {
         private final @NotNull S owner;
 
         @Override
-        public S addChildren(Object... children) {
+        public S addChildren(Object @NotNull ... children) {
             super.addChildren(children);
             return owner;
         }

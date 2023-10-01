@@ -9,6 +9,7 @@ import lombok.SneakyThrows;
 import org.comroid.api.info.Log;
 import org.comroid.util.*;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.persistence.PostLoad;
@@ -19,7 +20,9 @@ import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.Predicate;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.util.Streams.*;
@@ -174,7 +177,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         @Override
-        public Object addChildren(@Nullable Object... children) {
+        public Object addChildren(Object @NotNull ... children) {
             for (Object child : children)
                 if (child instanceof Component)
                     ((Component) child).setParent(this);
@@ -256,10 +259,18 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                 runOnChildren(LifeCycle.class, LifeCycle::terminate, it -> test(it, State.EarlyTerminate));
 
                 pushState(State.PostTerminate);
+                cleanupChildren();
                 close();
             } catch (Throwable t) {
                 Log.at(Level.WARNING, "Could not correctly terminate %s".formatted(this));
             }
+        }
+
+        private void cleanupChildren() {
+            final Predicate<Object> isNotComponent = x->!Component.class.isAssignableFrom(x.getClass());
+            final var remove = streamChildren(Object.class).filter(isNotComponent).toArray();
+            if (removeChildren(remove)!=remove.length)
+                Log.at(Level.WARNING, "Could not remove all children of %s".formatted(this));
         }
 
         protected void $initialize() {
