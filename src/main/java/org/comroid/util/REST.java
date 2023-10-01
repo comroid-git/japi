@@ -39,7 +39,9 @@ public class REST {
                     .build();
             var res = HttpResponse.BodyHandlers.ofString();
             return client.sendAsync(req, res).thenApply(response -> {
-                var body = response.body().isBlank() ? DataNode.of(null) : request.serializer.parse(response.body());
+                var body = response.body().isBlank() || response.statusCode()/100!=2
+                        ? DataNode.of(null)
+                        : request.serializer.parse(response.body());
                 return Default.new Response(request, response.statusCode(), body, response.headers().map());
             }).thenCompose(request::handleRedirect);
         }
