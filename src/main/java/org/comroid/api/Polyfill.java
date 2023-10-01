@@ -2,6 +2,7 @@ package org.comroid.api;
 
 import lombok.experimental.UtilityClass;
 import org.comroid.util.RegExpUtil;
+import org.comroid.util.StackTraceUtils;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -53,6 +54,7 @@ public final class Polyfill {
 
     public static <R, T extends Throwable> Function<T, R> exceptionLogger() {
         return nil -> {
+            System.err.println("An async error occurred; logging from " + StackTraceUtils.caller(1));
             nil.printStackTrace(System.err);
 
             return null;
