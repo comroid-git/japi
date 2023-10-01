@@ -7,6 +7,7 @@ import org.comroid.util.Streams;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.annotation.*;
@@ -40,7 +41,7 @@ public @interface Command {
             if (throwable instanceof Error)
                 return msg;
             var buf = new StringWriter();
-            var out = new PrintWriter(buf);
+            var out = new PrintStream(new DelegateStream.Output(buf));
             out.println(msg);
             Throwable cause = throwable;
             do {

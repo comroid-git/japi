@@ -92,16 +92,16 @@ public final class StackTraceUtils {
         return buf.toString();
     }
 
-    public static void wrap(Throwable cause, PrintWriter out, boolean shorten) {
+    public static void wrap(Throwable cause, PrintStream out, boolean shorten) {
         if (shorten || !Debug.isDebug()){
             writeFilteredStacktrace(cause, out);
         }else cause.printStackTrace(out);
     }
 
-    public static void writeFilteredStacktrace(Throwable cause, PrintWriter out, String... pkgs) {
+    public static void writeFilteredStacktrace(Throwable cause, PrintStream out, String... pkgs) {
         do {
             var stackTrace = cause.getStackTrace();
-            out.println("%s: %s".formatted(cause.getClass().getCanonicalName(), cause.getMessage()));
+            out.printf("%s: %s%n", cause.getClass().getCanonicalName(), cause.getMessage());
             boolean first = true;
             for (var element : stackTrace) {
                 if (first) {
