@@ -53,8 +53,9 @@ public final class Polyfill {
     }
 
     public static <R, T extends Throwable> Function<T, R> exceptionLogger() {
+        final var caller = StackTraceUtils.caller(1);
         return nil -> {
-            System.err.println("An async error occurred; logging from " + StackTraceUtils.caller(1));
+            System.err.println("An async error occurred; logging from " + caller);
             nil.printStackTrace(System.err);
 
             return null;
