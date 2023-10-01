@@ -6,6 +6,7 @@ import lombok.experimental.NonFinal;
 import org.comroid.annotations.Convert;
 import org.comroid.api.info.Log;
 import org.comroid.util.Bitmask;
+import org.comroid.util.Debug;
 import org.comroid.util.StackTraceUtils;
 import org.comroid.util.StreamUtil;
 import org.intellij.lang.annotations.MagicConstant;
@@ -1279,7 +1280,8 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 final var det = parent ==null?"Parent was null":"Redirects did not contain " + getName();
                 log.log(Level.WARNING, msg);
                 log.log(Level.FINE, det);
-                StackTraceUtils.writeFilteredStacktrace(new RuntimeException(msg+"\n\t"+det), System.out);
+                if (Debug.isDebug())
+                    StackTraceUtils.writeFilteredStacktrace(new RuntimeException(msg+"\n\t"+det), System.err);
             } else parent = null;
         }
 
