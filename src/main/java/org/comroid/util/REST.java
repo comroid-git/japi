@@ -1,14 +1,11 @@
 package org.comroid.util;
 
-import lombok.RequiredArgsConstructor;
 import lombok.Singular;
 import lombok.Value;
 import lombok.With;
 import org.comroid.abstr.DataNode;
 import org.comroid.api.Polyfill;
 import org.comroid.api.Serializer;
-import org.comroid.util.REST.Request;
-import org.comroid.util.REST.Response;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -77,7 +74,7 @@ public class REST {
         }
 
         public Request(Method method, URI uri, @Nullable DataNode body) {
-            this(method, uri, body, JSON.Parser);
+            this(method, uri, body, Jackson.JSON);
         }
 
         public Request(Method method, URI uri, @Nullable DataNode body, @NotNull Serializer<DataNode> serializer) {

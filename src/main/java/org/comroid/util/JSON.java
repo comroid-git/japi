@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringReader;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -166,6 +168,13 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
 
     @lombok.Data
     public static final class Object extends DataNode.Object {
+        public static Object of(Map<String, java.lang.Object> map) {
+            var obj = new JSON.Object();
+            for (var entry : map.entrySet())
+                obj.put(entry.getKey(), DataNode.of(entry.getValue()));
+            return obj;
+        }
+
         @Override
         public String toString() {
             return map.entrySet().stream()
@@ -176,6 +185,13 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
 
     @lombok.Data
     public static final class Array extends DataNode.Array {
+        public static Array of(List<java.lang.Object> list) {
+            var arr = new JSON.Array();
+            for (var each : list)
+                arr.add(DataNode.of(each));
+            return arr;
+        }
+
         @Override
         public String toString() {
             return list.stream()
