@@ -15,6 +15,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -107,8 +108,16 @@ public class REST {
         Map<String, List<String>> headers;
 
         public void require(int... statusCodes) {
-            if (IntStream.of(statusCodes).noneMatch(x->responseCode==x))
-                throw new RuntimeException("Invalid response received: " + responseCode);
+            IntStream.of(statusCodes).forEach(x->require(x,null));
+        }
+
+        public void require(int statusCode, @Nullable String message) {
+            if (responseCode!=statusCode)
+                throw new RuntimeException(Objects.requireNonNullElseGet(message, this::reqErrMsg));
+        }
+
+        private String reqErrMsg() {
+            return "Invalid response received: " + responseCode;
         }
     }
 
