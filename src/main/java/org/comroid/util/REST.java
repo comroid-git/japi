@@ -36,10 +36,10 @@ public class REST {
                     : HttpRequest.BodyPublishers.ofString(request.body.toString());
             var req = HttpRequest.newBuilder()
                     .uri(request.uri)
-                    .method(request.method.name(), pub)
-                    .build();
+                    .method(request.method.name(), pub);
+            request.headers.forEach(req::header);
             var res = HttpResponse.BodyHandlers.ofString();
-            return client.sendAsync(req, res).thenApply(response -> {
+            return client.sendAsync(req.build(), res).thenApply(response -> {
                 var body = response.body().isBlank() || response.statusCode()/100!=2
                         ? DataNode.of(null)
                         : request.serializer.parse(response.body());
@@ -71,6 +71,11 @@ public class REST {
         @With @Nullable DataNode body;
         @With Serializer<DataNode> serializer;
         @Singular Map<String, String> headers = new ConcurrentHashMap<>();
+
+        public Request addHeader(String name, String value) {
+            headers.put(name, value);
+            return this;
+        }
 
         public Request(Method method, URI uri) {
             this(method, uri, null);
