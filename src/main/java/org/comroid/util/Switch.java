@@ -31,6 +31,11 @@ public class Switch<I, O> implements Function<I, @Nullable O> {
     }
 
     @Contract(pure = true, value = "_,_ -> this")
+    public Switch<I, O> option(Predicate<I> predicate, final O result) {
+        return option(predicate, () -> result);
+    }
+
+    @Contract(pure = true, value = "_,_ -> this")
     public Switch<I, O> option(Predicate<I> predicate, Supplier<O> supplier) {
         return option(new Case(predicate, supplier));
     }

@@ -15,6 +15,10 @@ import static java.util.stream.Stream.empty;
 
 @UtilityClass
 public class Streams {
+    public static <T> Stream<T> of(Iterator<T> iterator,int size) {
+        return of(Spliterators.spliterator(iterator,size,0));
+    }
+
     public static <T> Stream<T> of(Iterable<T> iterable) {
         return StreamSupport.stream(iterable.spliterator(), false);
     }
