@@ -1275,9 +1275,11 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
 
         public void detach() {
-            if (parent == null || !parent.redirects.remove(this)) {
+            if (parent == null)
+                return;
+            if (!parent.redirects.remove(this)) {
                 final var msg = "Could not remove redirect from parent";
-                final var det = parent ==null?"Parent was null":"Redirects did not contain " + getName();
+                final var det = "Redirects did not contain " + getName();
                 log.log(Level.WARNING, msg);
                 log.log(Level.FINE, det);
                 if (Debug.isDebug())
