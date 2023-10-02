@@ -80,36 +80,37 @@ public class Streams {
         });
     }
 
-    public static <T> Function<T, Stream<T>> skip(Strategy strat, final Predicate<T> test) {
-        return new Function<>() {
-            private final Strategy.Filter filter = strat.new Filter();
-
-            @Override
-            public Stream<T> apply(T obj) {
-                if (filter.apply(test.test(obj)))
-                    return Stream.of(obj);
-                return empty();
-            }
-        };
-    }
-
     public enum Strategy {
         Every,
         Opposite,
         While,
         Until;
 
-        private class Filter implements UnaryOperator<@NotNull Boolean> {
+        public final class Filter<T> implements Predicate<T>, UnaryOperator<@NotNull Boolean> {
+            private final Predicate<T> predicate;
             private boolean state = Strategy.this == While;
 
-            @Override
-            public @NotNull Boolean apply(@NotNull Boolean testResult) {
-                return (state = switch (Strategy.this) {
+            public Filter(Predicate<T> predicate) {
+                this.predicate = predicate;
+            }
+
+            public @NotNull Boolean peek(@NotNull Boolean testResult) {
+                return switch (Strategy.this) {
                     case Every -> testResult;
                     case Opposite -> !testResult;
                     case While -> state && testResult;
                     case Until -> !state && !testResult;
-                });
+                };
+            }
+
+            @Override
+            public @NotNull Boolean apply(@NotNull Boolean testResult) {
+                return (state = peek(testResult));
+            }
+
+            @Override
+            public boolean test(T t) {
+                return apply(predicate.test(t));
             }
         }
     }
