@@ -83,7 +83,7 @@ repositories {
 dependencies {
     // annotations
     api 'org.jetbrains:annotations:+'
-    compileOnly 'com.fasterxml.jackson.core:jackson-databind:2.+'
+    compileOnly 'com.fasterxml.jackson.core:jackson-databind:2.14.+'
     compileOnly 'javax.persistence:javax.persistence-api:2.+'
     compileOnly 'org.apache.tomcat:tomcat-annotations-api:10.+'
 
