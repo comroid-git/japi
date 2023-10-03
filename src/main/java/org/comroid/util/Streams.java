@@ -6,8 +6,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
 import java.util.stream.Collector;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -82,6 +84,14 @@ public class Streams {
             }
             return ls.isEmpty() ? Optional.empty() : Optional.of(ls.get(0));
         });
+    }
+
+    public static String intString(IntStream intStream) {
+        return intStream.collect(
+                        () -> new AtomicReference<>(""),
+                        (l, r) -> l.updateAndGet(s -> s + (char) r),
+                        (l, r) -> l.updateAndGet(s -> s + r.get()))
+                .get();
     }
 
     public enum Strategy {

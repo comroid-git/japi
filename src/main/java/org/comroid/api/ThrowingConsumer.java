@@ -5,7 +5,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.ToIntFunction;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -39,6 +38,12 @@ public interface ThrowingConsumer<I, T extends Throwable> {
                 //noinspection unchecked
                 throw finalRemapper.apply((T) thr);
             }
+        };
+    }
+
+    static <T extends Throwable> ThrowingConsumer<T, T> doThrow() {
+        return t -> {
+            throw t;
         };
     }
 

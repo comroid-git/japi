@@ -54,10 +54,10 @@ public interface DataNode extends Specifiable<DataNode> {
         return of(this).form();
     }
 
-    default Object asObject() {
+    default @Nullable Object asObject() {
         return as(Object.class)
                 .or(() -> of(this).asObject())
-                .assertion();
+                .orElse(null);
     }
 
     default Array asArray() {
