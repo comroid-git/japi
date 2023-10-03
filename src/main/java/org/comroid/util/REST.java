@@ -13,6 +13,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -24,7 +25,7 @@ import java.util.stream.Stream;
 
 @Value
 public class REST {
-    public static final REST Default = new REST(new Function<>() {
+    public static final REST Default = new REST(new Cache<>(Duration.ofMinutes(10)), new Function<>() {
         private final HttpClient client = HttpClient.newHttpClient();
 
         @Override
@@ -48,6 +49,7 @@ public class REST {
         }
     });
 
+    @Nullable Cache<URI, Response> cache;
     Function<Request, CompletableFuture<Response>> executor;
 
     public static CompletableFuture<Response> get(String uri) {return request(Method.GET, uri).execute(); }
