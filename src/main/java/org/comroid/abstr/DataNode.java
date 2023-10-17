@@ -330,14 +330,14 @@ public interface DataNode extends Specifiable<DataNode> {
 
         @Override
         public SupplierX<DataNode> getValue() {
-            return Polyfill.uncheckedCast(value);
+            return value;
         }
 
         @Override
         public SupplierX<DataNode> setValue(SupplierX<DataNode> value) {
             var prev = this.value;
             this.value = value;
-            return Polyfill.uncheckedCast(prev);
+            return prev;
         }
 
         public DataNode node() {
