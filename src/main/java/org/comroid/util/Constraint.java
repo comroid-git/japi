@@ -5,7 +5,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.StandardException;
 import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
-import org.comroid.api.Rewrapper;
+import org.comroid.api.SupplierX;
 import org.comroid.api.ThrowingConsumer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -155,7 +155,7 @@ public class Constraint {
         @NotNull String shouldBe = DefaultShouldBe;
         @NotNull Object expected = DefaultExpected;
 
-        public <T> Rewrapper<T> handle(@NotNull Supplier<T> success, @Nullable Function<UnmetError, @Nullable T> failure) {
+        public <T> SupplierX<T> handle(@NotNull Supplier<T> success, @Nullable Function<UnmetError, @Nullable T> failure) {
             return () -> {
                 T result = null;
                 if (test.getAsBoolean())
@@ -170,7 +170,7 @@ public class Constraint {
             };
         }
 
-        public Rewrapper<Object> handle() {
+        public SupplierX<Object> handle() {
             return handle(Object::new, $ -> null);
         }
 

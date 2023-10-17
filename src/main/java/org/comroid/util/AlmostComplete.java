@@ -1,7 +1,7 @@
 package org.comroid.util;
 
 import lombok.Data;
-import org.comroid.api.Rewrapper;
+import org.comroid.api.SupplierX;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 @Data
-public class AlmostComplete<T> implements Rewrapper<T> {
+public class AlmostComplete<T> implements SupplierX<T> {
     private final @NotNull Supplier<T> origin;
     private final @Nullable Consumer<T> finalize;
 

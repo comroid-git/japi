@@ -27,11 +27,11 @@ public interface ContentParser extends Readable {
         return new StringReader(content);
     }
 
-    default Rewrapper<String> wrapContent(boolean createIfAbsent) {
-        return Rewrapper.of(getContent(createIfAbsent));
+    default SupplierX<String> wrapContent(boolean createIfAbsent) {
+        return SupplierX.of(getContent(createIfAbsent));
     }
 
-    default Rewrapper<String> wrapContent() {
+    default SupplierX<String> wrapContent() {
         return wrapContent(false);
     }
 

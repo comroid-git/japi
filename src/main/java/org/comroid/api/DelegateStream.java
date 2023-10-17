@@ -35,7 +35,7 @@ import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-import static org.comroid.api.Rewrapper.*;
+import static org.comroid.api.SupplierX.*;
 import static org.comroid.api.ThrowingFunction.sneaky;
 import static org.comroid.util.StackTraceUtils.caller;
 import static org.comroid.util.StackTraceUtils.lessSimpleName;
@@ -48,16 +48,16 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         return 0;
     }
 
-    default Rewrapper<InputStream> input() {
+    default SupplierX<InputStream> input() {
         return empty();
     }
 
-    default Rewrapper<OutputStream> output() {
-        return Rewrapper.<OutputStream>empty().or(error());
+    default SupplierX<OutputStream> output() {
+        return SupplierX.<OutputStream>empty().or(error());
     }
 
-    default Rewrapper<OutputStream> error() {
-        return Rewrapper.<OutputStream>empty().or(output());
+    default SupplierX<OutputStream> error() {
+        return SupplierX.<OutputStream>empty().or(output());
     }
 
     @SneakyThrows
@@ -184,7 +184,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
     @Convert
     default BufferedReader toBufferedReader() {
-        return Rewrapper.of(toReader()).ifPresentMap(BufferedReader::new);
+        return SupplierX.of(toReader()).ifPresentMap(BufferedReader::new);
     }
 
     @Convert
@@ -526,8 +526,8 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
 
         @Override
-        public Rewrapper<InputStream> input() {
-            return Rewrapper.of(this);
+        public SupplierX<InputStream> input() {
+            return SupplierX.of(this);
         }
 
         @Override
@@ -895,8 +895,8 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
 
         @Override
-        public Rewrapper<OutputStream> output() {
-            return Rewrapper.of(this);
+        public SupplierX<OutputStream> output() {
+            return SupplierX.of(this);
         }
 
         @Override
@@ -1237,11 +1237,11 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         private static <Base, Adapter extends DelegateStream, Result extends DelegateStream> @Nullable Result mapStream(
                 final Class<Adapter> typeA,
                 final Class<Result> typeR,
-                final @NotNull Rewrapper<@Nullable Base> supp,
+                final @NotNull SupplierX<@Nullable Base> supp,
                 final @NotNull Function<@NotNull Base, ? extends Adapter> prep,
                 final @Nullable Function<@NotNull Adapter, ? extends Base> func,
                 final @NotNull Function<@NotNull Base, @NotNull Result> wrap,
-                final @NotNull Rewrapper<Result> def
+                final @NotNull SupplierX<Result> def
         ) {
             // ((supp -> cast+prep -> func) / supp) -> cast/wrap/def
             return Optional.ofNullable(func)
@@ -1339,17 +1339,17 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
 
         @Override
-        public Rewrapper<InputStream> input() {
+        public SupplierX<InputStream> input() {
             return ofSupplier(() -> input);
         }
 
         @Override
-        public Rewrapper<OutputStream> output() {
+        public SupplierX<OutputStream> output() {
             return ofSupplier(() -> output);
         }
 
         @Override
-        public Rewrapper<OutputStream> error() {
+        public SupplierX<OutputStream> error() {
             return ofSupplier(() -> error);
         }
 
@@ -1421,9 +1421,9 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                 @Nullable Consumer<OutputStream> out,
                 @Nullable Consumer<OutputStream> err
         ) {
-            Rewrapper.of(in).ifBothPresent(input(), java.util.function.Consumer::accept);
-            Rewrapper.of(out).ifBothPresent(output(), java.util.function.Consumer::accept);
-            Rewrapper.of(err).ifBothPresent(error(), java.util.function.Consumer::accept);
+            SupplierX.of(in).ifBothPresent(input(), java.util.function.Consumer::accept);
+            SupplierX.of(out).ifBothPresent(output(), java.util.function.Consumer::accept);
+            SupplierX.of(err).ifBothPresent(error(), java.util.function.Consumer::accept);
         }
 
         @Override
@@ -1485,7 +1485,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
                         }
                         return null;
                     })
-                    .flatMap(Rewrapper::stream)
+                    .flatMap(SupplierX::stream)
                     .filter(Objects::nonNull)
                     .distinct()
                     .map(Polyfill::uncheckedCast);

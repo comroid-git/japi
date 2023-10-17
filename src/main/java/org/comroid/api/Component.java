@@ -22,7 +22,6 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.logging.Level;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.util.Streams.*;
@@ -73,7 +72,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                         .flatMap(comp -> comp.components(type)) : Stream.empty());
     }
 
-    default <T extends Component> Rewrapper<T> component(@Nullable Class<T> type) {
+    default <T extends Component> SupplierX<T> component(@Nullable Class<T> type) {
         return () -> components(type).findAny().orElse(null);
     }
 

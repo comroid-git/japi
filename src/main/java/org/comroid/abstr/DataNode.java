@@ -8,7 +8,6 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
 import java.io.Writer;
@@ -17,12 +16,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
-import java.util.function.BinaryOperator;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collector;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.util.StandardValueType.*;
@@ -87,14 +80,14 @@ public interface DataNode extends Specifiable<DataNode> {
         return Objects.requireNonNullElse(asArray().get(index), Value.NULL);
     }
 
-    default <T> Rewrapper<T> as(ValueType<T> type) {
+    default <T> SupplierX<T> as(ValueType<T> type) {
         var node = asValue();
         var val = node.value;
         if (val == null)
             return null;
         if (!type.test(val))
-            return Rewrapper.of(type.parse(val.toString()));
-        return Rewrapper.of(type.getTargetClass().cast(val));
+            return SupplierX.of(type.parse(val.toString()));
+        return SupplierX.of(type.getTargetClass().cast(val));
     }
 
     default boolean asBoolean() {
@@ -269,7 +262,7 @@ public interface DataNode extends Specifiable<DataNode> {
 
         @Override
         public <R> @NotNull R convert(Class<? super R> target) {
-            return Rewrapper.of(Activator.get(target).createInstance(this)).cast();
+            return SupplierX.of(Activator.get(target).createInstance(this)).cast();
         }
     }
 
@@ -321,11 +314,11 @@ public interface DataNode extends Specifiable<DataNode> {
         }
     }
 
-    class Entry implements Map.Entry<String, Rewrapper<DataNode>> {
+    class Entry implements Map.Entry<String, SupplierX<DataNode>> {
         private final String key;
-        private Rewrapper<DataNode> value;
+        private SupplierX<DataNode> value;
 
-        public Entry(String key, Rewrapper<DataNode> value) {
+        public Entry(String key, SupplierX<DataNode> value) {
             this.key = key;
             this.value = value;
         }
@@ -336,12 +329,12 @@ public interface DataNode extends Specifiable<DataNode> {
         }
 
         @Override
-        public Rewrapper<DataNode> getValue() {
+        public SupplierX<DataNode> getValue() {
             return Polyfill.uncheckedCast(value);
         }
 
         @Override
-        public Rewrapper<DataNode> setValue(Rewrapper<DataNode> value) {
+        public SupplierX<DataNode> setValue(SupplierX<DataNode> value) {
             var prev = this.value;
             this.value = value;
             return Polyfill.uncheckedCast(prev);

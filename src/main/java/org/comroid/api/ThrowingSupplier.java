@@ -1,6 +1,5 @@
 package org.comroid.api;
 
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Function;
@@ -25,13 +24,13 @@ public interface ThrowingSupplier<T, E extends Throwable> {
         };
     }
 
-    static <R> Rewrapper<R> rethrowing(
+    static <R> SupplierX<R> rethrowing(
             ThrowingSupplier<R, Throwable> supplier
     ) {
         return rethrowing(supplier, RuntimeException::new);
     }
 
-    static <R, E extends Throwable> Rewrapper<R> rethrowing(
+    static <R, E extends Throwable> SupplierX<R> rethrowing(
             ThrowingSupplier<R, E> supplier,
             @Nullable Function<Throwable, ? extends RuntimeException> remapper
     ) {

@@ -20,13 +20,13 @@ public interface PropertyHolder extends PropertiesHolder, UUIDContainer {
     }
 
     @Override
-    default <T> Rewrapper<T> computeProperty(String name, N.Function.$2<String, @Nullable T, @Nullable T> func) {
-        return Rewrapper.ofSupplier(()-> uncheckedCast(getPropertyCache().compute(name, uncheckedCast(func))));
+    default <T> SupplierX<T> computeProperty(String name, N.Function.$2<String, @Nullable T, @Nullable T> func) {
+        return SupplierX.ofSupplier(()-> uncheckedCast(getPropertyCache().compute(name, uncheckedCast(func))));
     }
 
     @Override
-    default <T> Rewrapper<T> getProperty(String name) {
-        return Rewrapper.ofSupplier(() -> uncheckedCast(getPropertyCache().get(name)));
+    default <T> SupplierX<T> getProperty(String name) {
+        return SupplierX.ofSupplier(() -> uncheckedCast(getPropertyCache().get(name)));
     }
 
     @Override
