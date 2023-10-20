@@ -55,6 +55,10 @@ public interface SupplierX<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return () -> value;
     }
 
+    static <T> SupplierX<T> ofStream(Stream<T> stream) {
+        return ofOptional(stream.findAny());
+    }
+
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     static <T> SupplierX<T> ofOptional(final Optional<? extends T> optional) {
         return () -> optional.orElse(null);

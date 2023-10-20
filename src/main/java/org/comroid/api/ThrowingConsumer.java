@@ -17,6 +17,16 @@ public interface ThrowingConsumer<I, T extends Throwable> {
         return rethrowing(consumer, remapper);
     }
 
+    static <I> Consumer<I> logging(Logger log, ThrowingConsumer<I, Throwable> action) {
+        return it->{
+            try {
+                action.accept(it);
+            } catch (Throwable e) {
+                log.log(Level.WARNING, "An internal exception occurred", e);
+            }
+        };
+    }
+
     static <I> Consumer<I> rethrowing(
             ThrowingConsumer<I, Throwable> consumer
     ) {
