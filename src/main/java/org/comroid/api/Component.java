@@ -324,7 +324,8 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                     .map(StackTraceUtils::lessSimpleName)
                     .toList();
             if (!missing.isEmpty())
-                Log.at(Level.WARNING, "Could not run on all dependencies\n\tSource: %s at %s; missing:\n\t\t- %s".formatted(this,caller,String.join("\n\t\t- ",missing)));
+                Log.at(Level.WARNING, "Could not run on all dependencies\n\tSource: %s at %s; missing:\n\t\t- %s"
+                        .formatted(this,caller,String.join("\n\t\t- ",missing)));
             return CompletableFuture.allOf(Arrays.stream(entries)
                     .map(e->e.future)
                     .toArray(CompletableFuture[]::new));
