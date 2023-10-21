@@ -22,6 +22,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.util.Streams.*;
@@ -301,23 +302,31 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         private CompletableFuture<Void> runOnDependencies(final ThrowingConsumer<Component, Throwable> action) {
+            record InitEntry(Component component, @Nullable CompletableFuture<?> future){}
+
             if (getParent() == null)
                 return CompletableFuture.completedFuture(null);
             final var wrap = action.wrap();
-            final var futures = requires().stream()
+            final var entries = requires().stream()
                     .flatMap(dependency -> getParent().getChildren().stream()
                             .filter(e -> dependency.isAssignableFrom(e.getClass()))
                             .flatMap(cast(Component.class)))
                     .filter(c -> c.testState(State.PreInit))
                     .peek(c -> Log.at(Level.FINE, "Initializing dependency of %s first: %s".formatted(this, c)))
-                    .map(c -> CompletableFuture.supplyAsync(() -> {
+                    .map(c -> new InitEntry(c,CompletableFuture.supplyAsync(() -> {
                         wrap.accept(c);
                         return null;
-                    }))
-                    .toArray(CompletableFuture[]::new);
-            if (futures.length != requires().size())
-                Log.at(Level.WARNING, "Could not run on all dependencies of %s".formatted(this));
-            return CompletableFuture.allOf(futures);
+                    })))
+                    .toArray(InitEntry[]::new);
+            var missing = requires().stream()
+                    .filter(t-> Arrays.stream(entries).noneMatch(e-> t.isAssignableFrom(e.component.getClass())))
+                    .map(StackTraceUtils::lessSimpleName)
+                    .toList();
+            if (!missing.isEmpty())
+                Log.at(Level.WARNING, "Could not run on all dependencies of %s; missing:\n\t- %s".formatted(this,String.join("\n\t- ",missing)));
+            return CompletableFuture.allOf(Arrays.stream(entries)
+                    .map(e->e.future)
+                    .toArray(CompletableFuture[]::new));
         }
     }
 
