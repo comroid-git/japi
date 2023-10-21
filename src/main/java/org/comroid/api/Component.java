@@ -321,11 +321,11 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
             var caller = StackTraceUtils.caller(1);
             var missing = requires().stream()
                     .filter(t-> Arrays.stream(entries).noneMatch(e-> t.isAssignableFrom(e.component.getClass())))
-                    .map(StackTraceUtils::lessSimpleName)
+                    .map(Class::getCanonicalName)
                     .toList();
             if (!missing.isEmpty())
-                Log.at(Level.WARNING, "Could not run on all dependencies\n\tSource: %s\n\tat %s\n\tmissing:\n\t\t- %s"
-                        .formatted(this,caller,String.join("\n\t\t- ",missing)));
+                Log.at(Level.WARNING, "Could not run on all dependencies\n\tat %s\n\tParent Module: %s\n\tMissing Dependencies:\n\t\t- %s"
+                        .formatted(caller,this,String.join("\n\t\t- ",missing)));
             return CompletableFuture.allOf(Arrays.stream(entries)
                     .map(e->e.future)
                     .toArray(CompletableFuture[]::new));
