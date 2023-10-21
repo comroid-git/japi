@@ -267,9 +267,9 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         private void cleanupChildren() {
-            final Predicate<Object> isNotComponent = x->!Component.class.isAssignableFrom(x.getClass());
+            final Predicate<Object> isNotComponent = x -> !Component.class.isAssignableFrom(x.getClass());
             final var remove = streamChildren(Object.class).filter(isNotComponent).toArray();
-            if (removeChildren(remove)!=remove.length)
+            if (removeChildren(remove) != remove.length)
                 Log.at(Level.WARNING, "Could not remove all children of %s".formatted(this));
         }
 
@@ -302,7 +302,8 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
         }
 
         private CompletableFuture<Void> runOnDependencies(final ThrowingConsumer<Component, Throwable> action) {
-            record InitEntry(Component component, @Nullable CompletableFuture<?> future){}
+            record InitEntry(Component component, @Nullable CompletableFuture<?> future) {
+            }
 
             if (getParent() == null)
                 return CompletableFuture.completedFuture(null);
@@ -313,21 +314,23 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                             .flatMap(cast(Component.class)))
                     .filter(c -> c.testState(State.PreInit))
                     .peek(c -> Log.at(Level.FINE, "Initializing dependency of %s first: %s".formatted(this, c)))
-                    .map(c -> new InitEntry(c,CompletableFuture.supplyAsync(() -> {
+                    .map(c -> new InitEntry(c, CompletableFuture.supplyAsync(() -> {
                         wrap.accept(c);
                         return null;
                     })))
                     .toArray(InitEntry[]::new);
             var caller = StackTraceUtils.caller(1);
             var missing = requires().stream()
-                    .filter(t-> Arrays.stream(entries).noneMatch(e-> t.isAssignableFrom(e.component.getClass())))
+                    .filter(t -> Arrays.stream(entries)
+                            .noneMatch(e -> e.component.testState(State.PreInit) // todo: this filter is probably wrong
+                                    && t.isAssignableFrom(e.component.getClass())))
                     .map(Class::getCanonicalName)
                     .toList();
             if (!missing.isEmpty())
                 Log.at(Level.WARNING, "Could not run on all dependencies\n\tat %s\n\tParent Module: %s\n\tMissing Dependencies:\n\t\t- %s"
-                        .formatted(caller,this,String.join("\n\t\t- ",missing)));
+                        .formatted(caller, this, String.join("\n\t\t- ", missing)));
             return CompletableFuture.allOf(Arrays.stream(entries)
-                    .map(e->e.future)
+                    .map(e -> e.future)
                     .toArray(CompletableFuture[]::new));
         }
     }
