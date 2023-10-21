@@ -318,12 +318,13 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                         return null;
                     })))
                     .toArray(InitEntry[]::new);
+            var caller = StackTraceUtils.caller(1);
             var missing = requires().stream()
                     .filter(t-> Arrays.stream(entries).noneMatch(e-> t.isAssignableFrom(e.component.getClass())))
                     .map(StackTraceUtils::lessSimpleName)
                     .toList();
             if (!missing.isEmpty())
-                Log.at(Level.WARNING, "Could not run on all dependencies of %s; missing:\n\t- %s".formatted(this,String.join("\n\t- ",missing)));
+                Log.at(Level.WARNING, "Could not run on all dependencies of %s at %s; missing:\n\t- %s".formatted(this,caller,String.join("\n\t- ",missing)));
             return CompletableFuture.allOf(Arrays.stream(entries)
                     .map(e->e.future)
                     .toArray(CompletableFuture[]::new));
