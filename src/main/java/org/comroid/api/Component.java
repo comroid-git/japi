@@ -327,8 +327,10 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
                     .map(Class::getCanonicalName)
                     .toList();
             if (!missing.isEmpty())
-                Log.at(Level.WARNING, "Could not run on all dependencies\n\tat %s\n\tParent Module: %s\n\tMissing Dependencies:\n\t\t- %s"
-                        .formatted(caller, this, String.join("\n\t\t- ", missing)));
+                Log.at(Level.WARNING, "Could not run on all dependencies\n\tat %s\n\tParent Module: %s\n\tEntries:\n\t\t- %s\n\tMissing Dependencies:\n\t\t- %s"
+                        .formatted(caller, this, String.join("\n\t\t- ",
+                                        Arrays.stream(entries).map(e->e.component.toString()).toArray(String[]::new)),
+                                String.join("\n\t\t- ", missing)));
             return CompletableFuture.allOf(Arrays.stream(entries)
                     .map(e -> e.future)
                     .toArray(CompletableFuture[]::new));
