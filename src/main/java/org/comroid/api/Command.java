@@ -106,7 +106,7 @@ public @interface Command {
         }
 
         @SuppressWarnings("UnusedReturnValue")
-        public int register(final Object target) {
+        public final int register(final Object target) {
             var cls = target.getClass();
             return (int) Arrays.stream(cls.getMethods())
                     .filter(mtd -> mtd.isAnnotationPresent(Command.class))
@@ -126,8 +126,8 @@ public @interface Command {
                     .count();
         }
 
-        public Object execute(String command, Object... extraArgs) {
-            var split = command.split(" ");
+        public final Object execute(String fullCommand, Object... extraArgs) {
+            var split = fullCommand.split(" ");
             var name = split[0];
             var cmd = commands.getOrDefault(name, null);
             var args = Arrays.stream(split).skip(1).toArray(String[]::new);
