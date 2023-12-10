@@ -10,13 +10,11 @@ import org.comroid.api.ThrowingConsumer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Spliterator;
+import java.util.*;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static java.util.stream.IntStream.range;
 import static org.comroid.api.ThrowingConsumer.doThrow;
@@ -74,6 +72,16 @@ public class Constraint {
                     .setShouldBe("at most")
                     .setExpected(max);
         }
+    }
+
+    public API anyOf(Object actual, String nameof, Object... expected) {
+        return new API(() -> Arrays.asList(expected).contains(actual))
+                .setConstraint("anyOf")
+                .setTypeof(actual.getClass())
+                .setNameof(nameof)
+                .setActual(actual)
+                .setShouldBe("any of " + expected.getClass().getSimpleName())
+                .setExpected(expected);
     }
 
     public API equals(Object actual, Object expected, String nameof) {
