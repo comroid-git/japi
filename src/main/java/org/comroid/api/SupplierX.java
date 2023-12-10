@@ -285,6 +285,13 @@ public interface SupplierX<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return orRef(() -> SupplierX.ofOptional(orElse.get()));
     }
 
+    default SupplierX<T> peek(final Consumer<@NotNull T> action) {
+        return map(x -> {
+            action.accept(x);
+            return x;
+        });
+    }
+
     default SupplierX<T> filter(final Predicate<@NotNull T> predicate) {
         return () -> test(predicate) ? get() : null;
     }
