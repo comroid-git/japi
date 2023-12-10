@@ -7,6 +7,7 @@ import org.comroid.api.Serializer;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public enum FormData implements Serializer<DataNode.Object> {
@@ -20,8 +21,9 @@ public enum FormData implements Serializer<DataNode.Object> {
     @Override
     public @Nullable FormData.Object parse(@Nullable String data) {
         final var obj = new Object();
+        if (data == null) return obj;
         Arrays.stream(data.split("&"))
-                .filter(String::isBlank)
+                .filter(Predicate.not(String::isBlank))
                 .map(p -> p.split("="))
                 .forEach(p -> obj.set(p[0], p.length == 2 || !p[1].isBlank() ? StandardValueType.findGoodType(p[1]) : null));
         return obj;
