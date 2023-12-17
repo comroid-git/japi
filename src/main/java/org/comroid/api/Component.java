@@ -68,9 +68,11 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
     default <T extends Component> Stream<T> components(@Nullable Class<T> type) {
         return Stream.concat(
                 streamChildren(type),
-                isSubComponent() ? Stream.of(getParent())
+                isSubComponent()
+                        ? Stream.of(getParent())
                         .filter(Objects::nonNull)
-                        .flatMap(comp -> comp.components(type)) : Stream.empty());
+                        .flatMap(comp -> comp.components(type))
+                        : Stream.empty());
     }
 
     default <T extends Component> SupplierX<T> component(@Nullable Class<T> type) {
@@ -146,6 +148,36 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
     @Retention(RetentionPolicy.RUNTIME)
     @interface Requires {
         Class<? extends Component>[] value();
+    }
+
+    /**
+     * declare field injection
+     * occurs before initialization
+     * if all are defaults, then name and type from field are used
+     * todo
+     */
+    @Target(ElementType.FIELD)
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Inject {
+        /**
+         * @return filter by name match, unless length == 0
+         */
+        String value() default "";
+
+        /**
+         * @return filter by exact match, unless 0
+         */
+        long flag() default 0;
+
+        /**
+         * @return filter by bitwise match, unless 0
+         */
+        long mask() default 0;
+
+        /**
+         * @return filter by type match, unless {@link Component}
+         */
+        Class<? extends Component> type() default Component.class;
     }
 
     @Getter

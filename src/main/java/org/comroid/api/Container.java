@@ -3,6 +3,7 @@ package org.comroid.api;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.comroid.util.Streams;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -21,6 +22,9 @@ public interface Container extends Stoppable, SelfCloseable {
 
     int removeChildren(@Nullable Object @NotNull ... children);
 
+    void clearChildren();
+
+    @ApiStatus.Internal
     Set<Object> getChildren();
 
     default Stream<Object> streamOwnChildren() {
@@ -76,6 +80,11 @@ public interface Container extends Stoppable, SelfCloseable {
             return (int)Stream.of(children)
                     .filter(this.children::remove)
                     .count();
+        }
+
+        @Override
+        public void clearChildren() {
+            children.clear();
         }
 
         @Override
