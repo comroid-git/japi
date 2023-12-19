@@ -22,12 +22,11 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.logging.Level;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.util.Streams.*;
 
-public interface Component extends Container, LifeCycle, Tickable, Named {
+public interface Component extends Container, LifeCycle, Tickable, EnabledState, Named {
 
     @Override
     @PostLoad
@@ -182,6 +181,7 @@ public interface Component extends Container, LifeCycle, Tickable, Named {
 
     @Getter
     class Base extends Container.Base implements Component {
+        protected boolean enabled = true;
         private State currentState = State.PreInit;
         private State previousState = State.PreInit;
         private @Setter

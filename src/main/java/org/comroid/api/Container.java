@@ -109,6 +109,8 @@ public interface Container extends Stoppable, SelfCloseable {
                     .collect(append(extra))
                     .filter(Objects::nonNull)
                     .filter(Predicate.not(this::equals))
+                    // extra enabled check for EnabledState objects
+                    .filter(it -> !(it instanceof EnabledState) || ((EnabledState) it).isEnabled())
                     .filter(test)
                     .flatMap(it -> {
                         try {
