@@ -7,6 +7,7 @@ import org.comroid.annotations.Convert;
 import org.comroid.annotations.Ignore;
 import org.comroid.annotations.Instance;
 import org.comroid.util.BoundValueType;
+import org.comroid.util.ReflectionHelper;
 import org.comroid.util.StandardValueType;
 import org.comroid.util.Switch;
 import org.jetbrains.annotations.NotNull;
@@ -25,20 +26,34 @@ public class DataStructure<T> implements Named {
     private static final Map<Class<?>, DataStructure<?>> $cache = new ConcurrentHashMap<>();
     public static final Map<Class<?>, DataStructure<?>> cache = Collections.unmodifiableMap($cache);
 
-    Class<? super T> type;
-    List<Constructor> constructors = new ArrayList<>();
-    Map<String, Property<?>> properties = new ConcurrentHashMap<>();
+    @NotNull Class<? super T> type;
+    @NotNull @ToString.Exclude List<Constructor> constructors = new ArrayList<>();
+    @NotNull @ToString.Exclude Map<String, Property<?>> properties = new ConcurrentHashMap<>();
 
     @Override
     public String getName() {
         return type.getCanonicalName();
     }
 
-    private <V> Property<V> createProperty(Class<V> type, String name, @Nullable Alias aliases) {
+    private <V> Property<V> createProperty(Class<V> type, String name, AnnotatedElement it) {
         var vt = StandardValueType.forClass(type).orElseGet(() -> BoundValueType.of(type));
-        var prop = new Property<V>(uncheckedCast(vt), name);
-        if (aliases != null)
-            prop.aliases.addAll(Arrays.asList(aliases.value()));
+        var getter = new Switch<AnnotatedElement, Invocable<V>>()
+                .option(Field.class::isInstance, () -> Invocable.ofFieldGet((Field) it))
+                .option(Method.class::isInstance, () -> Invocable.ofMethodCall((Method) it))
+                .apply(it);
+        var setter = new Switch<AnnotatedElement, Invocable<?>>()
+                .option(Field.class::isInstance, () -> Invocable.ofFieldSet((Field) it))
+                .option(Method.class::isInstance, () -> Arrays.stream(((Method) it).getDeclaringClass().getMethods())
+                        .filter(mtd -> Modifier.isPublic(mtd.getModifiers()) && !Modifier.isStatic(mtd.getModifiers()))
+                        .filter(mtd -> mtd.getParameterCount() == 1 && ((Method) it).getReturnType().isAssignableFrom(mtd.getParameters()[0].getType()))
+                        .filter(mtd -> mtd.getName().equalsIgnoreCase("set"+name))
+                        .findAny()
+                        .map(Invocable::ofMethodCall)
+                        .orElse(null))
+                .apply(it);
+        var prop = new Property<V>(uncheckedCast(vt), name, getter, setter);
+        var aliases = it.getAnnotation(Alias.class);
+        if (aliases != null) prop.aliases.addAll(Arrays.asList(aliases.value()));
         return prop;
     }
 
@@ -65,7 +80,7 @@ public class DataStructure<T> implements Named {
                         else throw new AssertionError();
                         var ctor = struct.new Constructor(it.getName(), func);
                         for (var parameter : it.getParameters())
-                            ctor.args.put(parameter.getName(), struct.createProperty(parameter.getType(), parameter.getName(), parameter.getAnnotation(Alias.class)));
+                            ctor.args.put(parameter.getName(), struct.createProperty(parameter.getType(), parameter.getName(), parameter));
                         return ctor;
                     }).forEach(struct.constructors::add);
 
@@ -86,7 +101,7 @@ public class DataStructure<T> implements Named {
                         var name = it.getName();
                         if (it instanceof Method)
                             name = Character.toLowerCase(name.charAt(3)) + name.substring("getX".length());
-                        return struct.createProperty(type, name, it.getAnnotation(Alias.class));
+                        return struct.createProperty(type, name, it);
                     })
                     .forEach(prop -> struct.properties.put(prop.name, prop));
 
@@ -97,19 +112,25 @@ public class DataStructure<T> implements Named {
     @Value
     public class Constructor implements Named {
         @Nullable String name;
-        @NotNull Map<String, Property<?>> args = new ConcurrentHashMap<>();
-        @NotNull @Getter(onMethod = @__(@JsonIgnore)) Invocable<T> func;
+        @NotNull @ToString.Exclude Map<String, Property<?>> args = new ConcurrentHashMap<>();
+        @NotNull @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<T> func;
     }
 
     @Value
     public static class Property<V> implements Named {
         @NotNull ValueType<V> type;
         @NotNull String name;
+        @Nullable @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<V> getter;
+        @Nullable @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<?> setter;
         @NotNull Set<String> aliases = new HashSet<>();
 
         @Value
         public class Usage {
             @Nullable V value;
+
+            public Property<V> getProperty() {
+                return Property.this; // for serialization
+            }
         }
     }
 }

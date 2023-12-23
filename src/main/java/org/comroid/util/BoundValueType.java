@@ -25,6 +25,11 @@ public class BoundValueType<T> implements ValueType<T> {
         throw new AbstractMethodError("Cannot blindly parse " + targetClass.getCanonicalName());
     }
 
+    @Override
+    public String toString() {
+        return "BoundValueType<%s>".formatted(targetClass.getCanonicalName());
+    }
+
     public static <T> BoundValueType<T> of(Class<? super T> type) {
         return Polyfill.uncheckedCast($cache.computeIfAbsent(type, BoundValueType::new));
     }

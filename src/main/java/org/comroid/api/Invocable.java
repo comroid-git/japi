@@ -3,6 +3,7 @@ package org.comroid.api;
 import lombok.Getter;
 import lombok.Setter;
 import org.comroid.annotations.OptionalVararg;
+import org.comroid.exception.RethrownException;
 import org.comroid.util.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
@@ -42,6 +43,35 @@ public interface Invocable<T> extends Named {
 
     static <T> Invocable<T> ofConsumer(Class<T> type, Consumer<T> consumer) {
         return new Support.OfConsumer<>(type, consumer);
+    }
+
+    static <T> Invocable<T> ofFieldGet(final Field field) {
+        return new Invocable<>() {
+            @Override
+            public Class<?>[] parameterTypesOrdered() {
+                return new Class[0];
+            }
+
+            @Override
+            public @Nullable T invoke(@Nullable Object target, Object... args) throws IllegalAccessException {
+                return Polyfill.uncheckedCast(field.get(target));
+            }
+        };
+    }
+
+    static <T> Invocable<@Nullable T> ofFieldSet(final Field field) {
+        return new Invocable<>() {
+            @Override
+            public Class<?>[] parameterTypesOrdered() {
+                return new Class[]{field.getType()};
+            }
+
+            @Override
+            public @Nullable T invoke(@Nullable Object target, Object... args) throws IllegalAccessException {
+                field.set(target, args[0]);
+                return null;
+            }
+        };
     }
 
     static <T> Invocable<T> ofExecutable(Executable executable) {
@@ -143,6 +173,14 @@ public interface Invocable<T> extends Named {
     Class<?>[] parameterTypesOrdered();
 
     @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException;
+
+    default @Nullable T invokeSilent(@Nullable Object target, Object... args) {
+        try {
+            return invoke(target, args);
+        } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
+            throw new RethrownException(e);
+        }
+    }
 
     default T invokeAutoOrder(Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
         return invoke(null, tryArrange(args, parameterTypesOrdered()));
@@ -397,11 +435,13 @@ public interface Invocable<T> extends Named {
             }
 
             private OfMethod(Method method, @Nullable Object target) {
+                /*
                 if (target == null && !Modifier.isStatic(method.getModifiers())) {
                     throw new IllegalArgumentException("Target cannot be null on non-static methods!",
                             new NullPointerException()
                     );
                 }
+                 */
 
                 this.method = method;
                 this.target = target;

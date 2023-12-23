@@ -9,8 +9,8 @@ import java.util.function.Predicate;
 public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named {
     @Override
     @Transient
-    @Deprecated
     @JsonIgnore
+    @Deprecated
     default ValueType<R> getHeldType() {
         return this;
     }
@@ -19,6 +19,8 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named 
         return Number.class.isAssignableFrom(getTargetClass());
     }
 
+    @Transient
+    @JsonIgnore
     @Deprecated
     default Function<String, R> getConverter() {
         return this::parse;

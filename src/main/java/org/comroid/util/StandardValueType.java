@@ -22,6 +22,7 @@ public final class StandardValueType<R> implements ValueType<R> {
     public static final ValueType<UUID> UUID;
 
     public static final ValueType<Void> VOID;
+    @Deprecated
     public static final ValueType<Object> OBJECT;
     public static final ValueType<Object[]> ARRAY;
 
@@ -42,7 +43,7 @@ public final class StandardValueType<R> implements ValueType<R> {
         OBJECT = new StandardValueType<>(Object.class, "Object", it -> it);
         ARRAY = new StandardValueType<>(Object[].class, "Array", it -> new Object[]{it});
 
-        values = new ValueType[]{BYTE, CHARACTER, DOUBLE, FLOAT, INTEGER, LONG, SHORT, STRING, BOOLEAN, VOID, ARRAY, OBJECT};
+        values = new ValueType[]{BYTE, CHARACTER, DOUBLE, FLOAT, INTEGER, LONG, SHORT, STRING, BOOLEAN, VOID, ARRAY};
     }
 
     private final Class<R> type;
