@@ -1,29 +1,59 @@
 package org.comroid.util;
 
 import lombok.Data;
+import lombok.extern.java.Log;
 import org.comroid.api.SupplierX;
+import org.comroid.api.ThrowingConsumer;
+import org.comroid.api.ThrowingSupplier;
+import org.comroid.exception.RethrownException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Consumer;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
+@Log
 @Data
 public class AlmostComplete<T> implements SupplierX<T> {
-    private final @NotNull Supplier<T> origin;
-    private final @Nullable Consumer<T> finalize;
+    private final @NotNull ThrowingSupplier<@NotNull T, Throwable> origin;
+    private final @Nullable ThrowingConsumer<@NotNull T, Throwable> finalize;
+    private @Nullable Function<Throwable, @Nullable T> exceptionHandler;
 
-    public T complete(@Nullable Consumer<T> modifier) {
-        var it = origin.get();
-        if (modifier != null)
-            modifier.accept(it);
-        if (finalize != null)
-            finalize.accept(it);
+    public @NotNull T complete(@Nullable Consumer<T> modifier) {
+        int c = 0;
+        T it = null;
+        try {
+            it = origin.get();
+            c++; // 1 - passed origin
+            if (modifier != null)
+                modifier.accept(it);
+            c++; // 2 - passed modifier
+            if (finalize != null)
+                finalize.accept(it);
+            c++; // 3 - passed finalize
+        } catch (Throwable t) {
+            if (exceptionHandler != null)
+                it = exceptionHandler.apply(t);
+
+            // counter cannot be >2 because 3 = success
+            Constraint.Range.inside(0, 2, c, "stage counter");
+
+            var stage = switch (c) {
+                case 0 -> "initialization";
+                case 1 -> "modification";
+                case 2 -> "finalizing";
+                default -> throw new IllegalStateException("Unexpected value: " + c);
+            };
+            if (it == null)
+                throw new RethrownException(t);
+            log.fine("Recovered from an exception that occurred during "+stage);
+            log.finer(StackTraceUtils.toString(t));
+        }
         return it;
     }
 
     @Override
-    public final @Nullable T get() {
+    public final @NotNull T get() {
         return complete(null);
     }
 

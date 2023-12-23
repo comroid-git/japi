@@ -6,16 +6,16 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.*;
 import java.util.stream.Collector;
 
 public final class Bitmask {
-    public static final int EMPTY = 0x0;
-    private static final Map<Class<?>, AtomicInteger> LAST_FLAG = new ConcurrentHashMap<>();
+    public static final long EMPTY = 0x0;
+    private static final Map<Class<?>, AtomicLong> LAST_FLAG = new ConcurrentHashMap<>();
 
-    public static int combine(BitmaskAttribute<?>... values) {
-        int yield = EMPTY;
+    public static long combine(BitmaskAttribute<?>... values) {
+        long yield = EMPTY;
 
         for (BitmaskAttribute<?> value : values)
             yield = value.apply(yield, true);
@@ -23,7 +23,7 @@ public final class Bitmask {
         return yield;
     }
 
-    public static int modifyFlag(int mask, int flag, boolean newState) {
+    public static long modifyFlag(long mask, long flag, boolean newState) {
         final boolean isSet = isFlagSet(mask, flag);
         if (!isSet && newState) {
             // add flag
@@ -34,34 +34,34 @@ public final class Bitmask {
         } else return mask; // do nothing
     }
 
-    public static boolean isFlagSet(int mask, BitmaskAttribute<?> attribute) {
-        return isFlagSet(mask, attribute.getAsInt());
+    public static boolean isFlagSet(long mask, BitmaskAttribute<?> attribute) {
+        return isFlagSet(mask, attribute.getAsLong());
     }
 
-    public static boolean isFlagSet(int mask, int flag) {
+    public static boolean isFlagSet(long mask, long flag) {
         return (mask & flag) != 0;
     }
 
     //@CallerSensitive
-    public static int nextFlag() {
+    public static long nextFlag() {
         return nextFlag(1);
     }
 
     //@CallerSensitive
-    public static int nextFlag(int traceDelta) {
+    public static long nextFlag(int traceDelta) {
         return nextFlag(StackTraceUtils.callerClass(traceDelta));
     }
 
-    public static int nextFlag(Class<?> type) {
-        final AtomicInteger atom = LAST_FLAG.computeIfAbsent(type, key -> new AtomicInteger(-1));
-        atom.accumulateAndGet(1, Integer::sum);
+    public static long nextFlag(Class<?> type) {
+        final AtomicLong atom = LAST_FLAG.computeIfAbsent(type, key -> new AtomicLong(-1));
+        atom.accumulateAndGet(1, Long::sum);
         return 1 << atom.get();
     }
 
-    public static int combine(int... masks) {
-        int yield = EMPTY;
+    public static long combine(long... masks) {
+        long yield = EMPTY;
 
-        for (int mask : masks) {
+        for (long mask : masks) {
             yield = yield | mask;
         }
 
@@ -69,57 +69,57 @@ public final class Bitmask {
     }
 
     @SafeVarargs
-    public static <T> int combine(ToIntFunction<T> mapper, T... items) {
-        int yield = EMPTY;
+    public static <T> long combine(ToLongFunction<T> mapper, T... items) {
+        long yield = EMPTY;
 
         for (T item : items) {
-            yield = yield | mapper.applyAsInt(item);
+            yield = yield | mapper.applyAsLong(item);
         }
 
         return yield;
     }
 
-    public static int arrange(boolean... bits) {
+    public static long arrange(boolean... bits) {
         var x = 0;
         for (int i = 0; i < bits.length; i++)
             x |= (bits[i]?1:0) << i;
         return x;
     }
 
-    public static Collector<Integer, AtomicInteger, Integer> collector() {
+    public static Collector<Long, AtomicLong, Long> collector() {
         return new BitmaskCollector();
     }
 
-    private static final class BitmaskCollector implements Collector<Integer, AtomicInteger, Integer> {
+    private static final class BitmaskCollector implements Collector<Long, AtomicLong, Long> {
         private static final Set<Characteristics> characteristics
                 = Collections.singleton(Characteristics.IDENTITY_FINISH);
-        private final Supplier<AtomicInteger> supplier
-                = () -> new AtomicInteger(0);
-        private final BiConsumer<AtomicInteger, Integer> accumulator
+        private final Supplier<AtomicLong> supplier
+                = () -> new AtomicLong(0);
+        private final BiConsumer<AtomicLong, Long> accumulator
                 = (atom, x) -> atom.accumulateAndGet(x, Bitmask::combine);
-        private final BinaryOperator<AtomicInteger> combiner = (x, y) -> {
+        private final BinaryOperator<AtomicLong> combiner = (x, y) -> {
             x.accumulateAndGet(y.get(), Bitmask::combine);
             return x;
         };
-        private final Function<AtomicInteger, Integer> finisher = AtomicInteger::get;
+        private final Function<AtomicLong, Long> finisher = AtomicLong::get;
 
         @Override
-        public Supplier<AtomicInteger> supplier() {
+        public Supplier<AtomicLong> supplier() {
             return supplier;
         }
 
         @Override
-        public BiConsumer<AtomicInteger, Integer> accumulator() {
+        public BiConsumer<AtomicLong, Long> accumulator() {
             return accumulator;
         }
 
         @Override
-        public BinaryOperator<AtomicInteger> combiner() {
+        public BinaryOperator<AtomicLong> combiner() {
             return combiner;
         }
 
         @Override
-        public Function<AtomicInteger, Integer> finisher() {
+        public Function<AtomicLong, Long> finisher() {
             return finisher;
         }
 

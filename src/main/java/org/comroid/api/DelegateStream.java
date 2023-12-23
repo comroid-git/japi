@@ -44,7 +44,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     AutoCloseable getDelegate();
 
     @MagicConstant(flagsFromClass = Capability.class)
-    default int getCapabilities() {
+    default long getCapabilities() {
         return 0;
     }
 
@@ -521,8 +521,8 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
 
         @Override
-        public int getCapabilities() {
-            return Capability.Input.getAsInt();
+        public long getCapabilities() {
+            return Capability.Input.getAsLong();
         }
 
         @Override
@@ -890,8 +890,8 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
 
         @Override
-        public int getCapabilities() {
-            return Capability.Output.getAsInt();
+        public long getCapabilities() {
+            return Capability.Output.getAsLong();
         }
 
         @Override
@@ -1075,10 +1075,10 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
         @lombok.experimental.Delegate(excludes = SelfCloseable.class)
         Container.Delegate<IO> container = new Delegate<>(this);
-        int initialCapabilities;
+        long initialCapabilities;
         @NonFinal
         @Setter
-        int doNotCloseCapabilities = 0;
+        long doNotCloseCapabilities = 0;
         Deque<IO> redirects;
         @NonFinal
         @NotNull
@@ -1330,7 +1330,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         }
 
         @Override
-        public int getCapabilities() {
+        public long getCapabilities() {
             return Bitmask.arrange(input != null, output != null, error != null);
         }
 

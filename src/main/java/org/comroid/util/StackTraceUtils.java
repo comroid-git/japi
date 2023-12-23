@@ -88,8 +88,11 @@ public final class StackTraceUtils {
 
     public static String toString(Throwable t) {
         var buf = new StringWriter();
-        t.printStackTrace(new DelegateStream.Output(buf).convert(PrintStream.class));
-        return buf.toString();
+        try (var stream = new DelegateStream.Output(buf);
+             var printer = stream.convert(PrintStream.class)) {
+            t.printStackTrace(printer);
+            return buf.toString();
+        }
     }
 
     public static void wrap(Throwable cause, PrintStream out, boolean shorten) {

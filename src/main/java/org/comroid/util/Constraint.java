@@ -146,16 +146,23 @@ public class Constraint {
     @Data
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static final class API {
-        public static final ThrowingConsumer<UnmetError, UnmetError> DefaultHandler = doThrow();
-        public static final String DefaultConstraint = "<unnamed>";
-        public static final Class<?> DefaultTypeof = Void.class;
-        public static final String DefaultNameof = "<unnamed>";
-        public static final Object DefaultActual = "\b";
-        public static final String DefaultShouldBe = intString(range(0, "; should be ".length()).map($ -> '\b'));
-        public static final Object DefaultExpected = "\b";
+        public static final Function<UnmetError, @Nullable Object> ThrowingHandler = e -> {
+            throw e;
+        };
+        public static final Function<UnmetError, @Nullable Object> LoggingHandler = e -> {
+            log.warning(StackTraceUtils.toString(e));
+            return null;
+        };
+        public static Function<UnmetError, @Nullable Object> DefaultHandler = ThrowingHandler;
+        public static String DefaultConstraint = "<unnamed>";
+        public static Class<?> DefaultTypeof = Void.class;
+        public static String DefaultNameof = "<unnamed>";
+        public static Object DefaultActual = "\b";
+        public static String DefaultShouldBe = intString(range(0, "; should be ".length()).map($ -> '\b'));
+        public static Object DefaultExpected = "\b";
 
         @NotNull BooleanSupplier test;
-        @NotNull ThrowingConsumer<UnmetError, UnmetError> handler = DefaultHandler;
+        @NotNull Function<UnmetError, @Nullable Object> handler = DefaultHandler;
         @NotNull String constraint = DefaultConstraint;
         @NotNull Class<?> typeof = DefaultTypeof;
         @NotNull String nameof = DefaultNameof;
@@ -171,8 +178,11 @@ public class Constraint {
                 else if (failure != null) {
                     var err = err();
                     result = failure.apply(err);
-                    if (result == null && !err.isCancelled())
-                        handler.accept(err);
+                    if (result == null && !err.isCancelled()) {
+                        var fix = handler.apply(err);
+                        if (fix == null)
+                            log.warning("Recovering from unmet Constraint " + this + " failed");
+                    }
                 }
                 return result;
             };

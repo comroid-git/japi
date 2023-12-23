@@ -16,7 +16,7 @@ public class PathUtil {
     }
 
     public static String sanitize(Object string) {
-        var str = string.toString();
+        var str = string.toString().replace('\\', '/');
         for (var c : new char[]{'<','>',':','"','|','?','*'/*,'/','\\'*/})
             str = str.replace(c, '_');
         return str;

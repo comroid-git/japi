@@ -31,9 +31,10 @@ public interface Container extends Stoppable, SelfCloseable {
         return Stream.empty();
     }
 
-    default <T> Stream<T> streamChildren(@Nullable Class<T> type) {
+    default <T> Stream<T> streamChildren(@Nullable Class<? super T> type) {
         return Stream.concat(getChildren().stream(), streamOwnChildren())
-                .flatMap(Streams.cast(type));
+                .flatMap(Streams.cast(type))
+                .map(Polyfill::uncheckedCast);
     }
 
     static Container of(Object... children) {

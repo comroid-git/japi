@@ -8,7 +8,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Helper interface for enum classes that store an integer bitmask.
+ * Helper interface for enum classes that store an long bitmask.
  * <p>
  * The default generated bitmasks are dependent on the order of constants.
  *
@@ -16,29 +16,28 @@ import java.util.Set;
  * @see #getValue() for further information
  * @see Named Default Enum implementation
  */
-public interface BitmaskAttribute<S extends BitmaskAttribute<S>> extends IntegerAttribute, SelfDeclared<S>, Named {
+public interface BitmaskAttribute<S extends BitmaskAttribute<S>> extends LongAttribute, SelfDeclared<S>, Named {
     /**
-     * Computes a default integer value for this bitmask, depending on enum order.
+     * Computes a default long value for this bitmask, depending on enum order.
      * If implemented by an enum class, this method provides unique default bitmasks for every enum constant.
      *
-     * @return The integer value of this Bitmask constant.
-     * @see IntegerAttribute#getValue() Returns Enums ordinal value if possible
+     * @return The long value of this Bitmask constant.
+     * @see LongAttribute#getValue() Returns Enums ordinal value if possible
      */
     @Override
-    @NotNull
-    default Integer getValue() {
-        return 1 << IntegerAttribute.super.getValue();
+    default @NotNull Long getValue() {
+        return 1L << LongAttribute.super.getValue();
     }
 
     /**
-     * Creates a set of all mask attributes from an integer value and an enum class.
+     * Creates a set of all mask attributes from an long value and an enum class.
      *
-     * @param mask    The integer value to scan
+     * @param mask    The long value to scan
      * @param viaEnum The enum to use all constants from.
      * @param <T>     The enum type.
-     * @return A set of all Bitmask attributes set in the integer value
+     * @return A set of all Bitmask attributes set in the long value
      */
-    static <T extends java.lang.Enum<? extends T> & BitmaskAttribute<T>> Set<T> valueOf(int mask, Class<T> viaEnum) {
+    static <T extends java.lang.Enum<? extends T> & BitmaskAttribute<T>> Set<T> valueOf(long mask, Class<T> viaEnum) {
         if (!viaEnum.isEnum())
             throw new IllegalArgumentException("Only enums allowed as parameter 'viaEnum'");
 
@@ -47,14 +46,14 @@ public interface BitmaskAttribute<S extends BitmaskAttribute<S>> extends Integer
 
 
     /**
-     * Creates a set of all mask attributes from an integer value and an enum class.
+     * Creates a set of all mask attributes from an long value and an enum class.
      *
-     * @param mask   The integer value to scan
+     * @param mask   The long value to scan
      * @param values All possible mask attributes
      * @param <T>    The enum type.
-     * @return A set of all Bitmask attributes set in the integer value
+     * @return A set of all Bitmask attributes set in the long value
      */
-    static <T extends BitmaskAttribute<T>> Set<T> valueOf(int mask, T[] values) {
+    static <T extends BitmaskAttribute<T>> Set<T> valueOf(long mask, T[] values) {
         HashSet<T> yields = new HashSet<>();
 
         for (T constant : values) {
@@ -66,13 +65,13 @@ public interface BitmaskAttribute<S extends BitmaskAttribute<S>> extends Integer
     }
 
     /**
-     * Creates an integer value containing all provided Bitmask attributes.
+     * Creates an long value containing all provided Bitmask attributes.
      *
      * @param values All values to combine
-     * @return The result integer value
+     * @return The result long value
      */
-    static int toMask(BitmaskAttribute<?>[] values) {
-        int x = 0;
+    static long toMask(BitmaskAttribute<?>[] values) {
+        long x = 0;
         for (BitmaskAttribute<?> each : values)
             x = each.apply(x, true);
         return x;
@@ -89,12 +88,12 @@ public interface BitmaskAttribute<S extends BitmaskAttribute<S>> extends Integer
     }
 
     /**
-     * Checks whether this attribute is set within an integer mask.
+     * Checks whether this attribute is set within an long mask.
      *
      * @param inMask The mask to check.
      * @return Whether this attribute is contained in the mask
      */
-    default boolean isFlagSet(int inMask) {
+    default boolean isFlagSet(long inMask) {
         return Bitmask.isFlagSet(inMask, getValue());
     }
 
@@ -105,7 +104,7 @@ public interface BitmaskAttribute<S extends BitmaskAttribute<S>> extends Integer
      * @param newState The desired state of this attribute within the mask
      * @return The new mask
      */
-    default int apply(int toMask, boolean newState) {
+    default long apply(long toMask, boolean newState) {
         return Bitmask.modifyFlag(toMask, getValue(), newState);
     }
 
@@ -116,6 +115,6 @@ public interface BitmaskAttribute<S extends BitmaskAttribute<S>> extends Integer
      * @return Whether the attribute values are equal
      */
     default boolean equals(BitmaskAttribute<?> other) {
-        return getValue() == (int) other.getValue();
+        return getValue() == (long) other.getValue();
     }
 }

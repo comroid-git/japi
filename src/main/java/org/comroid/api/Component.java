@@ -64,7 +64,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                 .orElseGet(this::getName);
     }
 
-    default <T extends Component> Stream<T> components(@Nullable Class<T> type) {
+    default <T extends Component> Stream<T> components(@Nullable Class<? super T> type) {
         return Stream.concat(
                 streamChildren(type),
                 isSubComponent()
@@ -74,8 +74,8 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                         : Stream.empty());
     }
 
-    default <T extends Component> SupplierX<T> component(@Nullable Class<T> type) {
-        return () -> components(type).findAny().orElse(null);
+    default <T extends Component> SupplierX<T> component(@Nullable Class<? super T> type) {
+        return () -> Polyfill.uncheckedCast(components(type).findAny().orElse(null));
     }
 
     default List<Class<? extends Component>> requires() {
@@ -129,13 +129,13 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         Terminate(EarlyTerminate),
         PostTerminate(PreInit);
 
-        private final int mask;
+        private final long mask;
 
         State(State... ext) {
             this.mask = Bitmask.nextFlag(State.class) | Bitmask.combine(ext);
         }
 
-        public int getAsInt() {
+        public long getAsLong() {
             return mask;
         }
     }
