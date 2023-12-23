@@ -58,17 +58,16 @@ public class DataStructure<T> implements Named {
     }
 
     @lombok.Builder
-    public static <T> DataStructure<T> of(final Class<? super T> target, final boolean onlyDeclared) {
-        return uncheckedCast($cache.touch(new Key<T>(target, onlyDeclared)));
+    public static <T> DataStructure<T> of(@NotNull Class<? super T> target, @NotNull Class<? super T> above) {
+        return uncheckedCast($cache.touch(new Key<T>(target, above)));
     }
 
     private static <T> DataStructure<T> create(Key<T> key) {
         final var target = key.type;
-        final var onlyDeclared = key.onlyDeclared;
         final var struct = new DataStructure<T>(target);
 
         // constructors
-        Stream.concat(Arrays.stream(onlyDeclared ? target.getDeclaredMethods() : target.getMethods())
+        Stream.concat(Arrays.stream(target.getMethods())
                                 .filter(mtd -> Modifier.isStatic(mtd.getModifiers()))
                                 .filter(mtd -> Stream.of(Instance.class,Convert.class)
                                         .anyMatch(mtd::isAnnotationPresent))
@@ -76,6 +75,7 @@ public class DataStructure<T> implements Named {
                         Arrays.stream(target.getConstructors())
                                 .filter(it -> !it.isAnnotationPresent(Ignore.class)
                                         || !Arrays.asList(it.getAnnotation(Ignore.class).value()).contains(DataStructure.class)))
+                .filter(it -> !key.above.equals(it.getDeclaringClass()) && key.above.isAssignableFrom(it.getDeclaringClass()))
                 .filter(it -> Modifier.isPublic(it.getModifiers()))
                 .map(it -> {
                     Invocable<T> func;
@@ -91,14 +91,15 @@ public class DataStructure<T> implements Named {
                 }).forEach(struct.constructors::add);
 
         // properties
-        Stream.concat(Arrays.stream(onlyDeclared ? target.getDeclaredFields() : target.getFields()),
-                        Arrays.stream(onlyDeclared ? target.getDeclaredMethods() : target.getMethods())
+        Stream.concat(Arrays.stream(target.getFields()),
+                        Arrays.stream(target.getMethods())
                                 .filter(mtd -> mtd.getParameterCount() == 0)
                                 .filter(mtd -> mtd.getName().startsWith("get")))
                 .filter(it -> !Modifier.isStatic(it.getModifiers()))
                 .filter(it -> Modifier.isPublic(it.getModifiers()))
                 .filter(it -> !it.isAnnotationPresent(Ignore.class)
                         || !Arrays.asList(it.getAnnotation(Ignore.class).value()).contains(DataStructure.class))
+                .filter(it -> !key.above.equals(it.getDeclaringClass()) && key.above.isAssignableFrom(it.getDeclaringClass()))
                 .map(it -> {
                     var type = new Switch<Member, Class<?>>()
                             .option(Field.class::isInstance, () -> ((Field) it).getType())
@@ -141,7 +142,7 @@ public class DataStructure<T> implements Named {
 
     @Value
     public static class Key<T> {
-        Class<? super T> type;
-        boolean onlyDeclared;
+        @NotNull Class<? super T> type;
+        @NotNull Class<? super T> above;
     }
 }
