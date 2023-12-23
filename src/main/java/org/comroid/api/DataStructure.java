@@ -6,8 +6,8 @@ import org.comroid.annotations.Alias;
 import org.comroid.annotations.Convert;
 import org.comroid.annotations.Ignore;
 import org.comroid.annotations.Instance;
+import org.comroid.api.map.WeakCache;
 import org.comroid.util.BoundValueType;
-import org.comroid.util.ReflectionHelper;
 import org.comroid.util.StandardValueType;
 import org.comroid.util.Switch;
 import org.jetbrains.annotations.NotNull;
@@ -23,8 +23,8 @@ import static org.comroid.api.Polyfill.uncheckedCast;
 @Value
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class DataStructure<T> implements Named {
-    private static final Map<Class<?>, DataStructure<?>> $cache = new ConcurrentHashMap<>();
-    public static final Map<Class<?>, DataStructure<?>> cache = Collections.unmodifiableMap($cache);
+    private static final WeakCache<Key<?>, DataStructure<?>> $cache = new WeakCache<>(DataStructure::create);
+    public static final Map<Key<?>, DataStructure<?>> cache = Collections.unmodifiableMap($cache);
 
     @NotNull Class<? super T> type;
     @NotNull @ToString.Exclude List<Constructor> constructors = new ArrayList<>();
@@ -57,56 +57,61 @@ public class DataStructure<T> implements Named {
         return prop;
     }
 
-    public static <T> DataStructure<T> of(final Class<? super T> target) {
-        return uncheckedCast($cache.computeIfAbsent(target, $ -> {
-            final var struct = new DataStructure<T>(target);
+    @lombok.Builder
+    public static <T> DataStructure<T> of(final Class<? super T> target, final boolean onlyDeclared) {
+        return uncheckedCast($cache.touch(new Key<T>(target, onlyDeclared)));
+    }
 
-            // constructors
-            Stream.concat(Arrays.stream(target.getMethods())
-                                    .filter(mtd -> Modifier.isStatic(mtd.getModifiers()))
-                                    .filter(mtd -> Stream.of(Instance.class,Convert.class)
-                                            .anyMatch(mtd::isAnnotationPresent))
-                                    .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())),
-                            Arrays.stream(target.getConstructors())
-                                    .filter(it -> !it.isAnnotationPresent(Ignore.class)
-                                            || !Arrays.asList(it.getAnnotation(Ignore.class).value()).contains(DataStructure.class)))
-                    .filter(it -> Modifier.isPublic(it.getModifiers()))
-                    .map(it -> {
-                        Invocable<T> func;
-                        if (it instanceof java.lang.reflect.Constructor<?>)
-                            func = Invocable.ofConstructor(uncheckedCast(it));
-                        else if (it instanceof Method)
-                            func = Invocable.ofMethodCall((Method) it);
-                        else throw new AssertionError();
-                        var ctor = struct.new Constructor(it.getName(), func);
-                        for (var parameter : it.getParameters())
-                            ctor.args.put(parameter.getName(), struct.createProperty(parameter.getType(), parameter.getName(), parameter));
-                        return ctor;
-                    }).forEach(struct.constructors::add);
+    private static <T> DataStructure<T> create(Key<T> key) {
+        final var target = key.type;
+        final var onlyDeclared = key.onlyDeclared;
+        final var struct = new DataStructure<T>(target);
 
-            // properties
-            Stream.concat(Arrays.stream(target.getFields()),
-                            Arrays.stream(target.getMethods())
-                                    .filter(mtd -> mtd.getParameterCount() == 0)
-                                    .filter(mtd -> mtd.getName().startsWith("get")))
-                    .filter(it -> !Modifier.isStatic(it.getModifiers()))
-                    .filter(it -> Modifier.isPublic(it.getModifiers()))
-                    .filter(it -> !it.isAnnotationPresent(Ignore.class)
-                            || !Arrays.asList(it.getAnnotation(Ignore.class).value()).contains(DataStructure.class))
-                    .map(it -> {
-                        var type = new Switch<Member, Class<?>>()
-                                .option(Field.class::isInstance, () -> ((Field) it).getType())
-                                .option(Method.class::isInstance, () -> ((Method) it).getReturnType())
-                                .apply(it);
-                        var name = it.getName();
-                        if (it instanceof Method)
-                            name = Character.toLowerCase(name.charAt(3)) + name.substring("getX".length());
-                        return struct.createProperty(type, name, it);
-                    })
-                    .forEach(prop -> struct.properties.put(prop.name, prop));
+        // constructors
+        Stream.concat(Arrays.stream(onlyDeclared ? target.getDeclaredMethods() : target.getMethods())
+                                .filter(mtd -> Modifier.isStatic(mtd.getModifiers()))
+                                .filter(mtd -> Stream.of(Instance.class,Convert.class)
+                                        .anyMatch(mtd::isAnnotationPresent))
+                                .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())),
+                        Arrays.stream(target.getConstructors())
+                                .filter(it -> !it.isAnnotationPresent(Ignore.class)
+                                        || !Arrays.asList(it.getAnnotation(Ignore.class).value()).contains(DataStructure.class)))
+                .filter(it -> Modifier.isPublic(it.getModifiers()))
+                .map(it -> {
+                    Invocable<T> func;
+                    if (it instanceof java.lang.reflect.Constructor<?>)
+                        func = Invocable.ofConstructor(uncheckedCast(it));
+                    else if (it instanceof Method)
+                        func = Invocable.ofMethodCall((Method) it);
+                    else throw new AssertionError();
+                    var ctor = struct.new Constructor(it.getName(), func);
+                    for (var parameter : it.getParameters())
+                        ctor.args.put(parameter.getName(), struct.createProperty(parameter.getType(), parameter.getName(), parameter));
+                    return ctor;
+                }).forEach(struct.constructors::add);
 
-            return struct;
-        }));
+        // properties
+        Stream.concat(Arrays.stream(onlyDeclared ? target.getDeclaredFields() : target.getFields()),
+                        Arrays.stream(onlyDeclared ? target.getDeclaredMethods() : target.getMethods())
+                                .filter(mtd -> mtd.getParameterCount() == 0)
+                                .filter(mtd -> mtd.getName().startsWith("get")))
+                .filter(it -> !Modifier.isStatic(it.getModifiers()))
+                .filter(it -> Modifier.isPublic(it.getModifiers()))
+                .filter(it -> !it.isAnnotationPresent(Ignore.class)
+                        || !Arrays.asList(it.getAnnotation(Ignore.class).value()).contains(DataStructure.class))
+                .map(it -> {
+                    var type = new Switch<Member, Class<?>>()
+                            .option(Field.class::isInstance, () -> ((Field) it).getType())
+                            .option(Method.class::isInstance, () -> ((Method) it).getReturnType())
+                            .apply(it);
+                    var name = it.getName();
+                    if (it instanceof Method)
+                        name = Character.toLowerCase(name.charAt(3)) + name.substring("getX".length());
+                    return struct.createProperty(type, name, it);
+                })
+                .forEach(prop -> struct.properties.put(prop.name, prop));
+
+        return struct;
     }
 
     @Value
@@ -132,5 +137,11 @@ public class DataStructure<T> implements Named {
                 return Property.this; // for serialization
             }
         }
+    }
+
+    @Value
+    public static class Key<T> {
+        Class<? super T> type;
+        boolean onlyDeclared;
     }
 }

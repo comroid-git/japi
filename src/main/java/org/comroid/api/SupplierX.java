@@ -279,7 +279,7 @@ public interface SupplierX<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return () -> orElseGet(orElse);
     }
 
-    default SupplierX<T> orRef(final Supplier<SupplierX<? extends T>> orElse) {
+    default SupplierX<T> orRef(final Supplier<Supplier<? extends T>> orElse) {
         return () -> orElseGet(orElse.get());
     }
 
