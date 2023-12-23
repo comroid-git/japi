@@ -1,6 +1,7 @@
 package org.comroid.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.comroid.util.Capitalization;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,7 +28,10 @@ public interface Named extends WrappedFormattable {
     @Override
     @JsonIgnore
     default String getAlternateName() {
-        return toString();
+        final var name = getName();
+        return Capitalization.of(name).ifPresentMapOrElseGet(
+                cap -> cap.convert(Capitalization.Title_Case, name),
+                this::toString);
     }
 
     /**
