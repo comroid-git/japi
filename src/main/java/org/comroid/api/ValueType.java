@@ -1,11 +1,16 @@
 package org.comroid.api;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import javax.persistence.Transient;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named {
     @Override
+    @Transient
     @Deprecated
+    @JsonIgnore
     default ValueType<R> getHeldType() {
         return this;
     }
