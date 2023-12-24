@@ -79,7 +79,10 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     }
 
     default List<Class<? extends Component>> requires() {
-        final var type = getClass();
+        return requires(getClass());
+    }
+
+    static List<Class<? extends Component>> requires(Class<? extends Component> type) {
         return Cache.get(type.getCanonicalName() + "@Requires", () -> Arrays
                 .stream(type.getAnnotationsByType(Requires.class))
                 .map(Requires::value)
