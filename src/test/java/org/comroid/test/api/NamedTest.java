@@ -15,17 +15,12 @@ public class NamedTest {
             public String getName() {
                 return "name";
             }
-
-            @Override
-            public String toString() {
-                return "string";
-            }
         };
     }
 
     @Test
     public void test() {
         Assert.assertEquals("name", String.format("%s", named));
-        Assert.assertEquals("string", String.format("%#s", named));
+        Assert.assertEquals("Name", String.format("%#s", named));
     }
 }
