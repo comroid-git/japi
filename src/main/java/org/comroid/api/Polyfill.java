@@ -1,5 +1,6 @@
 package org.comroid.api;
 
+import lombok.Builder;
 import lombok.experimental.UtilityClass;
 import org.comroid.util.RegExpUtil;
 import org.comroid.util.StackTraceUtils;
@@ -71,9 +72,21 @@ public final class Polyfill {
     }
 
     public static <R, T extends Throwable> Function<T, R> exceptionLogger(final Logger logger, final Level level, final String message) {
+        return exceptionLogger(logger, level, level, message);
+    }
+
+    public static <R, T extends Throwable> Function<T, R> exceptionLogger(final Logger logger, final Level messageLevel, final Level exceptionLevel, final String message) {
+        return exceptionLogger(logger, messageLevel, exceptionLevel, message, null);
+    }
+
+    @lombok.Builder(builderMethodName = "exceptionLoggerBuilder")
+    public static <R, T extends Throwable> Function<T, R> exceptionLogger(final Logger logger, final Level messageLevel, final Level exceptionLevel, final String message, @Nullable final Supplier<R> fallback) {
         return throwable -> {
-            logger.log(level, message, throwable);
-            return null;
+            logger.log(messageLevel, message);
+            logger.log(exceptionLevel, StackTraceUtils.toString(throwable));
+            return SupplierX.of(fallback)
+                    .map(Supplier::get)
+                    .get();
         };
     }
 
