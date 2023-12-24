@@ -1,7 +1,9 @@
 package org.comroid.util;
 
+import lombok.Data;
 import lombok.SneakyThrows;
 import org.comroid.abstr.DataNode;
+import org.comroid.annotations.Convert;
 import org.comroid.annotations.Instance;
 import org.comroid.api.DelegateStream;
 import org.comroid.api.MimeType;
@@ -17,7 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public enum JSON implements org.comroid.api.Serializer<DataNode> {
+public enum JSON implements org.comroid.api.Serializer<JSON.Node> {
     @Instance Parser;
 
     @Override
@@ -26,9 +28,9 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
     }
 
     @Override
-    public @NotNull DataNode parse(@Nullable String data) {
+    public @NotNull JSON.Node parse(@Nullable String data) {
         if (data == null)
-            return DataNode.Value.NULL;
+            return DataNode.Value.NULL.json();
         try (var reader = new Deserializer(new StringReader(data))) {
             return reader.readNode();
         }
@@ -56,11 +58,11 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
         }
 
         @SneakyThrows
-        public DataNode readNode() {
+        public JSON.Node readNode() {
             return switch (getOrAdvance()) {
                 case '{' -> readObject();
                 case '[' -> readArray();
-                default -> new DataNode.Value<>(readToken());
+                default -> new DataNode.Value<>(readToken()).json();
             };
         }
 
@@ -166,9 +168,21 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
         }
     }
 
-    @lombok.Data
-    public static final class Object extends DataNode.Object {
-        public static Object of(Map<String, java.lang.Object> map) {
+    public interface Node extends DataNode {
+        @Override
+        default Node json() {
+            return this;
+        }
+
+        @Override
+        default MimeType getMimeType() {
+            return MimeType.JSON;
+        }
+    }
+
+    @Data
+    public static final class Object extends DataNode.Object implements Node {
+        public static JSON.Object of(Map<String, java.lang.Object> map) {
             var obj = new JSON.Object();
             for (var entry : map.entrySet())
                 obj.put(entry.getKey(), DataNode.of(entry.getValue()));
@@ -183,9 +197,9 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
         }
     }
 
-    @lombok.Data
-    public static final class Array extends DataNode.Array {
-        public static Array of(List<java.lang.Object> list) {
+    @Data
+    public static final class Array extends DataNode.Array implements Node {
+        public static JSON.Array of(List<java.lang.Object> list) {
             var arr = new JSON.Array();
             for (var each : list)
                 arr.add(DataNode.of(each));
@@ -197,6 +211,26 @@ public enum JSON implements org.comroid.api.Serializer<DataNode> {
             return list.stream()
                     .map(Objects::toString)
                     .collect(Collectors.joining(", ", "[", "]"));
+        }
+    }
+
+    @Data
+    public static final class Value<T> extends DataNode.Value<T> implements Node {
+        public Value(@Nullable T value) {
+            super(value);
+        }
+
+        @Override
+        public String toString() {
+            // this method is a super-stub because it depends on the functionality of the underlying method
+            return super.toString();
+        }
+
+        @Convert
+        public static <T> JSON.Value<T> convert(Value<T> from) {
+            if (from instanceof JSON.Value)
+                return (JSON.Value<T>) from;
+            return new JSON.Value<>(from.getValue());
         }
     }
 }

@@ -1,7 +1,9 @@
 package org.comroid.util;
 
 import lombok.*;
+import lombok.experimental.NonFinal;
 import org.comroid.abstr.DataNode;
+import org.comroid.api.MimeType;
 import org.comroid.api.Polyfill;
 import org.comroid.api.Serializer;
 import org.jetbrains.annotations.NotNull;
@@ -32,8 +34,7 @@ public final class REST {
 
                 @Override
                 public CompletableFuture<Response> apply(Request request) {
-                    var pub = Stream.of(Method.GET, Method.OPTIONS, Method.TRACE)
-                            .noneMatch(request.method::equals)
+                    var pub = List.of(Method.GET, Method.OPTIONS, Method.TRACE).contains(request.method)
                             || request.body == null
                             ? HttpRequest.BodyPublishers.noBody()
                             : HttpRequest.BodyPublishers.ofString(request.body.toString());
@@ -41,6 +42,7 @@ public final class REST {
                             .uri(request.uri)
                             .method(request.method.name(), pub);
                     request.headers.forEach(req::header);
+                    req.header("Content-Type", "application/json");
                     var res = HttpResponse.BodyHandlers.ofString();
                     return client.sendAsync(req.build(), res).thenApply(response -> {
                         var body = response.body().isBlank() || response.statusCode() / 100 != 2
@@ -51,7 +53,7 @@ public final class REST {
                 }
             });
 
-    private Serializer<DataNode> serializer;
+    private Serializer<? extends DataNode> serializer;
     private @Nullable Cache<URI, Response> cache;
     private Function<Request, CompletableFuture<Response>> executor;
 
@@ -100,23 +102,25 @@ public final class REST {
     }
 
     @Value
-    public class Request {
-        Method method;
-        @With
-        URI uri;
-        @With
-        @Nullable DataNode body;
-        @With
-        Serializer<DataNode> serializer;
-        @Singular
-        Map<String, String> headers = new ConcurrentHashMap<>();
+    public class Request implements MimeType.Container {
+        @NotNull Method method;
+        @Setter @NonFinal @NotNull URI uri;
+        @Setter @NonFinal @Nullable DataNode body;
+        @Setter @NonFinal @NotNull Serializer<? extends DataNode> serializer;
+        @Singular Map<String, String> headers = new ConcurrentHashMap<>();
+
+        @Override
+        public MimeType getMimeType() {
+            return serializer.getMimeType();
+        }
 
         public Request addHeader(String name, String value) {
             headers.put(name, value);
             return this;
         }
 
-        private Request(Method method, URI uri, @Nullable DataNode body, @NotNull Serializer<DataNode> serializer) {
+        private Request(@NotNull Method method, @NotNull URI uri, @Nullable DataNode body,
+                        @NotNull Serializer<? extends DataNode> serializer) {
             this.method = method;
             this.uri = uri;
             this.body = body;
@@ -131,7 +135,8 @@ public final class REST {
             if (response.responseCode / 100 != 3)
                 return CompletableFuture.completedFuture(response);
             var location = response.headers.get("Location").get(0);
-            return withUri(Polyfill.uri(location)).execute()
+            return setUri(Polyfill.uri(location))
+                    .execute()
                     .thenCompose(this::handleRedirect);
         }
     }

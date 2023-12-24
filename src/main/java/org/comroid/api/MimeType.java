@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.With;
+import org.comroid.annotations.Ignore;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -84,5 +85,17 @@ public class MimeType {
         if (args != null)
             sb.append(String.join(";", args));
         return sb.toString();
+    }
+
+    public interface Container {
+        @Ignore
+        default MimeType getMimeType() {
+            return getMimeTypes()[0];
+        }
+
+        @Ignore
+        default MimeType[] getMimeTypes() {
+            return new MimeType[]{getMimeType()};
+        }
     }
 }
