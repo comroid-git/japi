@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Deprecated // todo: broken
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class WeakCache<K,V> extends AbstractMap<K,V> {
@@ -49,7 +50,7 @@ public class WeakCache<K,V> extends AbstractMap<K,V> {
             return SupplierX.of(ref)
                     .map(Reference::get)
                     .orRef(()->SupplierX.of(key)
-                            .map(provider)
+                            .map(provider) // todo sometimes causes NPE
                             .peek(it -> ref = new WeakReference<>(it)))
                     .orElseThrow(() -> new AssertionError("Unable to touch WeakCache object with key " + key));
         }

@@ -23,7 +23,9 @@ import static org.comroid.api.Polyfill.uncheckedCast;
 @Value
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class DataStructure<T> implements Named {
-    private static final WeakCache<Key<?>, DataStructure<?>> $cache = new WeakCache<>(DataStructure::create);
+    // todo: fix WeakCache
+    //private static final WeakCache<Key<?>, DataStructure<?>> $cache = new WeakCache<>(DataStructure::create);
+    private static final Map<Key<?>, DataStructure<?>> $cache = new ConcurrentHashMap<>();
     public static final Map<Key<?>, DataStructure<?>> cache = Collections.unmodifiableMap($cache);
 
     @NotNull Class<? super T> type;
