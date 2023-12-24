@@ -1,5 +1,6 @@
 package org.comroid.api;
 
+import org.comroid.annotations.Ignore;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -16,6 +17,7 @@ import java.util.stream.Stream;
  *
  * @param <T> The type of held data
  */
+@Ignore
 public interface SupplierX<T> extends Supplier<@Nullable T>, Referent<T>, MutableState, StreamSupplier<T>, Convertible {
     SupplierX<?> EMPTY = () -> null;
 
@@ -237,13 +239,13 @@ public interface SupplierX<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         else task.run();
     }
 
-    default <R> @Nullable R ifPresentMap(Function<T, R> consumer) {
+    default <R> @Nullable R ifPresentMap(Function<? super T, ? extends R> consumer) {
         if (isNonNull())
             return into(consumer);
         return null;
     }
 
-    default <R> R ifPresentMapOrElseGet(Function<T, R> consumer, Supplier<R> task) {
+    default <R> R ifPresentMapOrElseGet(Function<? super T, ? extends R> consumer, Supplier<R> task) {
         if (isNonNull()) {
             R into = into(consumer);
             if (into == null)
@@ -304,5 +306,9 @@ public interface SupplierX<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
 
     default <O> SupplierX<O> flatMap(final @NotNull Class<O> type) {
         return () -> test(type::isInstance) ? cast() : null;
+    }
+
+    default <O> SupplierX<O> flatMap(final @NotNull Function<? super T, Supplier<? extends O>> type) {
+        return ifPresentMapOrElseGet(type, ()->null)::get;
     }
 }
