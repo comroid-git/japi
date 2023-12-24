@@ -169,6 +169,7 @@ public class Constraint {
         @NotNull Object actual = DefaultActual;
         @NotNull String shouldBe = DefaultShouldBe;
         @NotNull Object expected = DefaultExpected;
+        @Nullable String hint;
 
         public <T> SupplierX<T> handle(@NotNull Supplier<T> success, @Nullable Function<UnmetError, @Nullable T> failure) {
             return () -> {
@@ -197,7 +198,7 @@ public class Constraint {
         }
 
         private UnmetError err() {
-            return err(constraint, typeof.getSimpleName(), nameof, actual, shouldBe, expected);
+            return err(constraint, typeof.getSimpleName(), nameof, actual, shouldBe, expected, hint);
         }
 
         private UnmetError err(
@@ -206,10 +207,11 @@ public class Constraint {
                 String nameof,
                 Object actual,
                 String shouldBeVerb,
-                Object expected
+                Object expected,
+                @Nullable String hint
         ) {
-            return new UnmetError("Unmet %s constraint for argument %s %s; %s should be %s %s"
-                    .formatted(constraint, typeof, nameof, actual, shouldBeVerb, expected));
+            return new UnmetError("Unmet %s constraint for argument %s %s; %s should be %s %s%s"
+                    .formatted(constraint, typeof, nameof, actual, shouldBeVerb, expected, hint==null?"": '\n'+hint));
         }
     }
 
