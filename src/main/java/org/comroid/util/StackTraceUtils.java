@@ -1,14 +1,17 @@
 package org.comroid.util;
 
+import lombok.experimental.UtilityClass;
 import org.comroid.api.DelegateStream;
 
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+@UtilityClass
 public final class StackTraceUtils {
     public static String callerString(StackTraceElement[] trace, int index) {
         var me = trace[index];
@@ -118,5 +121,9 @@ public final class StackTraceUtils {
                     out.println("\tat " + element);
             }
         } while ((cause = cause.getCause()) != null);
+    }
+
+    public static Stream<StackTraceElement> stream() {
+        return Arrays.stream(new Throwable().getStackTrace());
     }
 }
