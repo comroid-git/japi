@@ -8,6 +8,7 @@ import org.comroid.annotations.Ignore;
 import org.comroid.annotations.Instance;
 import org.comroid.api.map.WeakCache;
 import org.comroid.util.BoundValueType;
+import org.comroid.util.Constraint;
 import org.comroid.util.StandardValueType;
 import org.comroid.util.Switch;
 import org.jetbrains.annotations.NotNull;
@@ -125,12 +126,19 @@ public class DataStructure<T> implements Named {
     }
 
     @Value
-    public static class Property<V> implements Named {
+    public class Property<V> implements Named {
         @NotNull ValueType<V> type;
         @NotNull String name;
         @Nullable @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<V> getter;
         @Nullable @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<?> setter;
         @NotNull Set<String> aliases = new HashSet<>();
+
+        @SneakyThrows
+        @SuppressWarnings("DataFlowIssue")
+        public @Nullable V getFrom(T target) {
+            Constraint.notNull(getter, "getter");
+            return getter.invoke(target);
+        }
 
         @Value
         public class Usage {
