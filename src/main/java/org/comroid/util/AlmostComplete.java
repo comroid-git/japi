@@ -36,7 +36,7 @@ public class AlmostComplete<T> implements SupplierX<T> {
                 it = exceptionHandler.apply(t);
 
             // counter cannot be >2 because 3 = success
-            Constraint.Range.inside(0, 2, c, "stage counter");
+            Constraint.Range.inside(0, 2, c, "stage counter").run();
 
             var stage = switch (c) {
                 case 0 -> "initialization";
