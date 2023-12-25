@@ -106,7 +106,7 @@ public class DataStructure<T> implements Named {
                 .filter(it -> !Annotations.ignore(it, DataStructure.class))
                 .filter(it -> !key.above.equals(it.getDeclaringClass()) && key.above.isAssignableFrom(it.getDeclaringClass()))
                 .filter(it -> Arrays.stream(SystemFilters).noneMatch(type -> it.getDeclaringClass().isAssignableFrom(type)))
-                .map(it -> {
+                .forEach(it -> {
                     var type = new Switch<Member, Class<?>>()
                             .option(Field.class::isInstance, () -> ((Field) it).getType())
                             .option(Method.class::isInstance, () -> ((Method) it).getReturnType())
@@ -114,9 +114,10 @@ public class DataStructure<T> implements Named {
                     var name = it.getName();
                     if (it instanceof Method)
                         name = Character.toLowerCase(name.charAt(3)) + name.substring("getX".length());
-                    return struct.createProperty(type, name, it);
-                })
-                .forEach(prop -> struct.properties.put(prop.name, prop));
+                    var prop = struct.createProperty(type, name, it);
+                    Stream.concat(Stream.of(prop.name), Annotations.aliases(it).stream())
+                            .forEach(k -> struct.properties.put(k, prop));
+                });
 
         return struct;
     }

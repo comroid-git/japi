@@ -22,7 +22,8 @@ import static org.comroid.util.Streams.*;
 @ApiStatus.Internal
 public class Annotations {
     public Set<String> aliases(@NotNull AnnotatedElement of) {
-        return findAnnotations(Alias.class, of)
+        return Stream.of(of.getAnnotation(Alias.class))
+                .filter(Objects::nonNull)
                 .flatMap(it -> stream(it.value()))
                 .collect(Collectors.toUnmodifiableSet());
     }
@@ -119,6 +120,8 @@ public class Annotations {
         try {
             if (of instanceof Member) {
                 var pType = ((Member) of).getDeclaringClass().getSuperclass();
+                if (pType == null)
+                    return SupplierX.empty();
                 // todo: this is inaccurate for different parameter overrides
                 if (of instanceof Method)
                     return SupplierX.of(pType.getDeclaredMethod(((Method) of).getName(), ((Method) of).getParameterTypes()));

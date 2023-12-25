@@ -2,6 +2,7 @@ package org.comroid.api;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.comroid.annotations.Ignore;
 import org.comroid.annotations.OptionalVararg;
 import org.comroid.exception.RethrownException;
 import org.comroid.util.ReflectionHelper;
@@ -23,6 +24,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+@Ignore
 @Experimental
 public interface Invocable<T> extends Named {
     static <T, E extends Throwable> Invocable<T> ofCallable(
