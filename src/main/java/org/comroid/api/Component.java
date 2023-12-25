@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
+import org.comroid.annotations.Ignore;
 import org.comroid.api.info.Log;
 import org.comroid.util.*;
 import org.jetbrains.annotations.Contract;
@@ -26,8 +27,8 @@ import java.util.stream.Stream;
 
 import static org.comroid.util.Streams.*;
 
+@Ignore
 public interface Component extends Container, LifeCycle, Tickable, EnabledState, Named {
-
     @Override
     @PostLoad
     @PostConstruct

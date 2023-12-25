@@ -9,7 +9,6 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 @SuppressWarnings({"DuplicatedCode","BooleanMethodIsAlwaysInverted"})
@@ -66,6 +65,9 @@ public class Annotations {
 
     @SuppressWarnings("ConstantValue") // false positive
     private static SupplierX<AnnotatedElement> findAncestor(AnnotatedElement of) {
+        if (of.isAnnotationPresent(Ignore.Ancestor.class))
+            return SupplierX.empty();
+
         Class<?> decl;
         if (of instanceof Class<?>) {
             decl = (Class<?>) of;
