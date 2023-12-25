@@ -4,10 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.comroid.annotations.*;
-import org.comroid.util.BoundValueType;
-import org.comroid.util.Constraint;
-import org.comroid.util.StandardValueType;
-import org.comroid.util.Switch;
+import org.comroid.util.*;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import static org.comroid.api.Polyfill.uncheckedCast;
+import static org.comroid.util.Streams.yield;
 
 @Value
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -26,15 +25,31 @@ public class DataStructure<T> implements Named {
     //private static final WeakCache<Key<?>, DataStructure<?>> $cache = new WeakCache<>(DataStructure::create);
     private static final Map<Key<?>, DataStructure<?>> $cache = new ConcurrentHashMap<>();
     public static final Map<Key<?>, DataStructure<?>> cache = Collections.unmodifiableMap($cache);
-    public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class,Class.class};
+    public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class, Class.class};
 
     @NotNull Class<? super T> type;
-    @NotNull @ToString.Exclude List<Constructor> constructors = new ArrayList<>();
-    @NotNull @ToString.Exclude Map<String, Property<?>> properties = new ConcurrentHashMap<>();
+    @NotNull
+    @ToString.Exclude
+    List<Constructor> constructors = new ArrayList<>();
+    @NotNull
+    @ToString.Exclude
+    Map<String, Property<?>> properties = new ConcurrentHashMap<>();
 
     @Override
     public String getName() {
         return type.getCanonicalName();
+    }
+
+    public <V> SupplierX<Property<V>> getProperty(AnnotatedElement member) throws ClassCastException {
+        return getProperty((java.lang.reflect.Member) member);
+    }
+
+    public <V> SupplierX<Property<V>> getProperty(java.lang.reflect.Member member) {
+        return getProperty(member.getName());
+    }
+
+    public <V> SupplierX<Property<V>> getProperty(String name) {
+        return SupplierX.of(properties.getOrDefault(name, null)).castRef();
     }
 
     private <V> Property<V> createProperty(Class<V> type, String name, AnnotatedElement it) {
@@ -48,16 +63,14 @@ public class DataStructure<T> implements Named {
                 .option(Method.class::isInstance, () -> Arrays.stream(((Method) it).getDeclaringClass().getMethods())
                         .filter(mtd -> Modifier.isPublic(mtd.getModifiers()) && !Modifier.isStatic(mtd.getModifiers()))
                         .filter(mtd -> mtd.getParameterCount() == 1 && ((Method) it).getReturnType().isAssignableFrom(mtd.getParameters()[0].getType()))
-                        .filter(mtd -> mtd.getName().equalsIgnoreCase("set"+name))
+                        .filter(mtd -> mtd.getName().equalsIgnoreCase("set" + name))
                         .findAny()
                         .map(Invocable::ofMethodCall)
                         .orElse(null))
                 .apply(it);
-        var prop = new Property<>(name, uncheckedCast(vt), getter, setter);
-        var aliases = it.getAnnotation(Alias.class);
-        if (aliases != null) prop.aliases.addAll(Arrays.asList(aliases.value()));
-        Annotations.findAnnotations(Annotation.class, it).forEach(prop.annotations::add);
-        return prop;
+
+        Objects.requireNonNull(getter, "Getter could not be initialized");
+        return new Property<>(name, it, uncheckedCast(vt), getter, setter);
     }
 
     public static <T> DataStructure<T> of(@NotNull Class<? super T> target) {
@@ -77,7 +90,7 @@ public class DataStructure<T> implements Named {
         // constructors
         Stream.concat(Arrays.stream(target.getMethods())
                                 .filter(mtd -> Modifier.isStatic(mtd.getModifiers()))
-                                .filter(mtd -> Stream.of(Instance.class,Convert.class)
+                                .filter(mtd -> Stream.of(Instance.class, Convert.class)
                                         .anyMatch(mtd::isAnnotationPresent))
                                 .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())),
                         Arrays.stream(target.getConstructors()))
@@ -92,10 +105,10 @@ public class DataStructure<T> implements Named {
                     else if (it instanceof Method)
                         func = Invocable.ofMethodCall((Method) it);
                     else throw new AssertionError();
-                    var ctor = struct.new Constructor(it.getName(), func);
+
+                    var ctor = struct.new Constructor(it.getName(), it, func);
                     for (var parameter : it.getParameters())
                         ctor.args.put(parameter.getName(), struct.createProperty(parameter.getType(), parameter.getName(), parameter));
-                    Annotations.findAnnotations(Annotation.class, it).forEach(ctor.annotations::add);
                     return ctor;
                 }).forEach(struct.constructors::add);
 
@@ -125,57 +138,152 @@ public class DataStructure<T> implements Named {
         return struct;
     }
 
-    @Data
-    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
     @FieldDefaults(level = AccessLevel.PROTECTED, makeFinal = true)
-    public static abstract class Member implements Named {
-        @NotNull String name;
-        @NotNull Set<String> aliases = new HashSet<>();
-        @NotNull @ToString.Exclude Set<Annotations.Result<?>> annotations = new HashSet<>();
+    public static abstract class Member implements Named, AnnotatedElement, java.lang.reflect.Member {
+        @NotNull
+        @Getter
+        String name;
+        @NotNull
+        @Getter
+        Set<String> aliases = new HashSet<>();
+        @NotNull
+        @ToString.Exclude
+        AnnotatedElement context;
+        @NotNull
+        @ToString.Exclude
+        Set<Annotations.Result<?>> annotations = new HashSet<>();
+        @Getter
+        @NotNull Class<?> declaringClass;
+        @Getter
+        int modifiers = Modifier.PUBLIC;
+        @Getter
+        boolean synthetic = false;
+
+        private Member(@NotNull String name, @NotNull AnnotatedElement context) {
+            this.name = name;
+            this.declaringClass = ReflectionHelper.declaringClass(context);
+            this.context = context;
+
+            Annotations.findAnnotations(Alias.class, context)
+                    .map(Annotations.Result::getAnnotation)
+                    .flatMap(alias -> Arrays.stream(alias.value()))
+                    .forEach(aliases::add);
+            Annotations.findAnnotations(Annotation.class, context).forEach(annotations::add);
+        }
 
         @Override
         public String getAlternateName() {
             return aliases.stream().findAny().orElseGet(Named.super::getAlternateName);
         }
+
+        @Override
+        public Annotation[] getAnnotations() {
+            return streamAnnotations(Annotation.class).toArray(Annotation[]::new);
+        }
+
+        @Override
+        public Annotation[] getDeclaredAnnotations() {
+            return streamAnnotations(Annotation.class)
+                    .filter(result -> result.getContext().equals(context))
+                    .toArray(Annotation[]::new);
+        }
+
+        public <A extends Annotation> Stream<Annotations.Result<A>> streamAnnotations(Class<A> annotationClass) {
+            return annotations.stream()
+                    .map(Polyfill::<Annotations.Result<A>>uncheckedCast)
+                    .filter(result -> annotationClass.isAssignableFrom(result.annotationType()));
+        }
+
+        @Override
+        @SuppressWarnings({"NullableProblems", "DataFlowIssue"}) // killing away weird intellij complaints
+        public <T extends Annotation> @NotNull @Nullable T getAnnotation(final @NotNull Class<T> annotationClass) {
+            return streamAnnotations(annotationClass)
+                    .map(Annotations.Result::getAnnotation)
+                    .findAny()
+                    .orElse(null);
+        }
     }
 
     @Value
     public class Constructor extends Member {
-        @NotNull @ToString.Exclude Map<String, Property<?>> args = new ConcurrentHashMap<>();
-        @NotNull @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<T> ctor;
+        @NotNull
+        @ToString.Exclude
+        Map<String, Property<?>> args = new ConcurrentHashMap<>();
+        @NotNull
+        @ToString.Exclude
+        @Getter(onMethod = @__(@JsonIgnore))
+        Invocable<T> ctor;
 
-        private Constructor(@NotNull String name, @NotNull Invocable<T> ctor) {
-            super(name);
+        private Constructor(@NotNull String name,
+                            @NotNull AnnotatedElement context,
+                            @NotNull Invocable<T> ctor) {
+            super(name, context);
             this.ctor = ctor;
+        }
+
+        @Override
+        public int getModifiers() {
+            return super.getModifiers() | Modifier.STATIC;
         }
     }
 
     @Value
     public class Property<V> extends Member {
         @NotNull ValueType<V> type;
-        @Nullable @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<V> getter;
-        @Nullable @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<?> setter;
+        @NotNull
+        @ToString.Exclude
+        @Getter(onMethod = @__(@JsonIgnore))
+        Invocable<V> getter;
+        @Nullable
+        @ToString.Exclude
+        @Getter(onMethod = @__(@JsonIgnore))
+        Invocable<?> setter;
 
-        private Property(@NotNull String name, @NotNull ValueType<V> type, @Nullable Invocable<V> getter, @Nullable Invocable<?> setter) {
-            super(name);
+        public Property(@NotNull String name,
+                        @NotNull AnnotatedElement context,
+                        @NotNull ValueType<V> type,
+                        @NotNull Invocable<V> getter,
+                        @Nullable Invocable<?> setter) {
+            super(name, context);
             this.type = type;
             this.getter = getter;
             this.setter = setter;
         }
 
         @SneakyThrows
-        @SuppressWarnings("DataFlowIssue")
         public @Nullable V getFrom(T target) {
             Constraint.notNull(getter, "getter");
             return getter.invoke(target);
         }
 
-        @Value
-        public class Usage {
-            @Nullable V value;
+        @Override
+        public int getModifiers() {
+            return super.getModifiers() | (setter == null ? Modifier.FINAL : 0);
+        }
+
+        @NoArgsConstructor(access = AccessLevel.PRIVATE)
+        public abstract class Mod {
+            public DataStructure<T> getStructure() {
+                return DataStructure.this;
+            }
 
             public Property<V> getProperty() {
                 return Property.this; // for serialization
+            }
+        }
+
+        @Value
+        public class Usage extends Mod {
+            @Nullable V value;
+        }
+
+        @Value
+        public class Bound extends Mod implements SupplierX<V> {
+            @NotNull T target;
+
+            @Override
+            public @Nullable V get() {
+                return getFrom(target);
             }
         }
     }

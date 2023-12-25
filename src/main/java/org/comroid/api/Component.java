@@ -1,6 +1,5 @@
 package org.comroid.api;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.*;
@@ -16,15 +15,16 @@ import javax.persistence.PostLoad;
 import javax.persistence.PostUpdate;
 import javax.persistence.PreRemove;
 import java.lang.annotation.*;
+import java.lang.reflect.Member;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.logging.Level;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.util.Streams.*;
 
 @Ignore
@@ -76,10 +76,10 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     }
 
     default <T extends Component> SupplierX<T> component(@Nullable Class<? super T> type) {
-        return () -> Polyfill.uncheckedCast(components(type).findAny().orElse(null));
+        return () -> uncheckedCast(components(type).findAny().orElse(null));
     }
 
-    default List<Dependency> dependencies() {
+    default List<Dependency<?>> dependencies() {
         return dependencies(getClass());
     }
 
@@ -116,19 +116,32 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
     //static List<Class<? extends Component>> includes()
 
-    static List<Dependency> dependencies(Class<? extends Component> type) {
-        return Cache.get("dependencies of " + type.getCanonicalName(), () -> Stream.concat(
-                DataStructure.of(type).getProperties()
-                        .values().stream()
-                        .flatMap(struct -> struct.annotations.stream()
-                                .flatMap(cast(Inject.class)))
-                        .map(inject -> new Dependency(inject.value(), inject.type(), inject.order(), inject.require())),
-                Annotations.findAnnotations(Requires.class, type)
-                        .flatMap(requires -> Arrays.stream(requires.getAnnotation().value())
-                                .map(cls -> new Dependency("", cls, 0, true))))
-                .distinct()
-                .sorted(Dependency.DefaultLoadOrder)
-                .toList());
+    static List<Dependency<?>> dependencies(Class<? extends Component> type) {
+        return Cache.get("dependencies of " + type.getCanonicalName(), () -> {
+            var struct = DataStructure.of(type);
+            return Stream.concat(
+                    struct.getProperties().values().stream()
+                            //.flatMap(prop -> prop.annotations.stream())
+                            //.map(Polyfill::<Annotations.Result<Inject>>uncheckedCast)
+                            .filter(prop -> prop.annotations.stream()
+                                    .anyMatch(result -> result.getAnnotation().annotationType().equals(Inject.class)))
+                            .map(prop -> {
+                                var inject = Polyfill.<Annotations.Result<Inject>>uncheckedCast(prop.getAnnotation(Inject.class));
+                                var anno = inject.getAnnotation();
+                                return new Dependency<>(
+                                        Optional.of(anno.value()).filter(String::isEmpty).orElse(prop.name),
+                                        uncheckedCast(prop.getType().getTargetClass()),
+                                        anno.order(),
+                                        anno.require(),
+                                        uncheckedCast(prop));
+                            }),
+                    Annotations.findAnnotations(Requires.class, type)
+                            .flatMap(requires -> Arrays.stream(requires.getAnnotation().value())
+                                    .map(cls -> new Dependency<>("", cls, 0, true, null))))
+                    .distinct()
+                    .sorted(Dependency.DefaultLoadOrder)
+                    .toList();
+        });
     }
 
     enum State implements BitmaskAttribute<State> {
@@ -193,13 +206,13 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
     @Value
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
-    class Dependency implements Comparable<Dependency> {
-        public static final Comparator<Dependency> DefaultLoadOrder = Comparator.comparingInt(Dependency::getOrder);
+    class Dependency<T extends Component> implements Comparable<Dependency<?>> {
+        public static final Comparator<Dependency<?>> DefaultLoadOrder = Comparator.comparingInt(Dependency::getOrder);
         String name;
-        Class<? extends Component> type;
+        Class<T> type;
         int order;
         boolean require;
-        @Nullable @Ignore DataStructure<Component>.Property<?>
+        @Nullable @Ignore DataStructure<Component>.Property<T> prop;
 
         public Stream<Component> find(Component in) {
             return Stream.concat(Stream.of(in), in.components(type))
@@ -214,7 +227,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         }
 
         @Override
-        public int compareTo(@NotNull Component.Dependency other) {
+        public int compareTo(@NotNull Component.Dependency<?> other) {
             return DefaultLoadOrder.compare(this, other);
         }
 
@@ -363,7 +376,10 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                 Log.at(Level.WARNING, "Could not remove all children of %s".formatted(this));
         }
 
-        private void injectDependencies()
+        private void injectDependencies() {
+            dependencies().stream()
+                    .map(dep -> dep.)
+        }
 
         protected void $initialize() {
         }

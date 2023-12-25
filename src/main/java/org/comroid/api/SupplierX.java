@@ -191,6 +191,11 @@ public interface SupplierX<T> extends Supplier<@Nullable T>, Referent<T>, Mutabl
         return into(Polyfill::uncheckedCast);
     }
 
+    @ApiStatus.Experimental
+    default <R> SupplierX<R> castRef() {
+        return this::cast;
+    }
+
     default <X, R> @NotNull SupplierX<@Nullable R> combine(@Nullable Supplier<@Nullable X> other, BiFunction<T, @Nullable X, @Nullable R> accumulator) {
         return () -> accumulate(other, accumulator);
     }

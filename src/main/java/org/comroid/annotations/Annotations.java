@@ -1,7 +1,10 @@
 package org.comroid.annotations;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.experimental.UtilityClass;
+import org.comroid.api.N;
 import org.comroid.api.Polyfill;
 import org.comroid.api.SupplierX;
 import org.comroid.util.Constraint;
@@ -141,9 +144,15 @@ public class Annotations {
     }
 
     @Value
-    public static class Result<A extends Annotation> {
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class Result<A extends Annotation> implements Annotation {
         @NotNull A annotation;
         @NotNull AnnotatedElement context;
         @NotNull Class<?> declarator;
+
+        @Override
+        public Class<? extends Annotation> annotationType() {
+            return annotation.annotationType();
+        }
     }
 }
