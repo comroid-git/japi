@@ -1,5 +1,6 @@
 package org.comroid.annotations;
 
+import lombok.Value;
 import lombok.experimental.UtilityClass;
 import org.comroid.api.SupplierX;
 import org.comroid.util.Constraint;
@@ -33,13 +34,13 @@ public class Annotations {
         if (yield.isEmpty())
             return false;
         var anno = yield.get();
-        var types = anno.value();
+        var types = anno.annotation.value();
         if (types.length == 0)
             return true;
         return asList(types).contains(context);
     }
 
-    public <A extends Annotation> Stream<A> findAnnotations(final Class<A> type, final AnnotatedElement in) {
+    public <A extends Annotation> Stream<Result<A>> findAnnotations(final Class<A> type, final AnnotatedElement in) {
         Constraint.Type.anyOf(in, "in", Class.class, Member.class).run();
 
         Class<?> decl;
@@ -54,6 +55,7 @@ public class Annotations {
         // first, try get annotation from type
         return of(in.getAnnotation(type))
                 .filter(Objects::nonNull)
+                .map(a -> new Result<>(a, in, decl))
                 // otherwise, recurse into ancestors
                 .collect(append(ignoreAncestors(in, type)
                         ? empty()
@@ -135,5 +137,12 @@ public class Annotations {
             return SupplierX.empty();
         }
         throw new IllegalArgumentException("Invalid element: " + of);
+    }
+
+    @Value
+    public static class Result<A extends Annotation> {
+        A annotation;
+        AnnotatedElement context;
+        Class<?> declarator;
     }
 }
