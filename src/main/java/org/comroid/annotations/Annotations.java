@@ -23,9 +23,9 @@ import static org.comroid.util.Streams.*;
 @ApiStatus.Internal
 public class Annotations {
     public Set<String> aliases(@NotNull AnnotatedElement of) {
-        return Stream.of(of.getAnnotation(Alias.class))
-                .filter(Objects::nonNull)
-                .flatMap(it -> stream(it.value()))
+        return findAnnotations(Alias.class, of)
+                .filter(alias -> alias.context.getClass().equals(of.getClass()))
+                .flatMap(it -> stream(it.annotation.value()))
                 .collect(Collectors.toUnmodifiableSet());
     }
 
