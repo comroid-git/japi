@@ -24,7 +24,7 @@ public class AnnotationTest {
     public void testAlias() {
         assertArrayEquals("no alias detected", new Object[]{AliasFruit}, aliases(Fruit.class).toArray());
         assertEquals("not all aliases detected", 2, aliases(Apple.class).stream().filter(List.of(AliasApple, AliasFruit)::contains).count());
-        assertArrayEquals("wrong ancestors for alias", new Object[]{AliasBanana}, aliases(Banana.class).toArray());
+        assertArrayEquals("invalid aliases", new Object[]{AliasBanana}, aliases(Banana.class).toArray());
     }
 
     @Test

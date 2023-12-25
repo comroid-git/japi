@@ -2,6 +2,7 @@ package org.comroid.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
+import lombok.Builder;
 import org.comroid.annotations.*;
 import org.comroid.util.BoundValueType;
 import org.comroid.util.Constraint;
@@ -55,6 +56,10 @@ public class DataStructure<T> implements Named {
         var aliases = it.getAnnotation(Alias.class);
         if (aliases != null) prop.aliases.addAll(Arrays.asList(aliases.value()));
         return prop;
+    }
+
+    public static <T> DataStructure<T> of(@NotNull Class<? super T> target) {
+        return of(target, Object.class);
     }
 
     @lombok.Builder
