@@ -2,8 +2,10 @@ package org.comroid.annotations;
 
 import lombok.experimental.UtilityClass;
 import org.comroid.api.SupplierX;
+import org.comroid.util.Constraint;
 import org.comroid.util.Streams;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.NotNull;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
@@ -19,13 +21,13 @@ import static org.comroid.util.Streams.*;
 @UtilityClass
 @ApiStatus.Internal
 public class Annotations {
-    public Set<String> aliases(AnnotatedElement of) {
+    public Set<String> aliases(@NotNull AnnotatedElement of) {
         return findAnnotations(Alias.class, of)
                 .flatMap(it -> stream(it.value()))
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    public boolean ignore(AnnotatedElement it, Class<?> context) {
+    public boolean ignore(@NotNull AnnotatedElement it, @NotNull Class<?> context) {
         var yield = findAnnotations(Ignore.class, it).findFirst();
         if (yield.isEmpty())
             return false;
@@ -37,6 +39,8 @@ public class Annotations {
     }
 
     public <A extends Annotation> Stream<A> findAnnotations(final Class<A> type, final AnnotatedElement in) {
+        Constraint.Type.anyOf(in, "in", Class.class, Member.class).run();
+
         Class<?> decl;
         if (in instanceof Class<?>) {
             decl = (Class<?>) in;
@@ -77,6 +81,18 @@ public class Annotations {
     }
 
     public boolean ignoreAncestors(AnnotatedElement of, Class<? extends Annotation> goal) {
+        Constraint.Type.anyOf(of, "of", Class.class, Member.class).run();
+
+        if (of instanceof Constructor<?>)
+            return true;
+        Class<?> decl;
+        if (of instanceof Class<?>) {
+            decl = (Class<?>) of;
+        } else if (of instanceof Member) {
+            decl = ((Member) of).getDeclaringClass();
+        } else throw new AssertionError("Invalid element: " + of);
+        if (of instanceof Class<?> && decl.getPackageName().startsWith("java"))
+            return true;
         if (of.isAnnotationPresent(Ignore.Ancestor.class)) {
             var anno = of.getAnnotation(Ignore.Ancestor.class);
             var goals = anno.value();
@@ -87,6 +103,7 @@ public class Annotations {
 
     @SuppressWarnings("ConstantValue") // false positive
     public SupplierX<AnnotatedElement> findAncestor(AnnotatedElement of, Class<? extends Annotation> goal) {
+        Constraint.Type.anyOf(of, "of", Class.class, Member.class).run();
         if (ignoreAncestors(of, goal))
             return SupplierX.empty();
 
@@ -95,8 +112,8 @@ public class Annotations {
             decl = (Class<?>) of;
         } else if (of instanceof Member) {
             decl = ((Member) of).getDeclaringClass();
-        } else throw new IllegalArgumentException("Invalid element: " + of);
-        if (decl.getPackageName().startsWith("java"))
+        } else throw new AssertionError("Invalid element: " + of);
+        if (of instanceof Class<?> && decl.getPackageName().startsWith("java"))
             return SupplierX.empty();
 
         try {
