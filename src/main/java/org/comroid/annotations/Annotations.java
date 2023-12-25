@@ -2,19 +2,21 @@ package org.comroid.annotations;
 
 import lombok.experimental.UtilityClass;
 import org.comroid.api.SupplierX;
-import org.comroid.util.StackTraceUtils;
+import org.comroid.util.Streams;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.Arrays;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
 
+@SuppressWarnings({"DuplicatedCode","BooleanMethodIsAlwaysInverted"})
 @UtilityClass
 @ApiStatus.Internal
 public class Annotations {
-    public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class,Class.class};
-
-    public boolean ignore(AnnotatedElement it, Class<?> requester) {
+    public boolean ignore(AnnotatedElement it, Class<?> context) {
         var yield = findAnnotation(Ignore.class, it);
         if (yield.isNull())
             return false;
@@ -22,33 +24,72 @@ public class Annotations {
         var types = anno.value();
         if (types.length == 0)
             return true;
-        return Arrays.asList(types).contains(requester);
+        return Arrays.asList(types).contains(context);
     }
 
     public <A extends Annotation> SupplierX<A> findAnnotation(final Class<A> type, final AnnotatedElement in) {
+        Class<?> decl;
+        if (in instanceof Class<?>) {
+            decl = (Class<?>) in;
+        } else if (in instanceof Member) {
+            decl = ((Member) in).getDeclaringClass();
+        } else throw new IllegalArgumentException("Invalid element: " + in);
+        if (decl.getPackageName().startsWith("java"))
+            return SupplierX.empty();
+
+        // first, try get annotation from type
         return SupplierX.of(in.getAnnotation(type))
-                .orRef(() -> SupplierX.of(findParent(in))
-                        .flatMap(parent -> findAnnotation(type, parent)));
+                // otherwise, recurse into a couple of related members
+                .orOpt(() -> (in instanceof Class<?>
+                        // for class, try supertypes
+                        ? Stream.of(decl).flatMap(c -> Stream.concat(
+                        Stream.of(c.getSuperclass()),
+                        Arrays.stream(c.getInterfaces())))
+                        // for members, try declaring class first
+                        : Stream.of(decl)
+                        // if applicable, try return types next
+                        .collect(Streams.append(Stream.of(in).map(x -> {
+                            if (x instanceof Field)
+                                return ((Field) x).getType();
+                            else if (x instanceof Method)
+                                return ((Method) x).getReturnType();
+                            else return null;
+                        })))
+                        // otherwise try ancestors
+                        .collect(Streams.append(Stream.of(in).flatMap(x -> findAncestor(x).stream()))))
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        // recurse
+                        .flatMap(x -> findAnnotation(type, x).stream())
+                        .findFirst());
     }
 
-    private static AnnotatedElement findParent(AnnotatedElement in) {
-        if (in instanceof Class<?> && Arrays.asList(SystemFilters).contains(in))
-            return in;
+    @SuppressWarnings("ConstantValue") // false positive
+    private static SupplierX<AnnotatedElement> findAncestor(AnnotatedElement of) {
+        Class<?> decl;
+        if (of instanceof Class<?>) {
+            decl = (Class<?>) of;
+        } else if (of instanceof Member) {
+            decl = ((Member) of).getDeclaringClass();
+        } else throw new IllegalArgumentException("Invalid element: " + of);
+        if (decl.getPackageName().startsWith("java"))
+            return SupplierX.empty();
+
         try {
-            if (in instanceof Member) {
-                var pType = ((Member) in).getDeclaringClass().getSuperclass();
+            if (of instanceof Member) {
+                var pType = ((Member) of).getDeclaringClass().getSuperclass();
                 // todo: this is inaccurate for different parameter overrides
-                if (in instanceof Method)
-                    return pType.getDeclaredMethod(((Method) in).getName(), ((Method) in).getParameterTypes());
-                else if (in instanceof Field)
-                    return pType.getDeclaredField(((Field) in).getName());
-                else if (in instanceof Constructor<?>)
-                    return pType.getDeclaredConstructor(((Constructor<?>) in).getParameterTypes());
-            } else if (in instanceof Class)
-                return ((Class<?>) in).getSuperclass();
+                if (of instanceof Method)
+                    return SupplierX.of(pType.getDeclaredMethod(((Method) of).getName(), ((Method) of).getParameterTypes()));
+                else if (of instanceof Field)
+                    return SupplierX.of(pType.getDeclaredField(((Field) of).getName()));
+                else if (of instanceof Constructor<?>)
+                    return SupplierX.of(pType.getDeclaredConstructor(((Constructor<?>) of).getParameterTypes()));
+            } else if (of instanceof Class<?>)
+                return SupplierX.of(((Class<?>) of).getSuperclass());
         } catch (NoSuchMethodException | NoSuchFieldException e) {
-            return null;
+            return SupplierX.empty();
         }
-        throw new IllegalArgumentException("Invalid element: " + in);
+        throw new IllegalArgumentException("Invalid element: " + of);
     }
 }

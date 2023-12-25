@@ -2,11 +2,7 @@ package org.comroid.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
-import org.comroid.annotations.Alias;
-import org.comroid.annotations.Convert;
-import org.comroid.annotations.Ignore;
-import org.comroid.annotations.Instance;
-import org.comroid.api.map.WeakCache;
+import org.comroid.annotations.*;
 import org.comroid.util.BoundValueType;
 import org.comroid.util.Constraint;
 import org.comroid.util.StandardValueType;
@@ -28,6 +24,7 @@ public class DataStructure<T> implements Named {
     //private static final WeakCache<Key<?>, DataStructure<?>> $cache = new WeakCache<>(DataStructure::create);
     private static final Map<Key<?>, DataStructure<?>> $cache = new ConcurrentHashMap<>();
     public static final Map<Key<?>, DataStructure<?>> cache = Collections.unmodifiableMap($cache);
+    public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class,Class.class};
 
     @NotNull Class<? super T> type;
     @NotNull @ToString.Exclude List<Constructor> constructors = new ArrayList<>();
@@ -62,7 +59,8 @@ public class DataStructure<T> implements Named {
 
     @lombok.Builder
     public static <T> DataStructure<T> of(@NotNull Class<? super T> target, @NotNull Class<? super T> above) {
-        return uncheckedCast($cache.touch(new Key<T>(target, above)));
+        //return uncheckedCast($cache.touch(new Key<T>(target, above)));
+        return uncheckedCast($cache.computeIfAbsent(new Key<T>(target, above), DataStructure::create));
     }
 
     private static <T> DataStructure<T> create(Key<T> key) {
@@ -75,10 +73,10 @@ public class DataStructure<T> implements Named {
                                 .filter(mtd -> Stream.of(Instance.class,Convert.class)
                                         .anyMatch(mtd::isAnnotationPresent))
                                 .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())),
-                        Arrays.stream(target.getConstructors())
-                                .filter(it -> !it.isAnnotationPresent(Ignore.class)
-                                        || !Arrays.asList(it.getAnnotation(Ignore.class).value()).contains(DataStructure.class)))
+                        Arrays.stream(target.getConstructors()))
+                .filter(it -> !Annotations.ignore(it, DataStructure.class))
                 .filter(it -> !key.above.equals(it.getDeclaringClass()) && key.above.isAssignableFrom(it.getDeclaringClass()))
+                .filter(it -> Arrays.stream(SystemFilters).noneMatch(type -> it.getDeclaringClass().isAssignableFrom(type)))
                 .filter(it -> Modifier.isPublic(it.getModifiers()))
                 .map(it -> {
                     Invocable<T> func;
@@ -97,12 +95,12 @@ public class DataStructure<T> implements Named {
         Stream.concat(Arrays.stream(target.getFields()),
                         Arrays.stream(target.getMethods())
                                 .filter(mtd -> mtd.getParameterCount() == 0)
-                                .filter(mtd -> mtd.getName().startsWith("get")))
+                                .filter(mtd -> mtd.getName().startsWith("get") && mtd.getName().length() > 3))
                 .filter(it -> !Modifier.isStatic(it.getModifiers()))
                 .filter(it -> Modifier.isPublic(it.getModifiers()))
-                .filter(it -> !it.isAnnotationPresent(Ignore.class)
-                        || !Arrays.asList(it.getAnnotation(Ignore.class).value()).contains(DataStructure.class))
+                .filter(it -> !Annotations.ignore(it, DataStructure.class))
                 .filter(it -> !key.above.equals(it.getDeclaringClass()) && key.above.isAssignableFrom(it.getDeclaringClass()))
+                .filter(it -> Arrays.stream(SystemFilters).noneMatch(type -> it.getDeclaringClass().isAssignableFrom(type)))
                 .map(it -> {
                     var type = new Switch<Member, Class<?>>()
                             .option(Field.class::isInstance, () -> ((Field) it).getType())

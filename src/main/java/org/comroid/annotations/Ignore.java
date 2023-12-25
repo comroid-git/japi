@@ -11,5 +11,5 @@ public @interface Ignore {
     /**
      * @return what utility should ignore the member
      */
-    Class<?>[] value() default void.class;
+    Class<?>[] value() default {};
 }

@@ -1,12 +1,14 @@
 package org.comroid.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.comroid.annotations.Ignore;
 
 import javax.persistence.Transient;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named {
+    @Ignore
     @Override
     @Transient
     @JsonIgnore
@@ -19,6 +21,7 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named 
         return Number.class.isAssignableFrom(getTargetClass());
     }
 
+    @Ignore
     @Transient
     @JsonIgnore
     @Deprecated

@@ -2,6 +2,7 @@ package org.comroid.abstr;
 
 import lombok.*;
 import lombok.experimental.Delegate;
+import org.comroid.annotations.Ignore;
 import org.comroid.api.*;
 import org.comroid.util.*;
 import org.jetbrains.annotations.Contract;
@@ -11,38 +12,52 @@ import org.jetbrains.annotations.Nullable;
 import java.io.OutputStream;
 import java.io.StringReader;
 import java.io.Writer;
-import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static org.comroid.util.StandardValueType.*;
 
-public interface DataNode extends Specifiable<DataNode> {
+@Ignore({Convertible.class, DataStructure.class})
+public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
+    @Override
+    default MimeType getMimeType() {
+        final var supported = Map.of(
+                "json", MimeType.JSON,
+                "form", MimeType.URLENCODED
+        );
+        return StackTraceUtils.stream()
+                .map(StackTraceElement::getMethodName)
+                .map(name -> supported.getOrDefault(name, null))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElseThrow(()->new AbstractMethodError("MimeType was not specified or supported for DataNode " + this));
+    }
+
     default DelegateStream.Input toInputStream() {
         return new DelegateStream.Input(new StringReader(toString()));
     }
 
-    default DataNode json() {
-        if (this instanceof Object) {
-            if (this instanceof JSON.Object)
-                return this;
-            else return properties().collect(JSON.Object::new, (n, e) -> n.put(e.key, e.node()), Map::putAll);
-        } else if (this instanceof Array) {
-            if (this instanceof JSON.Array)
-                return this;
-            else return properties().collect(JSON.Array::new, (n, e) -> n.add(e.node()), List::addAll);
-        }
-        return of(this).json();
+    default JSON.Node json() {
+        if (this instanceof JSON.Node)
+            return (JSON.Node) this;
+        else if (this instanceof Object)
+            return properties().collect(JSON.Object::new, (n, e) -> n.put(e.key, e.getValue().json()), Map::putAll);
+        else if (this instanceof Array)
+            return properties().collect(JSON.Array::new, (n, e) -> n.add(e.getValue().json()), List::addAll);
+        else if (this instanceof Value)
+            return Convertible.convert(this, JSON.Value.class);
+        else return of(this).json();
     }
 
     default FormData.Object form() {
         if (this instanceof Object) {
             if (this instanceof FormData.Object)
                 return (FormData.Object) this;
-            else return properties().collect(FormData.Object::new, (n, e) -> n.put(e.key, e.node()), Map::putAll);
+            else return properties().collect(FormData.Object::new, (n, e) -> n.put(e.key, e.getValue()), Map::putAll);
         }
         return of(this).form();
     }
@@ -181,27 +196,10 @@ public interface DataNode extends Specifiable<DataNode> {
     static Stream<Entry> properties(final java.lang.Object it) {
         if (it instanceof DataNode.Base)
             return ((DataNode) it).properties();
-        final var get = "get";
-        return Stream.concat(
-                Stream.of(it.getClass().getFields())
-                        .filter(mtd -> !Modifier.isStatic(mtd.getModifiers()))
-                        .filter(fld -> fld.canAccess(it))
-                        .map(fld -> new Entry(fld.getName(), ThrowingSupplier.rethrowing(() -> of(fld.get(it))))),
-                Stream.of(it.getClass().getMethods())
-                        .filter(mtd -> !Modifier.isStatic(mtd.getModifiers()))
-                        .filter(mtd -> mtd.canAccess(it))
-                        .filter(mtd -> mtd.getName().startsWith(get) && mtd.getName().length() > get.length())
-                        .filter(mtd -> mtd.getParameterCount() == 0)
-                        .map(mtd -> {
-                            if ("getClass".equals(mtd.getName()))
-                                return new Entry("dtype", () -> new Value<>(StackTraceUtils.lessSimpleDetailedName(it.getClass())));
-                            else {
-                                var name = mtd.getName().substring(get.length());
-                                name = Character.toLowerCase(name.charAt(0)) + name.substring(1);
-                                return new Entry(name, () -> of(Invocable.ofMethodCall(it, mtd).invokeRethrow()));
-                            }
-                        })
-        );
+        return DataStructure.of(it.getClass(), java.lang.Object.class)
+                .getProperties().values().stream()
+                .map(Polyfill::<DataStructure<java.lang.Object>.Property<Object>>uncheckedCast)
+                .map(prop -> new Entry(prop.getName(), of(prop.getFrom(it))));
     }
 
     static DataNode of(java.lang.Object it) {
@@ -219,7 +217,7 @@ public interface DataNode extends Specifiable<DataNode> {
             if (typeOf != null && !typeOf.equals(OBJECT))
                 return new Value<>(it);
             var obj = new Object();
-            properties(it).forEach(e -> obj.put(e.key, e.node()));
+            properties(it).forEach(e -> obj.put(e.key, e.getValue()));
             return obj;
         }
     }
@@ -257,7 +255,7 @@ public interface DataNode extends Specifiable<DataNode> {
 
         @Override
         public Stream<DataNode.Entry> properties() {
-            return entrySet().stream().map(e -> new DataNode.Entry(e.getKey(), () -> e.getValue()));
+            return entrySet().stream().map(e -> new DataNode.Entry(e.getKey(), e.getValue()));
         }
 
         @Override
@@ -282,7 +280,7 @@ public interface DataNode extends Specifiable<DataNode> {
             var ls = new ArrayList<Entry>();
             for (var i = 0; i < this.size(); i++) {
                 final var fi = i;
-                ls.add(new Entry(String.valueOf(i), () -> get(fi)));
+                ls.add(new Entry(String.valueOf(i), get(fi)));
             }
             return ls.stream();
         }
@@ -301,8 +299,8 @@ public interface DataNode extends Specifiable<DataNode> {
         }
 
         @Override
-        public Stream<Entry> properties() {
-            return Stream.of(new Entry("", () -> this));
+        public final Stream<Entry> properties() {
+            return Stream.of(new Entry("", this));
         }
 
         @Override
@@ -314,11 +312,11 @@ public interface DataNode extends Specifiable<DataNode> {
         }
     }
 
-    class Entry implements Map.Entry<String, SupplierX<DataNode>> {
+    class Entry implements Map.Entry<String, DataNode> {
         private final String key;
-        private SupplierX<DataNode> value;
+        private DataNode value;
 
-        public Entry(String key, SupplierX<DataNode> value) {
+        public Entry(String key, DataNode value) {
             this.key = key;
             this.value = value;
         }
@@ -329,22 +327,15 @@ public interface DataNode extends Specifiable<DataNode> {
         }
 
         @Override
-        public SupplierX<DataNode> getValue() {
+        public DataNode getValue() {
             return value;
         }
 
         @Override
-        public SupplierX<DataNode> setValue(SupplierX<DataNode> value) {
+        public DataNode setValue(DataNode value) {
             var prev = this.value;
             this.value = value;
             return prev;
-        }
-
-        public DataNode node() {
-            final var it = value.get();
-            return Optional.ofNullable(StandardValueType.typeOf(it))
-                    .<DataNode>map(x -> new Value<>(it))
-                    .orElseGet(() -> DataNode.of(it));
         }
     }
 }

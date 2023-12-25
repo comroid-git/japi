@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 @With
 @Value
 @Builder
+@Ignore
 public class MimeType {
     public static final Pattern PATTERN = Pattern.compile(
             "(?<type>[\\w-_]+)/((?<tree>[\\w-_.]+)\\.)?(?<subtype>[\\w-_]+)(\\+(?<suffix>[\\w-_]+))?(?<args>;[\\w-_]+)*");
@@ -87,13 +88,12 @@ public class MimeType {
         return sb.toString();
     }
 
+    @Ignore
     public interface Container {
-        @Ignore
         default MimeType getMimeType() {
             return getMimeTypes()[0];
         }
 
-        @Ignore
         default MimeType[] getMimeTypes() {
             return new MimeType[]{getMimeType()};
         }

@@ -1,5 +1,6 @@
 package org.comroid.api;
 
+import org.comroid.annotations.Ignore;
 import org.comroid.util.StandardValueType;
 import org.jetbrains.annotations.NotNull;
 
@@ -16,6 +17,7 @@ public interface LongAttribute extends Named, ValueBox<@NotNull Long>, LongSuppl
         return Math.toIntExact(getValue());
     }
 
+    @Ignore
     @Override
     default long getAsLong() {
         return getValue();

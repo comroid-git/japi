@@ -1,6 +1,7 @@
 package org.comroid.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.comroid.annotations.Ignore;
 import org.comroid.util.Capitalization;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Nullable;
@@ -19,6 +20,7 @@ public interface Named extends WrappedFormattable {
      *
      * @return The primary name.
      */
+    @Ignore
     @Override
     @JsonIgnore
     default String getPrimaryName() {
@@ -26,7 +28,6 @@ public interface Named extends WrappedFormattable {
     }
 
     @Override
-    @JsonIgnore
     default String getAlternateName() {
         final var name = getName();
         return Capitalization.of(name).ifPresentMapOrElseGet(
