@@ -4,23 +4,26 @@ import org.comroid.annotations.Alias;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.DataStructure;
 
-import java.awt.*;
-
 public class Dummy {
     public static final String AliasFruit = "food";
     public static final String AliasApple = "red delight";
     public static final String AliasBanana = "yellow bean";
     public static final String AliasBananaColor = "ripeness";
 
-    public Fruit getFruit() {
+    public SomethingElse getSomethingElse() {
         return null;
     }
 
-    @Ignore
+    public @Ignore static class SomethingElse {}
+
     @Alias(AliasFruit)
     public static class Fruit {
         public double getPrice() {
             return 1.99;
+        }
+
+        public double setPrice(double price) {
+            return price;
         }
 
         @Ignore(DataStructure.class)
@@ -31,7 +34,15 @@ public class Dummy {
 
     @Alias(AliasApple)
     public static class Apple extends Fruit {
-        public final double hardness = 0.9;
+        public final double hardness;
+
+        public Apple() {
+            this(0.8);
+        }
+
+        public Apple(double hardness) {
+            this.hardness = hardness;
+        }
 
         @Override
         @Ignore.Ancestor(Alias.class)
@@ -43,6 +54,9 @@ public class Dummy {
     @Ignore.Ancestor
     @Alias(AliasBanana)
     public static class Banana extends Fruit {
+        public Banana() {
+        }
+
         @Override
         @Alias(AliasBananaColor)
         @Ignore.Ancestor(Ignore.class)

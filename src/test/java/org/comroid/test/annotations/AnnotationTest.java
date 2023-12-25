@@ -16,7 +16,7 @@ import static org.junit.Assert.*;
 public class AnnotationTest {
     @Test
     public void testIgnoreAncestors() throws NoSuchMethodException {
-        assertFalse("false positive ignore ancestor", ignoreAncestors(Dummy.class.getMethod("getFruit"), Alias.class));
+        assertFalse("false positive ignore ancestor", ignoreAncestors(Dummy.class.getMethod("getSomethingElse"), Alias.class));
         assertTrue("ignore ancestor not detected", ignoreAncestors(Apple.class.getMethod("getPrice"), Alias.class));
     }
 
@@ -33,6 +33,6 @@ public class AnnotationTest {
         assertTrue("superclass based annotation not detected", ignore(ValueBox.class, DataStructure.class));
         assertTrue("method based annotation not detected", ignore(ValuePointer.class.getMethod("getHeldType"), DataStructure.class));
         assertTrue("ancestor method based annotation not detected", ignore(ValueBox.class.getMethod("getHeldType"), DataStructure.class));
-        assertTrue("return type based annotation not detected", ignore(Dummy.class.getMethod("getFruit"), DataStructure.class));
+        assertTrue("return type based annotation not detected", ignore(Dummy.class.getMethod("getSomethingElse"), DataStructure.class));
     }
 }
