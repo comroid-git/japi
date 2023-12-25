@@ -1,5 +1,6 @@
 package org.comroid.annotations;
 
+import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -20,5 +21,9 @@ public @interface Ignore {
      */
     @Retention(RetentionPolicy.RUNTIME)
     @interface Ancestor {
+        /**
+         * @return on which annotation processing to ignore the ancestors
+         */
+        Class<? extends Annotation>[] value() default {};
     }
 }

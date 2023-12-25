@@ -83,14 +83,6 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         return requires(getClass());
     }
 
-    static List<Class<? extends Component>> requires(Class<? extends Component> type) {
-        return Cache.get(type.getCanonicalName() + "@Requires", () -> Arrays
-                .stream(type.getAnnotationsByType(Requires.class))
-                .map(Requires::value)
-                .flatMap(Arrays::stream)
-                .toList());
-    }
-
     default UncheckedCloseable execute(ScheduledExecutorService scheduler, Duration tickRate) {
         var task = scheduler.scheduleAtFixedRate(() -> {
             if (testState(State.PreInit))
@@ -120,6 +112,16 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     @Override
     default void closeSelf() throws Exception {
         terminate();
+    }
+
+    //static List<Class<? extends Component>> includes()
+
+    static List<Class<? extends Component>> requires(Class<? extends Component> type) {
+        return Cache.get(type.getCanonicalName() + "@Requires", () -> Arrays
+                .stream(type.getAnnotationsByType(Requires.class))
+                .map(Requires::value)
+                .flatMap(Arrays::stream)
+                .toList());
     }
 
     enum State implements BitmaskAttribute<State> {

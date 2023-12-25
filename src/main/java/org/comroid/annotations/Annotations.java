@@ -7,26 +7,36 @@ import org.jetbrains.annotations.ApiStatus;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
-import java.util.Arrays;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static java.util.Arrays.*;
+import static java.util.stream.Stream.*;
+import static org.comroid.util.Streams.*;
 
 @SuppressWarnings({"DuplicatedCode","BooleanMethodIsAlwaysInverted"})
 @UtilityClass
 @ApiStatus.Internal
 public class Annotations {
+    public Set<String> aliases(AnnotatedElement of) {
+        return findAnnotations(Alias.class, of)
+                .flatMap(it -> stream(it.value()))
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
     public boolean ignore(AnnotatedElement it, Class<?> context) {
-        var yield = findAnnotation(Ignore.class, it);
-        if (yield.isNull())
+        var yield = findAnnotations(Ignore.class, it).findFirst();
+        if (yield.isEmpty())
             return false;
-        var anno = yield.assertion();
+        var anno = yield.get();
         var types = anno.value();
         if (types.length == 0)
             return true;
-        return Arrays.asList(types).contains(context);
+        return asList(types).contains(context);
     }
 
-    public <A extends Annotation> SupplierX<A> findAnnotation(final Class<A> type, final AnnotatedElement in) {
+    public <A extends Annotation> Stream<A> findAnnotations(final Class<A> type, final AnnotatedElement in) {
         Class<?> decl;
         if (in instanceof Class<?>) {
             decl = (Class<?>) in;
@@ -34,38 +44,50 @@ public class Annotations {
             decl = ((Member) in).getDeclaringClass();
         } else throw new IllegalArgumentException("Invalid element: " + in);
         if (decl.getPackageName().startsWith("java"))
-            return SupplierX.empty();
+            return empty();
 
         // first, try get annotation from type
-        return SupplierX.of(in.getAnnotation(type))
-                // otherwise, recurse into a couple of related members
-                .orOpt(() -> (in instanceof Class<?>
+        return of(in.getAnnotation(type))
+                .filter(Objects::nonNull)
+                // otherwise, recurse into ancestors
+                .collect(append(ignoreAncestors(in, type)
+                        ? empty()
+                        : (in instanceof Class<?>
                         // for class, try supertypes
-                        ? Stream.of(decl).flatMap(c -> Stream.concat(
-                        Stream.of(c.getSuperclass()),
-                        Arrays.stream(c.getInterfaces())))
+                        ? of(decl).flatMap(c -> concat(
+                        of(c.getSuperclass()),
+                        stream(c.getInterfaces())))
                         // for members, try declaring class first
-                        : Stream.of(decl)
-                        // if applicable, try return types next
-                        .collect(Streams.append(Stream.of(in).map(x -> {
+                        : of(decl)
+                        // then if applicable, try return types next
+                        .collect(append(of(in).map(x -> {
                             if (x instanceof Field)
                                 return ((Field) x).getType();
                             else if (x instanceof Method)
                                 return ((Method) x).getReturnType();
                             else return null;
                         })))
-                        // otherwise try ancestors
-                        .collect(Streams.append(Stream.of(in).flatMap(x -> findAncestor(x).stream()))))
+                        // then otherwise, try ancestors
+                        .collect(append(of(in).flatMap(x -> findAncestor(x, type).stream()))))
+                        // cleanup
                         .filter(Objects::nonNull)
                         .distinct()
                         // recurse
-                        .flatMap(x -> findAnnotation(type, x).stream())
-                        .findFirst());
+                        .flatMap(x -> findAnnotations(type, x))));
+    }
+
+    public boolean ignoreAncestors(AnnotatedElement of, Class<? extends Annotation> goal) {
+        if (of.isAnnotationPresent(Ignore.Ancestor.class)) {
+            var anno = of.getAnnotation(Ignore.Ancestor.class);
+            var goals = anno.value();
+            return goals.length == 0 || asList(goals).contains(goal);
+        }
+        return false;
     }
 
     @SuppressWarnings("ConstantValue") // false positive
-    private static SupplierX<AnnotatedElement> findAncestor(AnnotatedElement of) {
-        if (of.isAnnotationPresent(Ignore.Ancestor.class))
+    public SupplierX<AnnotatedElement> findAncestor(AnnotatedElement of, Class<? extends Annotation> goal) {
+        if (ignoreAncestors(of, goal))
             return SupplierX.empty();
 
         Class<?> decl;
