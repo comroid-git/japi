@@ -63,13 +63,14 @@ public class DataStructureTest {
         assertEquals(key+" property: wrong type", type, prop.getType());
 
         // accessors
-        var getter = prop.getGetter();
-        assertNotNull(key+" property: getter missing", getter);
-        assertEquals(key+" property: getter unusable", expectedValue, getter.invokeSilent(dummy));
+        var accessor = prop.getGetter();
+        assertNotNull(key+" property: getter missing", accessor);
+        assertEquals(key+" property: getter unusable", expectedValue, accessor.invokeSilent(dummy));
         if ("price".equals(prop.getName())) {
             final var newValue = 1.49;
-            assertNotNull(key+" property: setter missing", prop.getSetter());
-            assertEquals(key+" property: setter unusable", newValue, getter.invokeSilent(dummy, newValue));
+            accessor = prop.getSetter();
+            assertNotNull(key+" property: setter missing", accessor);
+            assertEquals(key+" property: setter unusable", newValue, accessor.invokeSilent(dummy, newValue));
         }
     }
 }
