@@ -7,6 +7,7 @@ import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
 import org.comroid.api.SupplierX;
 import org.comroid.api.ThrowingConsumer;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,12 +25,24 @@ import static org.comroid.util.Streams.intString;
 @UtilityClass
 public class Constraint {
     @UtilityClass
+    public class Type {
+        public API anyOf(Object it, String nameof, Class<?>... types) {
+            final var tt = it instanceof Class<?>;
+            return decide(Arrays.stream(types)
+                    .anyMatch(x-> (tt &&x.isAssignableFrom((Class<?>) it)) ||x.isInstance(it)))
+                    .setConstraint("Type comparison")
+                    .setTypeof(it.getClass())
+                    .setNameof(nameof)
+                    .setShouldBe("any of types")
+                    .setExpected(Arrays.toString(types));
+        }
+    }
+    @UtilityClass
     public class Range {
-        public void inside(double xIncl, double yIncl, double actual, String nameof) {
-            combine(Length.min(xIncl, actual, nameof + " range lower end"),
+        public API inside(double xIncl, double yIncl, double actual, String nameof) {
+            return combine(Length.min(xIncl, actual, nameof + " range lower end"),
                     Length.max(yIncl, actual, nameof + " range upper end"))
-                    .setNameof("range (%f..%f)".formatted(xIncl, yIncl))
-                    .run();
+                    .setNameof("range (%f..%f)".formatted(xIncl, yIncl));
         }
     }
 
@@ -108,8 +121,8 @@ public class Constraint {
                 .setShouldBe("not");
     }
 
-    private API decide(boolean x) {
-        return x ? pass() : fail();
+    private API decide(boolean pass) {
+        return pass ? pass() : fail();
     }
 
     public API combine(API... apis) {
@@ -157,19 +170,29 @@ public class Constraint {
         public static String DefaultConstraint = "<unnamed>";
         public static Class<?> DefaultTypeof = Void.class;
         public static String DefaultNameof = "<unnamed>";
+        public static String DefaultCallLocation = intString(range(0, " in call to ".length()).map($ -> '\b'));
         public static Object DefaultActual = "\b";
         public static String DefaultShouldBe = intString(range(0, "; should be ".length()).map($ -> '\b'));
         public static Object DefaultExpected = "\b";
+        public static String DefaultHint = "\b";
 
         @NotNull BooleanSupplier test;
         @NotNull Function<UnmetError, @Nullable Object> handler = DefaultHandler;
         @NotNull String constraint = DefaultConstraint;
         @NotNull Class<?> typeof = DefaultTypeof;
         @NotNull String nameof = DefaultNameof;
+        @NotNull String callLocation = DefaultCallLocation;
         @NotNull Object actual = DefaultActual;
         @NotNull String shouldBe = DefaultShouldBe;
         @NotNull Object expected = DefaultExpected;
-        @Nullable String hint;
+        @NotNull String hint = DefaultHint;
+
+        @Contract(mutates = "this")
+        public API invert() {
+            final var wrap = test;
+            test = ()->!wrap.getAsBoolean();
+            return this;
+        }
 
         public <T> SupplierX<T> handle(@NotNull Supplier<T> success, @Nullable Function<UnmetError, @Nullable T> failure) {
             return () -> {
@@ -177,7 +200,7 @@ public class Constraint {
                 if (test.getAsBoolean())
                     result = success.get();
                 else if (failure != null) {
-                    var err = err();
+                    var err = new UnmetError(toString());
                     result = failure.apply(err);
                     if (result == null && !err.isCancelled()) {
                         var fix = handler.apply(err);
@@ -197,27 +220,29 @@ public class Constraint {
             handle().get();
         }
 
-        private UnmetError err() {
-            return err(constraint, typeof.getSimpleName(), nameof, actual, shouldBe, expected, hint);
+        @Override
+        public String toString() {
+            return err(constraint, typeof.getSimpleName(), nameof, callLocation, actual, shouldBe, expected, hint);
         }
 
-        private UnmetError err(
+        private String err(
                 String constraint,
                 String typeof,
                 String nameof,
+                String callLocation,
                 Object actual,
                 String shouldBeVerb,
                 Object expected,
                 @Nullable String hint
         ) {
-            return new UnmetError("Unmet %s constraint for argument %s %s; %s should be %s %s%s"
-                    .formatted(constraint, typeof, nameof, actual, shouldBeVerb, expected, hint==null?"": '\n'+hint));
+            return "Unmet %s constraint for argument %s %s in call to %s; %s should be %s %s\n%s"
+                    .formatted(constraint, typeof, nameof, callLocation, actual, shouldBeVerb, expected, hint);
         }
     }
 
     @Data
     @StandardException
-    public class UnmetError extends IllegalArgumentException {
+    public final class UnmetError extends IllegalArgumentException {
         private boolean cancelled = false;
 
         private UnmetError(String message) {
