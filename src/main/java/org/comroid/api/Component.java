@@ -1,11 +1,10 @@
 package org.comroid.api;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.SneakyThrows;
+import lombok.*;
+import org.comroid.annotations.Annotations;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.info.Log;
 import org.comroid.util.*;
@@ -23,6 +22,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.util.Streams.*;
@@ -79,8 +79,8 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         return () -> Polyfill.uncheckedCast(components(type).findAny().orElse(null));
     }
 
-    default List<Class<? extends Component>> requires() {
-        return requires(getClass());
+    default List<Dependency> dependencies() {
+        return dependencies(getClass());
     }
 
     default UncheckedCloseable execute(ScheduledExecutorService scheduler, Duration tickRate) {
@@ -88,8 +88,8 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             if (testState(State.PreInit))
                 initialize();
             tick();
-        },0,tickRate.toMillis(), TimeUnit.MILLISECONDS);
-        final UncheckedCloseable closeable = ()-> {
+        }, 0, tickRate.toMillis(), TimeUnit.MILLISECONDS);
+        final UncheckedCloseable closeable = () -> {
             task.cancel(true);
             terminate();
         };
@@ -116,11 +116,18 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
     //static List<Class<? extends Component>> includes()
 
-    static List<Class<? extends Component>> requires(Class<? extends Component> type) {
-        return Cache.get(type.getCanonicalName() + "@Requires", () -> Arrays
-                .stream(type.getAnnotationsByType(Requires.class))
-                .map(Requires::value)
-                .flatMap(Arrays::stream)
+    static List<Dependency> dependencies(Class<? extends Component> type) {
+        return Cache.get("dependencies of " + type.getCanonicalName(), () -> Stream.concat(
+                DataStructure.of(type).getProperties()
+                        .values().stream()
+                        .flatMap(struct -> struct.annotations.stream()
+                                .flatMap(cast(Inject.class)))
+                        .map(inject -> new Dependency(inject.value(), inject.type(), inject.order(), inject.require())),
+                Annotations.findAnnotations(Requires.class, type)
+                        .flatMap(requires -> Arrays.stream(requires.getAnnotation().value())
+                                .map(cls -> new Dependency("", cls, 0, true))))
+                .distinct()
+                .sorted(Dependency.DefaultLoadOrder)
                 .toList());
     }
 
@@ -159,10 +166,9 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
      * declare field injection
      * occurs before initialization
      * if all are defaults, then name and type from field are used
-     * todo
      */
-    @Target(ElementType.FIELD)
     @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.METHOD})
     @interface Inject {
         /**
          * @return filter by name match, unless length == 0
@@ -170,19 +176,62 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         String value() default "";
 
         /**
-         * @return filter by exact match, unless 0
-         */
-        long flag() default 0;
-
-        /**
-         * @return filter by bitwise match, unless 0
-         */
-        long mask() default 0;
-
-        /**
-         * @return filter by type match, unless {@link Component}
+         * @return filter by type match
          */
         Class<? extends Component> type() default Component.class;
+
+        /**
+         * @return load order; ascending
+         */
+        int order() default 0;
+
+        /**
+         * @return whether to throw an exception if the dependency cannot be satisfied
+         */
+        boolean require() default true;
+    }
+
+    @Value
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    class Dependency implements Comparable<Dependency> {
+        public static final Comparator<Dependency> DefaultLoadOrder = Comparator.comparingInt(Dependency::getOrder);
+        String name;
+        Class<? extends Component> type;
+        int order;
+        boolean require;
+        @Nullable @Ignore DataStructure<Component>.Property<?>
+
+        public Stream<Component> find(Component in) {
+            return Stream.concat(Stream.of(in), in.components(type))
+                    .filter(x -> name.isEmpty() || x.getName().equals(name));
+        }
+
+        public boolean isSatisfied(Component by) {
+            var wrap = Optional.ofNullable(by);
+            if (!name.isEmpty())
+                wrap = wrap.filter(c -> c.getName().equals(name));
+            return wrap.filter(type::isInstance).isPresent();
+        }
+
+        @Override
+        public int compareTo(@NotNull Component.Dependency other) {
+            return DefaultLoadOrder.compare(this, other);
+        }
+
+        public boolean equals(Object other) {
+            if (other instanceof Dependency)
+                return hashCode() == other.hashCode();
+            if (other instanceof Requires req)
+                return name.isEmpty() && Arrays.asList(req.value()).contains(type);
+            if (other instanceof Inject inj)
+                return name.equals(inj.value()) && type.equals(inj.type());
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, type, order, require);
+        }
     }
 
     @Getter
@@ -235,7 +284,10 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                 if (!testState(State.PreInit))
                     return;
                 Log.at(Level.FINE, "Initializing " + this);
+
+                injectDependencies();
                 runOnDependencies(Component::initialize).join();
+
                 $initialize();
                 runOnChildren(Initializable.class, Initializable::initialize, it -> test(it, State.PreInit));
                 pushState(State.LateInit);
@@ -311,6 +363,8 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                 Log.at(Level.WARNING, "Could not remove all children of %s".formatted(this));
         }
 
+        private void injectDependencies()
+
         protected void $initialize() {
         }
 
@@ -346,9 +400,9 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             if (getParent() == null)
                 return CompletableFuture.completedFuture(null);
             final var wrap = action.wrap();
-            final var entries = requires().stream()
+            final var entries = dependencies().stream()
                     .flatMap(dependency -> getParent().getChildren().stream()
-                            .filter(e -> dependency.isAssignableFrom(e.getClass()))
+                            .filter(e -> dependency.type.isAssignableFrom(e.getClass()))
                             .flatMap(cast(Component.class)))
                     .filter(c -> c.testState(State.PreInit))
                     .peek(c -> Log.at(Level.FINE, "Initializing dependency of %s first: %s".formatted(this, c)))
@@ -358,16 +412,16 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                     })))
                     .toArray(InitEntry[]::new);
             var caller = StackTraceUtils.caller(1);
-            var missing = requires().stream()
+            var missing = dependencies().stream()
                     .filter(t -> Arrays.stream(entries)
                             .noneMatch(e -> e.component.testState(State.PreInit) // todo: this filter is probably wrong
-                                    && t.isAssignableFrom(e.component.getClass())))
-                    .map(Class::getCanonicalName)
+                                    && t.type.isAssignableFrom(e.component.getClass())))
+                    .map(dep->dep.type.getCanonicalName())
                     .toList();
             if (!missing.isEmpty())
                 Log.at(Level.WARNING, "Could not run on all dependencies\n\tat %s\n\tParent Module: %s\n\tEntries:\n\t\t- %s\n\tMissing Dependencies:\n\t\t- %s"
                         .formatted(caller, this, String.join("\n\t\t- ",
-                                        Arrays.stream(entries).map(e->e.component.toString()).toArray(String[]::new)),
+                                        Arrays.stream(entries).map(e -> e.component.toString()).toArray(String[]::new)),
                                 String.join("\n\t\t- ", missing)));
             return CompletableFuture.allOf(Arrays.stream(entries)
                     .map(e -> e.future)

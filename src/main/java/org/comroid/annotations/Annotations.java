@@ -2,6 +2,7 @@ package org.comroid.annotations;
 
 import lombok.Value;
 import lombok.experimental.UtilityClass;
+import org.comroid.api.Polyfill;
 import org.comroid.api.SupplierX;
 import org.comroid.util.Constraint;
 import org.comroid.util.Streams;
@@ -53,8 +54,8 @@ public class Annotations {
             return empty();
 
         // first, try get annotation from type
-        return of(in.getAnnotation(type))
-                .filter(Objects::nonNull)
+        return of(in.getAnnotations())
+                .flatMap(cast(type))
                 .map(a -> new Result<>(a, in, decl))
                 // otherwise, recurse into ancestors
                 .collect(append(ignoreAncestors(in, type)
@@ -141,8 +142,8 @@ public class Annotations {
 
     @Value
     public static class Result<A extends Annotation> {
-        A annotation;
-        AnnotatedElement context;
-        Class<?> declarator;
+        @NotNull A annotation;
+        @NotNull AnnotatedElement context;
+        @NotNull Class<?> declarator;
     }
 }

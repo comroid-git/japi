@@ -2,7 +2,7 @@ package org.comroid.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
-import lombok.Builder;
+import lombok.experimental.FieldDefaults;
 import org.comroid.annotations.*;
 import org.comroid.util.BoundValueType;
 import org.comroid.util.Constraint;
@@ -11,6 +11,7 @@ import org.comroid.util.Switch;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,9 +53,10 @@ public class DataStructure<T> implements Named {
                         .map(Invocable::ofMethodCall)
                         .orElse(null))
                 .apply(it);
-        var prop = new Property<V>(uncheckedCast(vt), name, getter, setter);
+        var prop = new Property<>(name, uncheckedCast(vt), getter, setter);
         var aliases = it.getAnnotation(Alias.class);
         if (aliases != null) prop.aliases.addAll(Arrays.asList(aliases.value()));
+        Annotations.findAnnotations(Annotation.class, it).forEach(prop.annotations::add);
         return prop;
     }
 
@@ -93,6 +95,7 @@ public class DataStructure<T> implements Named {
                     var ctor = struct.new Constructor(it.getName(), func);
                     for (var parameter : it.getParameters())
                         ctor.args.put(parameter.getName(), struct.createProperty(parameter.getType(), parameter.getName(), parameter));
+                    Annotations.findAnnotations(Annotation.class, it).forEach(ctor.annotations::add);
                     return ctor;
                 }).forEach(struct.constructors::add);
 
@@ -107,7 +110,7 @@ public class DataStructure<T> implements Named {
                 .filter(it -> !key.above.equals(it.getDeclaringClass()) && key.above.isAssignableFrom(it.getDeclaringClass()))
                 .filter(it -> Arrays.stream(SystemFilters).noneMatch(type -> it.getDeclaringClass().isAssignableFrom(type)))
                 .forEach(it -> {
-                    var type = new Switch<Member, Class<?>>()
+                    var type = new Switch<java.lang.reflect.Member, Class<?>>()
                             .option(Field.class::isInstance, () -> ((Field) it).getType())
                             .option(Method.class::isInstance, () -> ((Method) it).getReturnType())
                             .apply(it);
@@ -122,20 +125,43 @@ public class DataStructure<T> implements Named {
         return struct;
     }
 
-    @Value
-    public class Constructor implements Named {
-        @Nullable String name;
-        @NotNull @ToString.Exclude Map<String, Property<?>> args = new ConcurrentHashMap<>();
-        @NotNull @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<T> func;
+    @Data
+    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+    @FieldDefaults(level = AccessLevel.PROTECTED, makeFinal = true)
+    public static abstract class Member implements Named {
+        @NotNull String name;
+        @NotNull Set<String> aliases = new HashSet<>();
+        @NotNull @ToString.Exclude Set<Annotations.Result<?>> annotations = new HashSet<>();
+
+        @Override
+        public String getAlternateName() {
+            return aliases.stream().findAny().orElseGet(Named.super::getAlternateName);
+        }
     }
 
     @Value
-    public class Property<V> implements Named {
+    public class Constructor extends Member {
+        @NotNull @ToString.Exclude Map<String, Property<?>> args = new ConcurrentHashMap<>();
+        @NotNull @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<T> ctor;
+
+        private Constructor(@NotNull String name, @NotNull Invocable<T> ctor) {
+            super(name);
+            this.ctor = ctor;
+        }
+    }
+
+    @Value
+    public class Property<V> extends Member {
         @NotNull ValueType<V> type;
-        @NotNull String name;
         @Nullable @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<V> getter;
         @Nullable @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<?> setter;
-        @NotNull Set<String> aliases = new HashSet<>();
+
+        private Property(@NotNull String name, @NotNull ValueType<V> type, @Nullable Invocable<V> getter, @Nullable Invocable<?> setter) {
+            super(name);
+            this.type = type;
+            this.getter = getter;
+            this.setter = setter;
+        }
 
         @SneakyThrows
         @SuppressWarnings("DataFlowIssue")

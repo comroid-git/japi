@@ -56,7 +56,7 @@ public class DataStructureTest {
                 .filter(ctor->ctor.getArgs().isEmpty())
                 .findAny()
                 .orElseThrow()
-                .getFunc()
+                .getCtor()
                 .autoInvoke();
 
         // type

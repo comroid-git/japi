@@ -17,7 +17,7 @@ import java.util.stream.Stream;
 import static org.comroid.util.Streams.append;
 import static org.comroid.util.Streams.cast;
 
-public interface Container extends Stoppable, SelfCloseable {
+public interface Container extends Stoppable, SelfCloseable, Specifiable<Container> {
     Object addChildren(@Nullable Object @NotNull ... children);
 
     int removeChildren(@Nullable Object @NotNull ... children);
