@@ -38,15 +38,6 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         }
     }
 
-    @Override
-    default boolean isNonNull() {
-        try {
-            return test(Objects::nonNull);
-        } catch (NullPointerException ignored) {
-            return false;
-        }
-    }
-
     static <T> Wrap<T> empty() {
         //noinspection unchecked
         return (Wrap<T>) EMPTY;
