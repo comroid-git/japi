@@ -17,8 +17,10 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static java.util.function.Predicate.not;
 import static org.comroid.annotations.Annotations.*;
 import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.api.func.util.Streams.Multi.*;
@@ -31,6 +33,7 @@ public class DataStructure<T> implements Named {
     //private static final WeakCache<Key<?>, DataStructure<?>> $cache = new WeakCache<>(DataStructure::create);
     private static final Map<Key<?>, DataStructure<?>> $cache = new ConcurrentHashMap<>();
     public static final Map<Key<?>, DataStructure<?>> cache = Collections.unmodifiableMap($cache);
+    public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class, Class.class, Annotation.class};
 
     @NotNull Class<? super T> type;
     @NotNull
@@ -101,7 +104,10 @@ public class DataStructure<T> implements Named {
                 .filter(it -> !ignore(it, DataStructure.class))
                 .map(explode(java.lang.reflect.Member::getDeclaringClass))
                 .flatMap(filterB(decl -> !key.above.equals(decl) && key.above.isAssignableFrom(decl)))
-                .flatMap(filterB(decl -> !"java.lang".equals(decl.getPackageName())))
+                .flatMap(filterB(decl -> {
+                    var packageName = decl.getPackageName();
+                    return !packageName.startsWith("java") || "java.lang".equals(packageName);
+                }))
                 .map(Map.Entry::getKey)
                 .filter(it -> Modifier.isPublic(it.getModifiers()))
                 .map(it -> {
@@ -125,11 +131,14 @@ public class DataStructure<T> implements Named {
                                 .filter(mtd -> mtd.getParameterCount() == 0)
                                 .filter(mtd -> mtd.getName().startsWith("get") && mtd.getName().length() > 3))
                 .map(explode(java.lang.reflect.Member::getModifiers))
-                .flatMap(filterB(mod -> !Modifier.isStatic(mod) && Modifier.isPublic(mod)))
-                .flatMap(filterA(it -> !ignore(it, DataStructure.class)))
+                .flatMap(filter(it -> !ignore(it, DataStructure.class), mod -> !Modifier.isStatic(mod) && Modifier.isPublic(mod)))
                 .map(crossA2B(java.lang.reflect.Member::getDeclaringClass))
-                .flatMap(filterB(decl -> !key.above.equals(decl) && key.above.isAssignableFrom(decl)))
-                .flatMap(filterB(decl -> !"java.lang".equals(decl.getPackageName())))
+                .flatMap(filterB(not(Arrays.asList(SystemFilters)::contains)))
+                .flatMap(filterB(decl -> {
+                    var packageName = decl.getPackageName();
+                    return (!packageName.startsWith("java") || "java.lang".equals(packageName))
+                            && key.above.isAssignableFrom(decl);
+                }))
                 .forEach(forEach((it, decl) -> {
                     var type = new Switch<java.lang.reflect.Member, Class<?>>()
                             .option(Field.class::isInstance, () -> ((Field) it).getType())

@@ -2,20 +2,25 @@ package org.comroid.api.func.util;
 
 import lombok.experimental.UtilityClass;
 import org.comroid.api.data.seri.DataNode;
+import org.comroid.api.func.comp.StringBasedComparator;
 import org.comroid.api.info.Log;
+import org.comroid.api.java.StackTraceUtils;
 import org.comroid.util.BigotryFilter;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import static java.util.stream.IntStream.range;
 import static org.comroid.api.Polyfill.exceptionLogger;
 import static org.comroid.api.func.util.Streams.intString;
+import static org.comroid.api.java.StackTraceUtils.lessSimpleName;
 
 @UtilityClass
 @lombok.extern.java.Log
@@ -62,23 +67,40 @@ public final class Debug {
     }
 
     public static String createObjectDump(Object it) {
-        var sb = new StringBuilder().append("Dump: ").append(it).append('\n');
-        createObjectDump(sb, DataNode.of(it), 0);
-        return sb.toString();
+        return "Dump: " + it + "\n" + createObjectDump(DataNode.of(it), 0);
     }
 
-    private static void createObjectDump(final StringBuilder sb, final DataNode data, final int rec) {
-        final var pad = intString(range(0, rec * 2).map($ -> ' '));
+    private static String pad(int r, int c) {
+        return range(0, r).mapToObj($ -> "|\t")
+                .collect(Collectors.joining()) + "|-> ";
+    }
 
-        for (var entry : data.asObject().entrySet()) {
-            final var name = entry.getKey();
-            final var node = entry.getValue();
+    private static String createObjectDump(DataNode data, int rec) {
+        var c = 0;
+        final var result = new StringBuilder();
 
-            sb.append(pad).append("- ")
-                    .append(name).append(": ")
-                    .append(node.toString()).append('\n');
-
-            createObjectDump(sb, data, rec + 1);
+        if (data instanceof DataNode.Value<?> val)
+            result.append("(").append(lessSimpleName(val.getHeldType().getTargetClass())).append(") ")
+                    .append(val).append('\n');
+        else {
+            result.append(lessSimpleName(data.getClass()))
+                    .append("[").append(data.size()).append("]")
+                    .append("#").append(Integer.toHexString(data.hashCode()))
+                    .append("\n");
+            if (data instanceof DataNode.Object obj) {
+                // append name, then values
+                for (var entry : obj.entrySet().stream()
+                        .sorted(Comparator.<Map.Entry<String, DataNode>>comparingInt(x -> x.getValue().size())
+                                .thenComparing(new StringBasedComparator<>(Map.Entry::getKey))).toList())
+                    result.append(pad(rec, c++)).append(entry.getKey()).append(": ")
+                            .append(createObjectDump(entry.getValue(), rec + 1)).append('\n');
+            } else if (data instanceof DataNode.Array arr) {
+                // append type, then values
+                for (int i = 0; i < arr.size(); i++)
+                    result.append(pad(rec, c++)).append("[").append(i).append("]: ")
+                            .append(createObjectDump(arr.get(i), rec + 1)).append('\n');
+            }
         }
+        return result.toString().replaceAll("\n+", "\n");
     }
 }

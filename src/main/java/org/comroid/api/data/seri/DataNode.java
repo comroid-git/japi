@@ -9,6 +9,7 @@ import org.comroid.api.func.ext.Convertible;
 import org.comroid.api.func.util.DelegateStream;
 import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.info.Constraint;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.StackTraceUtils;
 import org.jetbrains.annotations.Contract;
@@ -68,22 +69,21 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
     }
 
     default Object asObject() {
-        return as(Object.class)
-                .or(() -> of(this).asObject())
-                .orElse(null);
+        return asType(Object.class);
     }
 
     default Array asArray() {
-        return as(Array.class)
-                .or(() -> of(this).asArray())
-                .orElse(null);
+        return asType(Array.class);
     }
 
     default <T> Value<T> asValue() {
-        return as(Value.class)
-                .or(() -> of(this).asValue())
-                .map(Polyfill::<Value<T>>uncheckedCast)
-                .orElse(null);
+        return asType(Value.class);
+    }
+
+    default <T extends DataNode, R extends T> R asType(Class<? extends T> type) {
+        Constraint.Type.anyOf(this, "type", type)
+                .setConstraint("preliminary cast check").run();
+        return Polyfill.uncheckedCast(type.cast(this));
     }
 
     default int size() {

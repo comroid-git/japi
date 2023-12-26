@@ -1,22 +1,25 @@
 package org.comroid.test.api;
 
-import lombok.extern.java.Log;
 import org.comroid.api.data.seri.DataStructure;
-import org.comroid.api.data.seri.ValueType;
-import org.comroid.test.Dummy;
-import org.comroid.api.func.util.Debug;
 import org.comroid.api.data.seri.StandardValueType;
+import org.comroid.api.data.seri.ValueType;
+import org.comroid.api.func.util.Debug;
+import org.comroid.api.info.Log;
+import org.comroid.test.Dummy;
 import org.junit.Test;
+
+import java.util.logging.Level;
 
 import static org.junit.Assert.*;
 
-@Log
 public class DataStructureTest {
     @Test
     public void testFruit() {
         var struct = DataStructure.of(Dummy.Fruit.class);
+        System.out.println(Debug.createObjectDump(struct));
+
         assertEquals("invalid fruit constructor count", 1, struct.getConstructors().size());
-        assertTrue("invalid fruit property count\n"+Debug.createObjectDump(struct), !struct.getProperties().isEmpty());
+        assertFalse("invalid fruit property count", struct.getProperties().isEmpty());
 
         //price
         testProp(struct, StandardValueType.DOUBLE, "price", 1.99);
@@ -25,8 +28,10 @@ public class DataStructureTest {
     @Test
     public void testApple() {
         var struct = DataStructure.of(Dummy.Apple.class);
+        System.out.println(Debug.createObjectDump(struct));
+
         assertEquals("invalid apple constructor count", 2, struct.getConstructors().size());
-        assertTrue("invalid apple property count\n"+Debug.createObjectDump(struct), 2 <= struct.getProperties().size());
+        assertTrue("invalid apple property count", 2 <= struct.getProperties().size());
 
         // price
         testProp(struct, StandardValueType.DOUBLE, "price", 0.99);
@@ -38,8 +43,10 @@ public class DataStructureTest {
     @Test
     public void testBanana() {
         var struct = DataStructure.of(Dummy.Banana.class);
+        System.out.println(Debug.createObjectDump(struct));
+
         assertEquals("invalid banana constructor count", 1, struct.getConstructors().size());
-        assertTrue("invalid banana property count\n"+Debug.createObjectDump(struct), 3 <= struct.getProperties().size());
+        assertTrue("invalid banana property count", 3 <= struct.getProperties().size());
 
         // price
         testProp(struct, StandardValueType.DOUBLE, "price", 1.99);
