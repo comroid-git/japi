@@ -120,13 +120,23 @@ public class Streams {
         }
 
         @WrapWith("map")
-        public <A, B, X> Function<Entry<A, B>, Entry<X, B>> crossToA(final @NotNull BiFunction<A, B, X> function) {
-            return cross(function, (a, b) -> b);
+        public <A, B, Y> Function<Entry<A, B>, Entry<A, Y>> crossA2B(final @NotNull Function<A, Y> function) {
+            return crossA2B((a, $) -> function.apply(a));
         }
 
         @WrapWith("map")
-        public <A, B, Y> Function<Entry<A, B>, Entry<A, Y>> crossToB(final @NotNull BiFunction<A, B, Y> function) {
+        public <A, B, Y> Function<Entry<A, B>, Entry<A, Y>> crossA2B(final @NotNull BiFunction<A, B, Y> function) {
             return cross((a, b) -> a, function);
+        }
+
+        @WrapWith("map")
+        public <A, B, X> Function<Entry<A, B>, Entry<X, B>> crossB2A(final @NotNull Function<B, X> function) {
+            return crossB2A(($, b) -> function.apply(b));
+        }
+
+        @WrapWith("map")
+        public <A, B, X> Function<Entry<A, B>, Entry<X, B>> crossB2A(final @NotNull BiFunction<A, B, X> function) {
+            return cross(function, (a, b) -> b);
         }
 
         @WrapWith("map")
