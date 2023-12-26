@@ -2,9 +2,7 @@ package org.comroid.util;
 
 import lombok.Value;
 import lombok.experimental.UtilityClass;
-import org.comroid.api.N;
 import org.comroid.api.Named;
-import org.comroid.api.Polyfill;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -22,6 +20,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static java.util.stream.Stream.empty;
+import static org.comroid.api.N.Consumer.nop;
 
 @UtilityClass
 public class Streams {
@@ -53,7 +52,7 @@ public class Streams {
         }, is -> Stream.concat(is.stream(), values));
     }
 
-    public static <I> Function<I, Stream<I>> yield(final int next, final Consumer<I> elseConsumer) {
+    public static <I> Function<I, Stream<I>> filter(final int next, final Consumer<I> elseConsumer) {
         return new Function<>() {
             final AtomicInteger count = new AtomicInteger(0);
 
@@ -67,7 +66,7 @@ public class Streams {
         };
     }
 
-    public static <I> Function<I, Stream<I>> yield(final Predicate<I> filter, final Consumer<I> elseConsumer) {
+    public static <I> Function<I, Stream<I>> filter(final Predicate<I> filter, final Consumer<I> elseConsumer) {
         return obj -> {
             if (filter.test(obj))
                 return Stream.of(obj);
@@ -111,6 +110,11 @@ public class Streams {
         }
 
         @WrapWith("map")
+        public <A, B> Function<Entry<A, B>, Entry<B, A>> invert() {
+            return e -> new SimpleImmutableEntry<>(e.getValue(), e.getKey());
+        }
+
+        @WrapWith("map")
         public <A, B, X> Function<Entry<A, B>, Entry<X, B>> crossToA(final @NotNull BiFunction<A, B, X> function) {
             return cross(function, (a, b) -> b);
         }
@@ -121,12 +125,8 @@ public class Streams {
         }
 
         @WrapWith("map")
-        public <A, B, X, Y> Function<Entry<A, B>, Entry<X, Y>> cross(
-                final @NotNull BiFunction<A, B, X> xFunction,
-                final @NotNull BiFunction<A, B, Y> yFunction) {
-            return e -> new SimpleImmutableEntry<>(
-                    xFunction.apply(e.getKey(), e.getValue()),
-                    yFunction.apply(e.getKey(), e.getValue()));
+        public <A, B, X, Y> Function<Entry<A, B>, Entry<X, Y>> cross(final @NotNull BiFunction<A, B, X> xFunction, final @NotNull BiFunction<A, B, Y> yFunction) {
+            return e -> new SimpleImmutableEntry<>(xFunction.apply(e.getKey(), e.getValue()), yFunction.apply(e.getKey(), e.getValue()));
         }
 
         @WrapWith("map")
@@ -135,21 +135,24 @@ public class Streams {
         }
         //endregion
 
-        //region regular stream functions
+        //region peek
+        @WrapWith("peek")
+        public <T> Consumer<Entry<T, T>> peekMono(final @NotNull Consumer<T> consumer) {
+            return peek(consumer, consumer);
+        }
+
         @WrapWith("peek")
         public <A, B> Consumer<Entry<A, B>> peekA(final @NotNull Consumer<A> consumer) {
-            return peek(consumer, N.Consumer.nop());
+            return peek(consumer, nop());
         }
 
         @WrapWith("peek")
         public <A, B> Consumer<Entry<A, B>> peekB(final @NotNull Consumer<B> consumer) {
-            return peek(N.Consumer.nop(), consumer);
+            return peek(nop(), consumer);
         }
 
         @WrapWith("peek")
-        public <A, B> Consumer<Entry<A, B>> peek(
-                final @NotNull Consumer<A> aConsumer,
-                final @NotNull Consumer<B> bConsumer) {
+        public <A, B> Consumer<Entry<A, B>> peek(final @NotNull Consumer<A> aConsumer, final @NotNull Consumer<B> bConsumer) {
             return peek((a, b) -> {
                 aConsumer.accept(a);
                 bConsumer.accept(b);
@@ -159,6 +162,13 @@ public class Streams {
         @WrapWith("peek")
         public <A, B> Consumer<Entry<A, B>> peek(final @NotNull BiConsumer<A, B> consumer) {
             return e -> consumer.accept(e.getKey(), e.getValue());
+        }
+
+        //endregion
+        //region filter
+        @WrapWith("flatMap")
+        public <T> Function<Entry<T, T>, Stream<Entry<T, T>>> filterMono(@NotNull Predicate<T> predicate) {
+            return filter(OP.LogicalAnd, predicate, predicate);
         }
 
         @WrapWith("flatMap")
@@ -172,23 +182,57 @@ public class Streams {
         }
 
         @WrapWith("flatMap")
-        public <A, B> Function<Entry<A, B>, Stream<Entry<A, B>>> filter(
-                @NotNull Predicate<A> aPredicate,
-                @NotNull Predicate<B> bPredicate) {
+        public <A, B> Function<Entry<A, B>, Stream<Entry<A, B>>> filter(@NotNull Predicate<A> aPredicate, @NotNull Predicate<B> bPredicate) {
             return filter(OP.LogicalAnd, aPredicate, bPredicate);
         }
 
         @WrapWith("flatMap")
-        public <A, B> Function<Entry<A, B>, Stream<Entry<A, B>>> filter(
-                final @NotNull OP op,
-                final @NotNull Predicate<A> aPredicate,
-                final @NotNull Predicate<B> bPredicate) {
+        public <A, B> Function<Entry<A, B>, Stream<Entry<A, B>>> filter(final @NotNull OP op, final @NotNull Predicate<A> aPredicate, final @NotNull Predicate<B> bPredicate) {
             return filter((a, b) -> op.test(() -> aPredicate.test(a), () -> bPredicate.test(b)));
         }
 
         @WrapWith("flatMap")
         public <A, B> Function<Entry<A, B>, Stream<Entry<A, B>>> filter(final @NotNull BiPredicate<A, B> predicate) {
-            return e -> predicate.test(e.getKey(), e.getValue()) ? Stream.of(e) : empty();
+            return filter(predicate, nop());
+        }
+
+        @WrapWith("flatMap")
+        public <A, B> Function<Entry<A, B>, Stream<Entry<A, B>>> filterA(final @NotNull Predicate<A> predicate, final @NotNull Consumer<A> disposal) {
+            return filter(predicate, disposal, $ -> true, nop());
+        }
+
+        @WrapWith("flatMap")
+        public <A, B> Function<Entry<A, B>, Stream<Entry<A, B>>> filterB(final @NotNull Predicate<B> predicate, final @NotNull Consumer<B> disposal) {
+            return filter($ -> true, nop(), predicate, disposal);
+        }
+
+        @WrapWith("flatMap")
+        public <A, B> Function<Entry<A, B>, Stream<Entry<A, B>>> filter(final @NotNull Predicate<A> aPredicate, final @NotNull Consumer<A> aDisposal, final @NotNull Predicate<B> bPredicate, final @NotNull Consumer<B> bDisposal) {
+            return filter(OP.LogicalAnd, aPredicate, aDisposal, bPredicate, bDisposal);
+        }
+
+        @WrapWith("flatMap")
+        public <A, B> Function<Entry<A, B>, Stream<Entry<A, B>>> filter(final @NotNull OP op, final @NotNull Predicate<A> aPredicate, final @NotNull Consumer<A> aDisposal, final @NotNull Predicate<B> bPredicate, final @NotNull Consumer<B> bDisposal) {
+            return filter((a, b) -> op.test(() -> aPredicate.test(a), () -> bPredicate.test(b)), (a, b) -> {
+                aDisposal.accept(a);
+                bDisposal.accept(b);
+            });
+        }
+
+        @WrapWith("flatMap")
+        public <A, B> Function<Entry<A, B>, Stream<Entry<A, B>>> filter(final @NotNull BiPredicate<A, B> predicate, final @NotNull BiConsumer<A, B> disposal) {
+            return e -> {
+                if (predicate.test(e.getKey(), e.getValue())) return Stream.of(e);
+                disposal.accept(e.getKey(), e.getValue());
+                return empty();
+            };
+        }
+
+        //endregion
+        //region map
+        @WrapWith("map")
+        public <I, O> Function<Entry<I, I>, Entry<O, O>> mapMono(final @NotNull Function<I, O> function) {
+            return map(function, function);
         }
 
         @WrapWith("map")
@@ -202,12 +246,12 @@ public class Streams {
         }
 
         @WrapWith("map")
-        public <A, B, X, Y> Function<Entry<A, B>, Entry<X, Y>> map(
-                final @NotNull Function<A, X> axFunction,
-                final @NotNull Function<B, Y> byFunction) {
+        public <A, B, X, Y> Function<Entry<A, B>, Entry<X, Y>> map(final @NotNull Function<A, X> axFunction, final @NotNull Function<B, Y> byFunction) {
             return e -> new SimpleImmutableEntry<>(axFunction.apply(e.getKey()), byFunction.apply(e.getValue()));
         }
 
+        //endregion
+        //region flatMap
         @WrapWith("flatMap")
         public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(final @NotNull Function<A, Stream<X>> function) {
             return flatMap(Adapter.sideA(), function);
@@ -219,16 +263,36 @@ public class Streams {
         }
 
         @WrapWith("flatMap")
-        public <A, B, X, Y, I, O> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(
-                final @NotNull Adapter<A, B, X, Y, I, O> adapter,
-                final @NotNull Function<I, Stream<O>> function) {
+        public <A, B, X, Y, I, O> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Adapter<A, B, X, Y, I, O> adapter, final @NotNull Function<I, Stream<O>> function) {
             return e -> function.apply(adapter.input.apply(e)).map(o -> adapter.merge(e, o));
         }
 
+        //endregion
+        //region cast
+        @WrapWith("flatMap")
+        public <X, Y> Function<Entry<?, Y>, Stream<Entry<X, Y>>> castA(final @NotNull Class<X> type) {
+            return e -> Stream.of(e.getKey()).flatMap(Streams.cast(type)).map(a -> new SimpleImmutableEntry<>(a, e.getValue()));
+        }
+
+        @WrapWith("flatMap")
+        public <X, Y> Function<Entry<X, ?>, Stream<Entry<X, Y>>> castB(final @NotNull Class<Y> type) {
+            return e -> Stream.of(e.getValue()).flatMap(Streams.cast(type)).map(b -> new SimpleImmutableEntry<>(e.getKey(), b));
+        }
+
+        @WrapWith("flatMap")
+        public <X, Y> Function<Entry<?, ?>, Stream<Entry<X, Y>>> cast(final @NotNull Class<X> aType, final @NotNull Class<Y> bType) {
+            return e -> Stream.of(e).flatMap(filter(aType::isInstance, bType::isInstance)).map(map(aType::cast, bType::cast));
+        }
+
+        //endregion
+        //region forEach
         @WrapWith("forEach")
-        public <A, B> Consumer<Entry<A, B>> forEach(
-                final @NotNull Consumer<A> aConsumer,
-                final @NotNull Consumer<B> bConsumer) {
+        public <T> Consumer<Entry<T, T>> forEachMono(final @NotNull Consumer<T> consumer) {
+            return forEach(consumer, consumer);
+        }
+
+        @WrapWith("forEach")
+        public <A, B> Consumer<Entry<A, B>> forEach(final @NotNull Consumer<A> aConsumer, final @NotNull Consumer<B> bConsumer) {
             return forEach((a, b) -> {
                 aConsumer.accept(a);
                 bConsumer.accept(b);
@@ -240,6 +304,8 @@ public class Streams {
             return e -> consumer.accept(e.getKey(), e.getValue());
         }
 
+        //endregion
+        //region collector
         @WrapWith("collect")
         public <K, V> Collector<Entry<K, V>, Map<K, V>, Map<K, V>> collector() {
             return collector(HashMap::new);
@@ -247,13 +313,10 @@ public class Streams {
 
         @WrapWith("collect")
         public <K, V> Collector<Entry<K, V>, Map<K, V>, Map<K, V>> collector(final Supplier<Map<K, V>> mapSupplier) {
-            return Collector.of(mapSupplier,
-                    (m, e) -> m.put(e.getKey(), e.getValue()),
-                    (a, b) -> {
-                        a.putAll(b);
-                        return a;
-                    },
-                    Collections::unmodifiableMap);
+            return Collector.of(mapSupplier, (m, e) -> m.put(e.getKey(), e.getValue()), (a, b) -> {
+                a.putAll(b);
+                return a;
+            }, Collections::unmodifiableMap);
         }
         //endregion
 
