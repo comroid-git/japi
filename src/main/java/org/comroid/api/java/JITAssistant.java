@@ -1,8 +1,7 @@
 package org.comroid.api.java;
 
-import org.comroid.api.Invocable;
+import org.comroid.api.func.util.Invocable;
 import org.comroid.api.Polyfill;
-import org.comroid.util.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.ApiStatus.Internal;
 

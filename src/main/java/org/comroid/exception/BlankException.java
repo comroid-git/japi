@@ -1,6 +1,6 @@
 package org.comroid.exception;
 
-import org.comroid.api.Named;
+import org.comroid.api.attr.Named;
 
 public class BlankException extends RuntimeException implements Named {
     private final String name;

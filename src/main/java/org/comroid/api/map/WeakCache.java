@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
-import org.comroid.api.Wrap;
+import org.comroid.api.func.ext.Wrap;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.ref.Reference;

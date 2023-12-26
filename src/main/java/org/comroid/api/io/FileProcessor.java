@@ -1,6 +1,6 @@
 package org.comroid.api.io;
 
-import org.comroid.api.UncheckedCloseable;
+import org.comroid.api.tree.UncheckedCloseable;
 import org.comroid.api.Disposable;
 
 import java.io.IOException;

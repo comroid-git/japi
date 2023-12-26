@@ -1,9 +1,9 @@
 package org.comroid.test.annotations;
 
 import org.comroid.annotations.Alias;
-import org.comroid.api.DataStructure;
-import org.comroid.api.ValueBox;
-import org.comroid.api.ValuePointer;
+import org.comroid.api.data.seri.DataStructure;
+import org.comroid.api.func.ValueBox;
+import org.comroid.api.func.ValuePointer;
 import org.comroid.test.Dummy;
 import org.junit.Test;
 

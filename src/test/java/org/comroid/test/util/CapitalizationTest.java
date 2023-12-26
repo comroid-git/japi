@@ -1,10 +1,9 @@
 package org.comroid.test.util;
 
-import org.comroid.util.Capitalization;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.comroid.util.Capitalization.*;
+import static org.comroid.api.text.Capitalization.*;
 
 public class CapitalizationTest {
     @Test

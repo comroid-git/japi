@@ -1,9 +1,8 @@
 package org.comroid.api.info;
 
-import org.comroid.api.IntegerAttribute;
-import org.comroid.api.LongAttribute;
-import org.comroid.api.Named;
-import org.comroid.util.Bitmask;
+import org.comroid.api.attr.LongAttribute;
+import org.comroid.api.attr.Named;
+import org.comroid.api.func.util.Bitmask;
 import org.jetbrains.annotations.NotNull;
 
 @Deprecated(forRemoval = true)

@@ -1,6 +1,6 @@
 package org.comroid.test.api;
 
-import org.comroid.api.Command;
+import org.comroid.api.func.util.Command;
 import org.junit.Assert;
 import org.junit.Test;
 

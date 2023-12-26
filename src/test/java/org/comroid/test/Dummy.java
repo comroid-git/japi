@@ -2,8 +2,8 @@ package org.comroid.test;
 
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Ignore;
-import org.comroid.api.Component;
-import org.comroid.api.DataStructure;
+import org.comroid.api.tree.Component;
+import org.comroid.api.data.seri.DataStructure;
 
 public class Dummy {
     public static final String AliasFruit = "food";

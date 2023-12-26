@@ -7,8 +7,8 @@ import org.junit.Test;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static org.comroid.util.Streams.Multi.*;
-import static org.comroid.util.Streams.Multi.Adapter.*;
+import static org.comroid.api.func.util.Streams.Multi.*;
+import static org.comroid.api.func.util.Streams.Multi.Adapter.*;
 
 public class StreamExtTest {
     @Test

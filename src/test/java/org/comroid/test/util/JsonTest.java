@@ -1,6 +1,6 @@
 package org.comroid.test.util;
 
-import org.comroid.util.JSON;
+import org.comroid.api.data.seri.JSON;
 import org.intellij.lang.annotations.Language;
 import org.junit.Assert;
 import org.junit.Test;

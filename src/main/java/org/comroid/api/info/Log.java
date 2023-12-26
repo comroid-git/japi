@@ -2,7 +2,7 @@ package org.comroid.api.info;
 
 import lombok.SneakyThrows;
 import lombok.experimental.UtilityClass;
-import org.comroid.util.StackTraceUtils;
+import org.comroid.api.java.StackTraceUtils;
 
 import java.util.Arrays;
 import java.util.logging.Level;

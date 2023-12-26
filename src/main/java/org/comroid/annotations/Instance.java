@@ -1,6 +1,6 @@
 package org.comroid.annotations;
 
-import org.comroid.api.Context;
+import org.comroid.api.func.ext.Context;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

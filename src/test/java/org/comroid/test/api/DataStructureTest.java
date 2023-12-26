@@ -1,11 +1,11 @@
 package org.comroid.test.api;
 
 import lombok.extern.java.Log;
-import org.comroid.api.DataStructure;
-import org.comroid.api.ValueType;
+import org.comroid.api.data.seri.DataStructure;
+import org.comroid.api.data.seri.ValueType;
 import org.comroid.test.Dummy;
-import org.comroid.util.Debug;
-import org.comroid.util.StandardValueType;
+import org.comroid.api.func.util.Debug;
+import org.comroid.api.data.seri.StandardValueType;
 import org.junit.Test;
 
 import static org.junit.Assert.*;

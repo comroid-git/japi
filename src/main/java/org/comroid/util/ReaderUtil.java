@@ -1,7 +1,7 @@
 package org.comroid.util;
 
-import org.comroid.api.Readable;
-import org.comroid.api.StringSerializable;
+import org.comroid.api.data.Readable;
+import org.comroid.api.data.seri.StringSerializable;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

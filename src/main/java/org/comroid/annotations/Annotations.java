@@ -4,9 +4,9 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.experimental.UtilityClass;
-import org.comroid.api.DataStructure;
-import org.comroid.api.Wrap;
-import org.comroid.util.Constraint;
+import org.comroid.api.data.seri.DataStructure;
+import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.info.Constraint;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 
 import static java.util.Arrays.*;
 import static java.util.stream.Stream.*;
-import static org.comroid.util.Streams.*;
+import static org.comroid.api.func.util.Streams.*;
 
 @SuppressWarnings({"DuplicatedCode","BooleanMethodIsAlwaysInverted"})
 @UtilityClass

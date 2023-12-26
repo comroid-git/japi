@@ -1,6 +1,6 @@
 package org.comroid.test.api;
 
-import org.comroid.api.Component;
+import org.comroid.api.tree.Component;
 import org.comroid.test.Dummy;
 import org.junit.Test;
 

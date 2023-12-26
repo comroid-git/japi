@@ -1,8 +1,10 @@
 package org.comroid.api;
 
 import lombok.experimental.UtilityClass;
-import org.comroid.util.RegExpUtil;
-import org.comroid.util.StackTraceUtils;
+import org.comroid.api.func.Provider;
+import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.data.seri.RegExpUtil;
+import org.comroid.api.java.StackTraceUtils;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;

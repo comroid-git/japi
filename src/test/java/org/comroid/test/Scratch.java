@@ -1,7 +1,7 @@
 package org.comroid.test;
 
-import org.comroid.api.DelegateStream;
-import org.comroid.api.Event;
+import org.comroid.api.func.util.DelegateStream;
+import org.comroid.api.func.util.Event;
 
 public class Scratch {
     public static void main(String[] args) {
