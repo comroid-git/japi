@@ -24,7 +24,6 @@ public class StreamExtTest {
     public void testEntries() {
         Stream.of("mushroom", "doretta", "rock and stone!")
                 .map(explode(String::length))
-                .flatMap(flatMap(sideA(), s->s.chars().boxed()))
                 .map(combine((s,l)->s+l))
                 .forEach(System.out::println);
     }
