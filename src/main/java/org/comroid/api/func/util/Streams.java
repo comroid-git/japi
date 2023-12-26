@@ -119,6 +119,16 @@ public class Streams {
             return e -> new SimpleImmutableEntry<>(e.getValue(), e.getKey());
         }
 
+        @WrapWith("flatMap")
+        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> routeA(final @NotNull Function<Stream<Entry<A, B>>, Stream<X>> function) {
+            return flatMap(Adapter.sideA(), (e, a) -> function.apply(Stream.of(e)));
+        }
+
+        @WrapWith("flatMap")
+        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> routeB(final @NotNull Function<Stream<Entry<A, B>>, Stream<Y>> function) {
+            return flatMap(Adapter.sideB(), (e, b) -> function.apply(Stream.of(e)));
+        }
+
         @WrapWith("map")
         public <A, B, Y> Function<Entry<A, B>, Entry<A, Y>> crossA2B(final @NotNull Function<A, Y> function) {
             return crossA2B((a, $) -> function.apply(a));
@@ -268,18 +278,18 @@ public class Streams {
         //endregion
         //region flatMap
         @WrapWith("flatMap")
-        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(final @NotNull Function<A, Stream<X>> function) {
+        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(final @NotNull BiFunction<Entry<A,B>, A, Stream<X>> function) {
             return flatMap(Adapter.sideA(), function);
         }
 
         @WrapWith("flatMap")
-        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(final @NotNull Function<B, Stream<Y>> function) {
+        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(final @NotNull BiFunction<Entry<A,B>, B, Stream<Y>> function) {
             return flatMap(Adapter.sideB(), function);
         }
 
         @WrapWith("flatMap")
-        public <A, B, X, Y, I, O> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Adapter<A, B, X, Y, I, O> adapter, final @NotNull Function<I, Stream<O>> function) {
-            return e -> function.apply(adapter.input.apply(e)).map(o -> adapter.merge(e, o));
+        public <A, B, X, Y, I, O> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Adapter<A, B, X, Y, I, O> adapter, final @NotNull BiFunction<Entry<A,B>, I, Stream<O>> function) {
+            return e -> function.apply(e, adapter.input.apply(e)).map(o -> adapter.merge(e, o));
         }
 
         //endregion
