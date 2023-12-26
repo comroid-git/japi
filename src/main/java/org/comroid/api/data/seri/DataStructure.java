@@ -185,11 +185,13 @@ public class DataStructure<T> implements Named {
             return aliases.stream().findAny().orElseGet(Named.super::getAlternateName);
         }
 
+        @Ignore
         @Override
         public Annotation[] getAnnotations() {
             return streamAnnotations(Annotation.class).toArray(Annotation[]::new);
         }
 
+        @Ignore
         @Override
         public Annotation[] getDeclaredAnnotations() {
             return streamAnnotations(Annotation.class)
