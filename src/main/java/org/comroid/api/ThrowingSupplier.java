@@ -24,13 +24,13 @@ public interface ThrowingSupplier<T, E extends Throwable> {
         };
     }
 
-    static <R> SupplierX<R> rethrowing(
+    static <R> Wrap<R> rethrowing(
             ThrowingSupplier<R, Throwable> supplier
     ) {
         return rethrowing(supplier, RuntimeException::new);
     }
 
-    static <R, E extends Throwable> SupplierX<R> rethrowing(
+    static <R, E extends Throwable> Wrap<R> rethrowing(
             ThrowingSupplier<R, E> supplier,
             @Nullable Function<Throwable, ? extends RuntimeException> remapper
     ) {

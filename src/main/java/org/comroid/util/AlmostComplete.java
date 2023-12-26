@@ -2,7 +2,7 @@ package org.comroid.util;
 
 import lombok.Data;
 import lombok.extern.java.Log;
-import org.comroid.api.SupplierX;
+import org.comroid.api.Wrap;
 import org.comroid.api.ThrowingConsumer;
 import org.comroid.api.ThrowingSupplier;
 import org.comroid.exception.RethrownException;
@@ -14,7 +14,7 @@ import java.util.function.Function;
 
 @Log
 @Data
-public class AlmostComplete<T> implements SupplierX<T> {
+public class AlmostComplete<T> implements Wrap<T> {
     private final @NotNull ThrowingSupplier<@NotNull T, Throwable> origin;
     private final @Nullable ThrowingConsumer<@NotNull T, Throwable> finalize;
     private @Nullable Function<Throwable, @Nullable T> exceptionHandler;

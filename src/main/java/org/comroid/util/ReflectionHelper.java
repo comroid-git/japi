@@ -3,7 +3,7 @@ package org.comroid.util;
 import lombok.SneakyThrows;
 import org.comroid.annotations.Instance;
 import org.comroid.api.Polyfill;
-import org.comroid.api.SupplierX;
+import org.comroid.api.Wrap;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
@@ -345,8 +345,8 @@ public final class ReflectionHelper {
         return cls == null ? "" : (simpleClassName(cls.getDeclaringClass()) + (cls.getDeclaringClass() == null ? "" : '.') + cls.getSimpleName());
     }
 
-    public static <T> SupplierX<T> obtainInstance(Class<T> targetClass, Object... args) {
-        return SupplierX.ofOptional(ReflectionHelper.instanceField(targetClass))
+    public static <T> Wrap<T> obtainInstance(Class<T> targetClass, Object... args) {
+        return Wrap.ofOptional(ReflectionHelper.instanceField(targetClass))
                 .or(() -> Polyfill.uncheckedCast(ReflectionHelper.instance(targetClass, args)));
     }
 

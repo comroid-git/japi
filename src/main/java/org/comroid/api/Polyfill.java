@@ -1,6 +1,5 @@
 package org.comroid.api;
 
-import lombok.Builder;
 import lombok.experimental.UtilityClass;
 import org.comroid.util.RegExpUtil;
 import org.comroid.util.StackTraceUtils;
@@ -84,7 +83,7 @@ public final class Polyfill {
         return throwable -> {
             logger.log(messageLevel, message);
             logger.log(exceptionLevel, StackTraceUtils.toString(throwable));
-            return SupplierX.of(fallback)
+            return Wrap.of(fallback)
                     .map(Supplier::get)
                     .get();
         };

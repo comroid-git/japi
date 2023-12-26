@@ -5,7 +5,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.StandardException;
 import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
-import org.comroid.api.SupplierX;
+import org.comroid.api.Wrap;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -191,7 +191,7 @@ public class Constraint {
             return this;
         }
 
-        public <T> SupplierX<T> handle(@NotNull Supplier<T> success, @Nullable Function<UnmetError, @Nullable T> failure) {
+        public <T> Wrap<T> handle(@NotNull Supplier<T> success, @Nullable Function<UnmetError, @Nullable T> failure) {
             return () -> {
                 T result = null;
                 if (test.getAsBoolean())
@@ -209,7 +209,7 @@ public class Constraint {
             };
         }
 
-        public SupplierX<Object> handle() {
+        public Wrap<Object> handle() {
             return handle(Object::new, $ -> null);
         }
 

@@ -29,7 +29,7 @@ import static org.comroid.util.StackTraceUtils.caller;
 @EqualsAndHashCode(of = {"cancelled", "unixNanos", "key", "seq"})
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class Event<T> implements SupplierX<T> {
+public class Event<T> implements Wrap<T> {
     long unixNanos = System.nanoTime();
     long seq;
     @Nullable Long flag;
@@ -54,7 +54,7 @@ public class Event<T> implements SupplierX<T> {
         return data;
     }
 
-    public @NotNull SupplierX<String> wrapKey() {
+    public @NotNull Wrap<String> wrapKey() {
         return this::getKey;
     }
 
@@ -466,7 +466,7 @@ public class Event<T> implements SupplierX<T> {
                 var key = Optional.of(subscriber.value())
                         .filter(Predicate.not(Subscriber.EmptyName::equals))
                         .orElseGet(method::getName);
-                return SupplierX.of(event.flag).or(()->0xffff_ffff_ffff_ffffL).testIfPresent(this::testFlag)
+                return Wrap.of(event.flag).or(()->0xffff_ffff_ffff_ffffL).testIfPresent(this::testFlag)
                         && (Objects.equals(key, event.key) || ("null".equals(key)
                         && (Objects.isNull(event.key) || Subscriber.EmptyName.equals(event.key))));
             }

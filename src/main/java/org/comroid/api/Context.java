@@ -59,13 +59,13 @@ public interface Context extends Named, Convertible, LoggerCarrier {
         return wrap(type).get();
     }
 
-    static <T> SupplierX<T> wrap(Class<T> type) {
+    static <T> Wrap<T> wrap(Class<T> type) {
         return root().getFromContext(type);
     }
     static <T> Stream<? extends T> stream(Class<T> type) {return root().streamContextMembers(true, type);}
 
     @NonExtendable
-    default <T> SupplierX<T> getFromContext(final Class<T> type, boolean includeChildren) {
+    default <T> Wrap<T> getFromContext(final Class<T> type, boolean includeChildren) {
         return () -> streamContextMembers(includeChildren, type)
                 .filter(type::isInstance)
                 .findFirst()
@@ -136,12 +136,12 @@ public interface Context extends Named, Convertible, LoggerCarrier {
     }
 
     @Deprecated(forRemoval = true)
-    static <T> SupplierX<T> getFromContexts(final Class<T> member) {
+    static <T> Wrap<T> getFromContexts(final Class<T> member) {
         return getFromContexts(member, false);
     }
 
     @Deprecated(forRemoval = true)
-    static <T> SupplierX<T> getFromContexts(final Class<T> member, boolean includeChildren) {
+    static <T> Wrap<T> getFromContexts(final Class<T> member, boolean includeChildren) {
         return () -> Base.ROOT.children.stream()
                 .flatMap(sub -> sub.getFromContext(member, includeChildren).stream())
                 .findFirst()
@@ -164,7 +164,7 @@ public interface Context extends Named, Convertible, LoggerCarrier {
 
     @NonExtendable
     @Deprecated(forRemoval = true)
-    default <T> SupplierX<T> getFromContext(final Class<T> memberType) {
+    default <T> Wrap<T> getFromContext(final Class<T> memberType) {
         return getFromContext(memberType, false);
     }
 
@@ -331,7 +331,7 @@ public interface Context extends Named, Convertible, LoggerCarrier {
             addToContext(initialMembers);
         }
 
-        private static SupplierX<?> createInstance(Class<?> targetClass) {
+        private static Wrap<?> createInstance(Class<?> targetClass) {
             return ReflectionHelper.obtainInstance(targetClass);
         }
 
@@ -358,11 +358,11 @@ public interface Context extends Named, Convertible, LoggerCarrier {
 
             // stream beans if we are in a spring environment
             // needs to call 'new org.springframework.context.support.StaticApplicationContext().getBeansOfType(type)'
-            Stream<Object> stream3 = SupplierX.ofSupplier(ThrowingSupplier.fallback(()->Class
+            Stream<Object> stream3 = Wrap.ofSupplier(ThrowingSupplier.fallback(()->Class
                     .forName("org.springframework.context.support.StaticApplicationContext")))
                     .stream()
                     .map(ReflectionHelper::obtainInstance)
-                    .flatMap(SupplierX::stream)
+                    .flatMap(Wrap::stream)
                     .filter(Objects::nonNull)
                     .flatMap(ctx -> ReflectionHelper.<Map<String, Object>>call(ctx, "getBeansOfType", type)
                             .values().stream());

@@ -5,11 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.experimental.UtilityClass;
 import org.comroid.api.DataStructure;
-import org.comroid.api.N;
-import org.comroid.api.Polyfill;
-import org.comroid.api.SupplierX;
+import org.comroid.api.Wrap;
 import org.comroid.util.Constraint;
-import org.comroid.util.Streams;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
@@ -110,10 +107,10 @@ public class Annotations {
     }
 
     @SuppressWarnings("ConstantValue") // false positive
-    public SupplierX<AnnotatedElement> findAncestor(AnnotatedElement of, Class<? extends Annotation> goal) {
+    public Wrap<AnnotatedElement> findAncestor(AnnotatedElement of, Class<? extends Annotation> goal) {
         Constraint.Type.anyOf(of, "of", Class.class, Member.class).run();
         if (ignoreAncestors(of, goal))
-            return SupplierX.empty();
+            return Wrap.empty();
 
         Class<?> decl;
         if (of instanceof Class<?>) {
@@ -122,30 +119,30 @@ public class Annotations {
             decl = mem.getDeclaringClass();
         } else throw new AssertionError("Invalid element: " + of);
         if (of instanceof Class<?> && decl.getPackageName().startsWith("java"))
-            return SupplierX.empty();
+            return Wrap.empty();
 
         try {
             if (of instanceof Member mem) {
                 Member chk;
                 if (mem instanceof DataStructure.Member dmem)
                     if (dmem.getContext() instanceof Parameter)
-                        return SupplierX.empty();
+                        return Wrap.empty();
                     else chk = (Member) dmem.getContext();
                 else chk = mem;
                 var pType = chk.getDeclaringClass().getSuperclass();
                 if (pType == null)
-                    return SupplierX.empty();
+                    return Wrap.empty();
                 // todo: this is inaccurate for different parameter overrides
                 if (chk instanceof Method mtd)
-                    return SupplierX.of(pType.getDeclaredMethod(mtd.getName(), mtd.getParameterTypes()));
+                    return Wrap.of(pType.getDeclaredMethod(mtd.getName(), mtd.getParameterTypes()));
                 else if (chk instanceof Field fld)
-                    return SupplierX.of(pType.getDeclaredField(fld.getName()));
+                    return Wrap.of(pType.getDeclaredField(fld.getName()));
                 else if (chk instanceof Constructor<?> ctor)
-                    return SupplierX.of(pType.getDeclaredConstructor(ctor.getParameterTypes()));
+                    return Wrap.of(pType.getDeclaredConstructor(ctor.getParameterTypes()));
             } else if (of instanceof Class<?> cls)
-                return SupplierX.of(cls.getSuperclass());
+                return Wrap.of(cls.getSuperclass());
         } catch (NoSuchMethodException | NoSuchFieldException e) {
-            return SupplierX.empty();
+            return Wrap.empty();
         }
         throw new IllegalArgumentException("Invalid element: " + of);
     }

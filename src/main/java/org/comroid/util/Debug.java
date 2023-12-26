@@ -1,7 +1,8 @@
 package org.comroid.util;
 
 import lombok.experimental.UtilityClass;
-import lombok.extern.slf4j.Slf4j;
+import org.comroid.abstr.DataNode;
+import org.comroid.api.DataStructure;
 import org.comroid.api.info.Log;
 import org.jetbrains.annotations.Nullable;
 
@@ -11,6 +12,9 @@ import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static org.comroid.api.Polyfill.exceptionLogger;
+import static org.comroid.api.Polyfill.uncheckedCast;
 
 @UtilityClass
 @lombok.extern.java.Log
@@ -54,5 +58,10 @@ public final class Debug {
         while (binaryString.length() < 8)
             binaryString.insert(0, '0');
         return String.format("%s0x%2x [0b%s]\t", (title == null ? "" : "Creating byte dump of " + title + ':' + each + '\n'), each, binaryString);
+    }
+
+    public static String createObjectDump(Object it) {return createObjectDump(it, DataNode.of(it),0);}
+    private static String createObjectDump(final Object target, final int rec) {
+        final var sb = new StringBuilder();
     }
 }

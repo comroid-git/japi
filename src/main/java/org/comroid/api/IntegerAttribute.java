@@ -46,14 +46,14 @@ public interface IntegerAttribute extends Named, ValueBox<@NotNull Integer>, Int
     }
 
     /**
-     * Returns a {@link SupplierX} supplying an instance of the corresponding attribute within the given enum class.
+     * Returns a {@link Wrap} supplying an instance of the corresponding attribute within the given enum class.
      *
      * @param value   The integer value
      * @param viaEnum The enum the check it's attributes
      * @param <T>     The enum type
      * @return A Rewrapper that supplies the result attribute, or an empty rewrapper.
      */
-    static <T extends java.lang.Enum<? extends T> & IntegerAttribute> SupplierX<T> valueOf(int value, Class<T> viaEnum) {
+    static <T extends java.lang.Enum<? extends T> & IntegerAttribute> Wrap<T> valueOf(int value, Class<T> viaEnum) {
         if (!viaEnum.isEnum())
             throw new IllegalArgumentException("Only enums allowed as parameter 'viaEnum'");
 
@@ -62,18 +62,18 @@ public interface IntegerAttribute extends Named, ValueBox<@NotNull Integer>, Int
 
 
     /**
-     * Returns a {@link SupplierX} supplying an instance of the corresponding attribute within the given enum class.
+     * Returns a {@link Wrap} supplying an instance of the corresponding attribute within the given enum class.
      *
      * @param value     The integer value
      * @param constants All possible values
      * @param <T>       The enum type
      * @return A Rewrapper that supplies the result attribute, or an empty rewrapper.
      */
-    static <T extends IntegerAttribute> SupplierX<T> valueOf(int value, final T[] constants) {
+    static <T extends IntegerAttribute> Wrap<T> valueOf(int value, final T[] constants) {
         for (T it : constants)
             if (it.getValue() == value)
                 return () -> it;
-        return SupplierX.empty();
+        return Wrap.empty();
     }
 
     /**

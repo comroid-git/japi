@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
-import org.comroid.api.SupplierX;
+import org.comroid.api.Wrap;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.ref.Reference;
@@ -47,9 +47,9 @@ public class WeakCache<K,V> extends AbstractMap<K,V> {
         }
 
         V touch() {
-            return SupplierX.of(ref)
+            return Wrap.of(ref)
                     .map(Reference::get)
-                    .orRef(()->SupplierX.of(key)
+                    .orRef(()-> Wrap.of(key)
                             .map(provider) // todo sometimes causes NPE
                             .peek(it -> ref = new WeakReference<>(it)))
                     .orElseThrow(() -> new AssertionError("Unable to touch WeakCache object with key " + key));

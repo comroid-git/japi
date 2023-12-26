@@ -6,7 +6,7 @@ package org.comroid.api;
  * @param <S> The implementing type
  */
 public interface SelfDeclared<S> {
-    default SupplierX<? extends S> self() {
+    default Wrap<? extends S> self() {
         //noinspection unchecked
         return () -> (S) this;
     }

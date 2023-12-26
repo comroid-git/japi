@@ -16,7 +16,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static org.comroid.util.StandardValueType.*;
@@ -95,14 +94,14 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
         return Objects.requireNonNullElse(asArray().get(index), Value.NULL);
     }
 
-    default <T> SupplierX<T> as(ValueType<T> type) {
+    default <T> Wrap<T> as(ValueType<T> type) {
         var node = asValue();
         var val = node.value;
         if (val == null)
             return null;
         if (!type.test(val))
-            return SupplierX.of(type.parse(val.toString()));
-        return SupplierX.of(type.getTargetClass().cast(val));
+            return Wrap.of(type.parse(val.toString()));
+        return Wrap.of(type.getTargetClass().cast(val));
     }
 
     default boolean asBoolean() {
@@ -260,7 +259,7 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
 
         @Override
         public <R> @NotNull R convert(Class<? super R> target) {
-            return SupplierX.of(Activator.get(target).createInstance(this)).cast();
+            return Wrap.of(Activator.get(target).createInstance(this)).cast();
         }
     }
 

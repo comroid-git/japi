@@ -5,5 +5,5 @@ package org.comroid.api;
  *
  * @param <S> The implementing type
  */
-public interface SelfRef<S> extends Specifiable<S>, SupplierX<S> {
+public interface SelfRef<S> extends Specifiable<S>, Wrap<S> {
 }

@@ -40,16 +40,16 @@ public class DataStructure<T> implements Named {
         return type.getCanonicalName();
     }
 
-    public <V> SupplierX<Property<V>> getProperty(AnnotatedElement member) throws ClassCastException {
+    public <V> Wrap<Property<V>> getProperty(AnnotatedElement member) throws ClassCastException {
         return getProperty((java.lang.reflect.Member) member);
     }
 
-    public <V> SupplierX<Property<V>> getProperty(java.lang.reflect.Member member) {
+    public <V> Wrap<Property<V>> getProperty(java.lang.reflect.Member member) {
         return getProperty(member.getName());
     }
 
-    public <V> SupplierX<Property<V>> getProperty(String name) {
-        return SupplierX.of(properties.getOrDefault(name, null)).castRef();
+    public <V> Wrap<Property<V>> getProperty(String name) {
+        return Wrap.of(properties.getOrDefault(name, null)).castRef();
     }
 
     private <V> Property<V> createProperty(Class<V> type, String name, AnnotatedElement it, Class<?> decl) {
@@ -281,7 +281,7 @@ public class DataStructure<T> implements Named {
         }
 
         @Value
-        public class Bound extends Mod implements SupplierX<V> {
+        public class Bound extends Mod implements Wrap<V> {
             @NotNull T target;
 
             @Override

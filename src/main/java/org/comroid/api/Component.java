@@ -85,7 +85,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                         : empty());
     }
 
-    default <T extends Component> SupplierX<T> component(@Nullable Class<? super T> type) {
+    default <T extends Component> Wrap<T> component(@Nullable Class<? super T> type) {
         return () -> uncheckedCast(components(type).findAny().orElse(null));
     }
 
@@ -385,7 +385,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                         if (dep.isRequired())
                             throw new Constraint.UnmetError("Could not find a valid Component matching " + dep);
                     }))
-                    .flatMap(flatMapA(dep -> SupplierX.of(dep)
+                    .flatMap(flatMapA(dep -> Wrap.of(dep)
                             .map(Dependency::getProp)
                             .map(DataStructure.Property::getSetter)
                             .stream()))

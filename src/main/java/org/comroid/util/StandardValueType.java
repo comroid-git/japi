@@ -1,7 +1,7 @@
 package org.comroid.util;
 
 import org.comroid.api.Polyfill;
-import org.comroid.api.SupplierX;
+import org.comroid.api.Wrap;
 import org.comroid.api.ValueType;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 
@@ -92,8 +92,8 @@ public final class StandardValueType<R> implements ValueType<R> {
                 .orElse(null);
     }
 
-    public static SupplierX<ValueType<?>> forClass(Class<?> cls) {
-        return SupplierX.ofOptional(Arrays.stream(values)
+    public static Wrap<ValueType<?>> forClass(Class<?> cls) {
+        return Wrap.ofOptional(Arrays.stream(values)
                 .filter(it -> it.getTargetClass().isAssignableFrom(cls) || (cls.isPrimitive() && it.getName().equals(cls.getSimpleName())))
                 .findAny());
     }

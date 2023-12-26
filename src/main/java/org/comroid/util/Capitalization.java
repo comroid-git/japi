@@ -7,7 +7,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.java.Log;
 import org.comroid.annotations.Alias;
 import org.comroid.api.Named;
-import org.comroid.api.SupplierX;
+import org.comroid.api.Wrap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -120,8 +120,8 @@ public enum Capitalization implements Named, Comparator<String> {
         }
     }
 
-    public static SupplierX<Capitalization> of(final String string) {
-        return SupplierX.ofOptional(Arrays.stream(values())
+    public static Wrap<Capitalization> of(final String string) {
+        return Wrap.ofOptional(Arrays.stream(values())
                 // score with each capitalization
                 .map(cap -> new AbstractMap.SimpleImmutableEntry<>(cap.score(string), cap))
                 .peek(e -> log.finer("%s \t-\t %s \t-\t %s".formatted(string, e.getValue(), e.getKey())))
@@ -168,7 +168,7 @@ public enum Capitalization implements Named, Comparator<String> {
         }
 
         static State find(int c) {
-            return SupplierX.ofOptional(Stream.of(Lower, Upper)
+            return Wrap.ofOptional(Stream.of(Lower, Upper)
                             .filter(it -> it.test(c))
                             .findAny())
                     .orElse(Any);

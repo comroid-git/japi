@@ -4,6 +4,7 @@ import lombok.extern.java.Log;
 import org.comroid.api.DataStructure;
 import org.comroid.api.ValueType;
 import org.comroid.test.Dummy;
+import org.comroid.util.Debug;
 import org.comroid.util.StandardValueType;
 import org.junit.Test;
 
@@ -15,7 +16,7 @@ public class DataStructureTest {
     public void testFruit() {
         var struct = DataStructure.of(Dummy.Fruit.class);
         assertEquals("invalid fruit constructor count", 1, struct.getConstructors().size());
-        assertTrue("invalid fruit property count", !struct.getProperties().isEmpty());
+        assertTrue("invalid fruit property count"+ Debug.createObjectDump(struct), !struct.getProperties().isEmpty());
 
         //price
         testProp(struct, StandardValueType.DOUBLE, "price", 1.99);
