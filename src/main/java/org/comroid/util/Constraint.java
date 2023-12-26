@@ -6,7 +6,6 @@ import lombok.experimental.StandardException;
 import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
 import org.comroid.api.SupplierX;
-import org.comroid.api.ThrowingConsumer;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -15,10 +14,8 @@ import java.util.*;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 import static java.util.stream.IntStream.range;
-import static org.comroid.api.ThrowingConsumer.doThrow;
 import static org.comroid.util.Streams.intString;
 
 @Log
@@ -202,7 +199,7 @@ public class Constraint {
                 else if (failure != null) {
                     var err = new UnmetError(toString());
                     result = failure.apply(err);
-                    if (result == null && !err.isCancelled()) {
+                    if (result == null && !err.isResolved()) {
                         var fix = handler.apply(err);
                         if (fix == null)
                             log.warning("Recovering from unmet Constraint " + this + " failed");
@@ -243,14 +240,14 @@ public class Constraint {
     @Data
     @StandardException
     public final class UnmetError extends IllegalArgumentException {
-        private boolean cancelled = false;
+        private boolean resolved = false;
 
         private UnmetError(String message) {
             super(message);
         }
 
         public void cancel() {
-            cancelled = true;
+            resolved = true;
         }
     }
 }
