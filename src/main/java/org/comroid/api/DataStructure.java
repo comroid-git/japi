@@ -17,7 +17,6 @@ import java.util.stream.Stream;
 import static org.comroid.annotations.Annotations.*;
 import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.util.ReflectionHelper.declaringClass;
-import static org.comroid.util.Streams.yield;
 
 @Value
 @AllArgsConstructor(access = AccessLevel.PRIVATE)

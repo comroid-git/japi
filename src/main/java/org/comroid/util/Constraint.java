@@ -242,7 +242,7 @@ public class Constraint {
     public final class UnmetError extends IllegalArgumentException {
         private boolean resolved = false;
 
-        private UnmetError(String message) {
+        public UnmetError(String message) {
             super(message);
         }
 
