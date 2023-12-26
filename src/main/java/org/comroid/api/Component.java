@@ -6,7 +6,9 @@ import lombok.*;
 import org.comroid.annotations.Annotations;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.info.Log;
-import org.comroid.util.*;
+import org.comroid.util.Bitmask;
+import org.comroid.util.Cache;
+import org.comroid.util.StackTraceUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -14,18 +16,25 @@ import org.jetbrains.annotations.Nullable;
 import javax.persistence.PostLoad;
 import javax.persistence.PostUpdate;
 import javax.persistence.PreRemove;
-import java.lang.annotation.*;
-import java.lang.reflect.Member;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.util.stream.Stream.empty;
 import static org.comroid.api.Polyfill.uncheckedCast;
-import static org.comroid.util.Streams.*;
+import static org.comroid.util.Streams.Multi.*;
+import static org.comroid.util.Streams.cast;
 
 @Ignore
 public interface Component extends Container, LifeCycle, Tickable, EnabledState, Named {
@@ -72,14 +81,14 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                         ? Stream.of(getParent())
                         .filter(Objects::nonNull)
                         .flatMap(comp -> comp.components(type))
-                        : Stream.empty());
+                        : empty());
     }
 
     default <T extends Component> SupplierX<T> component(@Nullable Class<? super T> type) {
         return () -> uncheckedCast(components(type).findAny().orElse(null));
     }
 
-    default List<Dependency<?>> dependencies() {
+    default Set<Dependency<?>> dependencies() {
         return dependencies(getClass());
     }
 
@@ -116,7 +125,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
     //static List<Class<? extends Component>> includes()
 
-    static List<Dependency<?>> dependencies(Class<? extends Component> type) {
+    static Set<Dependency<?>> dependencies(Class<? extends Component> type) {
         return Cache.get("dependencies of " + type.getCanonicalName(), () -> {
             var struct = DataStructure.of(type);
             return Stream.concat(
@@ -131,16 +140,13 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                                 return new Dependency<>(
                                         Optional.of(anno.value()).filter(String::isEmpty).orElse(prop.name),
                                         uncheckedCast(prop.getType().getTargetClass()),
-                                        anno.order(),
                                         anno.require(),
                                         uncheckedCast(prop));
                             }),
                     Annotations.findAnnotations(Requires.class, type)
                             .flatMap(requires -> Arrays.stream(requires.getAnnotation().value())
-                                    .map(cls -> new Dependency<>("", cls, 0, true, null))))
-                    .distinct()
-                    .sorted(Dependency.DefaultLoadOrder)
-                    .toList();
+                                    .map(cls -> new Dependency<>("", cls, true, null))))
+                    .collect(Collectors.toUnmodifiableSet());
         });
     }
 
@@ -194,11 +200,6 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         Class<? extends Component> type() default Component.class;
 
         /**
-         * @return load order; ascending
-         */
-        int order() default 0;
-
-        /**
          * @return whether to throw an exception if the dependency cannot be satisfied
          */
         boolean require() default true;
@@ -206,17 +207,18 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
     @Value
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
-    class Dependency<T extends Component> implements Comparable<Dependency<?>> {
-        public static final Comparator<Dependency<?>> DefaultLoadOrder = Comparator.comparingInt(Dependency::getOrder);
+    class Dependency<T extends Component> {
         String name;
         Class<T> type;
-        int order;
         boolean require;
         @Nullable @Ignore DataStructure<Component>.Property<T> prop;
 
-        public Stream<Component> find(Component in) {
-            return Stream.concat(Stream.of(in), in.components(type))
-                    .filter(x -> name.isEmpty() || x.getName().equals(name));
+        public Stream<Map.Entry<Dependency<T>, Component>> find(Component in) {
+            return Stream.concat(Stream.of(in), in.components(type)).flatMap(x -> {
+                if (name.isEmpty() || x.getName().equals(name))
+                    return Stream.of(new AbstractMap.SimpleImmutableEntry<>(this, x));
+                return empty();
+            });
         }
 
         public boolean isSatisfied(Component by) {
@@ -224,11 +226,6 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             if (!name.isEmpty())
                 wrap = wrap.filter(c -> c.getName().equals(name));
             return wrap.filter(type::isInstance).isPresent();
-        }
-
-        @Override
-        public int compareTo(@NotNull Component.Dependency<?> other) {
-            return DefaultLoadOrder.compare(this, other);
         }
 
         public boolean equals(Object other) {
@@ -243,7 +240,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
         @Override
         public int hashCode() {
-            return Objects.hash(name, type, order, require);
+            return Objects.hash(name, type, require);
         }
     }
 
@@ -378,7 +375,13 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
         private void injectDependencies() {
             dependencies().stream()
-                    .map(dep -> dep.)
+                    .flatMap(dependency -> dependency.find(this))
+                    .flatMap(filter(Dependency::isSatisfied))
+                    .flatMap(flatMapA(dep -> SupplierX.of(dep)
+                            .map(Dependency::getProp)
+                            .map(DataStructure.Property::getSetter)
+                            .stream()))
+                    .forEach(forEach(Invocable::silentAutoInvoke));
         }
 
         protected void $initialize() {

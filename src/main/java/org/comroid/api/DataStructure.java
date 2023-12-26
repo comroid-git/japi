@@ -5,7 +5,6 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.comroid.annotations.*;
 import org.comroid.util.*;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,7 +14,9 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
+import static org.comroid.annotations.Annotations.*;
 import static org.comroid.api.Polyfill.uncheckedCast;
+import static org.comroid.util.ReflectionHelper.declaringClass;
 import static org.comroid.util.Streams.yield;
 
 @Value
@@ -52,7 +53,7 @@ public class DataStructure<T> implements Named {
         return SupplierX.of(properties.getOrDefault(name, null)).castRef();
     }
 
-    private <V> Property<V> createProperty(Class<V> type, String name, AnnotatedElement it) {
+    private <V> Property<V> createProperty(Class<V> type, String name, AnnotatedElement it, Class<?> decl) {
         var vt = StandardValueType.forClass(type).orElseGet(() -> BoundValueType.of(type));
         var getter = new Switch<AnnotatedElement, Invocable<V>>()
                 .option(Field.class::isInstance, () -> Invocable.ofFieldGet((Field) it))
@@ -69,8 +70,7 @@ public class DataStructure<T> implements Named {
                         .orElse(null))
                 .apply(it);
 
-        Objects.requireNonNull(getter, "Getter could not be initialized");
-        return new Property<>(name, it, uncheckedCast(vt), getter, setter);
+        return new Property<>(name, it, decl, uncheckedCast(vt), getter, setter);
     }
 
     public static <T> DataStructure<T> of(@NotNull Class<? super T> target) {
@@ -94,7 +94,7 @@ public class DataStructure<T> implements Named {
                                         .anyMatch(mtd::isAnnotationPresent))
                                 .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())),
                         Arrays.stream(target.getConstructors()))
-                .filter(it -> !Annotations.ignore(it, DataStructure.class))
+                .filter(it -> !ignore(it, DataStructure.class))
                 .filter(it -> !key.above.equals(it.getDeclaringClass()) && key.above.isAssignableFrom(it.getDeclaringClass()))
                 .filter(it -> Arrays.stream(SystemFilters).noneMatch(type -> it.getDeclaringClass().isAssignableFrom(type)))
                 .filter(it -> Modifier.isPublic(it.getModifiers()))
@@ -106,9 +106,10 @@ public class DataStructure<T> implements Named {
                         func = Invocable.ofMethodCall((Method) it);
                     else throw new AssertionError();
 
-                    var ctor = struct.new Constructor(it.getName(), it, func);
+                    var declaringClass = declaringClass(it);
+                    var ctor = struct.new Constructor(it.getName(), it, declaringClass, func);
                     for (var parameter : it.getParameters())
-                        ctor.args.put(parameter.getName(), struct.createProperty(parameter.getType(), parameter.getName(), parameter));
+                        ctor.args.put(parameter.getName(), struct.createProperty(parameter.getType(), parameter.getName(), parameter, declaringClass));
                     return ctor;
                 }).forEach(struct.constructors::add);
 
@@ -119,7 +120,7 @@ public class DataStructure<T> implements Named {
                                 .filter(mtd -> mtd.getName().startsWith("get") && mtd.getName().length() > 3))
                 .filter(it -> !Modifier.isStatic(it.getModifiers()))
                 .filter(it -> Modifier.isPublic(it.getModifiers()))
-                .filter(it -> !Annotations.ignore(it, DataStructure.class))
+                .filter(it -> !ignore(it, DataStructure.class))
                 .filter(it -> !key.above.equals(it.getDeclaringClass()) && key.above.isAssignableFrom(it.getDeclaringClass()))
                 .filter(it -> Arrays.stream(SystemFilters).noneMatch(type -> it.getDeclaringClass().isAssignableFrom(type)))
                 .forEach(it -> {
@@ -130,8 +131,8 @@ public class DataStructure<T> implements Named {
                     var name = it.getName();
                     if (it instanceof Method)
                         name = Character.toLowerCase(name.charAt(3)) + name.substring("getX".length());
-                    var prop = struct.createProperty(type, name, it);
-                    Stream.concat(Stream.of(prop.name), Annotations.aliases(it).stream())
+                    var prop = struct.createProperty(type, name, it, declaringClass(it));
+                    Stream.concat(Stream.of(prop.name), aliases(it).stream())
                             .forEach(k -> struct.properties.put(k, prop));
                 });
 
@@ -159,16 +160,16 @@ public class DataStructure<T> implements Named {
         @Getter
         boolean synthetic = false;
 
-        private Member(@NotNull String name, @NotNull AnnotatedElement context) {
+        private Member(@NotNull String name, @NotNull AnnotatedElement context, @NotNull Class<?> declaringClass) {
             this.name = name;
-            this.declaringClass = ReflectionHelper.declaringClass(context);
             this.context = context;
+            this.declaringClass = declaringClass;
 
-            Annotations.findAnnotations(Alias.class, context)
-                    .map(Annotations.Result::getAnnotation)
+            findAnnotations(Alias.class, context)
+                    .map(Result::getAnnotation)
                     .flatMap(alias -> Arrays.stream(alias.value()))
                     .forEach(aliases::add);
-            Annotations.findAnnotations(Annotation.class, context).forEach(annotations::add);
+            findAnnotations(Annotation.class, context).forEach(annotations::add);
         }
 
         @Override
@@ -198,7 +199,7 @@ public class DataStructure<T> implements Named {
         @SuppressWarnings({"NullableProblems", "DataFlowIssue"}) // killing away weird intellij complaints
         public <T extends Annotation> @NotNull @Nullable T getAnnotation(final @NotNull Class<T> annotationClass) {
             return streamAnnotations(annotationClass)
-                    .map(Annotations.Result::getAnnotation)
+                    .map(Result::getAnnotation)
                     .findAny()
                     .orElse(null);
         }
@@ -216,8 +217,9 @@ public class DataStructure<T> implements Named {
 
         private Constructor(@NotNull String name,
                             @NotNull AnnotatedElement context,
+                            @NotNull Class<?> declaringClass,
                             @NotNull Invocable<T> ctor) {
-            super(name, context);
+            super(name, context, declaringClass);
             this.ctor = ctor;
         }
 
@@ -230,7 +232,7 @@ public class DataStructure<T> implements Named {
     @Value
     public class Property<V> extends Member {
         @NotNull ValueType<V> type;
-        @NotNull
+        @Nullable
         @ToString.Exclude
         @Getter(onMethod = @__(@JsonIgnore))
         Invocable<V> getter;
@@ -241,10 +243,11 @@ public class DataStructure<T> implements Named {
 
         public Property(@NotNull String name,
                         @NotNull AnnotatedElement context,
+                        @NotNull Class<?> declaringClass,
                         @NotNull ValueType<V> type,
-                        @NotNull Invocable<V> getter,
+                        @Nullable Invocable<V> getter,
                         @Nullable Invocable<?> setter) {
-            super(name, context);
+            super(name, context, declaringClass);
             this.type = type;
             this.getter = getter;
             this.setter = setter;
