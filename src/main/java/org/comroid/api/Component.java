@@ -8,6 +8,7 @@ import org.comroid.annotations.Ignore;
 import org.comroid.api.info.Log;
 import org.comroid.util.Bitmask;
 import org.comroid.util.Cache;
+import org.comroid.util.Constraint;
 import org.comroid.util.StackTraceUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -129,23 +130,23 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         return Cache.get("dependencies of " + type.getCanonicalName(), () -> {
             var struct = DataStructure.of(type);
             return Stream.concat(
-                    struct.getProperties().values().stream()
-                            //.flatMap(prop -> prop.annotations.stream())
-                            //.map(Polyfill::<Annotations.Result<Inject>>uncheckedCast)
-                            .filter(prop -> prop.annotations.stream()
-                                    .anyMatch(result -> result.getAnnotation().annotationType().equals(Inject.class)))
-                            .map(prop -> {
-                                var inject = Polyfill.<Annotations.Result<Inject>>uncheckedCast(prop.getAnnotation(Inject.class));
-                                var anno = inject.getAnnotation();
-                                return new Dependency<>(
-                                        Optional.of(anno.value()).filter(String::isEmpty).orElse(prop.name),
-                                        uncheckedCast(prop.getType().getTargetClass()),
-                                        anno.require(),
-                                        uncheckedCast(prop));
-                            }),
-                    Annotations.findAnnotations(Requires.class, type)
-                            .flatMap(requires -> Arrays.stream(requires.getAnnotation().value())
-                                    .map(cls -> new Dependency<>("", cls, true, null))))
+                            struct.getProperties().values().stream()
+                                    //.flatMap(prop -> prop.annotations.stream())
+                                    //.map(Polyfill::<Annotations.Result<Inject>>uncheckedCast)
+                                    .filter(prop -> prop.annotations.stream()
+                                            .anyMatch(result -> result.getAnnotation().annotationType().equals(Inject.class)))
+                                    .map(prop -> {
+                                        var inject = Polyfill.<Annotations.Result<Inject>>uncheckedCast(prop.getAnnotation(Inject.class));
+                                        var anno = inject.getAnnotation();
+                                        return new Dependency<>(
+                                                Optional.of(anno.value()).filter(String::isEmpty).orElse(prop.name),
+                                                uncheckedCast(prop.getType().getTargetClass()),
+                                                anno.required(),
+                                                uncheckedCast(prop));
+                                    }),
+                            Annotations.findAnnotations(Requires.class, type)
+                                    .flatMap(requires -> Arrays.stream(requires.getAnnotation().value())
+                                            .map(cls -> new Dependency<>("", cls, true, null))))
                     .collect(Collectors.toUnmodifiableSet());
         });
     }
@@ -202,7 +203,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         /**
          * @return whether to throw an exception if the dependency cannot be satisfied
          */
-        boolean require() default true;
+        boolean required() default true;
     }
 
     @Value
@@ -210,8 +211,11 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     class Dependency<T extends Component> {
         String name;
         Class<T> type;
-        boolean require;
-        @Nullable @Ignore DataStructure<Component>.Property<T> prop;
+        boolean required;
+        @Ignore
+        @Nullable
+        @ToString.Exclude
+        DataStructure<Component>.Property<T> prop;
 
         public Stream<Map.Entry<Dependency<T>, Component>> find(Component in) {
             return Stream.concat(Stream.of(in), in.components(type)).flatMap(x -> {
@@ -228,6 +232,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             return wrap.filter(type::isInstance).isPresent();
         }
 
+        @Override
         public boolean equals(Object other) {
             if (other instanceof Dependency)
                 return hashCode() == other.hashCode();
@@ -240,7 +245,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
         @Override
         public int hashCode() {
-            return Objects.hash(name, type, require);
+            return Objects.hash(name, type, required);
         }
     }
 
@@ -376,11 +381,16 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         private void injectDependencies() {
             dependencies().stream()
                     .flatMap(dependency -> dependency.find(this))
-                    .flatMap(filter(Dependency::isSatisfied))
+                    .flatMap(filter(Dependency::isSatisfied, (dep, comp) -> {
+                        if (dep.isRequired())
+                            throw new Constraint.UnmetError("Could not find a valid Component matching " + dep);
+                    }))
                     .flatMap(flatMapA(dep -> SupplierX.of(dep)
                             .map(Dependency::getProp)
                             .map(DataStructure.Property::getSetter)
                             .stream()))
+                    .flatMap(filterA(func -> func.setAccessible(true),
+                            func -> Log.at(Level.WARNING, "Unable to make setter accessible: " + func)))
                     .forEach(forEach(Invocable::silentAutoInvoke));
         }
 
@@ -435,7 +445,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                     .filter(t -> Arrays.stream(entries)
                             .noneMatch(e -> e.component.testState(State.PreInit) // todo: this filter is probably wrong
                                     && t.type.isAssignableFrom(e.component.getClass())))
-                    .map(dep->dep.type.getCanonicalName())
+                    .map(dep -> dep.type.getCanonicalName())
                     .toList();
             if (!missing.isEmpty())
                 Log.at(Level.WARNING, "Could not run on all dependencies\n\tat %s\n\tParent Module: %s\n\tEntries:\n\t\t- %s\n\tMissing Dependencies:\n\t\t- %s"
