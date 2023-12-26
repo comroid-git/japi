@@ -67,7 +67,7 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
         return of(this).form();
     }
 
-    default @Nullable Object asObject() {
+    default Object asObject() {
         return as(Object.class)
                 .or(() -> of(this).asObject())
                 .orElse(null);
@@ -76,14 +76,14 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
     default Array asArray() {
         return as(Array.class)
                 .or(() -> of(this).asArray())
-                .assertion();
+                .orElse(null);
     }
 
     default <T> Value<T> asValue() {
         return as(Value.class)
                 .or(() -> of(this).asValue())
                 .map(Polyfill::<Value<T>>uncheckedCast)
-                .assertion();
+                .orElse(null);
     }
 
     default int size() {

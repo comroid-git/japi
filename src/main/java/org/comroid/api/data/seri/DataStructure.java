@@ -132,6 +132,9 @@ public class DataStructure<T> implements Named {
                             .option(Field.class::isInstance, () -> ((Field) it).getType())
                             .option(Method.class::isInstance, () -> ((Method) it).getReturnType())
                             .apply(it);
+                    assert type != null;
+                    if (type.isAnnotation())
+                        return;
                     var name = it.getName();
                     if (it instanceof Method)
                         name = Character.toLowerCase(name.charAt(3)) + name.substring("getX".length());
@@ -157,7 +160,7 @@ public class DataStructure<T> implements Named {
         AnnotatedElement context;
         @NotNull
         @ToString.Exclude
-        Set<Annotations.Result<?>> annotations = new HashSet<>();
+        Set<Result<?>> annotations = new HashSet<>();
         @Getter
         @NotNull Class<?> declaringClass;
         @Getter
@@ -194,9 +197,13 @@ public class DataStructure<T> implements Named {
                     .toArray(Annotation[]::new);
         }
 
-        public <A extends Annotation> Stream<Annotations.Result<A>> streamAnnotations(Class<A> annotationClass) {
+        public Stream<Result<Annotation>> streamAnnotations() {
+            return streamAnnotations(Annotation.class);
+        }
+
+        public <A extends Annotation> Stream<Result<A>> streamAnnotations(Class<A> annotationClass) {
             return annotations.stream()
-                    .map(Polyfill::<Annotations.Result<A>>uncheckedCast)
+                    .map(Polyfill::<Result<A>>uncheckedCast)
                     .filter(result -> annotationClass.isAssignableFrom(result.annotationType()));
         }
 

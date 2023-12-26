@@ -141,17 +141,13 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                             struct.getProperties().values().stream()
                                     //.flatMap(prop -> prop.annotations.stream())
                                     //.map(Polyfill::<Annotations.Result<Inject>>uncheckedCast)
-                                    .filter(prop -> prop.annotations.stream()
-                                            .anyMatch(result -> result.getAnnotation().annotationType().equals(Inject.class)))
-                                    .map(prop -> {
-                                        var inject = Polyfill.<Annotations.Result<Inject>>uncheckedCast(prop.getAnnotation(Inject.class));
-                                        var anno = inject.getAnnotation();
-                                        return new Dependency<>(
-                                                Optional.of(anno.value()).filter(String::isEmpty).orElse(prop.name),
-                                                uncheckedCast(prop.getType().getTargetClass()),
-                                                anno.required(),
-                                                uncheckedCast(prop));
-                                    }),
+                                    .flatMap(explodeFlat(prop -> prop.streamAnnotations(Inject.class)))
+                                    .map(mapB(Annotations.Result::getAnnotation))
+                                    .map(combine((prop, inject) -> new Dependency<>(
+                                            Optional.of(inject.value()).filter(String::isEmpty).orElse(prop.getName()),
+                                            uncheckedCast(prop.getType().getTargetClass()),
+                                            inject.required(),
+                                            uncheckedCast(prop)))),
                             Annotations.findAnnotations(Requires.class, type)
                                     .flatMap(requires -> Arrays.stream(requires.getAnnotation().value())
                                             .map(cls -> new Dependency<>("", cls, true, null))))

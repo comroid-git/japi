@@ -150,7 +150,7 @@ public class Annotations {
     @Value
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     public static class Result<A extends Annotation> implements Annotation {
-        @NotNull A annotation;
+        @NotNull @Ignore A annotation;
         @NotNull AnnotatedElement context;
         @NotNull Class<?> declarator;
 

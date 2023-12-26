@@ -109,6 +109,11 @@ public class Streams {
             return t -> new SimpleImmutableEntry<>(t, function.apply(t));
         }
 
+        @WrapWith("flatMap")
+        public <A, B> Function<A, Stream<Entry<A, B>>> explodeFlat(final @NotNull Function<A, Stream<B>> function) {
+            return a -> function.apply(a).map(b -> new SimpleImmutableEntry<>(a, b));
+        }
+
         @WrapWith("map")
         public <A, B> Function<Entry<A, B>, Entry<B, A>> invert() {
             return e -> new SimpleImmutableEntry<>(e.getValue(), e.getKey());

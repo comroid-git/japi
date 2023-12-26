@@ -13,7 +13,9 @@ import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static java.util.stream.IntStream.range;
 import static org.comroid.api.Polyfill.exceptionLogger;
+import static org.comroid.api.func.util.Streams.intString;
 
 @UtilityClass
 @lombok.extern.java.Log
@@ -59,8 +61,24 @@ public final class Debug {
         return String.format("%s0x%2x [0b%s]\t", (title == null ? "" : "Creating byte dump of " + title + ':' + each + '\n'), each, binaryString);
     }
 
-    public static String createObjectDump(Object it) {return createObjectDump(it, DataNode.of(it),0);}
-    private static String createObjectDump(final Object target, final int rec) {
-        final var sb = new StringBuilder();
+    public static String createObjectDump(Object it) {
+        var sb = new StringBuilder().append("Dump: ").append(it).append('\n');
+        createObjectDump(sb, DataNode.of(it), 0);
+        return sb.toString();
+    }
+
+    private static void createObjectDump(final StringBuilder sb, final DataNode data, final int rec) {
+        final var pad = intString(range(0, rec * 2).map($ -> ' '));
+
+        for (var entry : data.asObject().entrySet()) {
+            final var name = entry.getKey();
+            final var node = entry.getValue();
+
+            sb.append(pad).append("- ")
+                    .append(name).append(": ")
+                    .append(node.toString()).append('\n');
+
+            createObjectDump(sb, data, rec + 1);
+        }
     }
 }
