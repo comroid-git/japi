@@ -2,6 +2,7 @@ package org.comroid.test;
 
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Ignore;
+import org.comroid.api.Component;
 import org.comroid.api.DataStructure;
 
 public class Dummy {
@@ -17,7 +18,7 @@ public class Dummy {
     public @Ignore static class SomethingElse {}
 
     @Alias(AliasFruit)
-    public static class Fruit {
+    public static class Fruit extends Component.Base {
         public double getPrice() {
             return 1.99;
         }
