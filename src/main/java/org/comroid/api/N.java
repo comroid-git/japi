@@ -1,14 +1,11 @@
 package org.comroid.api;
 
-import lombok.*;
-import lombok.experimental.FieldDefaults;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Optional;
-import java.util.function.*;
-import java.util.stream.Stream;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
 @UtilityClass
 public class N {
@@ -59,6 +56,11 @@ public class N {
     public interface Runnable extends java.lang.Runnable, dim.I0, dim.O0 {
         @Override
         void run();
+
+        static Runnable nop() {
+            return () -> {
+            };
+        }
     }
 
     @FunctionalInterface
@@ -263,6 +265,11 @@ public class N {
                     after.accept(x, y);
                 };
             }
+        }
+
+        static <X, Y, Z, W> $4<X, Y, Z, W> nop() {
+            return (x, y, z, w) -> {
+            };
         }
     }
 
