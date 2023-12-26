@@ -4,6 +4,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.experimental.UtilityClass;
+import org.comroid.api.DataStructure;
 import org.comroid.api.N;
 import org.comroid.api.Polyfill;
 import org.comroid.api.SupplierX;
@@ -50,8 +51,8 @@ public class Annotations {
         Class<?> decl;
         if (in instanceof Class<?>) {
             decl = (Class<?>) in;
-        } else if (in instanceof Member) {
-            decl = ((Member) in).getDeclaringClass();
+        } else if (in instanceof Member mem) {
+            decl = mem.getDeclaringClass();
         } else throw new IllegalArgumentException("Invalid element: " + in);
         if (decl.getPackageName().startsWith("java"))
             return empty();
@@ -72,10 +73,10 @@ public class Annotations {
                         : of(decl)
                         // then if applicable, try return types next
                         .collect(append(of(in).map(x -> {
-                            if (x instanceof Field)
-                                return ((Field) x).getType();
-                            else if (x instanceof Method)
-                                return ((Method) x).getReturnType();
+                            if (x instanceof Field fld)
+                                return fld.getType();
+                            else if (x instanceof Method mtd)
+                                return mtd.getReturnType();
                             else return null;
                         })))
                         // then otherwise, try ancestors
@@ -95,8 +96,8 @@ public class Annotations {
         Class<?> decl;
         if (of instanceof Class<?>) {
             decl = (Class<?>) of;
-        } else if (of instanceof Member) {
-            decl = ((Member) of).getDeclaringClass();
+        } else if (of instanceof Member mem) {
+            decl = mem.getDeclaringClass();
         } else throw new AssertionError("Invalid element: " + of);
         if (of instanceof Class<?> && decl.getPackageName().startsWith("java"))
             return true;
@@ -117,26 +118,32 @@ public class Annotations {
         Class<?> decl;
         if (of instanceof Class<?>) {
             decl = (Class<?>) of;
-        } else if (of instanceof Member) {
-            decl = ((Member) of).getDeclaringClass();
+        } else if (of instanceof Member mem) {
+            decl = mem.getDeclaringClass();
         } else throw new AssertionError("Invalid element: " + of);
         if (of instanceof Class<?> && decl.getPackageName().startsWith("java"))
             return SupplierX.empty();
 
         try {
-            if (of instanceof Member) {
-                var pType = ((Member) of).getDeclaringClass().getSuperclass();
+            if (of instanceof Member mem) {
+                Member chk;
+                if (mem instanceof DataStructure.Member dmem)
+                    if (dmem.getContext() instanceof Parameter)
+                        return SupplierX.empty();
+                    else chk = (Member) dmem.getContext();
+                else chk = mem;
+                var pType = chk.getDeclaringClass().getSuperclass();
                 if (pType == null)
                     return SupplierX.empty();
                 // todo: this is inaccurate for different parameter overrides
-                if (of instanceof Method)
-                    return SupplierX.of(pType.getDeclaredMethod(((Method) of).getName(), ((Method) of).getParameterTypes()));
-                else if (of instanceof Field)
-                    return SupplierX.of(pType.getDeclaredField(((Field) of).getName()));
-                else if (of instanceof Constructor<?>)
-                    return SupplierX.of(pType.getDeclaredConstructor(((Constructor<?>) of).getParameterTypes()));
-            } else if (of instanceof Class<?>)
-                return SupplierX.of(((Class<?>) of).getSuperclass());
+                if (chk instanceof Method mtd)
+                    return SupplierX.of(pType.getDeclaredMethod(mtd.getName(), mtd.getParameterTypes()));
+                else if (chk instanceof Field fld)
+                    return SupplierX.of(pType.getDeclaredField(fld.getName()));
+                else if (chk instanceof Constructor<?> ctor)
+                    return SupplierX.of(pType.getDeclaredConstructor(ctor.getParameterTypes()));
+            } else if (of instanceof Class<?> cls)
+                return SupplierX.of(cls.getSuperclass());
         } catch (NoSuchMethodException | NoSuchFieldException e) {
             return SupplierX.empty();
         }

@@ -144,9 +144,10 @@ public class DataStructure<T> implements Named {
         @NotNull
         @Getter
         String name;
-        @NotNull
         @Getter
+        @NotNull
         Set<String> aliases = new HashSet<>();
+        @Getter
         @NotNull
         @ToString.Exclude
         AnnotatedElement context;
@@ -165,11 +166,11 @@ public class DataStructure<T> implements Named {
             this.context = context;
             this.declaringClass = declaringClass;
 
-            findAnnotations(Alias.class, context)
+            findAnnotations(Alias.class, this)
                     .map(Result::getAnnotation)
                     .flatMap(alias -> Arrays.stream(alias.value()))
                     .forEach(aliases::add);
-            findAnnotations(Annotation.class, context).forEach(annotations::add);
+            findAnnotations(Annotation.class, this).forEach(annotations::add);
         }
 
         @Override
