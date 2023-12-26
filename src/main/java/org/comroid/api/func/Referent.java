@@ -6,12 +6,16 @@ public interface Referent<T> {
      *
      * @return Whether the currently held value is equal to {@code null}
      */
-    boolean isNull();
+    default boolean isNull() {
+        return !isNonNull();
+    }
 
     /**
      * Checks whether the current value is not {@code null}.
      *
      * @return Whether the currently held value is not equal to {@code null}
      */
-    boolean isNonNull();
+    default boolean isNonNull() {
+        return !isNull();
+    }
 }
