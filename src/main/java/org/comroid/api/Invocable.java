@@ -50,6 +50,11 @@ public interface Invocable<T> extends Named {
     static <T> Invocable<T> ofFieldGet(final Field field) {
         return new Invocable<>() {
             @Override
+            public @Nullable AccessibleObject accessor() {
+                return field;
+            }
+
+            @Override
             public Class<?>[] parameterTypesOrdered() {
                 return new Class[0];
             }
@@ -63,6 +68,11 @@ public interface Invocable<T> extends Named {
 
     static <T> Invocable<@Nullable T> ofFieldSet(final Field field) {
         return new Invocable<>() {
+            @Override
+            public @Nullable AccessibleObject accessor() {
+                return field;
+            }
+
             @Override
             public Class<?>[] parameterTypesOrdered() {
                 return new Class[]{field.getType()};
@@ -170,6 +180,28 @@ public interface Invocable<T> extends Named {
         if (t instanceof InvocationTargetException || (t instanceof RuntimeException && t.getCause() instanceof InvocationTargetException))
             return unwrapInvocationTargetException(t.getCause());
         return t;
+    }
+
+    @Nullable
+    default AccessibleObject accessor() {
+        return null;
+    }
+
+    default boolean canAccess() {
+        var obj = accessor();
+        return obj != null && obj.canAccess(Invocable.this);
+    }
+
+    default boolean setAccessible(boolean state) {
+        var obj = accessor();
+        if (obj == null)
+            return false;
+        try {
+            obj.setAccessible(state);
+        } catch (InaccessibleObjectException ioe) {
+            return false;
+        }
+        return canAccess() == state;
     }
 
     Class<?>[] parameterTypesOrdered();
@@ -326,6 +358,11 @@ public interface Invocable<T> extends Named {
                 }
 
                 @Override
+                public @Nullable AccessibleObject accessor() {
+                    return underlying.accessor();
+                }
+
+                @Override
                 public Class<?>[] parameterTypesOrdered() {
                     return underlying.parameterTypesOrdered();
                 }
@@ -422,6 +459,11 @@ public interface Invocable<T> extends Named {
             }
 
             @Override
+            public @Nullable AccessibleObject accessor() {
+                return constructor;
+            }
+
+            @Override
             public Class<?>[] parameterTypesOrdered() {
                 return constructor.getParameterTypes();
             }
@@ -454,6 +496,11 @@ public interface Invocable<T> extends Named {
             public T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException {
                 //noinspection unchecked
                 return (T) method.invoke(target == null ? this.target : target, args);
+            }
+
+            @Override
+            public @Nullable AccessibleObject accessor() {
+                return method;
             }
 
             @Override
