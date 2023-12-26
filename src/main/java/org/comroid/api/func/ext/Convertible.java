@@ -1,6 +1,6 @@
 package org.comroid.api.func.ext;
 
-import org.comroid.annotations.Annotations;
+import org.comroid.annotations.internal.Annotations;
 import org.comroid.annotations.Convert;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.api.info.Constraint;

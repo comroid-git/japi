@@ -1,11 +1,12 @@
 package org.comroid.annotations;
 
-import java.lang.annotation.ElementType;
+import org.comroid.annotations.internal.Inheritance;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
+@Inheritance(Inheritance.Type.FromSupertype)
 public @interface Alias {
     String[] value() default {};
 }

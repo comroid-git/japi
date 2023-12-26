@@ -1,5 +1,6 @@
 package org.comroid.annotations;
 
+import org.comroid.annotations.internal.Inheritance;
 import org.comroid.api.func.ext.Context;
 
 import java.lang.annotation.ElementType;
@@ -12,7 +13,8 @@ import java.lang.annotation.Target;
  * Result of the Member should always be equal, tho this is not checked.
  * The annotated member must be {@code static}, and may not have any parameters other than {@link Context}.
  */
-@Target({ElementType.FIELD, ElementType.METHOD, ElementType.CONSTRUCTOR})
+@Inheritance(Inheritance.Type.None)
 @Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD, ElementType.FIELD, ElementType.CONSTRUCTOR})
 public @interface Instance {
 }

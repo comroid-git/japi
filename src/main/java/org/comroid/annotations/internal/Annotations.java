@@ -1,12 +1,16 @@
-package org.comroid.annotations;
+package org.comroid.annotations.internal;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.experimental.UtilityClass;
+import org.comroid.annotations.Alias;
+import org.comroid.annotations.Convert;
+import org.comroid.annotations.Ignore;
 import org.comroid.api.data.seri.DataStructure;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Constraint;
+import org.comroid.api.java.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
@@ -24,6 +28,11 @@ import static org.comroid.api.func.util.Streams.*;
 @UtilityClass
 @ApiStatus.Internal
 public class Annotations {
+    @ApiStatus.Experimental
+    @Convert(identifyVia = "annotationType")
+    public Constraint.API expect(AnnotatedElement context) {
+    }
+
     public Set<String> aliases(@NotNull AnnotatedElement of) {
         return findAnnotations(Alias.class, of)
                 .filter(alias -> alias.context.getClass().equals(of.getClass()))
@@ -42,26 +51,32 @@ public class Annotations {
         return asList(types).contains(context);
     }
 
-    public <A extends Annotation> Stream<Result<A>> findAnnotations(final Class<A> type, final AnnotatedElement in) {
-        Constraint.Type.anyOf(in, "in", Class.class, Member.class).run();
+    public <A extends Annotation> Stream<Result<A>> findAnnotations(final Class<A> type, final AnnotatedElement target) {
+        Constraint.Type.anyOf(target, "in", Class.class, Member.class).run();
 
-        Class<?> decl;
-        if (in instanceof Class<?>) {
-            decl = (Class<?>) in;
-        } else if (in instanceof Member mem) {
-            decl = mem.getDeclaringClass();
-        } else throw new IllegalArgumentException("Invalid element: " + in);
+        // @Ignore should inherit upwards indefinitely; unless specified otherwise with @Ignore.Ancestors
+        // @Alias should inherit only between ancestors of same type
+
+        var decl = ReflectionHelper.declaringClass(target);
+
+        // do not scan system classes
         if (decl.getPackageName().startsWith("java"))
             return empty();
 
+
+
+
+
+
+
         // first, try get annotation from type
-        return of(in.getAnnotations())
+        return of(target.getAnnotations())
                 .flatMap(cast(type))
-                .map(a -> new Result<>(a, in, decl))
+                .map(a -> new Result<>(a, target, decl))
                 // otherwise, recurse into ancestors
-                .collect(append(ignoreAncestors(in, type)
+                .collect(append(ignoreAncestors(target, type)
                         ? empty()
-                        : (in instanceof Class<?>
+                        : (target instanceof Class<?>
                         // for class, try supertypes
                         ? of(decl).flatMap(c -> concat(
                         of(c.getSuperclass()),
@@ -69,7 +84,7 @@ public class Annotations {
                         // for members, try declaring class first
                         : of(decl)
                         // then if applicable, try return types next
-                        .collect(append(of(in).map(x -> {
+                        .collect(append(of(target).map(x -> {
                             if (x instanceof Field fld)
                                 return fld.getType();
                             else if (x instanceof Method mtd)
@@ -77,7 +92,7 @@ public class Annotations {
                             else return null;
                         })))
                         // then otherwise, try ancestors
-                        .collect(append(of(in).flatMap(x -> findAncestor(x, type).stream()))))
+                        .collect(append(of(target).flatMap(x -> findAncestor(x, type).stream()))))
                         // cleanup
                         .filter(Objects::nonNull)
                         .distinct()

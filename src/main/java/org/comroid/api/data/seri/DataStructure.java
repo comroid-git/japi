@@ -17,11 +17,10 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static java.util.function.Predicate.not;
-import static org.comroid.annotations.Annotations.*;
+import static org.comroid.annotations.internal.Annotations.*;
 import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.api.func.util.Streams.Multi.*;
 import static org.comroid.api.java.ReflectionHelper.declaringClass;
@@ -101,9 +100,14 @@ public class DataStructure<T> implements Named {
                                         .anyMatch(mtd::isAnnotationPresent))
                                 .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())),
                         Arrays.stream(target.getConstructors()))
+                .distinct()
                 .filter(it -> !ignore(it, DataStructure.class))
                 .map(explode(java.lang.reflect.Member::getDeclaringClass))
                 .flatMap(filterB(decl -> !key.above.equals(decl) && key.above.isAssignableFrom(decl)))
+                .flatMap(routeA(s->s.map(Map.Entry::getValue)
+                        .map(Class::getPackageName)
+                        .filter(name -> !name.startsWith("java"))
+                        .filter("java.lang"::equals)))
                 .flatMap(filterB(decl -> {
                     var packageName = decl.getPackageName();
                     return !packageName.startsWith("java") || "java.lang".equals(packageName);
@@ -130,6 +134,7 @@ public class DataStructure<T> implements Named {
                         Arrays.stream(target.getMethods())
                                 .filter(mtd -> mtd.getParameterCount() == 0)
                                 .filter(mtd -> mtd.getName().startsWith("get") && mtd.getName().length() > 3))
+                .distinct()
                 .map(explode(java.lang.reflect.Member::getModifiers))
                 .flatMap(filter(it -> !ignore(it, DataStructure.class), mod -> !Modifier.isStatic(mod) && Modifier.isPublic(mod)))
                 .map(crossA2B(java.lang.reflect.Member::getDeclaringClass))
