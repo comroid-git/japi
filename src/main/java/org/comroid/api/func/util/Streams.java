@@ -278,18 +278,18 @@ public class Streams {
         //endregion
         //region flatMap
         @WrapWith("flatMap")
-        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(final @NotNull BiFunction<Entry<A,B>, A, Stream<X>> function) {
+        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(final @NotNull BiFunction<A, B, Stream<X>> function) {
             return flatMap(Adapter.sideA(), function);
         }
 
         @WrapWith("flatMap")
-        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(final @NotNull BiFunction<Entry<A,B>, B, Stream<Y>> function) {
+        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(final @NotNull BiFunction<A, B, Stream<Y>> function) {
             return flatMap(Adapter.sideB(), function);
         }
 
         @WrapWith("flatMap")
-        public <A, B, X, Y, I, O> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Adapter<A, B, X, Y, I, O> adapter, final @NotNull BiFunction<Entry<A,B>, I, Stream<O>> function) {
-            return e -> function.apply(e, adapter.input.apply(e)).map(o -> adapter.merge(e, o));
+        public <A, B, X, Y, I, O> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Adapter<A, B, X, Y, I, O> adapter, final @NotNull BiFunction<A, B, Stream<O>> function) {
+            return e -> function.apply(e.getKey(), e.getValue()).map(o -> adapter.merge(e, o));
         }
 
         //endregion
