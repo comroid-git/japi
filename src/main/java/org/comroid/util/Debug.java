@@ -1,5 +1,6 @@
 package org.comroid.util;
 
+import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import org.comroid.api.info.Log;
 import org.jetbrains.annotations.Nullable;
@@ -11,6 +12,7 @@ import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+@UtilityClass
 @lombok.extern.java.Log
 public final class Debug {
     public static String[] DEBUG_ENV_KEYS = new String[]{"DEBUG", "DEBUG_ENV", "IS_DEBUG", "TRACE", "TRACE_ENV", "IS_TRACE"};
@@ -28,10 +30,6 @@ public final class Debug {
     public static boolean isDebugEnv() {
         Map<String, String> env = System.getenv();
         return Arrays.stream(DEBUG_ENV_KEYS).anyMatch(env::containsKey);
-    }
-
-    private Debug() {
-        throw new UnsupportedOperationException("Debug is a Utility Class");
     }
 
     public static void printIntegerBytes(Logger logger, @Nullable String title, int value) {
