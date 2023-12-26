@@ -21,6 +21,7 @@ import java.util.stream.Stream;
 
 import static org.comroid.annotations.Annotations.*;
 import static org.comroid.api.Polyfill.uncheckedCast;
+import static org.comroid.api.func.util.Streams.Multi.*;
 import static org.comroid.api.java.ReflectionHelper.declaringClass;
 
 @Value
@@ -30,7 +31,6 @@ public class DataStructure<T> implements Named {
     //private static final WeakCache<Key<?>, DataStructure<?>> $cache = new WeakCache<>(DataStructure::create);
     private static final Map<Key<?>, DataStructure<?>> $cache = new ConcurrentHashMap<>();
     public static final Map<Key<?>, DataStructure<?>> cache = Collections.unmodifiableMap($cache);
-    public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class, Class.class};
 
     @NotNull Class<? super T> type;
     @NotNull
@@ -99,8 +99,10 @@ public class DataStructure<T> implements Named {
                                 .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())),
                         Arrays.stream(target.getConstructors()))
                 .filter(it -> !ignore(it, DataStructure.class))
-                .filter(it -> !key.above.equals(it.getDeclaringClass()) && key.above.isAssignableFrom(it.getDeclaringClass()))
-                .filter(it -> Arrays.stream(SystemFilters).noneMatch(type -> it.getDeclaringClass().isAssignableFrom(type)))
+                .map(explode(java.lang.reflect.Member::getDeclaringClass))
+                .flatMap(filterB(decl -> !key.above.equals(decl) && key.above.isAssignableFrom(decl)))
+                .flatMap(filterB(decl -> !"java.lang".equals(decl.getPackageName())))
+                .map(Map.Entry::getKey)
                 .filter(it -> Modifier.isPublic(it.getModifiers()))
                 .map(it -> {
                     Invocable<T> func;
@@ -122,26 +124,24 @@ public class DataStructure<T> implements Named {
                         Arrays.stream(target.getMethods())
                                 .filter(mtd -> mtd.getParameterCount() == 0)
                                 .filter(mtd -> mtd.getName().startsWith("get") && mtd.getName().length() > 3))
-                .filter(it -> !Modifier.isStatic(it.getModifiers()))
-                .filter(it -> Modifier.isPublic(it.getModifiers()))
-                .filter(it -> !ignore(it, DataStructure.class))
-                .filter(it -> !key.above.equals(it.getDeclaringClass()) && key.above.isAssignableFrom(it.getDeclaringClass()))
-                .filter(it -> Arrays.stream(SystemFilters).noneMatch(type -> it.getDeclaringClass().isAssignableFrom(type)))
-                .forEach(it -> {
+                .map(explode(java.lang.reflect.Member::getModifiers))
+                .flatMap(filterB(mod -> !Modifier.isStatic(mod) && Modifier.isPublic(mod)))
+                .flatMap(filterA(it -> !ignore(it, DataStructure.class)))
+                .map(crossA2B(java.lang.reflect.Member::getDeclaringClass))
+                .flatMap(filterB(decl -> !key.above.equals(decl) && key.above.isAssignableFrom(decl)))
+                .flatMap(filterB(decl -> !"java.lang".equals(decl.getPackageName())))
+                .forEach(forEach((it, decl) -> {
                     var type = new Switch<java.lang.reflect.Member, Class<?>>()
                             .option(Field.class::isInstance, () -> ((Field) it).getType())
                             .option(Method.class::isInstance, () -> ((Method) it).getReturnType())
                             .apply(it);
-                    assert type != null;
-                    if (type.isAnnotation())
-                        return;
                     var name = it.getName();
                     if (it instanceof Method)
                         name = Character.toLowerCase(name.charAt(3)) + name.substring("getX".length());
-                    var prop = struct.createProperty(type, name, it, declaringClass(it));
+                    var prop = struct.createProperty(type, name, it, decl);
                     Stream.concat(Stream.of(prop.name), aliases(it).stream())
                             .forEach(k -> struct.properties.put(k, prop));
-                });
+                }));
 
         return struct;
     }
