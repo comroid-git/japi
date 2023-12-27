@@ -32,7 +32,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     @Override
     default boolean isNull() {
         try {
-            return testIfPresent(Objects::isNull);
+            return get() == null;
         } catch (NullPointerException ignored) {
             return true;
         }
@@ -152,7 +152,9 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         consumer.accept(get());
     }
 
-    default <R> R into(Function<? super @Nullable T, R> remapper) {
+    default <R> @Nullable R into(Function<? super @NotNull T, R> remapper) {
+        if (isNull())
+            return null;
         return remapper.apply(get());
     }
 

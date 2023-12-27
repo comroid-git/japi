@@ -29,7 +29,7 @@ public class BoundValueType<T> implements ValueType<T> {
         return "BoundValueType<%s>".formatted(targetClass.getCanonicalName());
     }
 
-    public static <T> BoundValueType<T> of(Class<? super T> type) {
+    public static <T> BoundValueType<T> of(Class<? extends T> type) {
         return Polyfill.uncheckedCast($cache.computeIfAbsent(type, BoundValueType::new));
     }
 }

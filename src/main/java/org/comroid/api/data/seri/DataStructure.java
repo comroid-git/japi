@@ -106,18 +106,26 @@ public class DataStructure<T> implements Named {
                         .map(Polyfill::uncheckedCast);
             }
 
-            boolean filterModifiers(java.lang.reflect.Member member) {
+            boolean filterIgnored(AnnotatedElement member) {
+                return !Annotations.ignore(member, target);
+            }
+
+            boolean filterPropertyModifiers(java.lang.reflect.Member member) {
                 final var mod = member.getModifiers();
                 return Map.<Class<?>, IntPredicate>of(
                                 Field.class, bit -> !Modifier.isStatic(bit),
+                                Method.class, bit -> true)
+                        .entrySet().stream()
+                        .anyMatch(e -> !e.getKey().isInstance(member) || e.getValue().test(mod));
+            }
+
+            boolean filterConstructorModifiers(java.lang.reflect.Member member) {
+                final var mod = member.getModifiers();
+                return Map.<Class<?>, IntPredicate>of(
                                 Method.class, bit -> ((Method) member).getReturnType().equals(target),
                                 DataStructure.Constructor.class, bit -> true)
                         .entrySet().stream()
-                        .allMatch(e -> !e.getKey().isInstance(member) || e.getValue().test(mod));
-            }
-
-            boolean filterIgnored(AnnotatedElement member) {
-                return !Annotations.ignore(member, target);
+                        .anyMatch(e -> !e.getKey().isInstance(member) || e.getValue().test(mod));
             }
 
             <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterPropertyMembers(R member) {
@@ -128,30 +136,29 @@ public class DataStructure<T> implements Named {
                 else return false;
             }
 
-            <R extends java.lang.reflect.Member & AnnotatedElement, P> Stream<DataStructure<T>.Property<P>> convertProperties(R member) {
+            <R extends java.lang.reflect.Member & AnnotatedElement, P> DataStructure<T>.Property<P> convertProperties(R member) {
                 String name = member.getName();
                 ValueType<P> type = null;
                 Invocable<P> getter = null;
                 Invocable<?> setter = null;
                 if (member instanceof Field fld) {
-                    type = StandardValueType.forClass(fld.getType()).cast();
+                    type = ValueType.of(fld.getType());
                     getter = Invocable.ofFieldGet(fld);
                     if (!Modifier.isFinal(member.getModifiers()))
                         setter = Invocable.ofFieldSet(fld);
                 } else if (member instanceof Method mtd) {
                     name = lowerCamelCase.convert(name.substring(3));
-                    type = StandardValueType.forClass(mtd.getReturnType()).cast();
+                    type = ValueType.of(mtd.getReturnType());
                     getter = Invocable.ofMethodCall(mtd);
                     try {
-                        var method = target.getMethod("set" + lowerCamelCase.convert(UpperCamelCase, name), type.getTargetClass());
+                        var method = target.getMethod("set" + UpperCamelCase.convert(name), type.getTargetClass());
                         setter = Invocable.ofMethodCall(method);
                     } catch (NoSuchMethodException ignored) {
                     }
                 }
                 if (type == null)
-                    return Stream.empty();
-                return Stream.of(struct.new Property<>(name, member, target, type, getter, setter))
-                        .map(Polyfill::uncheckedCast);
+                    throw new AssertionError("Could not initialize property adapter for " + member);
+                return uncheckedCast(struct.new Property<>(name, member, target, type, getter, setter));
             }
 
             <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterConstructorMembers(R member) {
@@ -162,7 +169,7 @@ public class DataStructure<T> implements Named {
                 else return false;
             }
 
-            <R extends java.lang.reflect.Member & AnnotatedElement> Stream<DataStructure<T>.Constructor> convertConstructors(R member) {
+            <R extends java.lang.reflect.Member & AnnotatedElement> DataStructure<T>.Constructor convertConstructors(R member) {
                 String name = member.getName();
                 Invocable<T> func = null;
                 if (member instanceof java.lang.reflect.Constructor<?> ctor)
@@ -170,18 +177,23 @@ public class DataStructure<T> implements Named {
                 else if (member instanceof Method mtd)
                     func = Invocable.ofMethodCall(mtd);
                 if (func == null)
-                    return Stream.empty();
-                return Stream.of(struct.new Constructor(name, member, target, func));
+                    throw new AssertionError("Could not initialize construction adapter for " + member);
+                return struct.new Constructor(name, member, target, func);
             }
         }
         var helper = new Helper();
         var count = helper.streamRelevantMembers(target)
-                .filter(helper::filterModifiers)
                 .filter(helper::filterIgnored)
                 .map(expand(Function.identity()))
-                .flatMap(filter(helper::filterPropertyMembers, helper::filterConstructorMembers))
-                .flatMap(flatMapA(helper::convertProperties))
-                .flatMap(flatMapB(helper::convertConstructors))
+                // todo: the first one blocks the second one; Stream.Multi is broken
+                .flatMap(routeA(props->props.map(Map.Entry::getKey)
+                        .filter(helper::filterPropertyModifiers)
+                        .filter(helper::filterPropertyMembers)
+                        .map(helper::convertProperties)))
+                .flatMap(routeB(ctors->ctors.map(Map.Entry::getValue)
+                        .filter(helper::filterConstructorModifiers)
+                        .filter(helper::filterConstructorMembers)
+                        .map(helper::convertConstructors)))
                 .peek(peek(
                         member -> struct.properties.put(member.name, uncheckedCast(member)),
                         member -> struct.constructors.add(uncheckedCast(member))))

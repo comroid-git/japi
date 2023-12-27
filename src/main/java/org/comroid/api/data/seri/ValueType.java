@@ -11,6 +11,12 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named {
+    static <T> ValueType<T> of(final Class<?> type) {
+        return StandardValueType.forClass(type)
+                .or(() -> BoundValueType.of(type))
+                .cast();
+    }
+
     @Ignore
     @Override
     @Transient
