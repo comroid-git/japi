@@ -32,7 +32,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     @Override
     default boolean isNull() {
         try {
-            return test(Objects::isNull);
+            return testIfPresent(Objects::isNull);
         } catch (NullPointerException ignored) {
             return true;
         }
@@ -205,9 +205,10 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     }
 
     default boolean testIfPresent(Predicate<@NotNull ? super T> predicate) {
-        if (isNull())
+        var value = get();
+        if (value == null)
             return false;
-        return predicate.test(requireNonNull());
+        return predicate.test(value);
     }
 
     default boolean contentEquals(Object other) {
