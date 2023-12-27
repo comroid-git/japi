@@ -98,7 +98,7 @@ public class DataStructure<T> implements Named {
         final var target = key.type;
         final var struct = new DataStructure<T>(target);
         class Helper {
-            <R extends Member & AnnotatedElement> Stream<R> streamRelevantMembers(Class<?> decl) {
+            <R extends java.lang.reflect.Member & AnnotatedElement> Stream<R> streamRelevantMembers(Class<?> decl) {
                 return Stream.of(decl).flatMap(Streams.multiply(
                                 c -> Stream.of(c.getFields()),
                                 c -> Stream.of(c.getMethods()),

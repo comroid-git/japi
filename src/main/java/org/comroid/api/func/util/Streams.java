@@ -46,7 +46,7 @@ public class Streams {
         return append(of(values));
     }
 
-    public static <I> Collector<I, Collection<I>, Stream<I>> append(Stream<I> values) {
+    public static <I> Collector<I, Collection<I>, Stream<I>> append(Stream<? extends I> values) {
         return Collector.of(ArrayList::new, Collection::add, (l, r) -> {
             l.addAll(r);
             return l;
@@ -102,6 +102,7 @@ public class Streams {
                 .get();
     }
 
+    /* todo
     private static <T> Collector<T, List<T>, Stream<List<T>>> batches(int size) {
         return Collector.of(
                 ArrayList::new,
@@ -114,6 +115,7 @@ public class Streams {
                     return out.stream();
                 });
     }
+     */
 
     @SafeVarargs
     public static <T,R> Function<T,Stream<R>> multiply(Function<? super T,Stream<? extends R>>... function) {
@@ -191,17 +193,17 @@ public class Streams {
         }
 
         @WrapWith("peek")
-        public <A, B> Consumer<Entry<A, B>> peekA(final @NotNull Consumer<A> consumer) {
+        public <A, B> Consumer<Entry<? extends A, ? extends B>> peekA(final @NotNull Consumer<A> consumer) {
             return peek(consumer, nop());
         }
 
         @WrapWith("peek")
-        public <A, B> Consumer<Entry<A, B>> peekB(final @NotNull Consumer<B> consumer) {
+        public <A, B> Consumer<Entry<? extends A, ? extends B>> peekB(final @NotNull Consumer<B> consumer) {
             return peek(nop(), consumer);
         }
 
         @WrapWith("peek")
-        public <A, B> Consumer<Entry<A, B>> peek(final @NotNull Consumer<A> aConsumer, final @NotNull Consumer<B> bConsumer) {
+        public <A, B> Consumer<Entry<? extends A, ? extends B>> peek(final @NotNull Consumer<A> aConsumer, final @NotNull Consumer<B> bConsumer) {
             return peek((a, b) -> {
                 aConsumer.accept(a);
                 bConsumer.accept(b);
@@ -209,7 +211,7 @@ public class Streams {
         }
 
         @WrapWith("peek")
-        public <A, B> Consumer<Entry<A, B>> peek(final @NotNull BiConsumer<A, B> consumer) {
+        public <A, B> Consumer<Entry<? extends A, ? extends B>> peek(final @NotNull BiConsumer<A, B> consumer) {
             return e -> consumer.accept(e.getKey(), e.getValue());
         }
 
@@ -331,6 +333,8 @@ public class Streams {
             return e -> function.apply(e, adapter.input.apply(e)).map(o -> adapter.merge(e, o));
         }
 
+        /*
+        todo implement batches()
         @WrapWith("flatMap")
         public <A, B, X, Y> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(
                 final @NotNull BiFunction<A,B, Stream<X>> aFunction,
@@ -346,6 +350,7 @@ public class Streams {
                 var b = ;
             }
         }
+         */
 
         //endregion
         //region cast

@@ -11,7 +11,6 @@ import java.lang.annotation.Target;
 
 @Inheritance(Inheritance.Type.None)
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.ANNOTATION_TYPE)
 public @interface Inheritance {
     Type value();
 
@@ -21,8 +20,9 @@ public @interface Inheritance {
         None(0L),
         FromSupertype(1L),
         FromParent(2L),
-        FromBoth(3L),
-        Full(255L);
+        FromBoth(3L);
+
+        public static final Type Default = FromBoth;
 
         private final Long value;
     }

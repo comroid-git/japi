@@ -1,5 +1,6 @@
 package org.comroid.annotations.internal;
 
+import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Value;
@@ -45,6 +46,7 @@ public class Annotations {
     @ApiStatus.Experimental
     @Convert(identifyVia = "annotationType")
     public Constraint.API expect(AnnotatedElement context) {
+        return Constraint.fail();
     }
 
     public Set<String> aliases(@NotNull AnnotatedElement of) {
@@ -70,15 +72,8 @@ public class Annotations {
 
         // @Ignore should inherit upwards indefinitely; unless specified otherwise with @Ignore.Ancestors
         // @Alias should inherit only between ancestors of same type
-        class Helper {
-            <R extends DataStructure.Member & AnnotatedElement> Stream<R> streamRelevantMembers(Class<?> decl){}
-            boolean filterModifiers(java.lang.reflect.Member member){}
-            boolean filterIgnored(AnnotatedElement member){}
-            <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterRelated(R member){}
-            <R extends java.lang.reflect.Member & AnnotatedElement, P> Stream<Result<A>> convertAnnotations(R member){}
-        }
 
-        final var inherit = Optional.ofNullable(type.getAnnotation(Inheritance.class));
+        final var typeInherit = Wrap.of(type.getAnnotation(Inheritance.class));
         final var decl = ReflectionHelper.declaringClass(target);
 
         // do not scan system classes
@@ -86,36 +81,34 @@ public class Annotations {
             return empty();
 
         // collect members
-        return stream(decl.getFields())
-                .collect(append(stream(decl.getMethods())))
-                .collect(append(stream(decl.getConstructors())))
+        return of(target)
+                .flatMap(member -> {
+                    var inherit = typeInherit.orRef(() -> Wrap.of(member.getAnnotation(Inheritance.class)))
+                            .map(Inheritance::value)
+                            .orElse(Inheritance.Type.Default);
 
-                // checks
-                .filter((member) -> Map.<Class<?>, IntPredicate>of(
-                                Member.class, Modifier::isPublic,
-                                Field.class, x -> !Modifier.isStatic(x)
-                        ).entrySet().stream()
-                        .flatMap(filterA(cls -> cls.isAssignableFrom(member.getClass())))
-                        .map(Map.Entry::getValue)
-                        .allMatch(p -> p.test(member.getModifiers())))
+                    // expand with ancestors by local or annotations @Inheritance annotations
+                    var sources = of(member);
+                    switch (inherit) {
+                        case None:
+                            break;
+                        case FromSupertype:
+                            sources = sources.collect(append(findAncestor(member, type).stream()));
+                        case FromParent, FromBoth:
+                            sources = sources.collect(append(decl));
+                            break;
+                        default:
+                            throw new IllegalStateException("Unexpected value: " + inherit);
+                    }
 
-                // <Member, Executable>
-                .map(expand(identity()))
-                .flatMap(cast(Member.class, Executable.class))
-
-                // more checks
-                .map(map(mem -> {
-                    mem.
-                }, exe -> {
-                    exe.getModifiers();
-                }))
-
-                // merge into annotations
-                .flatMap(merge(Stream::of))
-                .flatMap(cast(AnnotatedElement.class))
-                .map(expand(element -> element.getAnnotationsByType(type)))
-                .flatMap(flatMapB(Arrays::stream))
-                .flatMap(merge((element, annotation) -> of(new Result<>(annotation, element, decl))));
+                    // get most relevant annotation
+                    return sources.map(mem -> new AbstractMap.SimpleImmutableEntry<>(
+                            mem.getAnnotation(type),
+                            member
+                    ));
+                })
+                .flatMap(filterA(Objects::nonNull))
+                .flatMap(merge((annotation, element) -> of(new Result<>(annotation, element, decl))));
     }
 
     public boolean ignoreAncestors(AnnotatedElement of, Class<? extends Annotation> goal) {
@@ -178,6 +171,11 @@ public class Annotations {
             return Wrap.empty();
         }
         throw new IllegalArgumentException("Invalid element: " + of);
+    }
+
+    public <T extends Member & AnnotatedElement> String toString(Expect expect, T member) {
+        return "%s.%s does not return %s for Annotations.%s()".formatted(
+                member.getDeclaringClass().getSimpleName() ,member.getName(), expect.value(), expect.onTarget());
     }
 
     @Value
