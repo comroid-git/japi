@@ -65,26 +65,6 @@ public class DataStructure<T> implements Named {
         return Wrap.of(properties.getOrDefault(name, null)).castRef();
     }
 
-    private <V> Property<V> createProperty(Class<V> type, String name, AnnotatedElement it, Class<?> decl) {
-        var vt = StandardValueType.forClass(type).orElseGet(() -> BoundValueType.of(type));
-        var getter = new Switch<AnnotatedElement, Invocable<V>>()
-                .option(Field.class::isInstance, () -> Invocable.ofFieldGet((Field) it))
-                .option(Method.class::isInstance, () -> Invocable.ofMethodCall((Method) it))
-                .apply(it);
-        var setter = new Switch<AnnotatedElement, Invocable<?>>()
-                .option(Field.class::isInstance, () -> Invocable.ofFieldSet((Field) it))
-                .option(Method.class::isInstance, () -> Arrays.stream(((Method) it).getDeclaringClass().getMethods())
-                        .filter(mtd -> Modifier.isPublic(mtd.getModifiers()) && !Modifier.isStatic(mtd.getModifiers()))
-                        .filter(mtd -> mtd.getParameterCount() == 1 && ((Method) it).getReturnType().isAssignableFrom(mtd.getParameters()[0].getType()))
-                        .filter(mtd -> mtd.getName().equalsIgnoreCase("set" + name))
-                        .findAny()
-                        .map(Invocable::ofMethodCall)
-                        .orElse(null))
-                .apply(it);
-
-        return new Property<>(name, it, decl, uncheckedCast(vt), getter, setter);
-    }
-
     public static <T> DataStructure<T> of(@NotNull Class<? super T> target) {
         return of(target, Object.class);
     }
@@ -323,10 +303,9 @@ public class DataStructure<T> implements Named {
             this.setter = setter;
         }
 
-        @SneakyThrows
         public @Nullable V getFrom(T target) {
             Constraint.notNull(getter, "getter");
-            return getter.invoke(target);
+            return getter.invokeSilent(target);
         }
 
         @Override
