@@ -123,6 +123,7 @@ public class Streams {
     }
 
     @UtilityClass
+    // todo: the first one blocks the second one; Stream.Multi is broken
     public class Multi {
         //region main methods
         @WrapWith("map")

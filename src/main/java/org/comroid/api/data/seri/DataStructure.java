@@ -32,6 +32,7 @@ import static org.comroid.api.func.util.Streams.Multi.*;
 import static org.comroid.api.text.Capitalization.*;
 
 @Value
+@lombok.extern.java.Log
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class DataStructure<T> implements Named {
     // todo: fix WeakCache
@@ -132,7 +133,8 @@ public class DataStructure<T> implements Named {
                 if (member instanceof Field fld)
                     return true;
                 else if (member instanceof Method mtd)
-                    return (member.getName().startsWith("get") && member.getName().length() > 3);
+                    return (member.getName().startsWith("get") && member.getName().length() > 3)
+                            && mtd.getParameterCount() == 0;
                 else return false;
             }
 
@@ -184,20 +186,17 @@ public class DataStructure<T> implements Named {
         var helper = new Helper();
         var count = helper.streamRelevantMembers(target)
                 .filter(helper::filterIgnored)
-                .map(expand(Function.identity()))
-                // todo: the first one blocks the second one; Stream.Multi is broken
-                .flatMap(routeA(props->props.map(Map.Entry::getKey)
-                        .filter(helper::filterPropertyModifiers)
-                        .filter(helper::filterPropertyMembers)
-                        .map(helper::convertProperties)))
-                .flatMap(routeB(ctors->ctors.map(Map.Entry::getValue)
-                        .filter(helper::filterConstructorModifiers)
-                        .filter(helper::filterConstructorMembers)
-                        .map(helper::convertConstructors)))
-                .peek(peek(
-                        member -> struct.properties.put(member.name, uncheckedCast(member)),
-                        member -> struct.constructors.add(uncheckedCast(member))))
-                .flatMap(combine(Stream::of))
+                .flatMap(s -> Stream.concat(
+                        Stream.of(s)
+                                .filter(helper::filterPropertyModifiers)
+                                .filter(helper::filterPropertyMembers)
+                                .map(helper::convertProperties)
+                                .peek(member -> struct.properties.put(member.name, uncheckedCast(member))),
+                        Stream.of(s)
+                                .filter(helper::filterConstructorModifiers)
+                                .filter(helper::filterConstructorMembers)
+                                .map(helper::convertConstructors)
+                                .peek(member -> struct.constructors.add(uncheckedCast(member)))))
                 .count();
         Log.at(Level.INFO, "Initialized %d members for %s".formatted(count, target.getCanonicalName()));
         return struct;
