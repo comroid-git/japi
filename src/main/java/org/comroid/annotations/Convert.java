@@ -1,13 +1,13 @@
 package org.comroid.annotations;
 
-import org.comroid.annotations.internal.Inheritance;
+import org.comroid.annotations.internal.Inherit;
 
 import java.lang.annotation.*;
 
 @Inherited
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
-@Inheritance(Inheritance.Type.FromSupertype)
+@Inherit(Inherit.Type.FromSupertype)
 public @interface Convert {
     String identifyVia() default "";
 }

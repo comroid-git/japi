@@ -7,12 +7,12 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 @Repeatable(Expects.class)
-@Inheritance(Inheritance.Type.None)
+@Inherit(Inherit.Type.None)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Expect {
     @Language("JShellLanguage") String value();
 
-    String onTarget() default "";
+    String onTarget();
 
     Class<?> type() default void.class;
 }

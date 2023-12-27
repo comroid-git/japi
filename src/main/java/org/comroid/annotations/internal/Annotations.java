@@ -1,6 +1,5 @@
 package org.comroid.annotations.internal;
 
-import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Value;
@@ -9,13 +8,8 @@ import lombok.extern.java.Log;
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Convert;
 import org.comroid.annotations.Ignore;
-import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.DataStructure;
-import org.comroid.api.data.seri.StandardValueType;
-import org.comroid.api.data.seri.ValueType;
 import org.comroid.api.func.ext.Wrap;
-import org.comroid.api.func.util.Invocable;
-import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus;
@@ -24,19 +18,13 @@ import org.jetbrains.annotations.NotNull;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
-import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Arrays.*;
-import static java.util.function.Function.identity;
 import static java.util.stream.Stream.*;
 import static java.util.stream.Stream.of;
-import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.api.func.util.Streams.*;
-import static org.comroid.api.func.util.Streams.Multi.*;
-import static org.comroid.api.text.Capitalization.UpperCamelCase;
-import static org.comroid.api.text.Capitalization.lowerCamelCase;
 
 @SuppressWarnings({"DuplicatedCode","BooleanMethodIsAlwaysInverted"})
 @Log
@@ -77,7 +65,7 @@ public class Annotations {
         // @Ignore should inherit upwards indefinitely; unless specified otherwise with @Ignore.Ancestors
         // @Alias should inherit only between ancestors of same type
 
-        final var typeInherit = Wrap.of(type.getAnnotation(Inheritance.class));
+        final var typeInherit = Wrap.of(type.getAnnotation(Inherit.class));
         final var decl = ReflectionHelper.declaringClass(target);
 
         // do not scan system classes
@@ -86,9 +74,9 @@ public class Annotations {
 
         // collect members
         return of(target).flatMap(member -> {
-            var inherit = typeInherit.orRef(() -> Wrap.of(member.getAnnotation(Inheritance.class)))
-                    .map(Inheritance::value)
-                    .orElse(Inheritance.Type.Default);
+            var inherit = typeInherit.orRef(() -> Wrap.of(member.getAnnotation(Inherit.class)))
+                    .map(Inherit::value)
+                    .orElse(Inherit.Type.Default);
 
             // expand with ancestors by local or annotations @Inheritance annotations
             var sources = of(member);

@@ -4,19 +4,18 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.comroid.api.attr.BitmaskAttribute;
 
-import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
 
-@Inheritance(Inheritance.Type.None)
+@Inherit(Inherit.Type.None)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Inheritance {
+public @interface Inherit {
     Type value();
 
     @Getter
     @RequiredArgsConstructor
     enum Type implements BitmaskAttribute<Type> {
+        Inherit(-1L),
         None(0L),
         FromSupertype(1L),
         FromParent(2L),
