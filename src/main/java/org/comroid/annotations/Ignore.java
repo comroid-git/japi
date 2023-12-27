@@ -3,7 +3,6 @@ package org.comroid.annotations;
 import org.comroid.annotations.internal.Inherit;
 
 import java.lang.annotation.Annotation;
-import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -23,9 +22,9 @@ public @interface Ignore {
      * <p>
      * Useful for explicitly including Ignored members
      */
-    @Inherit(Inherit.Type.FromParent)
+    @org.comroid.annotations.internal.Inherit(org.comroid.annotations.internal.Inherit.Type.FromParent)
     @Retention(RetentionPolicy.RUNTIME)
-    @interface Ancestor {
+    @interface Inherit {
         /**
          * @return on which annotation processing to ignore the ancestors
          */

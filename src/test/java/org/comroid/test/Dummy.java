@@ -46,13 +46,13 @@ public class Dummy {
         }
 
         @Override
-        @Ignore.Ancestor(Alias.class)
+        @Ignore.Inherit(Alias.class)
         public double getPrice() {
             return 0.99;
         }
     }
 
-    @Ignore.Ancestor
+    @Ignore.Inherit
     @Alias(AliasBanana)
     public static class Banana extends Fruit {
         public Banana() {
@@ -60,7 +60,7 @@ public class Dummy {
 
         @Override
         @Alias(AliasBananaColor)
-        @Ignore.Ancestor(Ignore.class)
+        @Ignore.Inherit(Ignore.class)
         public int getColor() {
             return 0x22dd88;
         }

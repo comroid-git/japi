@@ -62,7 +62,7 @@ public class AnnotationTest {
     @Expect(value = "false", onTarget = "ignore")
     public static class Obj2 extends Obj1 {
         /** should not be ignored, reason: Obj1.getX() annotation taken down by @Ignore.Ancestor */
-        @Ignore.Ancestor
+        @Ignore.Inherit
         @Expect(value = "false", onTarget = "ignore")
         @Expect(value = "obj1.x", onTarget = "ignore-why")
         public void getX() {}
@@ -87,7 +87,7 @@ public class AnnotationTest {
         public void getX() {}
 
         /** should not be ignored, reason: Obj3 annotation taken down by @Ignore.Ancestor */
-        @Ignore.Ancestor(Ignore.class)
+        @Ignore.Inherit(Ignore.class)
         @Expect(value = "false", onTarget = "ignore")
         @Expect(value = "obj3.y", onTarget = "ignore-why")
         public void getY() {}
@@ -98,7 +98,7 @@ public class AnnotationTest {
         public void getZ() {}}
 
     /** should not be ignored */
-    @Ignore.Ancestor
+    @Ignore.Inherit
     @Expect(value = "false", onTarget = "ignore")
     @Expect(value = "obj4", onTarget = "ignore-why")
     public static class Obj4 extends Obj3 {

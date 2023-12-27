@@ -62,13 +62,13 @@ public class Annotations {
         return asList(types).contains(context);
     }
 
-    public boolean ignoreAncestors(AnnotatedElement target, Class<? extends Annotation> goal) {
+    public boolean ignoreInherit(AnnotatedElement target, Class<? extends Annotation> goal) {
         Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
-        Constraint.Type.noneOf(goal, "goal", Ignore.Ancestor.class).run();
+        Constraint.Type.noneOf(goal, "goal", Ignore.Inherit.class).run();
 
         if (target instanceof Constructor<?>)
             return true;
-        return findAnnotations(Ignore.Ancestor.class, target)
+        return findAnnotations(Ignore.Inherit.class, target)
                 .anyMatch(result -> {
                     var targets = result.annotation.value();
                     return targets.length == 0 || asList(targets).contains(goal);
@@ -90,10 +90,10 @@ public class Annotations {
 
         // collect members
         return of(target).flatMap(member -> {
-            var useAncestry = !Ignore.Ancestor.class.isAssignableFrom(type) && !ignoreAncestors(member, type);
+            var useAncestry = !Ignore.Inherit.class.isAssignableFrom(type) && !ignoreInherit(member, type);
             var inherit = typeInherit.orRef(() -> Wrap.of(member.getAnnotation(Inherit.class)))
-                    .map(Inherit::value)
-                    .orElse(Inherit.Type.Default);
+                    .map(org.comroid.annotations.internal.Inherit::value)
+                    .orElse(org.comroid.annotations.internal.Inherit.Type.Default);
 
             // expand with ancestors by local or annotations @Inheritance annotations
             var sources = of(member);
@@ -109,7 +109,7 @@ public class Annotations {
                     default:
                         throw new IllegalStateException("Unexpected value: " + inherit);
                 }
-            else if (type.equals(Ignore.Ancestor.class))
+            else if (type.equals(Ignore.Inherit.class))
                 sources = sources.collect(append(decl));
 
 
@@ -145,7 +145,6 @@ public class Annotations {
         } else throw new AssertionError("Invalid element: " + target);
         if (target instanceof Class<?> && decl.getPackageName().startsWith("java"))
             return Wrap.empty();
-
         try {
             if (target instanceof Member mem) {
                 Member chk;
