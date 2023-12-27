@@ -2,6 +2,7 @@ package org.comroid.api.func.util;
 
 import lombok.Value;
 import lombok.experimental.UtilityClass;
+import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Named;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -101,16 +102,34 @@ public class Streams {
                 .get();
     }
 
+    private static <T> Collector<T, List<T>, Stream<List<T>>> batches(int size) {
+        return Collector.of(
+                ArrayList::new,
+                List::add,
+                (a,b)->{a.addAll(b);return b;},
+                ls -> {
+                    final var out = new ArrayList<T>();
+                    for(var i = 0;i<ls.size();i++)
+                        out.add(List.of())
+                    return out.stream();
+                });
+    }
+
+    @SafeVarargs
+    public static <T,R> Function<T,Stream<R>> multiply(Function<? super T,Stream<? extends R>>... function) {
+        return t -> Stream.of(function).flatMap(func -> func.apply(t));
+    }
+
     @UtilityClass
     public class Multi {
         //region main methods
         @WrapWith("map")
-        public <A, B> Function<A, Entry<A, B>> explode(final @NotNull Function<A, B> function) {
+        public <A, B> Function<A, Entry<A, B>> expand(final @NotNull Function<A, B> function) {
             return t -> new SimpleImmutableEntry<>(t, function.apply(t));
         }
 
         @WrapWith("flatMap")
-        public <A, B> Function<A, Stream<Entry<A, B>>> explodeFlat(final @NotNull Function<A, Stream<B>> function) {
+        public <A, B> Function<A, Stream<Entry<A, B>>> expandFlat(final @NotNull Function<A, Stream<B>> function) {
             return a -> function.apply(a).map(b -> new SimpleImmutableEntry<>(a, b));
         }
 
@@ -154,6 +173,11 @@ public class Streams {
             return e -> new SimpleImmutableEntry<>(xFunction.apply(e.getKey(), e.getValue()), yFunction.apply(e.getKey(), e.getValue()));
         }
 
+        @WrapWith("flatMap")
+        public <A,B, R> Function<Entry<A,B>, Stream<R>> merge(final @NotNull BiFunction<A, B, Stream<R>> function) {
+            return e -> function.apply(e.getKey(), e.getValue());
+        }
+
         @WrapWith("map")
         public <A, B, R> Function<Entry<A, B>, R> combine(final @NotNull BiFunction<A, B, R> function) {
             return e -> function.apply(e.getKey(), e.getValue());
@@ -162,7 +186,7 @@ public class Streams {
 
         //region peek
         @WrapWith("peek")
-        public <T> Consumer<Entry<T, T>> peekMono(final @NotNull Consumer<T> consumer) {
+        public <T> Consumer<Entry<? extends T, ? extends T>> peekMono(final @NotNull Consumer<T> consumer) {
             return peek(consumer, consumer);
         }
 
@@ -298,8 +322,29 @@ public class Streams {
         }
 
         @WrapWith("flatMap")
+        public <A, B, X, Y> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Function<Stream<Entry<A,B>>, Stream<Entry<X,Y>>> function) {
+            return flatMap(Adapter.tunnel(), ($,e)->function.apply(Stream.of(e)));
+        }
+
+        @WrapWith("flatMap")
         public <A, B, X, Y, I, O> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Adapter<A, B, X, Y, I, O> adapter, final @NotNull BiFunction<Entry<A,B>, I, Stream<O>> function) {
             return e -> function.apply(e, adapter.input.apply(e)).map(o -> adapter.merge(e, o));
+        }
+
+        @WrapWith("flatMap")
+        public <A, B, X, Y> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(
+                final @NotNull BiFunction<A,B, Stream<X>> aFunction,
+                final @NotNull BiFunction<A,B, Stream<Y>> bFunction
+        ) {
+            return e -> {
+                return aFunction.apply(e.getKey(),e.getValue())
+                        .map(x->new SimpleImmutableEntry<>(x,null))
+                        .collect(append(bFunction.apply(e.getKey(),e.getValue())
+                                .map(y->new SimpleImmutableEntry<>(null,y))))
+                        .map(Polyfill::<Entry<X,Y>>uncheckedCast)
+                        .collect(Streams.batches(2))
+                var b = ;
+            }
         }
 
         //endregion
@@ -367,6 +412,10 @@ public class Streams {
 
             public static <A, B, Y> Adapter<A, B, A, Y, B, Y> sideB() {
                 return new Adapter<>(Entry::getValue, (e, y) -> e.getKey(), (e, y) -> y);
+            }
+
+            public static <A, B, X, Y> Adapter<A, B, X, Y, Entry<A,B>, Entry<X,Y>> tunnel() {
+                return new Adapter<>(Function.identity(), ($,e)->e.getKey(), ($,e)->e.getValue());
             }
 
             private Entry<X, Y> merge(Entry<A, B> entry, O output) {

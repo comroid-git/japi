@@ -140,7 +140,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                             struct.getProperties().values().stream()
                                     //.flatMap(prop -> prop.annotations.stream())
                                     //.map(Polyfill::<Annotations.Result<Inject>>uncheckedCast)
-                                    .flatMap(explodeFlat(prop -> prop.streamAnnotations(Inject.class)))
+                                    .flatMap(expandFlat(prop -> prop.streamAnnotations(Inject.class)))
                                     .map(mapB(Annotations.Result::getAnnotation))
                                     .map(combine((prop, inject) -> new Dependency<>(
                                             Optional.of(inject.value()).filter(String::isEmpty).orElse(prop.getName()),

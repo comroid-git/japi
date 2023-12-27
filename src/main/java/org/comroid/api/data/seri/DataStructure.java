@@ -4,12 +4,16 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.comroid.annotations.*;
+import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.attr.Named;
 import org.comroid.api.Polyfill;
+import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.info.Log;
 import org.comroid.api.java.Switch;
+import org.comroid.api.text.Capitalization;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,13 +21,15 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.IntPredicate;
+import java.util.logging.Level;
 import java.util.stream.Stream;
 
-import static java.util.function.Predicate.not;
 import static org.comroid.annotations.internal.Annotations.*;
 import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.api.func.util.Streams.Multi.*;
-import static org.comroid.api.java.ReflectionHelper.declaringClass;
+import static org.comroid.api.text.Capitalization.*;
 
 @Value
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -32,7 +38,6 @@ public class DataStructure<T> implements Named {
     //private static final WeakCache<Key<?>, DataStructure<?>> $cache = new WeakCache<>(DataStructure::create);
     private static final Map<Key<?>, DataStructure<?>> $cache = new ConcurrentHashMap<>();
     public static final Map<Key<?>, DataStructure<?>> cache = Collections.unmodifiableMap($cache);
-    public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class, Class.class, Annotation.class};
 
     @NotNull Class<? super T> type;
     @NotNull
@@ -92,71 +97,97 @@ public class DataStructure<T> implements Named {
     private static <T> DataStructure<T> create(Key<T> key) {
         final var target = key.type;
         final var struct = new DataStructure<T>(target);
+        class Helper {
+            <R extends Member & AnnotatedElement> Stream<R> streamRelevantMembers(Class<?> decl) {
+                return Stream.of(decl).flatMap(Streams.multiply(
+                                c -> Stream.of(c.getFields()),
+                                c -> Stream.of(c.getMethods()),
+                                c -> Stream.of(c.getConstructors())))
+                        .map(Polyfill::uncheckedCast);
+            }
 
-        // constructors
-        Stream.concat(Arrays.stream(target.getMethods())
-                                .filter(mtd -> Modifier.isStatic(mtd.getModifiers()))
-                                .filter(mtd -> Stream.of(Instance.class, Convert.class)
-                                        .anyMatch(mtd::isAnnotationPresent))
-                                .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())),
-                        Arrays.stream(target.getConstructors()))
-                .distinct()
-                .filter(it -> !ignore(it, DataStructure.class))
-                .map(explode(java.lang.reflect.Member::getDeclaringClass))
-                .flatMap(filterB(decl -> !key.above.equals(decl) && key.above.isAssignableFrom(decl)))
-                .flatMap(routeA(s->s.map(Map.Entry::getValue)
-                        .map(Class::getPackageName)
-                        .filter(name -> !name.startsWith("java"))
-                        .filter("java.lang"::equals)))
-                .flatMap(filterB(decl -> {
-                    var packageName = decl.getPackageName();
-                    return !packageName.startsWith("java") || "java.lang".equals(packageName);
-                }))
-                .map(Map.Entry::getKey)
-                .filter(it -> Modifier.isPublic(it.getModifiers()))
-                .map(it -> {
-                    Invocable<T> func;
-                    if (it instanceof java.lang.reflect.Constructor<?>)
-                        func = Invocable.ofConstructor(uncheckedCast(it));
-                    else if (it instanceof Method)
-                        func = Invocable.ofMethodCall((Method) it);
-                    else throw new AssertionError();
+            boolean filterModifiers(java.lang.reflect.Member member) {
+                final var mod = member.getModifiers();
+                return Map.<Class<?>, IntPredicate>of(
+                                Field.class, bit -> !Modifier.isStatic(bit),
+                                Method.class, bit -> ((Method) member).getReturnType().equals(target),
+                                DataStructure.Constructor.class, bit -> true)
+                        .entrySet().stream()
+                        .allMatch(e -> !e.getKey().isInstance(member) || e.getValue().test(mod));
+            }
 
-                    var declaringClass = declaringClass(it);
-                    var ctor = struct.new Constructor(it.getName(), it, declaringClass, func);
-                    for (var parameter : it.getParameters())
-                        ctor.args.put(parameter.getName(), struct.createProperty(parameter.getType(), parameter.getName(), parameter, declaringClass));
-                    return ctor;
-                }).forEach(struct.constructors::add);
+            boolean filterIgnored(AnnotatedElement member) {
+                return !Annotations.ignore(member, target);
+            }
 
-        // properties
-        Stream.concat(Arrays.stream(target.getFields()),
-                        Arrays.stream(target.getMethods())
-                                .filter(mtd -> mtd.getParameterCount() == 0)
-                                .filter(mtd -> mtd.getName().startsWith("get") && mtd.getName().length() > 3))
-                .distinct()
-                .map(explode(java.lang.reflect.Member::getModifiers))
-                .flatMap(filter(it -> !ignore(it, DataStructure.class), mod -> !Modifier.isStatic(mod) && Modifier.isPublic(mod)))
-                .map(crossA2B(java.lang.reflect.Member::getDeclaringClass))
-                .flatMap(filterB(not(Arrays.asList(SystemFilters)::contains)))
-                .flatMap(filterB(decl -> {
-                    var packageName = decl.getPackageName();
-                    return (!packageName.startsWith("java") || "java.lang".equals(packageName))
-                            && key.above.isAssignableFrom(decl);
-                }))
-                .forEach(forEach((it, decl) -> {
-                    var type = new Switch<java.lang.reflect.Member, Class<?>>()
-                            .option(Field.class::isInstance, () -> ((Field) it).getType())
-                            .option(Method.class::isInstance, () -> ((Method) it).getReturnType())
-                            .apply(it);
-                    var name = it.getName();
-                    if (it instanceof Method)
-                        name = Character.toLowerCase(name.charAt(3)) + name.substring("getX".length());
-                    var prop = struct.createProperty(type, name, it, decl);
-                    Stream.concat(Stream.of(prop.name), aliases(it).stream())
-                            .forEach(k -> struct.properties.put(k, prop));
-                }));
+            <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterPropertyMembers(R member) {
+                if (member instanceof Field fld)
+                    return true;
+                else if (member instanceof Method mtd)
+                    return (member.getName().startsWith("get") && member.getName().length() > 3);
+                else return false;
+            }
 
+            <R extends java.lang.reflect.Member & AnnotatedElement, P> Stream<DataStructure<T>.Property<P>> convertProperties(R member) {
+                String name = member.getName();
+                ValueType<P> type = null;
+                Invocable<P> getter = null;
+                Invocable<?> setter = null;
+                if (member instanceof Field fld) {
+                    type = StandardValueType.forClass(fld.getType()).cast();
+                    getter = Invocable.ofFieldGet(fld);
+                    if (!Modifier.isFinal(member.getModifiers()))
+                        setter = Invocable.ofFieldSet(fld);
+                } else if (member instanceof Method mtd) {
+                    name = lowerCamelCase.convert(name.substring(3));
+                    type = StandardValueType.forClass(mtd.getReturnType()).cast();
+                    getter = Invocable.ofMethodCall(mtd);
+                    try {
+                        var method = target.getMethod("set" + lowerCamelCase.convert(UpperCamelCase, name), type.getTargetClass());
+                        setter = Invocable.ofMethodCall(method);
+                    } catch (NoSuchMethodException ignored) {
+                    }
+                }
+                if (type == null)
+                    return Stream.empty();
+                return Stream.of(struct.new Property<>(name, member, target, type, getter, setter))
+                        .map(Polyfill::uncheckedCast);
+            }
+
+            <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterConstructorMembers(R member) {
+                if (member instanceof java.lang.reflect.Constructor<?> ctor)
+                    return true;
+                else if (member instanceof Method mtd)
+                    return mtd.getReturnType().equals(target) && mtd.getParameterCount() == 0;
+                else return false;
+            }
+
+            <R extends java.lang.reflect.Member & AnnotatedElement> Stream<DataStructure<T>.Constructor> convertConstructors(R member) {
+                String name = member.getName();
+                Invocable<T> func = null;
+                if (member instanceof java.lang.reflect.Constructor<?> ctor)
+                    func = Invocable.ofConstructor(uncheckedCast(ctor));
+                else if (member instanceof Method mtd)
+                    func = Invocable.ofMethodCall(mtd);
+                if (func == null)
+                    return Stream.empty();
+                return Stream.of(struct.new Constructor(name, member, target, func));
+            }
+        }
+        var helper = new Helper();
+        var count = helper.streamRelevantMembers(target)
+                .filter(helper::filterModifiers)
+                .filter(helper::filterIgnored)
+                .map(expand(Function.identity()))
+                .flatMap(filter(helper::filterPropertyMembers, helper::filterConstructorMembers))
+                .flatMap(flatMapA(helper::convertProperties))
+                .flatMap(flatMapB(helper::convertConstructors))
+                .peek(peek(
+                        member -> struct.properties.put(member.name, uncheckedCast(member)),
+                        member -> struct.constructors.add(uncheckedCast(member))))
+                .flatMap(combine(Stream::of))
+                .count();
+        Log.at(Level.INFO, "Initialized %d members for %s".formatted(count, target.getCanonicalName()));
         return struct;
     }
 

@@ -28,7 +28,7 @@ public class AnnotationTest {
     @Test
     public void testInheritance() throws NoSuchMethodException {
         of(Obj1.class, Obj2.class, Obj3.class, Obj4.class)
-                .flatMap(explodeFlat($->of("getX","getY","getZ")))
+                .flatMap(expandFlat($->of("getX","getY","getZ")))
                 .map(crossA2B(ThrowingBiFunction.rethrowing(Class::getMethod)))
                 .map(crossB2A(mtd -> mtd.getAnnotation(Expects.class)))
                 .flatMap(flatMapA(Stream::ofNullable))

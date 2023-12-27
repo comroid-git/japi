@@ -7,8 +7,13 @@ import lombok.experimental.UtilityClass;
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Convert;
 import org.comroid.annotations.Ignore;
+import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.DataStructure;
+import org.comroid.api.data.seri.StandardValueType;
+import org.comroid.api.data.seri.ValueType;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.func.util.Invocable;
+import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus;
@@ -17,17 +22,26 @@ import org.jetbrains.annotations.NotNull;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
+import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Arrays.*;
+import static java.util.function.Function.identity;
 import static java.util.stream.Stream.*;
+import static java.util.stream.Stream.of;
+import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.api.func.util.Streams.*;
+import static org.comroid.api.func.util.Streams.Multi.*;
+import static org.comroid.api.text.Capitalization.UpperCamelCase;
+import static org.comroid.api.text.Capitalization.lowerCamelCase;
 
 @SuppressWarnings({"DuplicatedCode","BooleanMethodIsAlwaysInverted"})
 @UtilityClass
 @ApiStatus.Internal
 public class Annotations {
+    public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class, Class.class, Annotation.class};
+
     @ApiStatus.Experimental
     @Convert(identifyVia = "annotationType")
     public Constraint.API expect(AnnotatedElement context) {
@@ -56,48 +70,52 @@ public class Annotations {
 
         // @Ignore should inherit upwards indefinitely; unless specified otherwise with @Ignore.Ancestors
         // @Alias should inherit only between ancestors of same type
+        class Helper {
+            <R extends DataStructure.Member & AnnotatedElement> Stream<R> streamRelevantMembers(Class<?> decl){}
+            boolean filterModifiers(java.lang.reflect.Member member){}
+            boolean filterIgnored(AnnotatedElement member){}
+            <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterRelated(R member){}
+            <R extends java.lang.reflect.Member & AnnotatedElement, P> Stream<Result<A>> convertAnnotations(R member){}
+        }
 
-        var decl = ReflectionHelper.declaringClass(target);
+        final var inherit = Optional.ofNullable(type.getAnnotation(Inheritance.class));
+        final var decl = ReflectionHelper.declaringClass(target);
 
         // do not scan system classes
         if (decl.getPackageName().startsWith("java"))
             return empty();
 
+        // collect members
+        return stream(decl.getFields())
+                .collect(append(stream(decl.getMethods())))
+                .collect(append(stream(decl.getConstructors())))
 
+                // checks
+                .filter((member) -> Map.<Class<?>, IntPredicate>of(
+                                Member.class, Modifier::isPublic,
+                                Field.class, x -> !Modifier.isStatic(x)
+                        ).entrySet().stream()
+                        .flatMap(filterA(cls -> cls.isAssignableFrom(member.getClass())))
+                        .map(Map.Entry::getValue)
+                        .allMatch(p -> p.test(member.getModifiers())))
 
+                // <Member, Executable>
+                .map(expand(identity()))
+                .flatMap(cast(Member.class, Executable.class))
 
+                // more checks
+                .map(map(mem -> {
+                    mem.
+                }, exe -> {
+                    exe.getModifiers();
+                }))
 
-
-
-        // first, try get annotation from type
-        return of(target.getAnnotations())
-                .flatMap(cast(type))
-                .map(a -> new Result<>(a, target, decl))
-                // otherwise, recurse into ancestors
-                .collect(append(ignoreAncestors(target, type)
-                        ? empty()
-                        : (target instanceof Class<?>
-                        // for class, try supertypes
-                        ? of(decl).flatMap(c -> concat(
-                        of(c.getSuperclass()),
-                        stream(c.getInterfaces())))
-                        // for members, try declaring class first
-                        : of(decl)
-                        // then if applicable, try return types next
-                        .collect(append(of(target).map(x -> {
-                            if (x instanceof Field fld)
-                                return fld.getType();
-                            else if (x instanceof Method mtd)
-                                return mtd.getReturnType();
-                            else return null;
-                        })))
-                        // then otherwise, try ancestors
-                        .collect(append(of(target).flatMap(x -> findAncestor(x, type).stream()))))
-                        // cleanup
-                        .filter(Objects::nonNull)
-                        .distinct()
-                        // recurse
-                        .flatMap(x -> findAnnotations(type, x))));
+                // merge into annotations
+                .flatMap(merge(Stream::of))
+                .flatMap(cast(AnnotatedElement.class))
+                .map(expand(element -> element.getAnnotationsByType(type)))
+                .flatMap(flatMapB(Arrays::stream))
+                .flatMap(merge((element, annotation) -> of(new Result<>(annotation, element, decl))));
     }
 
     public boolean ignoreAncestors(AnnotatedElement of, Class<? extends Annotation> goal) {

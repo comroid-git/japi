@@ -83,6 +83,12 @@ public enum Capitalization implements Named, Comparator<String> {
         return (int) score;
     }
 
+    public String convert(String string) {
+        var current = of(string).assertion("Could not determine capitalization case from string '"+string+'\'');
+        if (current == this) return string;
+        return current.convert(this, string);
+    }
+
     public String convert(Capitalization to, String string) {
         if (separator != null) {
             final int[] count = new int[]{0};

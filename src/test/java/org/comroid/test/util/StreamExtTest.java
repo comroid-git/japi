@@ -8,7 +8,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.comroid.api.func.util.Streams.Multi.*;
-import static org.comroid.api.func.util.Streams.Multi.Adapter.*;
 
 public class StreamExtTest {
     @Test
@@ -23,7 +22,7 @@ public class StreamExtTest {
     @Test
     public void testEntries() {
         Stream.of("mushroom", "doretta", "rock and stone!")
-                .map(explode(String::length))
+                .map(expand(String::length))
                 .map(combine((s,l)->s+l))
                 .forEach(System.out::println);
     }
