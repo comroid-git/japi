@@ -14,6 +14,7 @@ import org.comroid.api.info.Constraint;
 import org.comroid.api.java.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
@@ -46,13 +47,17 @@ public class Annotations {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    public boolean ignore(@NotNull AnnotatedElement it, @NotNull Class<?> context) {
+    public boolean ignore(@NotNull AnnotatedElement it) {
+        return ignore(it, null);
+    }
+
+    public boolean ignore(@NotNull AnnotatedElement it, @Nullable Class<?> context) {
         var yield = findAnnotations(Ignore.class, it).findFirst();
         if (yield.isEmpty())
             return false;
         var anno = yield.get();
         var types = anno.annotation.value();
-        if (types.length == 0)
+        if (types.length == 0 || context == null)
             return true;
         return asList(types).contains(context);
     }
@@ -85,28 +90,32 @@ public class Annotations {
 
         // collect members
         return of(target).flatMap(member -> {
-            var useAncestry = !(Ignore.Ancestor.class.isAssignableFrom(type) || ignoreAncestors(member, type));
+            var useAncestry = !Ignore.Ancestor.class.isAssignableFrom(type) && !ignoreAncestors(member, type);
             var inherit = typeInherit.orRef(() -> Wrap.of(member.getAnnotation(Inherit.class)))
                     .map(Inherit::value)
                     .orElse(Inherit.Type.Default);
 
             // expand with ancestors by local or annotations @Inheritance annotations
             var sources = of(member);
-            switch (inherit) {
-                case None:
-                    break;
-                case FromSupertype, FromBoth:
-                    sources = sources.collect(append(findAncestor(member, type).stream()));
-                case FromParent:
-                    sources = sources.collect(append(decl));
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected value: " + inherit);
-            }
+            if (useAncestry)
+                switch (inherit) {
+                    case None:
+                        break;
+                    case FromSupertype, FromBoth:
+                        sources = sources.collect(append(findAncestor(member, type).stream()));
+                    case FromParent:
+                        sources = sources.collect(append(decl));
+                        break;
+                    default:
+                        throw new IllegalStateException("Unexpected value: " + inherit);
+                }
+            else if (type.equals(Ignore.Ancestor.class))
+                sources = sources.collect(append(decl));
+
 
             // get most relevant annotation
             return sources.flatMap(mem -> {
-                while (useAncestry && mem != null && !mem.isAnnotationPresent(type)) {
+                while ((useAncestry || mem instanceof Class<?>) && mem != null && !mem.isAnnotationPresent(type)) {
                     Wrap<AnnotatedElement> ancestor = findAncestor(mem, type);
                     if (ancestor.isNull())
                         break;
@@ -119,7 +128,7 @@ public class Annotations {
                 }
                 if (!mem.isAnnotationPresent(type))
                     return empty();
-                return of(new Result<>(mem.getAnnotation(type), mem, member, decl));
+                return of(new Result<>(mem.getAnnotation(type), member, mem, decl));
             });
         });
     }
