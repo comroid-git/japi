@@ -25,7 +25,7 @@ public @interface Ignore {
      * Useful for explicitly including Ignored members
      */
     @Retention(RetentionPolicy.RUNTIME)
-    @Inheritance(Inheritance.Type.None)
+    @Inheritance(Inheritance.Type.FromParent)
     @interface Ancestor {
         /**
          * @return on which annotation processing to ignore the ancestors
