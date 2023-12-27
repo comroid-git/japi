@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.experimental.UtilityClass;
+import lombok.extern.java.Log;
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Convert;
 import org.comroid.annotations.Ignore;
@@ -38,6 +39,7 @@ import static org.comroid.api.text.Capitalization.UpperCamelCase;
 import static org.comroid.api.text.Capitalization.lowerCamelCase;
 
 @SuppressWarnings({"DuplicatedCode","BooleanMethodIsAlwaysInverted"})
+@Log
 @UtilityClass
 @ApiStatus.Internal
 public class Annotations {
@@ -70,7 +72,7 @@ public class Annotations {
     }
 
     public <A extends Annotation> Stream<Result<A>> findAnnotations(final Class<A> type, final AnnotatedElement target) {
-        Constraint.Type.anyOf(target, "in", Class.class, Member.class).run();
+        Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
 
         // @Ignore should inherit upwards indefinitely; unless specified otherwise with @Ignore.Ancestors
         // @Alias should inherit only between ancestors of same type
@@ -83,84 +85,75 @@ public class Annotations {
             return empty();
 
         // collect members
-        return of(target)
-                .flatMap(member -> {
-                    var inherit = typeInherit.orRef(() -> Wrap.of(member.getAnnotation(Inheritance.class)))
-                            .map(Inheritance::value)
-                            .orElse(Inheritance.Type.Default);
+        return of(target).flatMap(member -> {
+            var inherit = typeInherit.orRef(() -> Wrap.of(member.getAnnotation(Inheritance.class)))
+                    .map(Inheritance::value)
+                    .orElse(Inheritance.Type.Default);
 
-                    // expand with ancestors by local or annotations @Inheritance annotations
-                    var sources = of(member);
-                    switch (inherit) {
-                        case None:
-                            break;
-                        case FromSupertype, FromBoth:
-                            sources = sources.collect(append(findAncestor(member, type).stream()));
-                        case FromParent:
-                            sources = sources.collect(append(decl));
-                            break;
-                        default:
-                            throw new IllegalStateException("Unexpected value: " + inherit);
-                    }
+            // expand with ancestors by local or annotations @Inheritance annotations
+            var sources = of(member);
+            switch (inherit) {
+                case None:
+                    break;
+                case FromSupertype, FromBoth:
+                    sources = sources.collect(append(findAncestor(member, type).stream()));
+                case FromParent:
+                    sources = sources.collect(append(decl));
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected value: " + inherit);
+            }
 
-                    // get most relevant annotation
-                    return sources.map(mem -> {
-                        while (mem != null && !mem.isAnnotationPresent(type)) {
-                            Wrap<AnnotatedElement> ancestor = findAncestor(mem, type);
-                            if (ancestor.isNull())
-                                break;
-                            mem = ancestor.orElse(null);
-                        }
-                        if (mem == null)
-                            throw new AssertionError();
-                        return new AbstractMap.SimpleImmutableEntry<>(
-                                mem.getAnnotation(type),
-                                member
-                        );
-                    });
-                })
-                .flatMap(filterA(Objects::nonNull))
-                .flatMap(merge((annotation, element) -> of(new Result<>(annotation, element, decl))));
+            // get most relevant annotation
+            return sources.flatMap(mem -> {
+                while (mem != null && !mem.isAnnotationPresent(type)) {
+                    Wrap<AnnotatedElement> ancestor = findAncestor(mem, type);
+                    if (ancestor.isNull())
+                        break;
+                    mem = ancestor.orElse(null);
+                }
+                if (mem == null)
+                    throw new AssertionError();
+                if (!mem.isAnnotationPresent(type))
+                    return empty();
+                return of(new Result<>(mem.getAnnotation(type), mem, member, decl));
+            });
+        });
     }
 
-    public boolean ignoreAncestors(AnnotatedElement of, Class<? extends Annotation> goal) {
-        Constraint.Type.anyOf(of, "of", Class.class, Member.class).run();
+    public boolean ignoreAncestors(AnnotatedElement target, Class<? extends Annotation> goal) {
+        Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
 
-        if (of instanceof Constructor<?>)
+        if (target instanceof Constructor<?>)
             return true;
-        Class<?> decl;
-        if (of instanceof Class<?>) {
-            decl = (Class<?>) of;
-        } else if (of instanceof Member mem) {
-            decl = mem.getDeclaringClass();
-        } else throw new AssertionError("Invalid element: " + of);
-        if (of instanceof Class<?> && decl.getPackageName().startsWith("java"))
-            return true;
-        if (of.isAnnotationPresent(Ignore.Ancestor.class)) {
-            var anno = of.getAnnotation(Ignore.Ancestor.class);
-            var goals = anno.value();
-            return goals.length == 0 || asList(goals).contains(goal);
-        }
-        return false;
+        return findAnnotations(Ignore.Ancestor.class, target)
+                .map(Result::getAnnotation)
+                .anyMatch(anno -> {
+                    var goals = anno.value();
+                    return goals.length == 0 || asList(goals).contains(goal);
+                });
     }
 
     @SuppressWarnings("ConstantValue") // false positive
-    public Wrap<AnnotatedElement> findAncestor(AnnotatedElement of, Class<? extends Annotation> goal) {
-        Constraint.Type.anyOf(of, "of", Class.class, Member.class).run();
-        if (ignoreAncestors(of, goal))
+    private Wrap<AnnotatedElement> findAncestor(AnnotatedElement target, Class<? extends Annotation> goal) {
+        Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
+
+        if (goal.equals(Ignore.Ancestor.class) || ignoreAncestors(target, goal)) {
+            log.fine("goal parameter for findAncestor() should never be typeof Ignore.Ancestor");
             return Wrap.empty();
+        }
 
         Class<?> decl;
-        if (of instanceof Class<?>) {
-            decl = (Class<?>) of;
-        } else if (of instanceof Member mem) {
+        if (target instanceof Class<?>) {
+            decl = (Class<?>) target;
+        } else if (target instanceof Member mem) {
             decl = mem.getDeclaringClass();
-        } else throw new AssertionError("Invalid element: " + of);
-        if (of instanceof Class<?> && decl.getPackageName().startsWith("java"))
+        } else throw new AssertionError("Invalid element: " + target);
+        if (target instanceof Class<?> && decl.getPackageName().startsWith("java"))
             return Wrap.empty();
 
         try {
-            if (of instanceof Member mem) {
+            if (target instanceof Member mem) {
                 Member chk;
                 if (mem instanceof DataStructure.Member dmem)
                     if (dmem.getContext() instanceof Parameter)
@@ -177,24 +170,27 @@ public class Annotations {
                     return Wrap.of(pType.getDeclaredField(fld.getName()));
                 else if (chk instanceof Constructor<?> ctor)
                     return Wrap.of(pType.getDeclaredConstructor(ctor.getParameterTypes()));
-            } else if (of instanceof Class<?> cls)
+            } else if (target instanceof Class<?> cls)
                 return Wrap.of(cls.getSuperclass());
         } catch (NoSuchMethodException | NoSuchFieldException e) {
             return Wrap.empty();
         }
-        throw new IllegalArgumentException("Invalid element: " + of);
+        throw new IllegalArgumentException("Invalid element: " + target);
     }
 
     public <T extends Member & AnnotatedElement> String toString(Expect expect, T member) {
         return "%s.%s does not return %s for Annotations.%s()".formatted(
-                member.getDeclaringClass().getSimpleName() ,member.getName(), expect.value(), expect.onTarget());
+                member.getDeclaringClass().getSimpleName(), member.getName(), expect.value(), expect.onTarget());
     }
 
     @Value
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     public static class Result<A extends Annotation> implements Annotation {
-        @NotNull @Ignore A annotation;
+        @NotNull
+        @Ignore
+        A annotation;
         @NotNull AnnotatedElement context;
+        @NotNull AnnotatedElement annotated;
         @NotNull Class<?> declarator;
 
         @Override
