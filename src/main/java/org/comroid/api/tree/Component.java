@@ -392,7 +392,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                             .map(Dependency::getProp)
                             .map(DataStructure.Property::getSetter)
                             .stream()))
-                    .flatMap(filterA(func -> func.setAccessible(true),
+                    .flatMap(filterA(Invocable::setAccessible,
                             func -> Log.at(Level.WARNING, "Unable to make setter accessible: " + func)))
                     .forEach(forEach(Invocable::silentAutoInvoke));
         }

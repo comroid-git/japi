@@ -7,6 +7,7 @@ import org.comroid.api.Polyfill;
 import org.comroid.api.func.Provider;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.func.exc.ThrowingSupplier;
+import org.comroid.api.info.Log;
 import org.comroid.exception.RethrownException;
 import org.comroid.api.java.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus.Experimental;
@@ -190,21 +191,20 @@ public interface Invocable<T> extends Named {
         return null;
     }
 
-    default boolean canAccess() {
-        var obj = accessor();
-        return obj != null && obj.canAccess(Invocable.this);
+    default boolean canAccess(Object target) {
+        var func = accessor();
+        return func != null && func.canAccess(target);
     }
 
-    default boolean setAccessible(boolean state) {
-        var obj = accessor();
-        if (obj == null)
+    default boolean setAccessible() {
+        var func = accessor();
+        if (func == null)
             return false;
         try {
-            obj.setAccessible(state);
+            return func.trySetAccessible();
         } catch (InaccessibleObjectException ioe) {
             return false;
         }
-        return canAccess() == state;
     }
 
     Class<?>[] parameterTypesOrdered();
