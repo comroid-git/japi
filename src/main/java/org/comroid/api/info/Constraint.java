@@ -28,14 +28,26 @@ public class Constraint {
         public API anyOf(Object it, String nameof, Class<?>... types) {
             final var tt = it instanceof Class<?>;
             return decide(Arrays.stream(types)
-                    .anyMatch(x-> (tt &&x.isAssignableFrom((Class<?>) it)) ||x.isInstance(it)))
+                    .anyMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
                     .setConstraint("Type comparison")
                     .setTypeof(it.getClass())
                     .setNameof(nameof)
                     .setShouldBe("any of types")
                     .setExpected(Arrays.toString(types));
         }
+
+        public API noneOf(Object it, String nameof, Class<?>... types) {
+            final var tt = it instanceof Class<?>;
+            return decide(Arrays.stream(types)
+                    .noneMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
+                    .setConstraint("Type comparison")
+                    .setTypeof(it.getClass())
+                    .setNameof(nameof)
+                    .setShouldBe("none of types")
+                    .setExpected(Arrays.toString(types));
+        }
     }
+
     @UtilityClass
     public class Range {
         public API inside(double xIncl, double yIncl, double actual, String nameof) {
@@ -189,7 +201,7 @@ public class Constraint {
         @Contract(mutates = "this")
         public API invert() {
             final var wrap = test;
-            test = ()->!wrap.getAsBoolean();
+            test = () -> !wrap.getAsBoolean();
             return this;
         }
 

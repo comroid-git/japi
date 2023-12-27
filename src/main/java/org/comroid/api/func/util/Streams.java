@@ -118,7 +118,7 @@ public class Streams {
      */
 
     @SafeVarargs
-    public static <T,R> Function<T,Stream<R>> multiply(Function<? super T,Stream<? extends R>>... function) {
+    public static <T, R> Function<T, Stream<R>> multiply(Function<? super T, Stream<? extends R>>... function) {
         return t -> Stream.of(function).flatMap(func -> func.apply(t));
     }
 
@@ -176,7 +176,7 @@ public class Streams {
         }
 
         @WrapWith("flatMap")
-        public <A,B, R> Function<Entry<A,B>, Stream<R>> merge(final @NotNull BiFunction<A, B, Stream<R>> function) {
+        public <A, B, R> Function<Entry<A, B>, Stream<R>> merge(final @NotNull BiFunction<A, B, Stream<R>> function) {
             return e -> function.apply(e.getKey(), e.getValue());
         }
 
@@ -305,31 +305,31 @@ public class Streams {
         //region flatMap
         @WrapWith("flatMap")
         public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(final @NotNull Function<A, Stream<X>> function) {
-            return flatMapA((e,a)->function.apply(a));
+            return flatMapA((e, a) -> function.apply(a));
         }
 
         @WrapWith("flatMap")
-        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(final @NotNull BiFunction<Entry<A,B>, A, Stream<X>> function) {
+        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(final @NotNull BiFunction<Entry<A, B>, A, Stream<X>> function) {
             return flatMap(Adapter.sideA(), function);
         }
 
         @WrapWith("flatMap")
         public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(final @NotNull Function<B, Stream<Y>> function) {
-            return flatMapB((e,b)->function.apply(b));
+            return flatMapB((e, b) -> function.apply(b));
         }
 
         @WrapWith("flatMap")
-        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(final @NotNull BiFunction<Entry<A,B>, B, Stream<Y>> function) {
+        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(final @NotNull BiFunction<Entry<A, B>, B, Stream<Y>> function) {
             return flatMap(Adapter.sideB(), function);
         }
 
         @WrapWith("flatMap")
-        public <A, B, X, Y> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Function<Stream<Entry<A,B>>, Stream<Entry<X,Y>>> function) {
-            return flatMap(Adapter.tunnel(), ($,e)->function.apply(Stream.of(e)));
+        public <A, B, X, Y> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Function<Stream<Entry<A, B>>, Stream<Entry<X, Y>>> function) {
+            return flatMap(Adapter.tunnel(), ($, e) -> function.apply(Stream.of(e)));
         }
 
         @WrapWith("flatMap")
-        public <A, B, X, Y, I, O> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Adapter<A, B, X, Y, I, O> adapter, final @NotNull BiFunction<Entry<A,B>, I, Stream<O>> function) {
+        public <A, B, X, Y, I, O> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Adapter<A, B, X, Y, I, O> adapter, final @NotNull BiFunction<Entry<A, B>, I, Stream<O>> function) {
             return e -> function.apply(e, adapter.input.apply(e)).map(o -> adapter.merge(e, o));
         }
 
@@ -419,8 +419,8 @@ public class Streams {
                 return new Adapter<>(Entry::getValue, (e, y) -> e.getKey(), (e, y) -> y);
             }
 
-            public static <A, B, X, Y> Adapter<A, B, X, Y, Entry<A,B>, Entry<X,Y>> tunnel() {
-                return new Adapter<>(Function.identity(), ($,e)->e.getKey(), ($,e)->e.getValue());
+            public static <A, B, X, Y> Adapter<A, B, X, Y, Entry<A, B>, Entry<X, Y>> tunnel() {
+                return new Adapter<>(Function.identity(), ($, e) -> e.getKey(), ($, e) -> e.getValue());
             }
 
             private Entry<X, Y> merge(Entry<A, B> entry, O output) {
@@ -500,6 +500,8 @@ public class Streams {
                 return l.getAsBoolean() | r.getAsBoolean();
             }
         };
+        public final java.util.stream.Collector<@NotNull BooleanSupplier, @NotNull Boolean, @NotNull Boolean> Collector
+                = java.util.stream.Collector.of(() -> false, (l, r) -> test(() -> l, r), (l, r) -> test(() -> l, () -> r));
 
         @Override
         public abstract boolean test(BooleanSupplier l, BooleanSupplier r);

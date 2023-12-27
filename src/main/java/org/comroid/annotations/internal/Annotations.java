@@ -59,6 +59,7 @@ public class Annotations {
 
     public boolean ignoreAncestors(AnnotatedElement target, Class<? extends Annotation> goal) {
         Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
+        Constraint.Type.noneOf(goal, "goal", Ignore.Ancestor.class).run();
 
         if (target instanceof Constructor<?>)
             return true;
@@ -84,7 +85,7 @@ public class Annotations {
 
         // collect members
         return of(target).flatMap(member -> {
-            var ancestry = !Ignore.Ancestor.class.isAssignableFrom(type) && !ignoreAncestors(member, type);
+            var useAncestry = !(Ignore.Ancestor.class.isAssignableFrom(type) || ignoreAncestors(member, type));
             var inherit = typeInherit.orRef(() -> Wrap.of(member.getAnnotation(Inherit.class)))
                     .map(Inherit::value)
                     .orElse(Inherit.Type.Default);
@@ -105,14 +106,14 @@ public class Annotations {
 
             // get most relevant annotation
             return sources.flatMap(mem -> {
-                while (mem != null && !mem.isAnnotationPresent(type)) {
+                while (useAncestry && mem != null && !mem.isAnnotationPresent(type)) {
                     Wrap<AnnotatedElement> ancestor = findAncestor(mem, type);
                     if (ancestor.isNull())
                         break;
                     mem = ancestor.orElse(null);
                 }
                 if (mem == null) {
-                    if (ancestry)
+                    if (useAncestry)
                         throw new AssertionError();
                     else return empty();
                 }
