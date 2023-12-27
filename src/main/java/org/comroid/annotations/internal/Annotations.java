@@ -47,9 +47,7 @@ public class Annotations {
     }
 
     public boolean ignore(@NotNull AnnotatedElement it, @NotNull Class<?> context) {
-        var yield = findAnnotations(Ignore.class, it)
-                .filter(result -> !ignoreAncestors(result.getContext(), Ignore.class))
-                .findFirst();
+        var yield = findAnnotations(Ignore.class, it).findFirst();
         if (yield.isEmpty())
             return false;
         var anno = yield.get();
@@ -57,6 +55,18 @@ public class Annotations {
         if (types.length == 0)
             return true;
         return asList(types).contains(context);
+    }
+
+    public boolean ignoreAncestors(AnnotatedElement target, Class<? extends Annotation> goal) {
+        Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
+
+        if (target instanceof Constructor<?>)
+            return true;
+        return findAnnotations(Ignore.Ancestor.class, target)
+                .anyMatch(result -> {
+                    var targets = result.annotation.value();
+                    return targets.length == 0 || asList(targets).contains(goal);
+                });
     }
 
     public <A extends Annotation> Stream<Result<A>> findAnnotations(final Class<A> type, final AnnotatedElement target) {
@@ -74,6 +84,7 @@ public class Annotations {
 
         // collect members
         return of(target).flatMap(member -> {
+            var ancestry = !Ignore.Ancestor.class.isAssignableFrom(type) && !ignoreAncestors(member, type);
             var inherit = typeInherit.orRef(() -> Wrap.of(member.getAnnotation(Inherit.class)))
                     .map(Inherit::value)
                     .orElse(Inherit.Type.Default);
@@ -100,8 +111,11 @@ public class Annotations {
                         break;
                     mem = ancestor.orElse(null);
                 }
-                if (mem == null)
-                    throw new AssertionError();
+                if (mem == null) {
+                    if (ancestry)
+                        throw new AssertionError();
+                    else return empty();
+                }
                 if (!mem.isAnnotationPresent(type))
                     return empty();
                 return of(new Result<>(mem.getAnnotation(type), mem, member, decl));
@@ -109,27 +123,9 @@ public class Annotations {
         });
     }
 
-    public boolean ignoreAncestors(AnnotatedElement target, Class<? extends Annotation> goal) {
-        Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
-
-        if (target instanceof Constructor<?>)
-            return true;
-        return findAnnotations(Ignore.Ancestor.class, target)
-                .map(Result::getAnnotation)
-                .anyMatch(anno -> {
-                    var goals = anno.value();
-                    return goals.length == 0 || asList(goals).contains(goal);
-                });
-    }
-
     @SuppressWarnings("ConstantValue") // false positive
-    private Wrap<AnnotatedElement> findAncestor(AnnotatedElement target, Class<? extends Annotation> goal) {
+    public Wrap<AnnotatedElement> findAncestor(AnnotatedElement target, Class<? extends Annotation> goal) {
         Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
-
-        if (goal.equals(Ignore.Ancestor.class) || ignoreAncestors(target, goal)) {
-            log.fine("goal parameter for findAncestor() should never be typeof Ignore.Ancestor");
-            return Wrap.empty();
-        }
 
         Class<?> decl;
         if (target instanceof Class<?>) {

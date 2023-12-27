@@ -23,7 +23,7 @@ public @interface Ignore {
      * <p>
      * Useful for explicitly including Ignored members
      */
-    @Inherit(Inherit.Type.None)
+    @Inherit(Inherit.Type.FromParent)
     @Retention(RetentionPolicy.RUNTIME)
     @interface Ancestor {
         /**
