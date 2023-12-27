@@ -35,10 +35,8 @@ public class AnnotationTest {
                         .flatMap(filterA(expect -> !expect.onTarget().equals("ignore-why")))
                         .flatMap(merge((expect, method) -> {
                             var result = ignore(method, method.getDeclaringClass());
-                            if (String.valueOf(result).equals(expect.value())) {
-                                Log.at(Level.INFO, Annotations.toString(expect, method));
+                            if (String.valueOf(result).equals(expect.value()))
                                 return of(true);
-                            }
                             Log.at(Level.WARNING, Annotations.toString(expect, method));
                             return of(false);
                         }))

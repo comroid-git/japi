@@ -57,7 +57,9 @@ public class Annotations {
     }
 
     public boolean ignore(@NotNull AnnotatedElement it, @NotNull Class<?> context) {
-        var yield = findAnnotations(Ignore.class, it).findFirst();
+        var yield = findAnnotations(Ignore.class, it)
+                .filter(result -> !ignoreAncestors(result.getContext(), Ignore.class))
+                .findFirst();
         if (yield.isEmpty())
             return false;
         var anno = yield.get();
@@ -92,9 +94,9 @@ public class Annotations {
                     switch (inherit) {
                         case None:
                             break;
-                        case FromSupertype:
+                        case FromSupertype, FromBoth:
                             sources = sources.collect(append(findAncestor(member, type).stream()));
-                        case FromParent, FromBoth:
+                        case FromParent:
                             sources = sources.collect(append(decl));
                             break;
                         default:
@@ -102,10 +104,20 @@ public class Annotations {
                     }
 
                     // get most relevant annotation
-                    return sources.map(mem -> new AbstractMap.SimpleImmutableEntry<>(
-                            mem.getAnnotation(type),
-                            member
-                    ));
+                    return sources.map(mem -> {
+                        while (mem != null && !mem.isAnnotationPresent(type)) {
+                            Wrap<AnnotatedElement> ancestor = findAncestor(mem, type);
+                            if (ancestor.isNull())
+                                break;
+                            mem = ancestor.orElse(null);
+                        }
+                        if (mem == null)
+                            throw new AssertionError();
+                        return new AbstractMap.SimpleImmutableEntry<>(
+                                mem.getAnnotation(type),
+                                member
+                        );
+                    });
                 })
                 .flatMap(filterA(Objects::nonNull))
                 .flatMap(merge((annotation, element) -> of(new Result<>(annotation, element, decl))));
