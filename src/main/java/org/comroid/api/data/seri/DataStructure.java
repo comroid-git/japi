@@ -12,6 +12,7 @@ import org.comroid.api.info.Constraint;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
+import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.Switch;
 import org.comroid.api.text.Capitalization;
 import org.jetbrains.annotations.NotNull;
@@ -29,6 +30,7 @@ import java.util.stream.Stream;
 import static org.comroid.annotations.internal.Annotations.*;
 import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.api.func.util.Streams.Multi.*;
+import static org.comroid.api.java.ReflectionHelper.declaringClass;
 import static org.comroid.api.text.Capitalization.*;
 
 @Value
@@ -87,8 +89,17 @@ public class DataStructure<T> implements Named {
                         .map(Polyfill::uncheckedCast);
             }
 
+            boolean filterSystem(java.lang.reflect.Member member) {
+                var pkg = member.getDeclaringClass().getPackageName();
+                return !pkg.startsWith("java");
+            }
+
             boolean filterIgnored(AnnotatedElement member) {
                 return !Annotations.ignore(member, target);
+            }
+
+            boolean filterAbove(AnnotatedElement member) {
+                return !(member instanceof AccessibleObject obj) || !declaringClass(obj).isAssignableFrom(key.above);
             }
 
             boolean filterPropertyModifiers(java.lang.reflect.Member member) {
@@ -111,9 +122,10 @@ public class DataStructure<T> implements Named {
 
             <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterPropertyMembers(R member) {
                 if (member instanceof Field fld)
-                    return true;
+                    return checkAccess(fld);
                 else if (member instanceof Method mtd)
-                    return (member.getName().startsWith("get") && member.getName().length() > 3)
+                    return checkAccess(mtd)
+                            && (member.getName().startsWith("get") && member.getName().length() > 3)
                             && mtd.getParameterCount() == 0;
                 else return false;
             }
@@ -145,9 +157,9 @@ public class DataStructure<T> implements Named {
 
             <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterConstructorMembers(R member) {
                 if (member instanceof java.lang.reflect.Constructor<?> ctor)
-                    return true;
+                    return checkAccess(ctor);
                 else if (member instanceof Method mtd)
-                    return mtd.getReturnType().equals(target) && mtd.getParameterCount() == 0;
+                    return checkAccess(mtd) && mtd.getReturnType().equals(target);
                 else return false;
             }
 
@@ -162,10 +174,16 @@ public class DataStructure<T> implements Named {
                     throw new AssertionError("Could not initialize construction adapter for " + member);
                 return struct.new Constructor(name, member, target, func);
             }
+
+            boolean checkAccess(AnnotatedElement member) {
+                return member instanceof AccessibleObject obj && obj.trySetAccessible();
+            }
         }
         var helper = new Helper();
         var count = helper.streamRelevantMembers(target)
+                .filter(helper::filterSystem)
                 .filter(helper::filterIgnored)
+                .filter(helper::filterAbove)
                 .flatMap(s -> Stream.concat(
                         Stream.of(s)
                                 .filter(helper::filterPropertyModifiers)
@@ -177,8 +195,9 @@ public class DataStructure<T> implements Named {
                                 .filter(helper::filterConstructorMembers)
                                 .map(helper::convertConstructors)
                                 .peek(member -> struct.constructors.add(uncheckedCast(member)))))
+                .peek(member -> log.finer(struct + " got new member " + member.getName()))
                 .count();
-        Log.at(Level.INFO, "Initialized %d members for %s".formatted(count, target.getCanonicalName()));
+        Log.at(Level.FINE, "Initialized %d members for %s".formatted(count, target.getCanonicalName()));
         return struct;
     }
 
