@@ -141,11 +141,25 @@ public class DataStructure<T> implements Named {
                     name = lowerCamelCase.convert(name.substring(3));
                     type = ValueType.of(mtd.getReturnType());
                     getter = Invocable.ofMethodCall(mtd);
-                    try {
-                        var method = target.getMethod("set" + UpperCamelCase.convert(name), type.getTargetClass());
-                        setter = Invocable.ofMethodCall(method);
-                    } catch (NoSuchMethodException ignored) {
-                    }
+
+                    final var finalName = name;
+                    final var finalType = type;
+                    setter = Wrap.ofOptional(Arrays.stream(target.getMethods())
+                                    .filter(this::filterSystem)
+                                    .filter(this::filterIgnored)
+                                    .filter(this::filterAbove)
+                                    .filter(this::filterPropertyModifiers)
+                                    .filter(candidate -> {
+                                        var setterName = candidate.getName();
+                                        return setterName.startsWith("set")
+                                                && setterName.length() > 3
+                                                && setterName.equals("set" + UpperCamelCase.convert(finalName))
+                                                && checkAccess(candidate)
+                                                && candidate.getParameterCount() == 1
+                                                && ValueType.of(candidate.getParameterTypes()[0]).equals(finalType);
+                                    })
+                                    .findAny())
+                            .ifPresentMap(Invocable::ofMethodCall);
                 }
                 if (type == null)
                     throw new AssertionError("Could not initialize property adapter for " + member);
@@ -192,7 +206,7 @@ public class DataStructure<T> implements Named {
                                 .filter(helper::filterConstructorMembers)
                                 .map(helper::convertConstructors)
                                 .peek(member -> struct.constructors.add(uncheckedCast(member)))))
-                .peek(member -> log.finer(struct + " got new member " + member.getName()))
+                .peek(member -> System.out.println(member))
                 .count();
         Log.at(Level.FINE, "Initialized %d members for %s".formatted(count, target.getCanonicalName()));
         return struct;
