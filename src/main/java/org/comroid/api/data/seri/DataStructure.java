@@ -163,7 +163,9 @@ public class DataStructure<T> implements Named {
                 }
                 if (type == null)
                     throw new AssertionError("Could not initialize property adapter for " + member);
-                return uncheckedCast(struct.new Property<>(name, member, target, type, getter, setter));
+                DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name, member, target, type, getter, setter));
+                setAliases(member,prop);
+                return prop;
             }
 
             <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterConstructorMembers(R member) {
@@ -183,7 +185,13 @@ public class DataStructure<T> implements Named {
                     func = Invocable.ofMethodCall(mtd);
                 if (func == null)
                     throw new AssertionError("Could not initialize construction adapter for " + member);
-                return struct.new Constructor(name, member, target, func);
+                DataStructure<T>.Constructor ctor = struct.new Constructor(name, member, target, func);
+                setAliases(member,ctor);
+                return ctor;
+            }
+
+            private void setAliases(AnnotatedElement source, DataStructure.Member member) {
+                member.aliases.addAll(aliases(source));
             }
 
             boolean checkAccess(AnnotatedElement member) {
@@ -200,7 +208,8 @@ public class DataStructure<T> implements Named {
                                 .filter(helper::filterPropertyModifiers)
                                 .filter(helper::filterPropertyMembers)
                                 .map(helper::convertProperties)
-                                .peek(member -> struct.properties.put(member.name, uncheckedCast(member))),
+                                .peek(member -> Stream.concat(Stream.of(member.getName()), member.aliases.stream())
+                                        .forEach(name -> struct.properties.put(name, uncheckedCast(member)))),
                         Stream.of(s)
                                 .filter(helper::filterConstructorModifiers)
                                 .filter(helper::filterConstructorMembers)
