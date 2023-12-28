@@ -252,7 +252,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         }
     }
 
-    @Getter
+    @Getter @Ignore
     class Base extends Container.Base implements Component {
         protected boolean enabled = true;
         private State currentState = State.PreInit;
