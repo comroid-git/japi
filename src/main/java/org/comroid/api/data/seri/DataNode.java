@@ -294,6 +294,7 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @Ignore(Convertible.class)
     class Value<T> extends Base implements ValueBox<T> {
         public static final DataNode NULL = new Value<>(null);
         protected @Nullable T value;
