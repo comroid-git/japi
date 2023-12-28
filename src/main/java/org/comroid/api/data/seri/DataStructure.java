@@ -105,11 +105,7 @@ public class DataStructure<T> implements Named {
 
             boolean filterPropertyModifiers(java.lang.reflect.Member member) {
                 final var mod = member.getModifiers();
-                return Map.<Class<?>, IntPredicate>of(
-                                Field.class, bit -> !Modifier.isStatic(bit),
-                                Method.class, bit -> true)
-                        .entrySet().stream()
-                        .anyMatch(e -> !e.getKey().isInstance(member) || e.getValue().test(mod));
+                return !Modifier.isStatic(mod);
             }
 
             boolean filterConstructorModifiers(java.lang.reflect.Member member) {
