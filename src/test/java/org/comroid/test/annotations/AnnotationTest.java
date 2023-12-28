@@ -6,6 +6,7 @@ import org.comroid.api.func.exc.ThrowingBiFunction;
 import org.comroid.annotations.internal.Expect;
 import org.comroid.annotations.internal.Expects;
 import org.comroid.api.info.Log;
+import org.comroid.api.tree.Component;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -43,7 +44,7 @@ public class AnnotationTest {
 
     /** should not be ignored */
     @Expect(value = "false", onTarget = "ignore")
-    public static class Obj1 {
+    public static class Obj1 extends Component.Base {
         /** should be ignored */
         @Ignore
         @Expect(value = "true", onTarget = "ignore")
