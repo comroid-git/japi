@@ -84,9 +84,12 @@ public class DataStructure<T> implements Named {
         class Helper {
             <R extends java.lang.reflect.Member & AnnotatedElement> Stream<R> streamRelevantMembers(Class<?> decl) {
                 return Stream.of(decl).flatMap(Streams.multiply(
-                                c -> Stream.of(c.getFields()),
-                                c -> Stream.of(c.getMethods()),
-                                c -> Stream.of(c.getConstructors())))
+                                c -> Stream.concat(
+                                        Arrays.stream(c.getFields()),
+                                        Arrays.stream(c.getDeclaredFields())
+                                                .filter(fld -> !Modifier.isPublic(fld.getModifiers()))),
+                                c -> Arrays.stream(c.getMethods()),
+                                c -> Arrays.stream(c.getConstructors())))
                         .map(Polyfill::uncheckedCast);
             }
 
@@ -105,7 +108,7 @@ public class DataStructure<T> implements Named {
 
             boolean filterPropertyModifiers(java.lang.reflect.Member member) {
                 final var mod = member.getModifiers();
-                return !Modifier.isStatic(mod);
+                return !Modifier.isStatic(mod) && (member instanceof Field || Modifier.isPublic(mod));
             }
 
             boolean filterConstructorModifiers(java.lang.reflect.Member member) {
