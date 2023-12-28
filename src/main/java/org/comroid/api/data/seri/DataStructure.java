@@ -7,6 +7,7 @@ import org.comroid.annotations.*;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.attr.Named;
 import org.comroid.api.Polyfill;
+import org.comroid.api.func.ValuePointer;
 import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.func.util.Invocable;
@@ -202,7 +203,7 @@ public class DataStructure<T> implements Named {
     }
 
     @FieldDefaults(level = AccessLevel.PROTECTED, makeFinal = true)
-    public static abstract class Member implements Named, AnnotatedElement, java.lang.reflect.Member {
+    public static abstract class Member implements Named, AnnotatedElement, java.lang.reflect.Member, ValuePointer<Object> {
         @NotNull
         @Getter
         String name;
@@ -272,6 +273,15 @@ public class DataStructure<T> implements Named {
                     .findAny()
                     .orElse(null);
         }
+
+        @Override
+        public String toString() {
+            return "%s (%s) %s.%s".formatted(
+                    getClass().getSimpleName(),
+                    getHeldType().getTargetClass().getSimpleName(),
+                    declaringClass.getSimpleName(),
+                    name);
+        }
     }
 
     @Value
@@ -295,6 +305,16 @@ public class DataStructure<T> implements Named {
         @Override
         public int getModifiers() {
             return super.getModifiers() | Modifier.STATIC;
+        }
+
+        @Override
+        public ValueType<?> getHeldType() {
+            return ValueType.of(declaringClass);
+        }
+
+        @Override
+        public String toString() {
+            return super.toString();
         }
     }
 
@@ -330,6 +350,16 @@ public class DataStructure<T> implements Named {
         @Override
         public int getModifiers() {
             return super.getModifiers() | (setter == null ? Modifier.FINAL : 0);
+        }
+
+        @Override
+        public ValueType<?> getHeldType() {
+            return type;
+        }
+
+        @Override
+        public String toString() {
+            return super.toString() + " (" + (getter!=null?"get":"")+(setter!=null?" set":"")+')';
         }
 
         @NoArgsConstructor(access = AccessLevel.PRIVATE)
