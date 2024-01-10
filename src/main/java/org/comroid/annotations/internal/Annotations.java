@@ -135,8 +135,8 @@ public class Annotations {
         });
     }
 
-    @NotNull
-    private static ElementType getElementType(AnnotatedElement member) {
+    private static @NotNull ElementType getElementType(AnnotatedElement member) {
+        member = unwrapStructMember(member);
         ElementType et;
         if (member instanceof Class<?>) et=ElementType.TYPE;
         else if (member instanceof Field) et=ElementType.FIELD;
@@ -146,6 +146,12 @@ public class Annotations {
         else if (member instanceof Package) et=ElementType.PACKAGE;
         else throw new RuntimeException("Unsupported member: " + member);
         return et;
+    }
+
+    private static AnnotatedElement unwrapStructMember(AnnotatedElement member) {
+        if (member instanceof DataStructure.Member struct)
+            return struct.getContext();
+        return member;
     }
 
     @SuppressWarnings("ConstantValue") // false positive
