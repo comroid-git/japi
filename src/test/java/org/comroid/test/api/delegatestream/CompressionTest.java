@@ -1,10 +1,9 @@
 package org.comroid.test.api.delegatestream;
 
-import org.comroid.api.DelegateStream;
+import org.comroid.api.func.util.DelegateStream;
 import org.comroid.util.TestUtil;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Test;
 
 import java.io.*;
 import java.util.zip.GZIPInputStream;

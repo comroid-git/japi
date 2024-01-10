@@ -1,12 +1,9 @@
 package org.comroid.test.api;
 
-import org.comroid.api.Context;
-import org.comroid.api.Event;
-import org.comroid.util.StandardValueType;
+import org.comroid.api.func.util.Event;
+import org.comroid.api.data.seri.StandardValueType;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.concurrent.Executor;
 
 public class EventTest {
     private Event.Bus<String> busA;

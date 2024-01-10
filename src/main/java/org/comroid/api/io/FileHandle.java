@@ -1,8 +1,8 @@
 package org.comroid.api.io;
 
-import org.comroid.api.ContentParser;
-import org.comroid.api.Named;
-import org.comroid.api.StringSerializable;
+import org.comroid.api.data.ContentParser;
+import org.comroid.api.attr.Named;
+import org.comroid.api.data.seri.StringSerializable;
 import org.comroid.api.os.OSBasedFileMover;
 import org.jetbrains.annotations.NotNull;
 

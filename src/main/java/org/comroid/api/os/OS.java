@@ -1,9 +1,9 @@
 package org.comroid.api.os;
 
 import lombok.SneakyThrows;
-import org.comroid.api.DelegateStream;
-import org.comroid.api.Event;
-import org.comroid.api.Named;
+import org.comroid.api.func.util.DelegateStream;
+import org.comroid.api.func.util.Event;
+import org.comroid.api.attr.Named;
 import org.comroid.api.info.Log;
 import org.jetbrains.annotations.NotNull;
 
@@ -15,7 +15,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

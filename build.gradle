@@ -75,7 +75,7 @@ compileJava.options.encoding = 'UTF-8'
 
 repositories {
     mavenLocal()
-    jcenter()
+    mavenCentral()
     maven { url 'https://www.jitpack.io' }
     mavenCentral()
 }

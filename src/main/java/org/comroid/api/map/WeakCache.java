@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
-import org.comroid.api.SupplierX;
+import org.comroid.api.func.ext.Wrap;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.ref.Reference;
@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Deprecated // todo: broken
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class WeakCache<K,V> extends AbstractMap<K,V> {
@@ -46,10 +47,10 @@ public class WeakCache<K,V> extends AbstractMap<K,V> {
         }
 
         V touch() {
-            return SupplierX.of(ref)
+            return Wrap.of(ref)
                     .map(Reference::get)
-                    .orRef(()->SupplierX.of(key)
-                            .map(provider)
+                    .orRef(()-> Wrap.of(key)
+                            .map(provider) // todo sometimes causes NPE
                             .peek(it -> ref = new WeakReference<>(it)))
                     .orElseThrow(() -> new AssertionError("Unable to touch WeakCache object with key " + key));
         }

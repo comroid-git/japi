@@ -2,8 +2,12 @@ package org.comroid.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
-import lombok.Builder;
 import lombok.experimental.FieldDefaults;
+import org.comroid.api.func.ValueBox;
+import org.comroid.api.func.util.OnDemand;
+import org.comroid.api.tree.Activatable;
+import org.comroid.api.tree.Cancellable;
+import org.comroid.api.tree.Container;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,7 +29,8 @@ public class BackgroundTask<T> extends Container.Base implements ValueBox<T>, Ru
     @Getter
     Consumer<T> action;
     @Getter long repeatRateMs;
-    @Getter OnDemand<Timer> timer = new OnDemand<>(Timer::new);
+    @Getter
+    OnDemand<Timer> timer = new OnDemand<>(Timer::new);
     @Getter OnDemand<@Nullable Executor> executor = new OnDemand<>(Executors::newSingleThreadExecutor);
     @JsonIgnore FutureTask<T> computation;
 

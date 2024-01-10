@@ -1,5 +1,7 @@
 package org.comroid.api;
 
+import org.comroid.api.func.PropertyHolder;
+import org.comroid.api.func.exc.ThrowingRunnable;
 import org.jetbrains.annotations.ApiStatus.NonExtendable;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
 import org.jetbrains.annotations.Nullable;

@@ -1,6 +1,6 @@
 package org.comroid.api.io;
 
-import org.comroid.api.Named;
+import org.comroid.api.attr.Named;
 
 import java.io.File;
 

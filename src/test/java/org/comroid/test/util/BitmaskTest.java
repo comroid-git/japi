@@ -1,6 +1,6 @@
 package org.comroid.test.util;
 
-import org.comroid.util.Bitmask;
+import org.comroid.api.func.util.Bitmask;
 import org.junit.Assert;
 import org.junit.Test;
 

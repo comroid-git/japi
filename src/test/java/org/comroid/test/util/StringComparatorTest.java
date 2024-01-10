@@ -1,6 +1,6 @@
 package org.comroid.test.util;
 
-import org.comroid.util.StringBasedComparator;
+import org.comroid.api.func.comp.StringBasedComparator;
 
 import java.util.Arrays;
 

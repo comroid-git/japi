@@ -1,6 +1,6 @@
 package org.comroid.test.util;
 
-import org.comroid.util.Stopwatch;
+import org.comroid.api.func.util.Stopwatch;
 
 public class StopwatchTest {
     public static void main(String[] args) throws InterruptedException {

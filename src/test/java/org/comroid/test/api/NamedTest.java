@@ -1,6 +1,6 @@
 package org.comroid.test.api;
 
-import org.comroid.api.Named;
+import org.comroid.api.attr.Named;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;

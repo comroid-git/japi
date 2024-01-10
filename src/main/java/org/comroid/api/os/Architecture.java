@@ -1,6 +1,6 @@
 package org.comroid.api.os;
 
-import org.comroid.api.Named;
+import org.comroid.api.attr.Named;
 
 import java.util.Arrays;
 import java.util.Collections;
