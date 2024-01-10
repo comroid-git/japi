@@ -1,5 +1,6 @@
 package org.comroid.test;
 
+import lombok.ToString;
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.tree.Component;
@@ -17,6 +18,7 @@ public class Dummy {
 
     public @Ignore static class SomethingElse {}
 
+    @ToString
     @Alias(AliasFruit)
     public static class Fruit extends Component.Base {
         public double getPrice() {
@@ -33,6 +35,7 @@ public class Dummy {
         }
     }
 
+    @ToString
     @Alias(AliasApple)
     public static class Apple extends Fruit {
         public final double hardness;
@@ -52,6 +55,7 @@ public class Dummy {
         }
     }
 
+    @ToString
     @Ignore.Inherit
     @Alias(AliasBanana)
     public static class Banana extends Fruit {
