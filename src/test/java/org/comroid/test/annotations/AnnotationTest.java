@@ -99,7 +99,6 @@ public class AnnotationTest {
         public void getZ() {}}
 
     /** should not be ignored */
-    @Ignore.Inherit
     @Expect(value = "false", onTarget = "ignore")
     @Expect(value = "obj4", onTarget = "ignore-why")
     public static class Obj4 extends Obj3 {
