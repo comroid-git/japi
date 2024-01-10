@@ -17,6 +17,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -78,7 +79,7 @@ public class Annotations {
     public <A extends Annotation> Stream<Result<A>> findAnnotations(final Class<A> type, final AnnotatedElement target) {
         Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
 
-        // @Ignore should inherit upwards indefinitely; unless specified otherwise with @Ignore.Ancestors
+        // @Ignore should inherit upwards indefinitely on anything but types; unless specified otherwise with @Ignore.Ancestors
         // @Alias should inherit only between ancestors of same type
 
         final var typeInherit = Wrap.of(type.getAnnotation(Inherit.class));
@@ -92,7 +93,14 @@ public class Annotations {
         return of(target).flatMap(member -> {
             var useAncestry = !Ignore.Inherit.class.isAssignableFrom(type) && !ignoreInherit(member, type);
             var inherit = typeInherit.orRef(() -> Wrap.of(member.getAnnotation(Inherit.class)))
-                    .map(org.comroid.annotations.internal.Inherit::value)
+                    .map(it -> {
+                        final var et = getElementType(member);
+                        return stream(it.rules())
+                                .filter(r -> r.on() == et)
+                                .map(Inherit.Rule::strategy)
+                                .findAny()
+                                .orElseGet(it::value);
+                    })
                     .orElse(org.comroid.annotations.internal.Inherit.Type.Default);
 
             // expand with ancestors by local or annotations @Inheritance annotations
@@ -125,6 +133,19 @@ public class Annotations {
                 return of(new Result<>(mem.getAnnotation(type), member, mem, decl));
             });
         });
+    }
+
+    @NotNull
+    private static ElementType getElementType(AnnotatedElement member) {
+        ElementType et;
+        if (member instanceof Class<?>) et=ElementType.TYPE;
+        else if (member instanceof Field) et=ElementType.FIELD;
+        else if (member instanceof Method) et=ElementType.METHOD;
+        else if (member instanceof Parameter) et=ElementType.PARAMETER;
+        else if (member instanceof Constructor<?>) et=ElementType.CONSTRUCTOR;
+        else if (member instanceof Package) et=ElementType.PACKAGE;
+        else throw new RuntimeException("Unsupported member: " + member);
+        return et;
     }
 
     @SuppressWarnings("ConstantValue") // false positive
