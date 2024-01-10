@@ -103,7 +103,7 @@ public class DataStructure<T> implements Named {
             }
 
             boolean filterIgnored(AnnotatedElement member) {
-                return !Annotations.ignore(member, target);
+                return Annotations.ignore(member, target).isEmpty();
             }
 
             boolean filterAbove(AnnotatedElement member) {

@@ -47,19 +47,19 @@ public class Annotations {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    public boolean ignore(@NotNull AnnotatedElement it) {
+    public Optional<? extends AnnotatedElement> ignore(@NotNull AnnotatedElement it) {
         return ignore(it, null);
     }
 
-    public boolean ignore(@NotNull AnnotatedElement it, @Nullable Class<?> context) {
+    public Optional<? extends AnnotatedElement> ignore(@NotNull AnnotatedElement it, @Nullable Class<?> context) {
         var yield = findAnnotations(Ignore.class, it).findFirst();
         if (yield.isEmpty())
-            return false;
+            return Optional.empty();
         var anno = yield.get();
         var types = anno.annotation.value();
         if (types.length == 0 || context == null)
-            return true;
-        return asList(types).contains(context);
+            return Optional.of(it);
+        return stream(types).filter(context::equals).findAny();
     }
 
     public boolean ignoreInherit(AnnotatedElement target, Class<? extends Annotation> goal) {

@@ -22,7 +22,7 @@ public interface Convertible {
     @Experimental
     @SuppressWarnings("unchecked")
     static <R> @NotNull R convert(Object it_, Class<? super R> target) {
-        var it = it_ instanceof Supplier && !Annotations.ignore(it_.getClass(), Convertible.class)
+        var it = it_ instanceof Supplier && Annotations.ignore(it_.getClass(), Convertible.class).isEmpty()
                 ? ((Supplier<?>) it_).get() : it_;
         Constraint.notNull(it, "source object")
                 .setHint("check implementation")
