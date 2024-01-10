@@ -93,6 +93,10 @@ public class DataStructure<T> implements Named {
                         .map(Polyfill::uncheckedCast);
             }
 
+            boolean filterDynamic(java.lang.reflect.Member member) {
+                return !member.getName().matches("this\\$\\d+");
+            }
+
             boolean filterSystem(java.lang.reflect.Member member) {
                 var pkg = member.getDeclaringClass().getPackageName();
                 return !pkg.startsWith("java");
@@ -203,6 +207,7 @@ public class DataStructure<T> implements Named {
         }
         var helper = new Helper();
         var count = helper.streamRelevantMembers(target)
+                .filter(helper::filterDynamic)
                 .filter(helper::filterSystem)
                 .filter(helper::filterIgnored)
                 .filter(helper::filterAbove)
