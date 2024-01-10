@@ -115,12 +115,6 @@ public class Annotations {
 
             // get most relevant annotation
             return sources.flatMap(mem -> {
-                while ((useAncestry || mem instanceof Class<?>) && mem != null && !mem.isAnnotationPresent(type)) {
-                    Wrap<AnnotatedElement> ancestor = findAncestor(mem, type);
-                    if (ancestor.isNull())
-                        break;
-                    mem = ancestor.orElse(null);
-                }
                 if (mem == null) {
                     if (useAncestry)
                         throw new AssertionError();
