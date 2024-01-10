@@ -1,8 +1,8 @@
 package org.comroid.api.func.util;
 
-import lombok.Value;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 import lombok.experimental.UtilityClass;
-import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Named;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -20,6 +20,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static java.util.function.Function.identity;
 import static java.util.stream.Stream.empty;
 import static org.comroid.api.func.N.Consumer.nop;
 
@@ -122,8 +123,8 @@ public class Streams {
         return t -> Stream.of(function).flatMap(func -> func.apply(t));
     }
 
+    @Deprecated
     @UtilityClass
-    // todo: the first one blocks the second one; Stream.Multi is broken
     public class Multi {
         //region main methods
         @WrapWith("map")
@@ -143,12 +144,12 @@ public class Streams {
 
         @WrapWith("flatMap")
         public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> routeA(final @NotNull Function<Stream<Entry<A, B>>, Stream<X>> function) {
-            return flatMap(Adapter.sideA(), (e, a) -> function.apply(Stream.of(e)));
+            return flatMap(Duplex.sideA(), (e, a) -> function.apply(Stream.of(e)));
         }
 
         @WrapWith("flatMap")
         public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> routeB(final @NotNull Function<Stream<Entry<A, B>>, Stream<Y>> function) {
-            return flatMap(Adapter.sideB(), (e, b) -> function.apply(Stream.of(e)));
+            return flatMap(Duplex.sideB(), (e, b) -> function.apply(Stream.of(e)));
         }
 
         @WrapWith("map")
@@ -289,12 +290,12 @@ public class Streams {
 
         @WrapWith("map")
         public <A, B, X> Function<Entry<A, B>, Entry<X, B>> mapA(final @NotNull Function<A, X> function) {
-            return map(function, Function.identity());
+            return map(function, identity());
         }
 
         @WrapWith("map")
         public <A, B, Y> Function<Entry<A, B>, Entry<A, Y>> mapB(final @NotNull Function<B, Y> function) {
-            return map(Function.identity(), function);
+            return map(identity(), function);
         }
 
         @WrapWith("map")
@@ -311,7 +312,7 @@ public class Streams {
 
         @WrapWith("flatMap")
         public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(final @NotNull BiFunction<Entry<A, B>, A, Stream<X>> function) {
-            return flatMap(Adapter.sideA(), function);
+            return flatMap(Duplex.sideA(), function);
         }
 
         @WrapWith("flatMap")
@@ -321,17 +322,17 @@ public class Streams {
 
         @WrapWith("flatMap")
         public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(final @NotNull BiFunction<Entry<A, B>, B, Stream<Y>> function) {
-            return flatMap(Adapter.sideB(), function);
+            return flatMap(Duplex.sideB(), function);
         }
 
         @WrapWith("flatMap")
         public <A, B, X, Y> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Function<Stream<Entry<A, B>>, Stream<Entry<X, Y>>> function) {
-            return flatMap(Adapter.tunnel(), ($, e) -> function.apply(Stream.of(e)));
+            return flatMap(Duplex.tunnel(), ($, e) -> function.apply(Stream.of(e)));
         }
 
         @WrapWith("flatMap")
-        public <A, B, X, Y, I, O> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Adapter<A, B, X, Y, I, O> adapter, final @NotNull BiFunction<Entry<A, B>, I, Stream<O>> function) {
-            return e -> function.apply(e, adapter.input.apply(e)).map(o -> adapter.merge(e, o));
+        public <A, B, X, Y, I, O> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Streams.Duplex<A, B, I, X, O, X, Y> duplex, final @NotNull BiFunction<Entry<A, B>, I, Stream<O>> function) {
+            return e -> function.apply(e, duplex.input.apply(e)).map(o -> duplex.merge(e, o));
         }
 
         /*
@@ -406,32 +407,216 @@ public class Streams {
         }
         //endregion
 
-        @Value
-        public static class Adapter<A, B, X, Y, I, O> {
-            Function<Entry<A, B>, I> input;
-            BiFunction<Entry<A, B>, O, X> outputX;
-            BiFunction<Entry<A, B>, O, Y> outputY;
-
-            public static <A, B, X> Adapter<A, B, X, B, A, X> sideA() {
-                return new Adapter<>(Entry::getKey, (e, x) -> x, (e, y) -> e.getValue());
-            }
-
-            public static <A, B, Y> Adapter<A, B, A, Y, B, Y> sideB() {
-                return new Adapter<>(Entry::getValue, (e, y) -> e.getKey(), (e, y) -> y);
-            }
-
-            public static <A, B, X, Y> Adapter<A, B, X, Y, Entry<A, B>, Entry<X, Y>> tunnel() {
-                return new Adapter<>(Function.identity(), ($, e) -> e.getKey(), ($, e) -> e.getValue());
-            }
-
-            private Entry<X, Y> merge(Entry<A, B> entry, O output) {
-                return new SimpleImmutableEntry<>(outputX.apply(entry, output), outputY.apply(entry, output));
-            }
-        }
-
         @Retention(RetentionPolicy.CLASS)
         private @interface WrapWith {
             String value();
+        }
+    }
+
+    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    public static class Simplex<In, Acc, Out> implements Function<In, Stream<Out>> {
+        public static <T> Simplex<T, T, T> peek(final @NotNull Consumer<? super T> action) {
+        }
+
+        public static <T> Simplex<T, T, T> filter(final @NotNull Predicate<? super T> filter) {
+        }
+
+        public static <I, O> Simplex<I, I, O> map(final @NotNull Function<? super I, ? extends O> function) {
+        }
+
+        public static <I, O> Simplex<I, I, O> flatMap(final @NotNull Function<? super I, ? extends Stream<? extends O>> function) {
+        }
+
+        public static <R> Simplex<?, ?, R> cast(final @NotNull Class<R> type) {
+        }
+
+        public static <T> Simplex<T, ?, ?> forEach(final @NotNull Consumer<? super T> action) {
+        }
+
+        public static <InA, InB, R> Simplex<Entry<InA, InB>,?,R> adapter(final @NotNull BiFunction<InA, InB,R> function) {
+            return adapter(function, Stream::ofNullable);
+        }
+
+        public static <InA, InB, A, R> Simplex<Entry<InA, InB>,A,R> adapter(final @NotNull BiFunction<InA, InB,A> function, final @NotNull Function<@Nullable A,Stream<R>> finalize) {
+            return new Simplex<>(e -> function.apply(e.getKey(), e.getValue()), finalize);
+        }
+
+        @With
+        @NotNull Function<In, Acc> prepare;
+        @With
+        @NotNull Function<Acc, Stream<Out>> process;
+
+        @Override
+        public final Stream<Out> apply(In in) {
+            return prepare.andThen(process).apply(in);
+        }
+    }
+
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    public static class Duplex<In, AccA, AccB, AccS, OutA, OutB, Fin>
+            //extends Simplex<In, Entry<AccA,AccB>, Entry<ResA,ResB>, Out>
+            implements Function<In, Stream<Fin>> {
+        public static <A, B> Duplex<Entry<A, B>, A, B, Entry<A, B>, A, B, Entry<A, B>> peek(BiConsumer<? super A, ? super B> action) {
+            return new Duplex<>(
+                    Entry::getKey, Entry::getValue,
+                    new Adapter<A,B,Entry<A,B>,A,B>(consumer(action),e->Stream.of(e.getKey()),e->Stream.of(e.getValue())),
+                    SimpleImmutableEntry::new);
+        }
+
+        public static <A, B> Duplex<Entry<A, B>, A, B, Entry<A, B>, A, B, Entry<A, B>> filter(BiPredicate<? super A, ? super B> filter) {
+            return new Duplex<>(Entry::getKey, Entry::getValue,
+                    Simplex.adapter((a, b) -> filter.test(a,b)?a:null),
+                    Simplex.adapter((a, b) -> filter.test(a,b)?b:null),
+                    SimpleImmutableEntry::new);
+        }
+
+        public static <A, B, X, Y> Duplex<Entry<A, B>, A, B, Entry<A, B>, X, Y, Entry<A, B>> map(BiFunction<? super A, ? super B, Entry<? extends X, ? extends Y>> action) {
+            return new Duplex<Entry<A, B>, A, B, Entry<A, B>, X, Y, Entry<A, B>>(Entry::getKey, Entry::getValue,
+                    Simplex.<A,B,A>adapter((a,b)->action.apply(a,b)),
+                    Simplex.<A,B,B>adapter((a,b)->action.apply(a,b)),
+                    SimpleImmutableEntry::new)
+        }
+
+        public static <A, B, X, Y> Duplex<Entry<A, B>, A, B, Entry<A, B>, X, Y, Entry<A, B>> flatMap(BiFunction<? super A, ? super B, Stream<Entry<? extends X, ? extends Y>>> action) {
+        }
+
+        public static <A, B> Duplex<Entry<A, B>, A, B, Entry<A, B>, A, B, Entry<A, B>> cast(Class<A> typeA, Class<B> typeB) {
+        }
+
+        public static <A, B> Duplex<Entry<A, B>, ?, ?, Entry<?, ?>, ?, ?, Entry<A, B>> forEach(BiConsumer<? super A, ? super B> action) {
+        }
+
+        public static <T, A, B> Duplex<T, T, ?, Entry<T, ?>, A, B, Entry<A, B>> expand(Function<? super T, ? extends A> extractA, Function<? super T, ? extends A> extractB) {
+        }
+
+        public static <A, B, R> Duplex<Entry<A, B>, A, B, Entry<A, B>, R, ?, R> merge(BiFunction<? super A, ? super B, ? super R> merge) {
+        }
+
+        public static <In, AccA, AccB, ProcA, ProcB, YieldA, YieldB, ResA, ResB, Out> Duplex<In, AccA, AccB, Entry<AccA, AccB>, ResA, ResB, Out> split(Simplex<AccA, ProcA, ResA> a, Simplex<AccB, ProcB, ResB> b) {
+        }
+
+        @With
+        @NotNull Function<In, AccA> extractA;
+        @With
+        @NotNull Function<In, AccB> extractB;
+        @With
+        @NotNull BiFunction<AccA,AccB, Stream<OutA>> sideA;
+        @With
+        @NotNull BiFunction<AccA,AccB, Stream<OutB>> sideB;
+        @With
+        @NotNull BiFunction<OutA,OutB, Fin> finalize;
+        @With@NotNull AtomicReference<AccS> cache = new AtomicReference<>();
+        @With@NotNull BiFunction<AccA, AccB, AccS> combine;
+        @With@NotNull Function<AccS, Stream<OutA>> extractA;
+        @With@NotNull Function<AccS, Stream<OutB>> extractB;
+        @With
+        @NotNull OP linkage;
+
+        public <Convert> Duplex(@NotNull Function<In, AccA> extractA,
+                      @NotNull Function<In, AccB> extractB,
+                      @NotNull Adapter<AccA,AccB,Convert,OutA,OutB> adapter,
+                      @NotNull BiFunction<OutA, OutB, Fin> finalize) {
+            this(extractA, extractB, adapter, finalize, OP.BitwiseOr);
+        }
+
+        public <Convert> Duplex(@NotNull Function<In, AccA> extractA,
+                      @NotNull Function<In, AccB> extractB,
+                      @NotNull Adapter<AccA,AccB,Convert,OutA,OutB> adapter,
+                      @NotNull BiFunction<OutA, OutB, Fin> finalize,
+                      @NotNull OP linkage) {
+            this.extractA = extractA;
+            this.extractB = extractB;
+            this.sideA = adapter::sideA;
+            this.sideB = adapter::sideB;
+            this.finalize = finalize;
+            this.linkage = linkage;
+        }
+
+        @Override
+        public final Stream<Fin> apply(In in) {
+            class BiSpliterator implements Spliterator<Fin> {
+                final Spliterator<OutA> outA;
+                final Spliterator<OutB> outB;
+                final Queue<OutA> queueA = new LinkedList<>();
+                final Queue<OutB> queueB = new LinkedList<>();
+                @SuppressWarnings("unused")
+                final Object lock = new Object();
+
+                public BiSpliterator(Spliterator<OutA> outA, Spliterator<OutB> outB) {
+                    this.outA = outA;
+                    this.outB = outB;
+                }
+
+                @Synchronized("lock")
+                private void advanceA(OutA a, Consumer<? super Fin> handler) {
+                    if (queueB.isEmpty()) queueA.add(a);
+                    else handler.accept(finalize.apply(a, queueB.poll()));
+                }
+
+                @Synchronized("lock")
+                private void advanceB(OutB b, Consumer<? super Fin> handler) {
+                    if (queueA.isEmpty()) queueB.add(b);
+                    else handler.accept(finalize.apply(queueA.poll(), b));
+                }
+
+                @Override
+                public boolean tryAdvance(final Consumer<? super Fin> action) {
+                    return linkage.test(
+                            () -> outA.tryAdvance(a -> advanceA(a, action)),
+                            () -> outB.tryAdvance(b -> advanceB(b, action)));
+                }
+
+                @Override
+                public Spliterator<Fin> trySplit() {
+                    return null;
+                }
+
+                @Override
+                public long estimateSize() {
+                    return Math.max(outA.estimateSize(), outB.estimateSize());
+                }
+
+                @Override
+                public int characteristics() {
+                    return outA.characteristics() | outB.characteristics();
+                }
+            }
+            var a = extractA.apply(in);
+            var b = extractB.apply(in);
+            return of(new BiSpliterator(
+                    sideA.apply(a,b).spliterator(),
+                    sideB.apply(a,b).spliterator()));
+        }
+
+        private static <A,B,R> BiFunction<A,B,R> consumer(final @NotNull BiConsumer<?super A,?super B> action) {
+            return (a,b)-> {
+                action.accept(a, b);
+                return null;
+            };
+        }
+
+        @Value
+        @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+        public static class Adapter<AccA,AccB,AccS,OutA,OutB> {
+
+            public Stream<OutA> sideA(AccA a, AccB b) {
+                return extract(extractA, a, b);
+            }
+
+            public Stream<OutB> sideB(AccA a, AccB b) {
+                return extract(extractB, a, b);
+            }
+
+            @Synchronized("cache")
+            private <R> Stream<R> extract(final @NotNull Function<AccS, Stream<R>> extract, AccA a, AccB b) {
+                var x = cache.get();
+                if (x == null)
+                    cache.set(x = combine.apply(a, b));
+                return extract.apply(x);
+            }
         }
     }
 
