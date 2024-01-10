@@ -30,7 +30,10 @@ public final class Debug {
     public static Logger logger = Log.get(Debug.class);
 
     static {
-        BigotryFilter.init();
+        try {
+            BigotryFilter.init();
+        } catch (Throwable ignored) {
+        }
     }
 
     public static boolean isDebug() {
