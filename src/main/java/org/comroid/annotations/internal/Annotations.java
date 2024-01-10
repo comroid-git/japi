@@ -198,7 +198,7 @@ public class Annotations {
     }
 
     @Value
-    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @AllArgsConstructor
     public static class Result<A extends Annotation> implements Annotation {
         @NotNull
         @Ignore

@@ -14,8 +14,6 @@ import org.comroid.api.func.util.Invocable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
 import org.comroid.api.java.ReflectionHelper;
-import org.comroid.api.java.Switch;
-import org.comroid.api.text.Capitalization;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,14 +21,12 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.function.IntPredicate;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 
 import static org.comroid.annotations.internal.Annotations.*;
 import static org.comroid.api.Polyfill.uncheckedCast;
-import static org.comroid.api.func.util.Streams.Multi.*;
 import static org.comroid.api.java.ReflectionHelper.declaringClass;
 import static org.comroid.api.text.Capitalization.*;
 
@@ -134,7 +130,7 @@ public class DataStructure<T> implements Named {
                 else return false;
             }
 
-            <R extends java.lang.reflect.Member & AnnotatedElement, P> DataStructure<T>.Property<P> convertProperties(R member) {
+            <R extends java.lang.reflect.Member & AnnotatedElement, P> DataStructure<T>.Property<P> convertProperty(R member) {
                 String name = member.getName();
                 ValueType<P> type = null;
                 Invocable<P> getter = null;
@@ -171,6 +167,7 @@ public class DataStructure<T> implements Named {
                 if (type == null)
                     throw new AssertionError("Could not initialize property adapter for " + member);
                 DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name, member, target, type, getter, setter));
+                setAnnotations(member,prop);
                 setAliases(member,prop);
                 return prop;
             }
@@ -183,7 +180,7 @@ public class DataStructure<T> implements Named {
                 else return false;
             }
 
-            <R extends java.lang.reflect.Member & AnnotatedElement> DataStructure<T>.Constructor convertConstructors(R member) {
+            <R extends java.lang.reflect.Member & AnnotatedElement> DataStructure<T>.Constructor convertConstructor(R member) {
                 String name = member.getName();
                 Invocable<T> func = null;
                 if (member instanceof java.lang.reflect.Constructor<?> ctor)
@@ -193,8 +190,17 @@ public class DataStructure<T> implements Named {
                 if (func == null)
                     throw new AssertionError("Could not initialize construction adapter for " + member);
                 DataStructure<T>.Constructor ctor = struct.new Constructor(name, member, target, func);
+                setAnnotations(member,ctor);
                 setAliases(member,ctor);
                 return ctor;
+            }
+
+            private void setAnnotations(AnnotatedElement source, DataStructure.Member member) {
+                // TODO: improve
+                Arrays.stream(source.getAnnotations())
+                        .map(anno -> new Result<>(anno, source, source, ReflectionHelper.declaringClass(source)))
+                        .forEach(member.annotations::add);
+                //member.annotations.addAll(findAnnotations(Annotation.class, source).toList());
             }
 
             private void setAliases(AnnotatedElement source, DataStructure.Member member) {
@@ -215,13 +221,13 @@ public class DataStructure<T> implements Named {
                         Stream.of(s)
                                 .filter(helper::filterPropertyModifiers)
                                 .filter(helper::filterPropertyMembers)
-                                .map(helper::convertProperties)
+                                .map(helper::convertProperty)
                                 .peek(member -> Stream.concat(Stream.of(member.getName()), member.aliases.stream())
                                         .forEach(name -> struct.properties.put(name, uncheckedCast(member)))),
                         Stream.of(s)
                                 .filter(helper::filterConstructorModifiers)
                                 .filter(helper::filterConstructorMembers)
-                                .map(helper::convertConstructors)
+                                .map(helper::convertConstructor)
                                 .peek(member -> struct.constructors.add(uncheckedCast(member)))))
                 .peek(member -> System.out.println(member))
                 .count();
