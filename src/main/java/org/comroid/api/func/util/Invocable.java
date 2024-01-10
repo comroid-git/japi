@@ -26,6 +26,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 import java.util.stream.Stream;
 
 @Ignore
@@ -52,6 +53,10 @@ public interface Invocable<T> extends Named {
     }
 
     static <T> Invocable<T> ofFieldGet(final Field field) {
+        return ofFieldGet(null, field);
+    }
+
+    static <T> Invocable<T> ofFieldGet(final @Nullable Object target, final Field field) {
         return new Invocable<>() {
             @Override
             public @Nullable AccessibleObject accessor() {
@@ -64,13 +69,17 @@ public interface Invocable<T> extends Named {
             }
 
             @Override
-            public @Nullable T invoke(@Nullable Object target, Object... args) throws IllegalAccessException {
-                return Polyfill.uncheckedCast(field.get(target));
+            public @Nullable T invoke(@Nullable Object tgt, Object... args) throws IllegalAccessException {
+                return Polyfill.uncheckedCast(field.get(Objects.requireNonNullElse(tgt, target)));
             }
         };
     }
 
     static <T> Invocable<@Nullable T> ofFieldSet(final Field field) {
+        return ofFieldSet(null, field);
+    }
+
+    static <T> Invocable<@Nullable T> ofFieldSet(final @Nullable Object target, final Field field) {
         return new Invocable<>() {
             @Override
             public @Nullable AccessibleObject accessor() {
@@ -83,8 +92,8 @@ public interface Invocable<T> extends Named {
             }
 
             @Override
-            public @Nullable T invoke(@Nullable Object target, Object... args) throws IllegalAccessException {
-                field.set(target, args[0]);
+            public @Nullable T invoke(@Nullable Object tgt, Object... args) throws IllegalAccessException {
+                field.set(Objects.requireNonNullElse(tgt, target), args[0]);
                 return null;
             }
         };
@@ -196,7 +205,7 @@ public interface Invocable<T> extends Named {
         return func != null && func.canAccess(target);
     }
 
-    default boolean setAccessible() {
+    default boolean makeAccessible() {
         var func = accessor();
         if (func == null)
             return false;
@@ -270,6 +279,7 @@ public interface Invocable<T> extends Named {
         try {
             return autoInvoke(args);
         } catch (Throwable ignored) {
+            Log.at(Level.FINE, "silentAutoInvoke() swallowed exception", ignored);
             return null;
         }
     }

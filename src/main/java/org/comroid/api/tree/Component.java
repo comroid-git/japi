@@ -17,6 +17,7 @@ import org.comroid.api.func.util.Bitmask;
 import org.comroid.api.func.util.Cache;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.StackTraceUtils;
+import org.comroid.api.text.Capitalization;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -40,6 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Stream.empty;
+import static java.util.stream.Stream.of;
 import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.api.func.util.Streams.Multi.*;
 import static org.comroid.api.func.util.Streams.cast;
@@ -143,7 +145,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                                     .flatMap(expandFlat(prop -> prop.streamAnnotations(Inject.class)))
                                     .map(mapB(Annotations.Result::getAnnotation))
                                     .map(combine((prop, inject) -> new Dependency<>(
-                                            Optional.of(inject.value()).filter(String::isEmpty).orElse(prop.getName()),
+                                            inject.value(),
                                             uncheckedCast(prop.getType().getTargetClass()),
                                             inject.required(),
                                             uncheckedCast(prop)))),
@@ -220,21 +222,6 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         @ToString.Exclude
         DataStructure<Component>.Property<T> prop;
 
-        public Stream<Map.Entry<Dependency<T>, Component>> find(Component in) {
-            return Stream.concat(Stream.of(in), in.components(type)).flatMap(x -> {
-                if (name.isEmpty() || x.getName().equals(name))
-                    return Stream.of(new AbstractMap.SimpleImmutableEntry<>(this, x));
-                return empty();
-            });
-        }
-
-        public boolean isSatisfied(Component by) {
-            var wrap = Optional.ofNullable(by);
-            if (!name.isEmpty())
-                wrap = wrap.filter(c -> c.getName().equals(name));
-            return wrap.filter(type::isInstance).isPresent();
-        }
-
         @Override
         public boolean equals(Object other) {
             if (other instanceof Dependency)
@@ -252,7 +239,8 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         }
     }
 
-    @Getter @Ignore
+    @Getter
+    @Ignore
     class Base extends Container.Base implements Component {
         protected boolean enabled = true;
         private State currentState = State.PreInit;
@@ -383,18 +371,51 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
         private void injectDependencies() {
             dependencies().stream()
-                    .flatMap(dependency -> dependency.find(this))
-                    .flatMap(filter(Dependency::isSatisfied, (dep, comp) -> {
-                        if (dep.isRequired())
-                            throw new Constraint.UnmetError("Could not find a valid Component matching " + dep);
-                    }))
-                    .flatMap(flatMapA(dep -> Wrap.of(dep)
+                    .filter(dep -> dep.prop != null && dep.prop.canSet())
+                    .<Map.Entry<Dependency<?>, Component>>flatMap(dep -> {
+                        List<Component> results = getChildren().stream()
+                                .flatMap(cast(Component.class))
+                                .filter(dep.type::isInstance)
+                                .toList();
+                        if (results.size() > 1) {
+                            final var names = dep.name.isEmpty()
+                                    ? Stream.concat(Stream.of(dep.prop.getName()), dep.prop.getAliases().stream())
+                                    .collect(Collectors.toSet())
+                                    : Set.of(dep.name);
+                            var byName = results.stream()
+                                    .filter(it -> names.stream().anyMatch(alias -> Capitalization.equals(alias, it.getName())))
+                                    .toList();
+                            if (byName.isEmpty()) {
+                                Log.at(Level.WARNING, "Exact name match yielded no results; attempting to find with contains()");
+                                byName = results.stream()
+                                        .filter(it -> names.stream()
+                                                .map(String::toLowerCase)
+                                                .anyMatch(alias -> it.getName().toLowerCase().contains(alias)))
+                                        .toList();
+                            }
+                            results = byName;
+                        }
+                        if (results.isEmpty()) {
+                            if (dep.isRequired())
+                                throw new Constraint.UnmetError("Could not find a valid Component matching " + dep);
+                            else return empty();
+                        }
+                        var result = results.get(0);
+                        if (results.size() > 1)
+                            Log.at(Level.WARNING, "More than one result for " + dep + "; using " + result);
+                        return Stream.of(new AbstractMap.SimpleImmutableEntry<>(dep, result));
+                    })
+                    .forEach(e -> Wrap.of(e.getKey())
                             .map(Dependency::getProp)
                             .map(DataStructure.Property::getSetter)
-                            .stream()))
-                    .flatMap(filterA(Invocable::setAccessible,
-                            func -> Log.at(Level.WARNING, "Unable to make setter accessible: " + func)))
-                    .forEach(forEach(Invocable::silentAutoInvoke));
+                            .filter(func -> {
+                                var success = func.makeAccessible();
+                                if (!success)
+                                    Log.at(Level.WARNING, "Unable to make setter accessible: " + func);
+                                return success;
+                            })
+                            .ifPresentOrElseThrow(func -> func.silentAutoInvoke(e.getValue()),
+                                    () -> new AssertionError("property was not settable")));
         }
 
         protected void $initialize() {

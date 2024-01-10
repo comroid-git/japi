@@ -395,6 +395,10 @@ public class DataStructure<T> implements Named {
             return super.toString() + " (" + (getter!=null?"get":"")+(setter!=null?" set":"")+')';
         }
 
+        public boolean canSet() {
+            return setter != null;
+        }
+
         @NoArgsConstructor(access = AccessLevel.PRIVATE)
         public abstract class Mod {
             public DataStructure<T> getStructure() {

@@ -49,6 +49,10 @@ public enum Capitalization implements Named, Comparator<String> {
     State recurringFirstChar;
     @Nullable Character separator;
 
+    public static boolean equals(String l, String r) {
+        return of(l).map(cap -> cap.convert(r)).test(l::equals);
+    }
+
     @Override
     public int compare(String l, String r) {
         return score(l) - score(r);
