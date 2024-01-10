@@ -414,7 +414,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                                     Log.at(Level.WARNING, "Unable to make setter accessible: " + func);
                                 return success;
                             })
-                            .ifPresentOrElseThrow(func -> func.silentAutoInvoke(e.getValue()),
+                            .ifPresentOrElseThrow(func -> func.invokeSilent(Component.Base.this, e.getValue()),
                                     () -> new AssertionError("property was not settable")));
         }
 
