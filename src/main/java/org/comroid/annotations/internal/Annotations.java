@@ -1,14 +1,21 @@
 package org.comroid.annotations.internal;
 
+import jdk.jshell.JShell;
+import jdk.jshell.JShellException;
+import jdk.jshell.SnippetEvent;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Convert;
+import org.comroid.annotations.Default;
 import org.comroid.annotations.Ignore;
+import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.DataStructure;
+import org.comroid.api.data.seri.StandardValueType;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.ReflectionHelper;
@@ -20,6 +27,7 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.reflect.*;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -46,6 +54,32 @@ public class Annotations {
                 .filter(alias -> alias.context.getClass().equals(of.getClass()))
                 .flatMap(it -> stream(it.annotation.value()))
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    public <R> @Nullable R defaultValue(@NotNull AnnotatedElement of) {
+        final var silent = new Object(){
+            @SneakyThrows
+            public void throwIfExcPresent(SnippetEvent e) {
+                var exc = e.exception();
+                if (exc != null)
+                    throw exc;
+            }
+        };
+        try (final var jShell = JShell.create()) {
+            return findAnnotations(Default.class, of)
+                    .map(Result::getAnnotation)
+                    .flatMap(expr -> jShell.eval(expr.value()).stream())
+                    .peek(silent::throwIfExcPresent)
+                    .map(SnippetEvent::value)
+                    .filter(Objects::nonNull)
+                    .findAny()
+                    .map(StandardValueType::findGoodType)
+                    .map(Polyfill::<R>uncheckedCast)
+                    .orElse(null);
+        } catch (Throwable t) {
+            log.log(Level.WARNING, "Failed to evaluate default expression of " + of, t);
+            return null;
+        }
     }
 
     public Optional<? extends AnnotatedElement> ignore(@NotNull AnnotatedElement it) {

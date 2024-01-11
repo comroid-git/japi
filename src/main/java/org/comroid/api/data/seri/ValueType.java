@@ -5,6 +5,8 @@ import org.comroid.annotations.Ignore;
 import org.comroid.api.Polyfill;
 import org.comroid.api.func.ValuePointer;
 import org.comroid.api.attr.Named;
+import org.intellij.lang.annotations.Language;
+import org.jetbrains.annotations.Nullable;
 
 import javax.persistence.Transient;
 import java.util.function.Function;
@@ -51,6 +53,16 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named 
         if (value == null)
             return null;
         return toType.parse(value.toString());
+    }
+
+    @Language(value = "HTML", prefix = "<input type=\"", suffix = "\">")
+    default String getHtmlInputType() {
+        return "text";
+    }
+
+    @Language(value = "HTML", prefix = "<input ", suffix = ">")
+    default @Nullable String[] getHtmlInputAttributes() {
+        return new String[0];
     }
 
     R parse(String data);

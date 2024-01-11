@@ -1,6 +1,7 @@
 package org.comroid.api.data.seri;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import jdk.jshell.JShell;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.comroid.annotations.*;
@@ -14,6 +15,7 @@ import org.comroid.api.func.util.Invocable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
 import org.comroid.api.java.ReflectionHelper;
+import org.comroid.api.text.Capitalization;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -132,6 +134,7 @@ public class DataStructure<T> implements Named {
 
             <R extends java.lang.reflect.Member & AnnotatedElement, P> DataStructure<T>.Property<P> convertProperty(R member) {
                 String name = member.getName();
+                P defaultValue = Annotations.defaultValue(member);
                 ValueType<P> type = null;
                 Invocable<P> getter = null;
                 Invocable<?> setter = null;
@@ -166,7 +169,7 @@ public class DataStructure<T> implements Named {
                 }
                 if (type == null)
                     throw new AssertionError("Could not initialize property adapter for " + member);
-                DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name, member, target, type, getter, setter));
+                DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name, member, target, type, defaultValue, getter, setter));
                 setAnnotations(member,prop);
                 setAliases(member,prop);
                 return prop;
@@ -271,7 +274,7 @@ public class DataStructure<T> implements Named {
 
         @Override
         public String getAlternateName() {
-            return aliases.stream().findAny().orElseGet(Named.super::getAlternateName);
+            return Title_Case.convert(getName());
         }
 
         @Ignore
@@ -354,6 +357,7 @@ public class DataStructure<T> implements Named {
     @Value
     public class Property<V> extends Member {
         @NotNull ValueType<V> type;
+        @Nullable V defaultValue;
         @Nullable
         @ToString.Exclude
         @Getter(onMethod = @__(@JsonIgnore))
@@ -367,10 +371,12 @@ public class DataStructure<T> implements Named {
                         @NotNull AnnotatedElement context,
                         @NotNull Class<?> declaringClass,
                         @NotNull ValueType<V> type,
+                        @Nullable V defaultValue,
                         @Nullable Invocable<V> getter,
                         @Nullable Invocable<?> setter) {
             super(name, context, declaringClass);
             this.type = type;
+            this.defaultValue = defaultValue;
             this.getter = getter;
             this.setter = setter;
         }
