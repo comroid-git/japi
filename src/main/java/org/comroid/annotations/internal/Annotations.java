@@ -9,10 +9,7 @@ import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
-import org.comroid.annotations.Alias;
-import org.comroid.annotations.Convert;
-import org.comroid.annotations.Default;
-import org.comroid.annotations.Ignore;
+import org.comroid.annotations.*;
 import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.DataStructure;
 import org.comroid.api.data.seri.StandardValueType;
@@ -42,6 +39,12 @@ import static org.comroid.api.func.util.Streams.*;
 @ApiStatus.Internal
 public class Annotations {
     public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class, Class.class, Annotation.class};
+    public static final Comparator<AnnotatedElement> OrderComparator = Comparator.comparingInt(it ->
+            findAnnotations(Order.class, it)
+                    .findAny()
+                    .map(Result::getAnnotation)
+                    .map(Order::value)
+                    .orElse(0));
 
     @ApiStatus.Experimental
     @Convert(identifyVia = "annotationType")

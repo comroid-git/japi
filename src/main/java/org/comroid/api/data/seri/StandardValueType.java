@@ -1,13 +1,14 @@
 package org.comroid.api.data.seri;
 
-import lombok.Getter;
 import lombok.Value;
 import org.comroid.api.Polyfill;
 import org.comroid.api.func.ext.Wrap;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -29,7 +30,7 @@ public class StandardValueType<R> implements ValueType<R> {
     public static final StandardValueType<Object> OBJECT;
     public static final StandardValueType<Object[]> ARRAY;
 
-    public static final StandardValueType<?>[] values;
+    public static final List<StandardValueType<?>> cache = new ArrayList<>();
 
     static {
         BOOLEAN = new StandardValueType<>(Boolean.class, "boolean", Boolean::parseBoolean, "checkbox");
@@ -45,8 +46,6 @@ public class StandardValueType<R> implements ValueType<R> {
         VOID = new StandardValueType<>(void.class, "Void", it -> null, "hidden");
         OBJECT = new StandardValueType<>(Object.class, "Object", it -> it, "hidden");
         ARRAY = new StandardValueType<>(Object[].class, "Array", it -> new Object[]{it}, "hidden");
-
-        values = new StandardValueType[]{BYTE, CHARACTER, DOUBLE, FLOAT, INTEGER, LONG, SHORT, STRING, BOOLEAN, VOID, ARRAY};
     }
 
     private StandardValueType(
@@ -60,6 +59,8 @@ public class StandardValueType<R> implements ValueType<R> {
         this.converter = converter;
         this.htmlInputType = htmlInputType;
         this.htmlInputAttributes = htmlInputAttributes;
+
+        cache.add(this);
     }
 
     Class<R> targetClass;
@@ -82,6 +83,8 @@ public class StandardValueType<R> implements ValueType<R> {
             return Double.parseDouble(parse);
         if (parse.matches("(true)|(false)"))
             return Boolean.parseBoolean(parse);
+        if (parse.matches(RegExpUtil.UUID4_PATTERN))
+            return java.util.UUID.fromString(parse);
         return parse;
     }
 
@@ -89,7 +92,7 @@ public class StandardValueType<R> implements ValueType<R> {
         if (value == null)
             //noinspection unchecked
             return (ValueType<T>) StandardValueType.VOID;
-        return Arrays.stream(values)
+        return cache.stream()
                 .filter(it -> it.test(value))
                 .findAny()
                 .map(Polyfill::<StandardValueType<T>>uncheckedCast)
@@ -97,7 +100,7 @@ public class StandardValueType<R> implements ValueType<R> {
     }
 
     public static Wrap<ValueType<?>> forClass(Class<?> cls) {
-        return Wrap.ofOptional(Arrays.stream(values)
+        return Wrap.ofOptional(cache.stream()
                 .filter(it -> it.getTargetClass().isAssignableFrom(cls) || (cls.isPrimitive() && it.getName().equals(cls.getSimpleName())))
                 .findAny());
     }

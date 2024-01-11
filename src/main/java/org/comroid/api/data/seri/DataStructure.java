@@ -1,7 +1,6 @@
 package org.comroid.api.data.seri;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jdk.jshell.JShell;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.comroid.annotations.*;
@@ -15,7 +14,6 @@ import org.comroid.api.func.util.Invocable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
 import org.comroid.api.java.ReflectionHelper;
-import org.comroid.api.text.Capitalization;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,6 +47,12 @@ public class DataStructure<T> implements Named {
     @ToString.Exclude
     Map<String, Property<?>> properties = new ConcurrentHashMap<>();
 
+    public List<Property<?>> getOrderedProperties() {
+        return properties.values().stream()
+                .sorted(OrderComparator)
+                .toList();
+    }
+
     @Override
     public String getName() {
         return type.getCanonicalName();
@@ -64,6 +68,34 @@ public class DataStructure<T> implements Named {
 
     public <V> Wrap<Property<V>> getProperty(String name) {
         return Wrap.of(properties.getOrDefault(name, null)).castRef();
+    }
+
+    public Set<Property<?>> update(Map<String, String> data, T target) {
+        final var affected = new HashSet<Property<?>>();
+
+        for (final var prop : properties.values()) {
+            final var type = prop.type;
+            if (!(type instanceof StandardValueType<?>)) {
+                log.fine("Skipping auto-update for " + prop + " because its not a standard type (" + type + ")");
+                continue;
+            }
+
+            final var name = prop.getName();
+            if (!data.containsKey(name))
+                continue;
+            if (!prop.canSet()) {
+                if (data.containsKey(name))
+                    log.warning("Data had value for " + prop + "; but the property is not settable");
+                continue;
+            }
+
+            var value = data.get(name);
+            var parse = type.parse(value);
+            prop.setFor(target, uncheckedCast(parse));
+            affected.add(prop);
+        }
+
+        return Collections.unmodifiableSet(affected);
     }
 
     public static <T> DataStructure<T> of(@NotNull Class<? super T> target) {
@@ -116,7 +148,7 @@ public class DataStructure<T> implements Named {
             boolean filterConstructorModifiers(java.lang.reflect.Member member) {
                 final var mod = member.getModifiers();
                 return Map.<Class<?>, IntPredicate>of(
-                                Method.class, bit -> ((Method) member).getReturnType().equals(target),
+                                Method.class, bit -> ((Method) member).getReturnType().equals(target) && Modifier.isStatic(bit),
                                 DataStructure.Constructor.class, bit -> true)
                         .entrySet().stream()
                         .anyMatch(e -> !e.getKey().isInstance(member) || e.getValue().test(mod));
@@ -232,7 +264,6 @@ public class DataStructure<T> implements Named {
                                 .filter(helper::filterConstructorMembers)
                                 .map(helper::convertConstructor)
                                 .peek(member -> struct.constructors.add(uncheckedCast(member)))))
-                .peek(member -> System.out.println(member))
                 .count();
         Log.at(Level.FINE, "Initialized %d members for %s".formatted(count, target.getCanonicalName()));
         return struct;
@@ -382,8 +413,17 @@ public class DataStructure<T> implements Named {
         }
 
         public @Nullable V getFrom(T target) {
-            Constraint.notNull(getter, "getter");
+            Constraint.notNull(getter, "getter").run();
+            Constraint.notNull(target, "target").run();
             return getter.invokeSilent(target);
+        }
+
+        public @Nullable V setFor(T target, V value) {
+            Constraint.notNull(setter, "setter").run();
+            Constraint.notNull(target, "target").run();
+            var prev = getFrom(target);
+            setter.invokeSilent(target);
+            return prev;
         }
 
         @Override

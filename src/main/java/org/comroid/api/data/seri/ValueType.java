@@ -11,6 +11,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.persistence.Transient;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named {
     static <T> ValueType<T> of(final Class<?> type) {
@@ -30,6 +31,10 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named 
 
     default boolean isNumeric() {
         return Number.class.isAssignableFrom(getTargetClass());
+    }
+
+    default boolean isStandard() {
+        return this instanceof StandardValueType<R> && Stream.of(StandardValueType.OBJECT, StandardValueType.ARRAY).noneMatch(this::equals);
     }
 
     @Ignore
