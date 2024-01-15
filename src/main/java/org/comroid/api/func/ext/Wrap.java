@@ -3,9 +3,15 @@ package org.comroid.api.func.ext;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.attr.MutableState;
 import org.comroid.api.Polyfill;
+import org.comroid.api.data.seri.DataNode;
+import org.comroid.api.func.exc.ThrowingSupplier;
+import org.comroid.api.func.util.Cache;
+import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.api.func.Provider;
 import org.comroid.api.func.Referent;
+import org.comroid.api.info.Log;
+import org.comroid.api.java.StackTraceUtils;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -13,6 +19,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.*;
+import java.util.logging.Level;
 import java.util.stream.Stream;
 
 /**
@@ -60,6 +67,23 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     static <T> Wrap<T> ofOptional(final Optional<? extends T> optional) {
         return () -> optional.orElse(null);
+    }
+
+    static <R extends DataNode, T extends Throwable> Wrap<R> exceptionally(ThrowingSupplier<R, T> supplier) {
+        return exceptionally(supplier, t -> Log.at(Level.SEVERE, "An internal error occurred", t));
+    }
+
+    static <R extends DataNode, T extends Throwable> Wrap<R> exceptionally(
+            @NotNull ThrowingSupplier<R, T> supplier,
+            @NotNull Consumer<T> handler) {
+        return () -> {
+            try {
+                return supplier.get();
+            } catch (Throwable e) {
+                handler.accept(Polyfill.uncheckedCast(e));
+                return null;
+            }
+        };
     }
 
     @Override

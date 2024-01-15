@@ -183,13 +183,17 @@ public class DataStructure<T> implements Named {
             <R extends java.lang.reflect.Member & AnnotatedElement> DataStructure<T>.Constructor convertConstructor(R member) {
                 String name = member.getName();
                 Invocable<T> func = null;
-                if (member instanceof java.lang.reflect.Constructor<?> ctor)
+                Parameter[] param = new Parameter[0];
+                if (member instanceof java.lang.reflect.Constructor<?> ctor) {
                     func = Invocable.ofConstructor(uncheckedCast(ctor));
-                else if (member instanceof Method mtd)
+                    param = ctor.getParameters();
+                } else if (member instanceof Method mtd) {
                     func = Invocable.ofMethodCall(mtd);
+                    param = mtd.getParameters();
+                }
                 if (func == null)
                     throw new AssertionError("Could not initialize construction adapter for " + member);
-                DataStructure<T>.Constructor ctor = struct.new Constructor(name, member, target, func);
+                DataStructure<T>.Constructor ctor = struct.new Constructor(name, member, target, List.of(param), func);
                 setAnnotations(member,ctor);
                 setAliases(member,ctor);
                 return ctor;
@@ -222,14 +226,14 @@ public class DataStructure<T> implements Named {
                                 .filter(helper::filterPropertyModifiers)
                                 .filter(helper::filterPropertyMembers)
                                 .map(helper::convertProperty)
-                                .peek(member -> Stream.concat(Stream.of(member.getName()), member.aliases.stream())
-                                        .forEach(name -> struct.properties.put(name, uncheckedCast(member)))),
+                                .peek(prop -> Stream.concat(Stream.of(prop.getName()), prop.aliases.stream())
+                                        .forEach(name -> struct.properties.put(name, uncheckedCast(prop)))),
                         Stream.of(s)
                                 .filter(helper::filterConstructorModifiers)
                                 .filter(helper::filterConstructorMembers)
                                 .map(helper::convertConstructor)
-                                .peek(member -> struct.constructors.add(uncheckedCast(member)))))
-                .peek(member -> System.out.println(member))
+                                .peek(ctor -> struct.constructors.add(uncheckedCast(ctor)))))
+                //.peek(member -> System.out.println(member))
                 .count();
         Log.at(Level.FINE, "Initialized %d members for %s".formatted(count, target.getCanonicalName()));
         return struct;
@@ -321,7 +325,7 @@ public class DataStructure<T> implements Named {
     public class Constructor extends Member {
         @NotNull
         @ToString.Exclude
-        Map<String, Property<?>> args = new ConcurrentHashMap<>();
+        List<Parameter> args;
         @NotNull
         @ToString.Exclude
         @Getter(onMethod = @__(@JsonIgnore))
@@ -330,8 +334,10 @@ public class DataStructure<T> implements Named {
         private Constructor(@NotNull String name,
                             @NotNull AnnotatedElement context,
                             @NotNull Class<?> declaringClass,
+                            @NotNull List<Parameter> args,
                             @NotNull Invocable<T> ctor) {
             super(name, context, declaringClass);
+            this.args = args;
             this.ctor = ctor;
         }
 
@@ -380,6 +386,14 @@ public class DataStructure<T> implements Named {
             return getter.invokeSilent(target);
         }
 
+        public @Nullable V setFor(T target, V value) {
+            Constraint.notNull(setter, "setter");
+            Constraint.notNull(value, "value");
+            var prev = getFrom(target);
+            setter.invokeSilent(target, value);
+            return prev;
+        }
+
         @Override
         public int getModifiers() {
             return super.getModifiers() | (setter == null ? Modifier.FINAL : 0);
@@ -420,7 +434,7 @@ public class DataStructure<T> implements Named {
             @NotNull T target;
 
             @Override
-            public @Nullable V get() {
+            public @Nullable V $get() {
                 return getFrom(target);
             }
         }

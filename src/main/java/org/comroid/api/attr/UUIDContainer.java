@@ -2,6 +2,7 @@ package org.comroid.api.attr;
 
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+import org.comroid.annotations.Ignore;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
@@ -11,6 +12,7 @@ public interface UUIDContainer {
         return getUUID();
     }
 
+    @Ignore
     @Deprecated
     default UUID getUUID() {
         return getUuid();

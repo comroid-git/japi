@@ -194,6 +194,12 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
         return as(UUID).orElse(fallback);
     }
 
+    @Override
+    default <R extends DataNode> Wrap<R> as(final Class<R> type) {
+        return Specifiable.super.as(type)
+                .orRef(() -> Wrap.exceptionally(() -> Activator.get(type).createInstance(this)));
+    }
+
     default Stream<Entry> properties() {
         return properties(this);
     }
@@ -264,7 +270,7 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
         }
 
         @Override
-        public <R> @NotNull R convert(Class<? super R> target) {
+        public <R> @Nullable R convert(Class<? super R> target) {
             return Wrap.of(Activator.get(target).createInstance(this)).cast();
         }
     }
