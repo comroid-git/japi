@@ -12,7 +12,7 @@ public interface ValueBox<T> extends ValuePointer<T>, Wrap<T> {
 
     @Override
     @Nullable
-    default T get() {
+    default T $get() {
         return getValue();
     }
 

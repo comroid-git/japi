@@ -55,7 +55,7 @@ public class AlmostComplete<T> implements Wrap<T> {
     }
 
     @Override
-    public final @NotNull T get() {
+    public final @NotNull T $get() {
         return complete(null);
     }
 
