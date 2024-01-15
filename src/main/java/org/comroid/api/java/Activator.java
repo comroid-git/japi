@@ -23,7 +23,12 @@ public class Activator<T> {
     }
 
     Class<T> target;
-    DataStructure<T> struct = DataStructure.of(target);
+    DataStructure<T> struct;
+
+    private Activator(Class<T> target) {
+        this.target = target;
+        this.struct = DataStructure.of(target);
+    }
 
     public T createInstance(DataNode data) {
         final var obj = data.asObject();
