@@ -60,7 +60,7 @@ public class BackgroundTask<T> extends Container.Base implements ValueBox<T>, Ru
     }
 
     @Override
-    public @Nullable T $get() {
+    public @Nullable T get() {
         return value;
     }
 

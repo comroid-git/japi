@@ -58,7 +58,7 @@ public class Event<T> implements Wrap<T> {
     }
 
     @Override
-    public @Nullable T $get() {
+    public @Nullable T get() {
         return data;
     }
 

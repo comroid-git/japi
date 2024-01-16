@@ -91,14 +91,8 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         return false;
     }
 
-    @Nullable T $get();
-
     @Override
-    @Nullable
-    @ApiStatus.NonExtendable
-    default T get() {
-        return Cache.get(StackTraceUtils.lessSimpleName(getClass())+'#'+hashCode(), this::$get);
-    }
+    @Nullable T get();
 
     default @NotNull Optional<T> wrap() {
         try {
