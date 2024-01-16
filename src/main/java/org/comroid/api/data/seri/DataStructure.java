@@ -434,7 +434,7 @@ public class DataStructure<T> implements Named {
             @NotNull T target;
 
             @Override
-            public @Nullable V $get() {
+            public @Nullable V get() {
                 return getFrom(target);
             }
         }

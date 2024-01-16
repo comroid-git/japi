@@ -1,5 +1,6 @@
 package org.comroid.api.data.seri;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import lombok.experimental.Delegate;
 import org.comroid.annotations.Ignore;
@@ -30,6 +31,7 @@ import static org.comroid.api.data.seri.StandardValueType.*;
 @Ignore({Convertible.class, DataStructure.class})
 public interface DataNode extends MimeType.Container, StringSerializable, Specifiable<DataNode> {
     @Override
+    @JsonIgnore
     default MimeType getMimeType() {
         final var supported = Map.of(
                 "json", MimeType.JSON,

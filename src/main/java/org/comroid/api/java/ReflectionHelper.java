@@ -370,6 +370,7 @@ public final class ReflectionHelper {
     public static Class<?> declaringClass(AnnotatedElement context) {
         if (context instanceof Class<?> cls) return cls;
         else if (context instanceof Member mem) return mem.getDeclaringClass();
+        else if (context instanceof Parameter param) return declaringClass(param.getDeclaringExecutable());
         throw new IllegalArgumentException("Unknown context: " + context);
     }
 }
