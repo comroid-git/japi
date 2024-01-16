@@ -43,7 +43,7 @@ public class Activator<T> {
 
                     for (int i = 0; i < args.length; i++) {
                         var entry = ctor.getArgs().get(i);
-                        args[i] = obj.get(entry.getName()).asType(uncheckedCast(entry.getType()));
+                        args[i] = obj.get(entry.getName()).as(uncheckedCast(entry.getType()), "unable to cast");
                     }
 
                     final var it = ctor.getCtor().invokeRethrow(args);
@@ -52,7 +52,7 @@ public class Activator<T> {
                             .flatMap(e -> struct.getProperty(e.getKey())
                                     .filter(DataStructure.Property::canSet)
                                     .peek(prop -> prop.setFor(it, e.getValue()
-                                            .asType(uncheckedCast(prop.getType().getTargetClass()))))
+                                            .as(uncheckedCast(prop.getType().getTargetClass()), "unable to cast")))
                                     .stream())
                             .forEach(prop -> log.fine("Injected %s for %s".formatted(prop, it)));
 

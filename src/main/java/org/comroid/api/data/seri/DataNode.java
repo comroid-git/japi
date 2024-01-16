@@ -28,7 +28,7 @@ import java.util.stream.Stream;
 import static org.comroid.api.data.seri.StandardValueType.*;
 
 @Ignore({Convertible.class, DataStructure.class})
-public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
+public interface DataNode extends MimeType.Container, StringSerializable, Specifiable<DataNode> {
     @Override
     default MimeType getMimeType() {
         final var supported = Map.of(
@@ -41,6 +41,11 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
                 .filter(Objects::nonNull)
                 .findFirst()
                 .orElseThrow(()->new AbstractMethodError("MimeType was not specified or supported for DataNode " + this));
+    }
+
+    @Override
+    default String toSerializedString() {
+        return toString();
     }
 
     default DelegateStream.Input toInputStream() {
