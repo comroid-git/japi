@@ -197,6 +197,7 @@ public class Constraint {
         @NotNull String shouldBe = DefaultShouldBe;
         @NotNull Object expected = DefaultExpected;
         @NotNull String hint = DefaultHint;
+        @Nullable String messageOverride = null;
 
         @Contract(mutates = "this")
         public API invert() {
@@ -247,6 +248,8 @@ public class Constraint {
                 Object expected,
                 @Nullable String hint
         ) {
+            if (messageOverride != null)
+                return messageOverride;
             return "Unmet %s constraint for argument %s %s in call to %s;\n%s should be %s %s\n%s"
                     .formatted(constraint, typeof, nameof, callLocation, actual, shouldBeVerb, expected, hint);
         }
