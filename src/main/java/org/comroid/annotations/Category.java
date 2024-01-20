@@ -6,7 +6,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Inherit(Inherit.Type.FromSupertype)
-public @interface Order {
-    int value();
+@Inherit(Inherit.Type.FromBoth)
+public @interface Category {
+    String value() default "";
+
+    Description[] desc() default {};
 }

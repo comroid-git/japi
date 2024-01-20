@@ -59,6 +59,15 @@ public class Annotations {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
+    public Stream<String> description(@NotNull AnnotatedElement of) {
+        return findAnnotations(Description.class, of)
+                .flatMap(it -> stream(it.annotation.value()));
+    }
+
+    public Wrap<Result<Category>> category(@NotNull AnnotatedElement of) {
+        return Wrap.ofStream(findAnnotations(Category.class, of));
+    }
+
     public <R> @Nullable R defaultValue(@NotNull AnnotatedElement of) {
         final var silent = new Object(){
             @SneakyThrows
