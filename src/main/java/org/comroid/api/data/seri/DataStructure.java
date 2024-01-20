@@ -247,12 +247,13 @@ public class DataStructure<T> implements Named {
         @Getter
         @NotNull
         Set<String> aliases = new HashSet<>();
-        @Getter
         @NotNull
         @ToString.Exclude
+        @Getter(onMethod = @__(@JsonIgnore))
         AnnotatedElement context;
         @NotNull
         @ToString.Exclude
+        @Getter(onMethod = @__(@JsonIgnore))
         Set<Result<?>> annotations = new HashSet<>();
         @Getter
         @NotNull Class<?> declaringClass;
@@ -280,12 +281,14 @@ public class DataStructure<T> implements Named {
 
         @Ignore
         @Override
+        @JsonIgnore
         public Annotation[] getAnnotations() {
             return streamAnnotations(Annotation.class).toArray(Annotation[]::new);
         }
 
         @Ignore
         @Override
+        @JsonIgnore
         public Annotation[] getDeclaredAnnotations() {
             return streamAnnotations(Annotation.class)
                     .filter(result -> result.getContext().equals(context))
@@ -325,6 +328,7 @@ public class DataStructure<T> implements Named {
     public class Constructor extends Member {
         @NotNull
         @ToString.Exclude
+        @Getter(onMethod = @__(@JsonIgnore))
         List<Parameter> args;
         @NotNull
         @ToString.Exclude
