@@ -1,6 +1,7 @@
 package org.comroid.api.data.seri;
 
 import org.comroid.annotations.Instance;
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
@@ -16,7 +17,7 @@ public enum FormData implements Serializer<DataNode.Object> {
     }
 
     @Override
-    public @Nullable FormData.Object parse(@Nullable String data) {
+    public @Nullable FormData.Object parse(@Language(value = "http-url-reference", prefix = "https://comroid.org/?") @Nullable String data) {
         final var obj = new Object();
         if (data == null) return obj;
         Arrays.stream(data.split("&"))

@@ -5,6 +5,7 @@ import lombok.SneakyThrows;
 import org.comroid.annotations.Convert;
 import org.comroid.annotations.Instance;
 import org.comroid.api.func.util.DelegateStream;
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,7 +27,7 @@ public enum JSON implements Serializer<JSON.Node> {
     }
 
     @Override
-    public @NotNull JSON.Node parse(@Nullable String data) {
+    public @NotNull JSON.Node parse(@Language("JSON") @Nullable String data) {
         if (data == null)
             return DataNode.Value.NULL.json();
         try (var reader = new Deserializer(new StringReader(data))) {
