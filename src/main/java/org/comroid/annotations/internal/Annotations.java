@@ -39,12 +39,6 @@ import static org.comroid.api.func.util.Streams.*;
 @ApiStatus.Internal
 public class Annotations {
     public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class, Class.class, Annotation.class};
-    public static final Comparator<AnnotatedElement> OrderComparator = Comparator.comparingInt(it ->
-            findAnnotations(Order.class, it)
-                    .findAny()
-                    .map(Result::getAnnotation)
-                    .map(Order::value)
-                    .orElse(0));
 
     @ApiStatus.Experimental
     @Convert(identifyVia = "annotationType")
@@ -70,8 +64,10 @@ public class Annotations {
                 .sorted(comparatorAdapter(Result::getAnnotation, Description.COMPARATOR));
     }
 
-    public Wrap<Result<Category>> category(@NotNull AnnotatedElement of) {
-        return Wrap.ofStream(findAnnotations(Category.class, of));
+    public Wrap<Category.Adapter> category(@NotNull AnnotatedElement of) {
+        return Wrap.ofStream(findAnnotations(Category.class, of))
+                .map(Result::getAnnotation)
+                .map(Category.Adapter::wrap);
     }
 
     public <R> @Nullable R defaultValue(@NotNull AnnotatedElement of) {
@@ -262,12 +258,18 @@ public class Annotations {
         throw new IllegalArgumentException("Invalid element: " + target);
     }
 
-    public static String toString(Description desc) {
-        return switch (desc.mode()) {
-            case Usage -> String.join(" ", desc.value());
-            case Lines -> String.join("\n", desc.value());
-            case Steps -> "- "+String.join("\n- ", desc.value());
-        };
+    public static String toString(Description... config) {
+        if (config.length == 1) {
+            var desc = config[0];
+            return switch (desc.mode()) {
+                case Usage -> String.join(" ", desc.value());
+                case Lines -> String.join("\n", desc.value());
+                case Steps -> "- " + String.join("\n- ", desc.value());
+            };
+        } else return stream(config)
+                .sorted(Description.COMPARATOR)
+                .map(Annotations::toString)
+                .collect(Collectors.joining("\n\n"));
     }
 
     public <T extends Member & AnnotatedElement> String toString(Expect expect, T member) {
@@ -290,4 +292,5 @@ public class Annotations {
             return annotation.annotationType();
         }
     }
+
 }
