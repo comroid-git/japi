@@ -6,7 +6,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Inherit(Inherit.Type.FromSupertype)
+@Inherit(Inherit.Type.FromParent)
 public @interface Alias {
     String[] value() default {};
 }

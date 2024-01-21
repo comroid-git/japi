@@ -2,6 +2,7 @@ package org.comroid.api.tree;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.comroid.annotations.Ignore;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.EnabledState;
 import org.comroid.api.attr.Owned;
@@ -56,10 +57,12 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
     }
 
     class Base implements Container, Reloadable {
+        @Ignore @Getter(onMethod = @__(@Ignore))
         private final AtomicReference<CompletableFuture<Void>> closed = new AtomicReference<>(new CompletableFuture<>());
-        @Getter
+        @Ignore @Getter(onMethod = @__(@Ignore))
         final Set<Object> children;
 
+        @Ignore
         public boolean isClosed() {
             return closed.get().isDone();
         }

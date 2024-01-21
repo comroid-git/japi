@@ -9,7 +9,6 @@ import org.comroid.annotations.Ignore;
 import org.comroid.api.attr.BitmaskAttribute;
 import org.comroid.api.attr.EnabledState;
 import org.comroid.api.attr.Named;
-import org.comroid.api.func.util.Invocable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.exc.ThrowingConsumer;
 import org.comroid.api.info.Log;
@@ -139,16 +138,14 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         return Cache.get("dependencies of " + type.getCanonicalName(), () -> {
             var struct = DataStructure.of(type);
             return Stream.concat(
-                            struct.getProperties().values().stream()
-                                    //.flatMap(prop -> prop.annotations.stream())
-                                    //.map(Polyfill::<Annotations.Result<Inject>>uncheckedCast)
-                                    .flatMap(expandFlat(prop -> prop.streamAnnotations(Inject.class)))
-                                    .map(mapB(Annotations.Result::getAnnotation))
-                                    .map(combine((prop, inject) -> new Dependency<>(
-                                            inject.value(),
-                                            uncheckedCast(prop.getType().getTargetClass()),
-                                            inject.required(),
-                                            uncheckedCast(prop)))),
+                            struct.getProperties().stream()
+                                    .flatMap(prop -> prop.streamAnnotations(Inject.class)
+                                            .map(Annotations.Result::getAnnotation)
+                                            .map(inject -> new Dependency<>(
+                                                    inject.value(),
+                                                    uncheckedCast(prop.getType().getTargetClass()),
+                                                    inject.required(),
+                                                    uncheckedCast(prop)))),
                             Annotations.findAnnotations(Requires.class, type)
                                     .flatMap(requires -> Arrays.stream(requires.getAnnotation().value())
                                             .map(cls -> new Dependency<>("", cls, true, null))))
@@ -235,7 +232,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
         @Override
         public int hashCode() {
-            return Objects.hash(name, type, required);
+            return Objects.hash(name, type, required, prop);
         }
     }
 

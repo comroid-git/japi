@@ -157,6 +157,8 @@ public class Annotations {
                         break;
                     case FromSupertype, FromBoth:
                         sources = sources.collect(append(findAncestor(member, type).stream()));
+                        if (inherit != Inherit.Type.FromBoth)
+                            break;
                     case FromParent:
                         sources = sources.collect(append(decl));
                         break;
