@@ -13,7 +13,6 @@ import org.comroid.api.info.Constraint;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
-import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.text.Capitalization;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -169,32 +168,43 @@ public class DataStructure<T> implements Named {
 
             <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterPropertyMembers(R member) {
                 if (member instanceof Field fld)
-                    return checkAccess(fld);
+                    return checkAccess(fld) && !struct.getDeclaredProperties().containsKey(member.getName());
                 else if (member instanceof Method mtd)
                     return checkAccess(mtd)
                             && (member.getName().startsWith("get") && member.getName().length() > 3)
-                            && mtd.getParameterCount() == 0;
+                            && mtd.getParameterCount() == 0
+                            && !struct.getDeclaredProperties().containsKey(Capitalization.Current.getProperties()
+                            .convert(member.getName().substring(3)));
                 else return false;
             }
 
             <R extends java.lang.reflect.Member & AnnotatedElement, P> DataStructure<T>.Property<P> convertProperty(R member) {
-                String name = member.getName();
+                final var parts = new ArrayList<AnnotatedElement>();
+                final var name = new String[]{member.getName()};
                 P defaultValue = Annotations.defaultValue(member);
-                ValueType<P> type = null;
-                Invocable<P> getter = null;
+                ValueType<P> type;
+                Invocable<P> getter;
                 Invocable<?> setter = null;
+
+                parts.add(member);
                 if (member instanceof Field fld) {
                     type = ValueType.of(fld.getType());
                     getter = Invocable.ofFieldGet(fld);
                     if (!Modifier.isFinal(member.getModifiers()))
                         setter = Invocable.ofFieldSet(fld);
+
+                    Arrays.stream(target.getMethods())
+                            .filter(mtd -> mtd.getName().toLowerCase().endsWith(name[0].toLowerCase()))
+                            .filter(this::filterSystem)
+                            .filter(this::filterIgnored)
+                            .filter(this::filterAbove)
+                            .filter(this::filterPropertyModifiers)
+                            .forEach(parts::add);
                 } else if (member instanceof Method mtd) {
-                    name = lowerCamelCase.convert(name.substring(3));
+                    name[0] = lowerCamelCase.convert(name[0].substring(3));
                     type = ValueType.of(mtd.getReturnType());
                     getter = Invocable.ofMethodCall(mtd);
 
-                    final var finalName = name;
-                    final var finalType = type;
                     setter = Wrap.ofOptional(Arrays.stream(target.getMethods())
                                     .filter(this::filterSystem)
                                     .filter(this::filterIgnored)
@@ -204,19 +214,24 @@ public class DataStructure<T> implements Named {
                                         var setterName = candidate.getName();
                                         return setterName.startsWith("set")
                                                 && setterName.length() > 3
-                                                && setterName.equals("set" + UpperCamelCase.convert(finalName))
+                                                && setterName.equals("set" + UpperCamelCase.convert(name[0]))
                                                 && checkAccess(candidate)
                                                 && candidate.getParameterCount() == 1
-                                                && ValueType.of(candidate.getParameterTypes()[0]).equals(finalType);
+                                                && ValueType.of(candidate.getParameterTypes()[0]).equals(type);
                                     })
                                     .findAny())
+                            .peek(parts::add)
                             .ifPresentMap(Invocable::ofMethodCall);
-                }
-                if (type == null)
-                    throw new AssertionError("Could not initialize property adapter for " + member);
-                DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name, member, target, type, defaultValue, getter, setter));
-                setAnnotations(member, prop);
-                setAliases(member, prop);
+
+                    Arrays.stream(target.getDeclaredFields())
+                            .filter(fld -> fld.getName().equals(name[0]))
+                            .forEach(parts::add);
+                } else throw new AssertionError("Could not initialize property adapter for " + member);
+
+                DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name[0], member, target, type, defaultValue, getter, setter));
+                var partsArray = parts.toArray(AnnotatedElement[]::new);
+                setAnnotations(prop, partsArray);
+                setAliases(prop, partsArray);
                 return prop;
             }
 
@@ -242,21 +257,24 @@ public class DataStructure<T> implements Named {
                 if (func == null)
                     throw new AssertionError("Could not initialize construction adapter for " + member);
                 DataStructure<T>.Constructor ctor = struct.new Constructor(name, member, target, List.of(param), func);
-                setAnnotations(member, ctor);
-                setAliases(member, ctor);
+                setAnnotations(ctor, member);
+                setAliases(ctor, member);
                 return ctor;
             }
 
-            private void setAnnotations(AnnotatedElement source, DataStructure.Member member) {
+            private void setAnnotations(Member member, AnnotatedElement... sources) {
                 // TODO: improve
-                Arrays.stream(source.getAnnotations())
-                        .map(anno -> new Result<>(anno, source, source, ReflectionHelper.declaringClass(source)))
+                Arrays.stream(sources)
+                        .flatMap(source -> Arrays.stream(source.getAnnotations())
+                                .map(anno -> new Result<>(anno, source, source, declaringClass(source))))
                         .forEach(member.annotations::add);
                 //member.annotations.addAll(findAnnotations(Annotation.class, source).toList());
             }
 
-            private void setAliases(AnnotatedElement source, DataStructure.Member member) {
-                member.aliases.addAll(aliases(source));
+            private void setAliases(Member member, AnnotatedElement... sources) {
+                Arrays.stream(sources)
+                        .flatMap(of -> Annotations.aliases(of).stream())
+                        .forEach(member.aliases::add);
             }
 
             boolean checkAccess(AnnotatedElement member) {
