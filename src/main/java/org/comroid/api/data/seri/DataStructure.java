@@ -231,7 +231,7 @@ public class DataStructure<T> implements Named {
                 DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name[0], member, target, type, defaultValue, getter, setter));
                 var partsArray = parts.toArray(AnnotatedElement[]::new);
                 setAnnotations(prop, partsArray);
-                setAliases(prop, partsArray);
+                setMetadata(prop, partsArray);
                 return prop;
             }
 
@@ -258,7 +258,7 @@ public class DataStructure<T> implements Named {
                     throw new AssertionError("Could not initialize construction adapter for " + member);
                 DataStructure<T>.Constructor ctor = struct.new Constructor(name, member, target, List.of(param), func);
                 setAnnotations(ctor, member);
-                setAliases(ctor, member);
+                setMetadata(ctor, member);
                 return ctor;
             }
 
@@ -271,10 +271,24 @@ public class DataStructure<T> implements Named {
                 //member.annotations.addAll(findAnnotations(Annotation.class, source).toList());
             }
 
-            private void setAliases(Member member, AnnotatedElement... sources) {
+            private void setMetadata(Member member, AnnotatedElement... sources) {
+                // aliases
                 Arrays.stream(sources)
-                        .flatMap(of -> Annotations.aliases(of).stream())
+                        .flatMap(it -> Annotations.aliases(it).stream())
                         .forEach(member.aliases::add);
+
+                // description
+                Arrays.stream(sources)
+                        .flatMap(Annotations::description)
+                        .map(Result::getAnnotation)
+                        .map(Annotations::toString)
+                        .forEachOrdered(member.description::add);
+
+                // categories
+                Arrays.stream(sources)
+                        .flatMap(it -> Annotations.category(it).stream())
+                        .map(Result::getAnnotation)
+                        .forEachOrdered(member.categories::add);
             }
 
             boolean checkAccess(AnnotatedElement member) {
@@ -321,9 +335,9 @@ public class DataStructure<T> implements Named {
         @NotNull
         @Getter
         String name;
-        @Getter
-        @NotNull
-        Set<String> aliases = new HashSet<>();
+        @Getter @NotNull Set<String> aliases = new HashSet<>();
+        @Getter @NotNull Set<String> description = new HashSet<>();
+        @Getter @NotNull Set<Category> categories = new HashSet<>();
         @NotNull
         @ToString.Exclude
         @Getter(onMethod = @__(@JsonIgnore))

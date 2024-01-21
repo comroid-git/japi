@@ -1,9 +1,7 @@
 package org.comroid.annotations.internal;
 
 import jdk.jshell.JShell;
-import jdk.jshell.JShellException;
 import jdk.jshell.SnippetEvent;
-import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.Value;
@@ -14,6 +12,7 @@ import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.DataStructure;
 import org.comroid.api.data.seri.StandardValueType;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus;
@@ -59,9 +58,9 @@ public class Annotations {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    public Stream<String> description(@NotNull AnnotatedElement of) {
+    public Stream<Result<Description>> description(@NotNull AnnotatedElement of) {
         return findAnnotations(Description.class, of)
-                .flatMap(it -> stream(it.annotation.value()));
+                .sorted(comparatorAdapter(Result::getAnnotation, Description.COMPARATOR));
     }
 
     public Wrap<Result<Category>> category(@NotNull AnnotatedElement of) {
@@ -148,7 +147,7 @@ public class Annotations {
                                 .findAny()
                                 .orElseGet(it::value);
                     })
-                    .orElse(org.comroid.annotations.internal.Inherit.Type.Default);
+                    .orElse(Inherit.Type.Default);
 
             // expand with ancestors by local or annotations @Inheritance annotations
             var sources = of(member);
@@ -179,7 +178,8 @@ public class Annotations {
                 }
                 if (!mem.isAnnotationPresent(type))
                     return empty();
-                return of(new Result<>(mem.getAnnotation(type), member, mem, decl));
+                return stream(mem.getAnnotationsByType(type))
+                        .map(anno -> new Result<>(anno, member, mem, decl));
             });
         });
     }
@@ -240,6 +240,14 @@ public class Annotations {
             return Wrap.empty();
         }
         throw new IllegalArgumentException("Invalid element: " + target);
+    }
+
+    public static String toString(Description desc) {
+        return switch (desc.mode()) {
+            case Usage -> String.join(" ", desc.value());
+            case Lines -> String.join("\n", desc.value());
+            case Steps -> "- "+String.join("\n- ", desc.value());
+        };
     }
 
     public <T extends Member & AnnotatedElement> String toString(Expect expect, T member) {
