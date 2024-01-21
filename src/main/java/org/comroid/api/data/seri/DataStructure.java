@@ -228,8 +228,8 @@ public class DataStructure<T> implements Named {
                             .forEach(parts::add);
                 } else throw new AssertionError("Could not initialize property adapter for " + member);
 
-                DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name[0], member, target, type, defaultValue, getter, setter));
                 var partsArray = parts.toArray(AnnotatedElement[]::new);
+                DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name[0], member, target, type, defaultValue, setter == null || parts.stream().anyMatch(Annotations::readonly), getter, setter));
                 setAnnotations(prop, partsArray);
                 setMetadata(prop, partsArray);
                 return prop;
@@ -336,7 +336,7 @@ public class DataStructure<T> implements Named {
         @Getter
         String name;
         @Getter @NotNull Set<String> aliases = new HashSet<>();
-        @Getter @NotNull Set<String> description = new HashSet<>();
+        @Getter @NotNull List<String> description = new ArrayList<>();
         @Getter @NotNull Set<Category> categories = new HashSet<>();
         @NotNull
         @ToString.Exclude
@@ -463,6 +463,7 @@ public class DataStructure<T> implements Named {
     public class Property<V> extends Member {
         @NotNull ValueType<V> type;
         @Nullable V defaultValue;
+        boolean readonly;
         @Nullable
         @ToString.Exclude
         @Getter(onMethod = @__(@JsonIgnore))
@@ -477,11 +478,13 @@ public class DataStructure<T> implements Named {
                         @NotNull Class<?> declaringClass,
                         @NotNull ValueType<V> type,
                         @Nullable V defaultValue,
+                        boolean readonly,
                         @Nullable Invocable<V> getter,
                         @Nullable Invocable<?> setter) {
             super(name, context, declaringClass);
             this.type = type;
             this.defaultValue = defaultValue;
+            this.readonly = readonly;
             this.getter = getter;
             this.setter = setter;
         }
@@ -493,7 +496,8 @@ public class DataStructure<T> implements Named {
         }
 
         public @Nullable V setFor(T target, V value) {
-            Constraint.notNull(setter, "setter");
+            Constraint.decide(!readonly, "not readonly");
+            Constraint.decide(canSet(), "canSet");
             Constraint.notNull(value, "value");
             var prev = getFrom(target);
             setter.invokeSilent(target, value);

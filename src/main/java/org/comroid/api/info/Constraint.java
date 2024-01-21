@@ -118,6 +118,14 @@ public class Constraint {
                 .setExpected(expected);
     }
 
+    public API decide(boolean value, String nameof) {
+        return decide(value)
+                .setConstraint("check")
+                .setNameof(nameof)
+                .setShouldBe("is")
+                .setExpected("true");
+    }
+
     public API isNull(Object it, String nameof) {
         return new API(() -> it == null)
                 .setConstraint("isNull")

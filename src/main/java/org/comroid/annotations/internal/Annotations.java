@@ -15,6 +15,7 @@ import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.ReflectionHelper;
+import org.comroid.api.java.SoftDepend;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -49,6 +50,12 @@ public class Annotations {
     @Convert(identifyVia = "annotationType")
     public Constraint.API expect(AnnotatedElement context) {
         return Constraint.fail();
+    }
+
+    public static boolean readonly(AnnotatedElement element) {
+        return Stream.concat(Stream.of(Readonly.class), SoftDepend.<Annotation>type("javax.persistence.Id").stream())
+                .flatMap(type -> findAnnotations(type, element))
+                .findAny().isPresent();
     }
 
     public Set<String> aliases(@NotNull AnnotatedElement of) {
