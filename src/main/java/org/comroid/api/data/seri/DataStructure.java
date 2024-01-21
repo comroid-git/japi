@@ -291,8 +291,7 @@ public class DataStructure<T> implements Named {
                 // categories
                 Arrays.stream(sources)
                         .flatMap(it -> Annotations.category(it).stream())
-                        .map(Result::getAnnotation)
-                        .forEachOrdered(member.categories::add);
+                        .forEachOrdered(member.category::complete);
             }
 
             boolean checkAccess(AnnotatedElement member) {
@@ -300,7 +299,7 @@ public class DataStructure<T> implements Named {
             }
         };
 
-        var count = helper.streamRelevantMembers(target)
+        var init = helper.streamRelevantMembers(target)
                 .filter(helper::filterDynamic)
                 .filter(helper::filterSystem)
                 .filter(helper::filterIgnored)
@@ -318,7 +317,7 @@ public class DataStructure<T> implements Named {
                                 .filter(helper::filterConstructorMembers)
                                 .map(helper::convertConstructor)
                                 .peek(ctor -> struct.constructors.add(uncheckedCast(ctor)))))
-                .count();
+                .toList();
 
         // init parents
         $cache.put(key, struct);
@@ -330,7 +329,8 @@ public class DataStructure<T> implements Named {
                 .map(Polyfill::<DataStructure<? super T>>uncheckedCast)
                 .forEach(struct.parents::add);
 
-        Log.at(Level.FINE, "Initialized %d members for %s".formatted(count, target.getCanonicalName()));
+        Log.at(Level.FINE, "Initialized %d members for %s".formatted(init.size(), target.getCanonicalName()));
+        Log.at(Level.FINER, "Initialized: "+init.stream().map(Objects::toString).collect(Collectors.joining("\n\t- ","\n\t- ","")));
         return struct;
     }
 
@@ -341,14 +341,13 @@ public class DataStructure<T> implements Named {
         String name;
         @Getter @NotNull Set<String> aliases = new HashSet<>();
         @Getter @NotNull List<String> description = new ArrayList<>();
-        @Getter @NotNull Set<Category> categories = new HashSet<>();
+        @Getter @NotNull Wrap.Future<Category.Adapter> category = new Wrap.Future<>();
         @NotNull
         @ToString.Exclude
         @Getter(onMethod = @__(@JsonIgnore))
         AnnotatedElement context;
         @NotNull
         @ToString.Exclude
-        @Getter(onMethod = @__(@JsonIgnore))
         Set<Result<?>> annotations = new HashSet<>();
         @Getter
         @NotNull Class<?> declaringClass;
