@@ -25,13 +25,13 @@ import static java.util.Arrays.stream;
 public @interface Category {
     Adapter None = new Adapter();
 
-    Comparator<Category> COMPARATOR = Comparator.comparingInt(cat -> cat.order()[0].value());
+    Comparator<Category> COMPARATOR = Comparator.comparingInt(Category::order);
 
     String value() default "";
 
     Description[] desc() default {};
 
-    Order[] order() default {};
+    int order() default 0;
 
     @SuppressWarnings("ClassExplicitlyAnnotation")
     @Value
@@ -39,8 +39,7 @@ public @interface Category {
         Category cat;
         List<Description> descriptions = new ArrayList<>();
         @NonFinal
-        @Setter
-        @Nullable Order order;
+        @Setter int order;
 
         private Adapter() {
             this(null);
@@ -62,7 +61,7 @@ public @interface Category {
 
         @Override
         public String value() {
-            return cat == null ? "" : cat.value();
+            return cat == null ? "Uncategorized" : cat.value();
         }
 
         @Override
@@ -71,8 +70,8 @@ public @interface Category {
         }
 
         @Override
-        public Order[] order() {
-            return order == null ? new Order[0] : new Order[]{order};
+        public int order() {
+            return order;
         }
 
         @Override
@@ -95,8 +94,8 @@ public @interface Category {
                 return adp;
             return Cache.<String, Category.Adapter>compute("@Category('" + cat.value() + "')", (k, v) -> {
                 final Category.Adapter adp = (v == null ? new Category.Adapter(cat) : v);
-                if (adp.order().length < cat.order().length)
-                    adp.setOrder(cat.order()[0]);
+                if (adp.order == 0 && cat.order() != 0)
+                    adp.setOrder(cat.order());
                 stream(cat.desc())
                         .filter(l -> adp.descriptions.stream().noneMatch(
                                 r -> l.mode() == r.mode() && Arrays.equals(l.value(), r.value())))

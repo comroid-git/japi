@@ -23,6 +23,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.*;
 import java.util.logging.Level;
 import java.util.stream.Stream;
@@ -358,8 +360,8 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         @Override
         public T get() {
             try {
-                return future.get();
-            } catch (ExecutionException | InterruptedException e) {
+                return future.get(0, TimeUnit.SECONDS);
+            } catch (ExecutionException | InterruptedException | TimeoutException e) {
                 Log.at(Level.WARNING, "Failed to immediately get resource", e);
                 return null;
             }

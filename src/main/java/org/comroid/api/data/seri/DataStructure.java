@@ -68,6 +68,24 @@ public class DataStructure<T> implements Named {
         return list;
     }
 
+    public List<Map.Entry<Category.Adapter, List<DataStructure<? super T>.Property<?>>>> getCategorizedOrderedProperties() {
+        Map<Category.Adapter, List<DataStructure<? super T>.Property<?>>> map = new ConcurrentHashMap<>();
+        for (var prop : getProperties()) {
+            var cat = prop.getCategory().orElse(Category.None);
+            map.computeIfAbsent(cat, $ -> new ArrayList<>()).add(prop);
+        }
+        List<Map.Entry<Category.Adapter, List<DataStructure<? super T>.Property<?>>>> toSort = new ArrayList<>();
+        for (Map.Entry<Category.Adapter, List<DataStructure<? super T>.Property<?>>> adapterListEntry : map.entrySet()) {
+            var list = adapterListEntry.getValue();
+            list.sort(Property.COMPARATOR);
+            Map.Entry<Category.Adapter, List<DataStructure<? super T>.Property<?>>> apply
+                    = new AbstractMap.SimpleImmutableEntry<>(adapterListEntry.getKey(), Collections.unmodifiableList(list));
+            toSort.add(apply);
+        }
+        toSort.sort(Streams.comparatorAdapter(Map.Entry::getKey, Category.COMPARATOR));
+        return Collections.unmodifiableList(toSort);
+    }
+
     @Override
     public String getName() {
         return type.getCanonicalName();
@@ -466,9 +484,7 @@ public class DataStructure<T> implements Named {
     public class Property<V> extends Member {
         public static final Comparator<? super DataStructure<?>.Property<?>> COMPARATOR = Comparator
                 .<DataStructure<?>.Property<?>>comparingInt(prop -> prop.getCategory().stream()
-                        .map(Category::order)
-                        .flatMap(Arrays::stream)
-                        .mapToInt(Order::value)
+                        .mapToInt(Category::order)
                         .findFirst()
                         .orElse(0))
                 .thenComparing(Order.COMPARATOR);

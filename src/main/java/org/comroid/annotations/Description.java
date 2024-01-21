@@ -14,7 +14,7 @@ import java.util.Comparator;
 public @interface Description {
     Comparator<Description> COMPARATOR = Comparator.comparingInt(desc -> desc.mode().getAsInt());
 
-    String[] value() default {};
+    String[] value();
 
     Mode mode() default Mode.Lines;
 
