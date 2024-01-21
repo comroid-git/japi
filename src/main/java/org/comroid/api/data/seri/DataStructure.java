@@ -20,14 +20,18 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntPredicate;
 import java.util.logging.Level;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.annotations.internal.Annotations.*;
 import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.api.java.ReflectionHelper.declaringClass;
+import static org.comroid.api.java.ReflectionHelper.simpleClassName;
 import static org.comroid.api.text.Capitalization.*;
 
 @Value
@@ -60,7 +64,7 @@ public class DataStructure<T> implements Named {
 
     public List<DataStructure<? super T>.Property<?>> getOrderedProperties() {
         var list = new ArrayList<>(getProperties());
-        list.sort(OrderComparator);
+        list.sort(Property.COMPARATOR);
         return list;
     }
 
@@ -461,6 +465,14 @@ public class DataStructure<T> implements Named {
 
     @Value
     public class Property<V> extends Member {
+        public static final Comparator<? super DataStructure<?>.Property<?>> COMPARATOR = Comparator
+                .<DataStructure<?>.Property<?>>comparingInt(prop -> prop.getCategory().stream()
+                        .map(Category::order)
+                        .flatMap(Arrays::stream)
+                        .mapToInt(Order::value)
+                        .findFirst()
+                        .orElse(0))
+                .thenComparing(Order.COMPARATOR);
         @NotNull ValueType<V> type;
         @Nullable V defaultValue;
         boolean readonly;
