@@ -1,7 +1,9 @@
 package org.comroid.api.func.ext;
 
+import lombok.Setter;
 import lombok.Value;
 import lombok.experimental.Delegate;
+import lombok.experimental.NonFinal;
 import org.comroid.annotations.Category;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.attr.MutableState;
@@ -348,6 +350,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     @Value
     class Future<T> implements Wrap<T> {
         @Delegate CompletableFuture<T> future;
+        @NonFinal @Setter @NotNull Level logLevel = Level.FINE;
 
         public Future() {
             this(new CompletableFuture<>());
@@ -362,7 +365,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
             try {
                 return future.get(0, TimeUnit.SECONDS);
             } catch (ExecutionException | InterruptedException | TimeoutException e) {
-                Log.at(Level.WARNING, "Failed to immediately get resource", e);
+                Log.at(logLevel, "Failed to immediately get resource", e);
                 return null;
             }
         }
