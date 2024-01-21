@@ -14,6 +14,7 @@ import org.comroid.api.func.util.Invocable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
 import org.comroid.api.java.ReflectionHelper;
+import org.comroid.api.text.Capitalization;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,10 +43,27 @@ public class DataStructure<T> implements Named {
     @NotNull Class<? super T> type;
     @NotNull
     @ToString.Exclude
+    List<DataStructure<? super T>> parents = new ArrayList<>();
+    @NotNull
+    @ToString.Exclude
     List<Constructor> constructors = new ArrayList<>();
     @NotNull
     @ToString.Exclude
-    Map<String, Property<?>> properties = new ConcurrentHashMap<>();
+    Map<String, Property<?>> declaredProperties = new ConcurrentHashMap<>();
+
+    public Set<DataStructure<? super T>.Property<?>> getProperties() {
+        var set = new HashSet<DataStructure<? super T>.Property<?>>(declaredProperties.values());
+        parents.stream().flatMap(dataStructure -> dataStructure.getProperties().stream())
+                .filter(prop -> set.stream().map(Member::getName).noneMatch(prop.name::equals))
+                .forEach(set::add);
+        return set;
+    }
+
+    public List<DataStructure<? super T>.Property<?>> getOrderedProperties() {
+        var list = new ArrayList<>(getProperties());
+        list.sort(OrderComparator);
+        return list;
+    }
 
     @Override
     public String getName() {
@@ -61,7 +79,38 @@ public class DataStructure<T> implements Named {
     }
 
     public <V> Wrap<Property<V>> getProperty(String name) {
-        return Wrap.of(properties.getOrDefault(name, null)).castRef();
+        return Wrap.ofStream(getProperties().stream()
+                        .filter(prop -> Stream.concat(Stream.of(prop.name), prop.aliases.stream())
+                                .anyMatch(alias -> alias.equals(name))))
+                .castRef();
+    }
+
+    public Set<Property<?>> update(Map<String, String> data, T target) {
+        final var affected = new HashSet<Property<?>>();
+
+        for (final var prop : declaredProperties.values()) {
+            final var type = prop.type;
+            if (!(type instanceof StandardValueType<?>)) {
+                log.fine("Skipping auto-update for " + prop + " because its not a standard type (" + type + ")");
+                continue;
+            }
+
+            final var name = prop.getName();
+            if (!data.containsKey(name))
+                continue;
+            if (!prop.canSet()) {
+                if (data.containsKey(name))
+                    log.warning("Data had value for " + prop + "; but the property is not settable");
+                continue;
+            }
+
+            var value = data.get(name);
+            var parse = type.parse(value);
+            prop.setFor(target, uncheckedCast(parse));
+            affected.add(prop);
+        }
+
+        return Collections.unmodifiableSet(affected);
     }
 
     public static <T> DataStructure<T> of(@NotNull Class<? super T> target) {
@@ -69,22 +118,18 @@ public class DataStructure<T> implements Named {
     }
 
     @lombok.Builder
-    public static <T> DataStructure<T> of(@NotNull Class<? super T> target, @NotNull Class<? super T> above) {
-        //return uncheckedCast($cache.touch(new Key<T>(target, above)));
-        return uncheckedCast($cache.computeIfAbsent(new Key<T>(target, above), DataStructure::create));
-    }
+    public static <T> DataStructure<T> of(final @NotNull Class<? super T> target, final @NotNull Class<? super T> above) {
+        final var key = new Key<>(target, above);
+        if ($cache.containsKey(key))
+            return uncheckedCast($cache.get(key));
 
-    private static <T> DataStructure<T> create(Key<T> key) {
-        final var target = key.type;
         final var struct = new DataStructure<T>(target);
-        class Helper {
+
+        var helper = new Object() {
             <R extends java.lang.reflect.Member & AnnotatedElement> Stream<R> streamRelevantMembers(Class<?> decl) {
                 return Stream.of(decl).flatMap(Streams.multiply(
-                                c -> Stream.concat(
-                                        Arrays.stream(c.getFields()),
-                                        Arrays.stream(c.getDeclaredFields())
-                                                .filter(fld -> !Modifier.isPublic(fld.getModifiers()))),
-                                c -> Arrays.stream(c.getMethods()),
+                                c -> Arrays.stream(c.getDeclaredFields()),
+                                c -> Arrays.stream(c.getDeclaredMethods()),
                                 c -> Arrays.stream(c.getConstructors())))
                         .map(Polyfill::uncheckedCast);
             }
@@ -103,7 +148,9 @@ public class DataStructure<T> implements Named {
             }
 
             boolean filterAbove(AnnotatedElement member) {
-                return !(member instanceof AccessibleObject obj) || !declaringClass(obj).isAssignableFrom(key.above);
+                if (member instanceof Class<?> cls) return !cls.isAssignableFrom(above);
+                if (!(member instanceof AccessibleObject obj)) return true;
+                return !declaringClass(obj).isAssignableFrom(above);
             }
 
             boolean filterPropertyModifiers(java.lang.reflect.Member member) {
@@ -114,7 +161,7 @@ public class DataStructure<T> implements Named {
             boolean filterConstructorModifiers(java.lang.reflect.Member member) {
                 final var mod = member.getModifiers();
                 return Map.<Class<?>, IntPredicate>of(
-                                Method.class, bit -> ((Method) member).getReturnType().equals(target),
+                                Method.class, bit -> ((Method) member).getReturnType().equals(target) && Modifier.isStatic(bit),
                                 DataStructure.Constructor.class, bit -> true)
                         .entrySet().stream()
                         .anyMatch(e -> !e.getKey().isInstance(member) || e.getValue().test(mod));
@@ -132,6 +179,7 @@ public class DataStructure<T> implements Named {
 
             <R extends java.lang.reflect.Member & AnnotatedElement, P> DataStructure<T>.Property<P> convertProperty(R member) {
                 String name = member.getName();
+                P defaultValue = Annotations.defaultValue(member);
                 ValueType<P> type = null;
                 Invocable<P> getter = null;
                 Invocable<?> setter = null;
@@ -166,9 +214,9 @@ public class DataStructure<T> implements Named {
                 }
                 if (type == null)
                     throw new AssertionError("Could not initialize property adapter for " + member);
-                DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name, member, target, type, getter, setter));
-                setAnnotations(member,prop);
-                setAliases(member,prop);
+                DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name, member, target, type, defaultValue, getter, setter));
+                setAnnotations(member, prop);
+                setAliases(member, prop);
                 return prop;
             }
 
@@ -194,8 +242,8 @@ public class DataStructure<T> implements Named {
                 if (func == null)
                     throw new AssertionError("Could not initialize construction adapter for " + member);
                 DataStructure<T>.Constructor ctor = struct.new Constructor(name, member, target, List.of(param), func);
-                setAnnotations(member,ctor);
-                setAliases(member,ctor);
+                setAnnotations(member, ctor);
+                setAliases(member, ctor);
                 return ctor;
             }
 
@@ -214,8 +262,8 @@ public class DataStructure<T> implements Named {
             boolean checkAccess(AnnotatedElement member) {
                 return member instanceof AccessibleObject obj && obj.trySetAccessible();
             }
-        }
-        var helper = new Helper();
+        };
+
         var count = helper.streamRelevantMembers(target)
                 .filter(helper::filterDynamic)
                 .filter(helper::filterSystem)
@@ -226,15 +274,26 @@ public class DataStructure<T> implements Named {
                                 .filter(helper::filterPropertyModifiers)
                                 .filter(helper::filterPropertyMembers)
                                 .map(helper::convertProperty)
-                                .peek(prop -> Stream.concat(Stream.of(prop.getName()), prop.aliases.stream())
-                                        .forEach(name -> struct.properties.put(name, uncheckedCast(prop)))),
+                                .peek(member -> Stream.concat(Stream.of(member.getName()), member.aliases.stream())
+                                        .map(Current.getProperties()::convert)
+                                        .forEach(name -> struct.declaredProperties.put(name, uncheckedCast(member)))),
                         Stream.of(s)
                                 .filter(helper::filterConstructorModifiers)
                                 .filter(helper::filterConstructorMembers)
                                 .map(helper::convertConstructor)
                                 .peek(ctor -> struct.constructors.add(uncheckedCast(ctor)))))
-                //.peek(member -> System.out.println(member))
                 .count();
+
+        // init parents
+        $cache.put(key, struct);
+        Stream.of(target.getSuperclass())
+                .collect(Streams.append(target.getInterfaces()))
+                .filter(Objects::nonNull)
+                .filter(helper::filterAbove)
+                .map(DataStructure::of)
+                .map(Polyfill::<DataStructure<? super T>>uncheckedCast)
+                .forEach(struct.parents::add);
+
         Log.at(Level.FINE, "Initialized %d members for %s".formatted(count, target.getCanonicalName()));
         return struct;
     }
@@ -276,7 +335,7 @@ public class DataStructure<T> implements Named {
 
         @Override
         public String getAlternateName() {
-            return aliases.stream().findAny().orElseGet(Named.super::getAlternateName);
+            return Title_Case.convert(getName());
         }
 
         @Ignore
@@ -313,6 +372,8 @@ public class DataStructure<T> implements Named {
                     .findAny()
                     .orElse(null);
         }
+
+        public abstract String getCanonicalName();
 
         @Override
         public String toString() {
@@ -356,6 +417,11 @@ public class DataStructure<T> implements Named {
         }
 
         @Override
+        public String getCanonicalName() {
+            return declaringClass.getCanonicalName() + ".ctor";
+        }
+
+        @Override
         public String toString() {
             return super.toString();
         }
@@ -364,6 +430,7 @@ public class DataStructure<T> implements Named {
     @Value
     public class Property<V> extends Member {
         @NotNull ValueType<V> type;
+        @Nullable V defaultValue;
         @Nullable
         @ToString.Exclude
         @Getter(onMethod = @__(@JsonIgnore))
@@ -377,16 +444,19 @@ public class DataStructure<T> implements Named {
                         @NotNull AnnotatedElement context,
                         @NotNull Class<?> declaringClass,
                         @NotNull ValueType<V> type,
+                        @Nullable V defaultValue,
                         @Nullable Invocable<V> getter,
                         @Nullable Invocable<?> setter) {
             super(name, context, declaringClass);
             this.type = type;
+            this.defaultValue = defaultValue;
             this.getter = getter;
             this.setter = setter;
         }
 
         public @Nullable V getFrom(T target) {
-            Constraint.notNull(getter, "getter");
+            Constraint.notNull(getter, "getter").run();
+            Constraint.notNull(target, "target").run();
             return getter.invokeSilent(target);
         }
 
@@ -406,6 +476,11 @@ public class DataStructure<T> implements Named {
         @Override
         public ValueType<?> getHeldType() {
             return type;
+        }
+
+        @Override
+        public String getCanonicalName() {
+            return declaringClass.getCanonicalName() + '.' + name;
         }
 
         @Override

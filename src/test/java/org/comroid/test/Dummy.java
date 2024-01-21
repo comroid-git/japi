@@ -49,7 +49,6 @@ public class Dummy {
         }
 
         @Override
-        @Ignore.Inherit(Alias.class)
         public double getPrice() {
             return 0.99;
         }

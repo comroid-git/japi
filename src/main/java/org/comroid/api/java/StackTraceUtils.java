@@ -82,7 +82,8 @@ public final class StackTraceUtils {
 
     public static String lessSimpleName(Class<?> type) {
         return Optional.ofNullable(type.getCanonicalName())
-                .map(name->name.substring(type.getPackageName().length() + 1))
+                .map(name -> name.indexOf('.') == -1 ? name
+                        : name.substring(type.getPackageName().length() + 1))
                 .orElseGet(type::getSimpleName);
     }
 

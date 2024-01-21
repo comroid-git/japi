@@ -2,6 +2,8 @@ package org.comroid.api.text;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Value;
 import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.java.Log;
@@ -43,6 +45,9 @@ public enum Capitalization implements Named, Comparator<String> {
     CAPS_DOT_CASE(State.Upper, State.Upper, State.Upper, '.'), // "CAPS.DOT.CASE"
 
     Title_Case(State.Upper, State.Lower, State.Upper, ' '); // "Title Case"
+
+    public static final Context Default = Context.builder().build();
+    public static final Context Current = Default;
 
     State firstChar;
     State midWord;
@@ -183,5 +188,16 @@ public enum Capitalization implements Named, Comparator<String> {
                             .findAny())
                     .orElse(Any);
         }
+    }
+
+    @Value
+    @Builder
+    public static class Context {
+        @lombok.Builder.Default Capitalization constants = UpperCamelCase;
+        @lombok.Builder.Default Capitalization types = UpperCamelCase;
+        @lombok.Builder.Default Capitalization properties = lowerCamelCase;
+        @lombok.Builder.Default Capitalization paths = lower_hyphen_case;
+        @lombok.Builder.Default Capitalization display = Title_Case;
+        @lombok.Builder.Default Capitalization version = lower_dot_case;
     }
 }

@@ -215,7 +215,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         if (it instanceof DataNode.Base)
             return ((DataNode) it).properties();
         return DataStructure.of(it.getClass(), java.lang.Object.class)
-                .getProperties().values().stream()
+                .getDeclaredProperties().values().stream()
                 .map(Polyfill::<DataStructure<java.lang.Object>.Property<Object>>uncheckedCast)
                 .map(prop -> new Entry(prop.getName(), of(prop.getFrom(it))));
     }
@@ -309,7 +309,12 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
     @AllArgsConstructor
     @Ignore(Convertible.class)
     class Value<T> extends Base implements ValueBox<T> {
-        public static final DataNode NULL = new Value<>(null);
+        public static final DataNode NULL = new Value<>(null){
+            @Override
+            public ValueType<?> getHeldType() {
+                return VOID;
+            }
+        };
         protected @Nullable T value;
 
         @Override

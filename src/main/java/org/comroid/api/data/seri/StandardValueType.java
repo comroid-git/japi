@@ -1,69 +1,75 @@
 package org.comroid.api.data.seri;
 
+import lombok.Value;
 import org.comroid.api.Polyfill;
 import org.comroid.api.func.ext.Wrap;
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
-public final class StandardValueType<R> implements ValueType<R> {
-    public static final ValueType<Boolean> BOOLEAN;
-    public static final ValueType<Byte> BYTE;
-    public static final ValueType<Character> CHARACTER;
-    public static final ValueType<Double> DOUBLE;
-    public static final ValueType<Float> FLOAT;
-    public static final ValueType<Integer> INTEGER;
-    public static final ValueType<Long> LONG;
-    public static final ValueType<Short> SHORT;
-    public static final ValueType<String> STRING;
-    public static final ValueType<UUID> UUID;
+@Value
+public class StandardValueType<R> implements ValueType<R> {
+    public static final StandardValueType<Boolean> BOOLEAN;
+    public static final StandardValueType<Byte> BYTE;
+    public static final StandardValueType<Character> CHARACTER;
+    public static final StandardValueType<Double> DOUBLE;
+    public static final StandardValueType<Float> FLOAT;
+    public static final StandardValueType<Integer> INTEGER;
+    public static final StandardValueType<Long> LONG;
+    public static final StandardValueType<Short> SHORT;
+    public static final StandardValueType<String> STRING;
+    public static final StandardValueType<UUID> UUID;
 
-    public static final ValueType<Void> VOID;
+    public static final StandardValueType<Void> VOID;
     @Deprecated
-    public static final ValueType<Object> OBJECT;
-    public static final ValueType<Object[]> ARRAY;
+    public static final StandardValueType<Object> OBJECT;
+    public static final StandardValueType<Object[]> ARRAY;
 
-    public static final ValueType<?>[] values;
+    public static final List<StandardValueType<?>> cache = new ArrayList<>();
 
     static {
-        BOOLEAN = new StandardValueType<>(Boolean.class, "boolean", Boolean::parseBoolean);
-        BYTE = new StandardValueType<>(Byte.class, "byte", Byte::parseByte);
-        CHARACTER = new StandardValueType<>(Character.class, "char", str -> str.toCharArray()[0]);
-        DOUBLE = new StandardValueType<>(Double.class, "double", Double::parseDouble);
-        FLOAT = new StandardValueType<>(Float.class, "float", Float::parseFloat);
-        INTEGER = new StandardValueType<>(Integer.class, "int", Integer::parseInt);
-        LONG = new StandardValueType<>(Long.class, "long", Long::parseLong);
-        SHORT = new StandardValueType<>(Short.class, "short", Short::parseShort);
-        STRING = new StandardValueType<>(String.class, "String", Function.identity());
-        UUID = new StandardValueType<>(UUID.class, "UUID", java.util.UUID::fromString);
-        VOID = new StandardValueType<>(void.class, "Void", it -> null);
-        OBJECT = new StandardValueType<>(Object.class, "Object", it -> it);
-        ARRAY = new StandardValueType<>(Object[].class, "Array", it -> new Object[]{it});
-
-        values = new ValueType[]{BYTE, CHARACTER, DOUBLE, FLOAT, INTEGER, LONG, SHORT, STRING, BOOLEAN, VOID, ARRAY};
+        BOOLEAN = new StandardValueType<>(Boolean.class, "boolean", Boolean::parseBoolean, "checkbox");
+        BYTE = new StandardValueType<>(Byte.class, "byte", Byte::parseByte, "number", "min='"+Byte.MIN_VALUE+"'", "max='"+Byte.MAX_VALUE+"'");
+        CHARACTER = new StandardValueType<>(Character.class, "char", str -> str.toCharArray()[0], "text", "pattern='\\w'");
+        DOUBLE = new StandardValueType<>(Double.class, "double", Double::parseDouble, "number", "min='"+Double.MIN_VALUE+"'", "max='"+Double.MAX_VALUE+"'");
+        FLOAT = new StandardValueType<>(Float.class, "float", Float::parseFloat, "number", "min='"+Float.MIN_VALUE+"'", "max='"+Float.MAX_VALUE+"'");
+        INTEGER = new StandardValueType<>(Integer.class, "int", Integer::parseInt, "number", "min='"+Integer.MIN_VALUE+"'", "max='"+Integer.MAX_VALUE+"'");
+        LONG = new StandardValueType<>(Long.class, "long", Long::parseLong, "number", "min='"+Long.MIN_VALUE+"'", "max='"+Long.MAX_VALUE+"'");
+        SHORT = new StandardValueType<>(Short.class, "short", Short::parseShort, "number", "min='"+Short.MIN_VALUE+"'", "max='"+Short.MAX_VALUE+"'");
+        STRING = new StandardValueType<>(String.class, "String", Function.identity(), "text");
+        UUID = new StandardValueType<>(UUID.class, "UUID", java.util.UUID::fromString, "text", "pattern='"+RegExpUtil.UUID4_PATTERN+"'");
+        VOID = new StandardValueType<>(void.class, "Void", it -> null, "hidden");
+        OBJECT = new StandardValueType<>(Object.class, "Object", it -> it, "hidden");
+        ARRAY = new StandardValueType<>(Object[].class, "Array", it -> new Object[]{it}, "hidden");
     }
 
-    private final Class<R> type;
-    private final String name;
-    private final Function<String, R> converter;
-
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public Class<R> getTargetClass() {
-        return type;
-    }
-
-    public StandardValueType(Class<R> type, String name, Function<String, R> mapper) {
-        this.type = type;
+    private StandardValueType(
+            Class<R> targetClass,
+            String name,
+            Function<String, R> converter,
+            @Language(value = "HTML", prefix = "<input type=\"", suffix = "\">") String htmlInputType,
+            @Language(value = "HTML", prefix = "<input ", suffix = ">") String... htmlInputAttributes) {
+        this.targetClass = targetClass;
         this.name = name;
-        this.converter = mapper;
+        this.converter = converter;
+        this.htmlInputType = htmlInputType;
+        this.htmlInputAttributes = htmlInputAttributes;
+
+        cache.add(this);
     }
+
+    Class<R> targetClass;
+    String name;
+    Function<String, R> converter;
+    @Language(value = "HTML", prefix = "<input type=\"", suffix = "\">")
+    String htmlInputType;
+    @Language(value = "HTML", prefix = "<input ", suffix = ">")
+    String[] htmlInputAttributes;
 
     @Experimental
     public static Object findGoodType(String parse) {
@@ -77,6 +83,8 @@ public final class StandardValueType<R> implements ValueType<R> {
             return Double.parseDouble(parse);
         if (parse.matches("(true)|(false)"))
             return Boolean.parseBoolean(parse);
+        if (parse.matches(RegExpUtil.UUID4_PATTERN))
+            return java.util.UUID.fromString(parse);
         return parse;
     }
 
@@ -84,7 +92,7 @@ public final class StandardValueType<R> implements ValueType<R> {
         if (value == null)
             //noinspection unchecked
             return (ValueType<T>) StandardValueType.VOID;
-        return Arrays.stream(values)
+        return cache.stream()
                 .filter(it -> it.test(value))
                 .findAny()
                 .map(Polyfill::<StandardValueType<T>>uncheckedCast)
@@ -92,7 +100,7 @@ public final class StandardValueType<R> implements ValueType<R> {
     }
 
     public static Wrap<ValueType<?>> forClass(Class<?> cls) {
-        return Wrap.ofOptional(Arrays.stream(values)
+        return Wrap.ofOptional(cache.stream()
                 .filter(it -> it.getTargetClass().isAssignableFrom(cls) || (cls.isPrimitive() && it.getName().equals(cls.getSimpleName())))
                 .findAny());
     }
