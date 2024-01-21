@@ -2,6 +2,7 @@ package org.comroid.api.net;
 
 import lombok.*;
 import lombok.experimental.NonFinal;
+import org.comroid.api.attr.Named;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.MimeType;
 import org.comroid.api.Polyfill;
@@ -141,6 +142,11 @@ public final class REST {
                     .execute()
                     .thenCompose(this::handleRedirect);
         }
+
+        @Override
+        public String toString() {
+            return "%s %s (%d headers)".formatted(method, uri, headers.size());
+        }
     }
 
     @Value
@@ -151,7 +157,9 @@ public final class REST {
         Map<String, List<String>> headers;
 
         public Response validate2xxOK() {
-            Constraint.equals(responseCode/100, 2, "responseCode").run();
+            Constraint.equals(responseCode/100, 2, "responseCode")
+                    .setMessageOverride("Invalid response code; expected code in 200-299 range ("+responseCode+")\n\t"+request.toString())
+                    .run();
             return this;
         }
 
@@ -167,9 +175,10 @@ public final class REST {
         private String reqErrMsg() {
             return "Invalid response received: " + responseCode;
         }
+
     }
 
-    public enum Method {
+    public enum Method implements Named {
         GET,
         POST,
         PUT,

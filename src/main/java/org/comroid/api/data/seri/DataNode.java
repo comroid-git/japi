@@ -1,5 +1,6 @@
 package org.comroid.api.data.seri;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import lombok.experimental.Delegate;
 import org.comroid.annotations.Ignore;
@@ -28,8 +29,9 @@ import java.util.stream.Stream;
 import static org.comroid.api.data.seri.StandardValueType.*;
 
 @Ignore({Convertible.class, DataStructure.class})
-public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
+public interface DataNode extends MimeType.Container, StringSerializable, Specifiable<DataNode> {
     @Override
+    @JsonIgnore
     default MimeType getMimeType() {
         final var supported = Map.of(
                 "json", MimeType.JSON,
@@ -41,6 +43,11 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
                 .filter(Objects::nonNull)
                 .findFirst()
                 .orElseThrow(()->new AbstractMethodError("MimeType was not specified or supported for DataNode " + this));
+    }
+
+    @Override
+    default String toSerializedString() {
+        return toString();
     }
 
     default DelegateStream.Input toInputStream() {
@@ -194,6 +201,12 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
         return as(UUID).orElse(fallback);
     }
 
+    @Override
+    default <R extends DataNode> Wrap<R> as(final Class<R> type) {
+        return Specifiable.super.as(type)
+                .orRef(() -> Wrap.exceptionally(() -> Activator.get(type).createInstance(this)));
+    }
+
     default Stream<Entry> properties() {
         return properties(this);
     }
@@ -264,7 +277,7 @@ public interface DataNode extends MimeType.Container, Specifiable<DataNode> {
         }
 
         @Override
-        public <R> @NotNull R convert(Class<? super R> target) {
+        public <R> @Nullable R convert(Class<? super R> target) {
             return Wrap.of(Activator.get(target).createInstance(this)).cast();
         }
     }

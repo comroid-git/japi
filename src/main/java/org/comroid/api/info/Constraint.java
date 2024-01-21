@@ -197,6 +197,7 @@ public class Constraint {
         @NotNull String shouldBe = DefaultShouldBe;
         @NotNull Object expected = DefaultExpected;
         @NotNull String hint = DefaultHint;
+        @Nullable String messageOverride = null;
 
         @Contract(mutates = "this")
         public API invert() {
@@ -211,7 +212,8 @@ public class Constraint {
                 if (test.getAsBoolean())
                     result = success.get();
                 else if (failure != null) {
-                    var err = new UnmetError(toString());
+                    var txt = err(constraint, typeof.getCanonicalName(), nameof, callLocation, actual, shouldBe, expected, hint);
+                    var err = new UnmetError(txt);
                     result = failure.apply(err);
                     if (result == null && !err.isResolved()) {
                         var fix = handler.apply(err);
@@ -246,7 +248,9 @@ public class Constraint {
                 Object expected,
                 @Nullable String hint
         ) {
-            return "Unmet %s constraint for argument %s %s in call to %s; %s should be %s %s\n%s"
+            if (messageOverride != null)
+                return messageOverride;
+            return "Unmet %s constraint for argument %s %s in call to %s;\n%s should be %s %s\n%s"
                     .formatted(constraint, typeof, nameof, callLocation, actual, shouldBeVerb, expected, hint);
         }
     }
@@ -256,12 +260,13 @@ public class Constraint {
     public final class UnmetError extends IllegalArgumentException {
         private boolean resolved = false;
 
-        public UnmetError(String message) {
-            super(message);
-        }
-
         public void cancel() {
             resolved = true;
+        }
+
+        @Override
+        public String toString() {
+            return getMessage();
         }
     }
 }

@@ -110,7 +110,8 @@ public class Annotations {
     }
 
     public boolean ignoreInherit(AnnotatedElement target, Class<? extends Annotation> goal) {
-        Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
+        if (!(target instanceof Class) && !(target instanceof Member))
+            return true;
         Constraint.Type.noneOf(goal, "goal", Ignore.Inherit.class).run();
 
         if (target instanceof Constructor<?>)
@@ -123,7 +124,7 @@ public class Annotations {
     }
 
     public <A extends Annotation> Stream<Result<A>> findAnnotations(final Class<A> type, final AnnotatedElement target) {
-        Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
+        //Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
 
         // @Ignore should inherit upwards indefinitely on anything but types; unless specified otherwise with @Ignore.Ancestors
         // @Alias should inherit only between ancestors of same type
@@ -204,7 +205,8 @@ public class Annotations {
 
     @SuppressWarnings("ConstantValue") // false positive
     public Wrap<AnnotatedElement> findAncestor(AnnotatedElement target, Class<? extends Annotation> goal) {
-        Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
+        if (!(target instanceof Class) && !(target instanceof Member))
+            return Wrap.empty();
 
         Class<?> decl;
         if (target instanceof Class<?>) {

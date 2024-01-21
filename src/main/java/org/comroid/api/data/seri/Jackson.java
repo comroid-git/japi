@@ -3,6 +3,7 @@ package org.comroid.api.data.seri;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.comroid.annotations.Instance;
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -13,7 +14,7 @@ public enum Jackson implements Serializer<JSON.Node> {
 
     @Override
     @SneakyThrows
-    public @Nullable JSON.Node parse(@Nullable String data) {
+    public @Nullable JSON.Node parse(@Language("JSON") @Nullable String data) {
         //noinspection unchecked
         return data == null ? DataNode.Value.NULL.json()
                 : data.trim().startsWith("{") ? org.comroid.api.data.seri.JSON.Object.of(new ObjectMapper().readValue(data, Map.class))

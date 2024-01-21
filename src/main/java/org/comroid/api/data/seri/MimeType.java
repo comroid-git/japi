@@ -90,10 +90,12 @@ public class MimeType {
 
     @Ignore
     public interface Container {
+        @Ignore
         default MimeType getMimeType() {
             return getMimeTypes()[0];
         }
 
+        @Ignore
         default MimeType[] getMimeTypes() {
             return new MimeType[]{getMimeType()};
         }
