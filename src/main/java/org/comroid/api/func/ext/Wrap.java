@@ -1,5 +1,8 @@
 package org.comroid.api.func.ext;
 
+import lombok.Value;
+import lombok.experimental.Delegate;
+import org.comroid.annotations.Category;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.attr.MutableState;
 import org.comroid.api.Polyfill;
@@ -18,6 +21,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.*;
 import java.util.logging.Level;
 import java.util.stream.Stream;
@@ -336,5 +341,28 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
 
     default <O> Wrap<O> flatMap(final @NotNull Function<? super T, Supplier<? extends O>> type) {
         return ifPresentMapOrElseGet(type, ()->null)::get;
+    }
+
+    @Value
+    class Future<T> implements Wrap<T> {
+        @Delegate CompletableFuture<T> future;
+
+        public Future() {
+            this(new CompletableFuture<>());
+        }
+
+        public Future(CompletableFuture<T> future) {
+            this.future = future;
+        }
+
+        @Override
+        public T get() {
+            try {
+                return future.get();
+            } catch (ExecutionException | InterruptedException e) {
+                Log.at(Level.WARNING, "Failed to immediately get resource", e);
+                return null;
+            }
+        }
     }
 }
