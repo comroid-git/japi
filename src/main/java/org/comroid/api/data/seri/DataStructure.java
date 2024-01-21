@@ -79,7 +79,10 @@ public class DataStructure<T> implements Named {
     }
 
     public <V> Wrap<Property<V>> getProperty(String name) {
-        return Wrap.ofStream(getProperties().stream().filter(prop -> prop.name.equals(name))).castRef();
+        return Wrap.ofStream(getProperties().stream()
+                        .filter(prop -> Stream.concat(Stream.of(prop.name), prop.aliases.stream())
+                                .anyMatch(alias -> alias.equals(name))))
+                .castRef();
     }
 
     public Set<Property<?>> update(Map<String, String> data, T target) {

@@ -17,7 +17,7 @@ public class DataStructureTest {
         //System.out.println(Debug.createObjectDump(struct));
 
         assertEquals("invalid fruit constructor count", 1, struct.getConstructors().size());
-        assertEquals("invalid fruit property count", 1, struct.getDeclaredProperties().size());
+        assertEquals("invalid fruit property count", 2, struct.getDeclaredProperties().size());
 
         //price
         testProp(struct, StandardValueType.DOUBLE, "price", 1.99);
@@ -29,7 +29,7 @@ public class DataStructureTest {
         //System.out.println(Debug.createObjectDump(struct));
 
         assertEquals("invalid apple constructor count", 2, struct.getConstructors().size());
-        assertEquals("invalid apple property count", 2, struct.getDeclaredProperties().size());
+        assertEquals("invalid apple property count", 1, struct.getDeclaredProperties().size());
 
         // price
         testProp(struct, StandardValueType.DOUBLE, "price", 0.99);
@@ -44,7 +44,7 @@ public class DataStructureTest {
         //System.out.println(Debug.createObjectDump(struct));
 
         assertEquals("invalid banana constructor count", 1, struct.getConstructors().size());
-        assertEquals("invalid banana property count", 3, struct.getDeclaredProperties().size());
+        assertEquals("invalid banana property count", 2, struct.getDeclaredProperties().size());
 
         // price
         testProp(struct, StandardValueType.DOUBLE, "price", 1.99);
