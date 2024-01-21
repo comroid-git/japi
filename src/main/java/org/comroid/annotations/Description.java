@@ -10,7 +10,7 @@ import java.util.Comparator;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Inherit(Inherit.Type.FromSupertype)
-@Repeatable(Description.List.class)
+@Repeatable(Description.Config.class)
 public @interface Description {
     Comparator<Description> COMPARATOR = Comparator.comparingInt(desc -> desc.mode().getAsInt());
 
@@ -20,7 +20,7 @@ public @interface Description {
 
     @Retention(RetentionPolicy.RUNTIME)
     @Inherit(Inherit.Type.FromSupertype)
-    @interface List {
+    @interface Config {
         Description[] value();
     }
 

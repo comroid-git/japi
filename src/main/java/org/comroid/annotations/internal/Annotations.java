@@ -12,7 +12,6 @@ import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.DataStructure;
 import org.comroid.api.data.seri.StandardValueType;
 import org.comroid.api.func.ext.Wrap;
-import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.SoftDepend;
@@ -22,6 +21,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
+import java.lang.annotation.Repeatable;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.logging.Level;
@@ -185,10 +185,23 @@ public class Annotations {
                 }
                 if (!mem.isAnnotationPresent(type))
                     return empty();
-                return stream(mem.getAnnotationsByType(type))
+                return getRepeatableAnnotationsByType(mem, type)
                         .map(anno -> new Result<>(anno, member, mem, decl));
             });
         });
+    }
+
+    @SneakyThrows
+    @SuppressWarnings("unchecked")
+    private static <A extends Annotation> Stream<A> getRepeatableAnnotationsByType(AnnotatedElement member, Class<A> type) {
+        if (!type.isAnnotationPresent(Repeatable.class))
+            return of(member.getAnnotation(type));
+        var rep = type.getAnnotation(Repeatable.class);
+        var listType = rep.value();
+        var list = member.getAnnotation(listType);
+        var mtd = listType.getMethod("value");
+        A[]arr=(A[])mtd.invoke(list);
+        return Arrays.stream(arr);
     }
 
     private static @NotNull ElementType getElementType(AnnotatedElement member) {
