@@ -128,8 +128,7 @@ public class DataStructure<T> implements Named {
         var helper = new Object() {
             <R extends java.lang.reflect.Member & AnnotatedElement> Stream<R> streamRelevantMembers(Class<?> decl) {
                 return Stream.of(decl).flatMap(Streams.multiply(
-                                c -> Arrays.stream(c.getDeclaredFields())
-                                                .filter(fld -> !Modifier.isPublic(fld.getModifiers())),
+                                c -> Arrays.stream(c.getDeclaredFields()),
                                 c -> Arrays.stream(c.getDeclaredMethods()),
                                 c -> Arrays.stream(c.getConstructors())))
                         .map(Polyfill::uncheckedCast);

@@ -29,7 +29,7 @@ public class DataStructureTest {
         //System.out.println(Debug.createObjectDump(struct));
 
         assertEquals("invalid apple constructor count", 2, struct.getConstructors().size());
-        assertEquals("invalid apple property count", 1, struct.getDeclaredProperties().size());
+        assertEquals("invalid apple property count", 2, struct.getDeclaredProperties().size());
 
         // price
         testProp(struct, StandardValueType.DOUBLE, "price", 0.99);
