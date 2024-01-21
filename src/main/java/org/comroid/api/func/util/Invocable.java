@@ -7,6 +7,7 @@ import org.comroid.api.Polyfill;
 import org.comroid.api.func.Provider;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.func.exc.ThrowingSupplier;
+import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
 import org.comroid.exception.RethrownException;
 import org.comroid.api.java.ReflectionHelper;
@@ -70,7 +71,7 @@ public interface Invocable<T> extends Named {
 
             @Override
             public @Nullable T invoke(@Nullable Object tgt, Object... args) throws IllegalAccessException {
-                return Polyfill.uncheckedCast(field.get(Objects.requireNonNullElse(tgt, target)));
+                return Polyfill.uncheckedCast(field.get(Wrap.of(tgt).orElse(target)));
             }
         };
     }
@@ -279,7 +280,7 @@ public interface Invocable<T> extends Named {
         try {
             return autoInvoke(args);
         } catch (Throwable ignored) {
-            Log.at(Level.FINE, "silentAutoInvoke() swallowed exception", ignored);
+            Log.at(Level.WARNING, "silentAutoInvoke() swallowed exception", ignored);
             return null;
         }
     }
