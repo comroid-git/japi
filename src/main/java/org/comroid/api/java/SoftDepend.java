@@ -7,22 +7,35 @@ import org.comroid.api.func.util.Cache;
 import org.comroid.api.func.util.Invocable;
 import org.intellij.lang.annotations.Language;
 
+import java.lang.reflect.Modifier;
 import java.util.logging.Level;
 
 @Log
 @UtilityClass
 public class SoftDepend {
-    public <T> Wrap<T> run(@Language(value = "Java", prefix = "import static ", suffix = ";") String name) {
+    public <T> Wrap<T> run(final @Language(value = "Java", prefix = "import static ", suffix = ";") String name) {
         return Cache.get("SoftDepend @ static " + name, () -> {
             try {
+                // type
                 var last = name.lastIndexOf('.');
                 var typeName = name.substring(0, last);
                 var type = Class.forName(typeName);
+
+                // member
                 var memberName = name.substring(last + 1);
+                last = memberName.indexOf('(');
+                if (memberName.indexOf(')') - last > 1)
+                    throw new IllegalArgumentException("No method parameters allowed");
+                if (last != -1)
+                    memberName = memberName.substring(0, last);
 
                 Invocable<T> member;
                 try {
-                    member = Invocable.ofMethodCall(type.getMethod(memberName));
+                    var method = type.getMethod(memberName);
+                    if (!Modifier.isStatic(method.getModifiers()))
+                        throw new IllegalArgumentException("Non-static member supplied");
+
+                    member = Invocable.ofMethodCall(method);
                 } catch (NoSuchMethodException t) {
                     member = Invocable.ofFieldGet(type.getField(memberName));
                     // false positive
@@ -30,9 +43,11 @@ public class SoftDepend {
                     if (member == null)
                         throw t;
                 }
-                return Wrap.of(member.silentAutoInvoke()).castRef();
-            } catch (ClassNotFoundException | NoSuchMethodException | NoSuchFieldException ignored) {
-                log.log(Level.WARNING, "Could not load soft dependency: " + name);
+
+                T value = member.silentAutoInvoke();
+                return Wrap.of(value).castRef();
+            } catch (Throwable t) {
+                log.log(Level.WARNING, "Could not load soft dependency: " + name + "\n\t"+t);
                 return Wrap.empty();
             }
         });
