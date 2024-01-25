@@ -8,14 +8,19 @@ import org.comroid.api.func.util.Invocable;
 import org.intellij.lang.annotations.Language;
 
 import java.lang.reflect.Modifier;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
+
+import static org.comroid.api.func.ext.Wrap.*;
 
 @Log
 @UtilityClass
 public class SoftDepend {
     private final Map<String, Class<?>> typeCache = new ConcurrentHashMap<>();
+    private final Set<String> nonexistentTypes = new HashSet<>();
 
     public <T> Wrap<T> run(final @Language(value = "Java", prefix = "import static ", suffix = ";") String name) {
         return Cache.get("SoftDepend @ static " + name, () -> {
@@ -49,23 +54,26 @@ public class SoftDepend {
                 }
 
                 T value = member.silentAutoInvoke();
-                return Wrap.of(value).castRef();
+                return of(value).castRef();
             } catch (Throwable t) {
                 log.log(Level.WARNING, "Could not load soft dependency: " + name + "\n\t"+t);
-                return Wrap.empty();
+                return empty();
             }
         });
     }
 
     public <T> Wrap<Class<T>> type(final @Language(value = "Java", prefix = "import ", suffix = ";") String name) {
+        if (nonexistentTypes.contains(name))
+            return empty();
         if (typeCache.containsKey(name))
-            return Wrap.of(typeCache.get(name)).castRef();
+            return of(typeCache.get(name)).castRef();
         try {
             var type = ClassLoader.getSystemClassLoader().loadClass(name);
-            return Wrap.of(type).castRef();
+            return of(type).castRef();
         } catch (ClassNotFoundException ignored) {
             log.log(Level.WARNING, "Could not load soft dependency class: " + name);
-            return Wrap.empty();
+            nonexistentTypes.add(name);
+            return empty();
         }
     }
 }
