@@ -27,7 +27,13 @@ public interface Named extends WrappedFormattable {
     default String getPrimaryName() {
         return getName();
     }
-
+    /**
+     * Default implementation to get the primary name.
+     * By default, invokes {@link #getName()}.
+     *
+     * @return The primary name.
+     */
+    @Ignore
     @Override
     default String getAlternateName() {
         final var name = getName();
