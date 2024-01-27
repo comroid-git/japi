@@ -1,9 +1,6 @@
 package org.comroid.api.text;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Value;
+import lombok.*;
 import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.java.Log;
@@ -21,37 +18,42 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @Log
+@Value
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public enum Capitalization implements Named, Comparator<String> {
-    @Alias("camelBackCase")
-    lowerCamelCase(State.Lower, State.Lower, State.Upper, null), // "lowerCamelCase"
-    @Alias("PascalCase")
-    UpperCamelCase(State.Upper, State.Lower, State.Upper, null), // "UpperCamelCase"
+public class Capitalization implements Named, Comparator<String> {
+    private static final List<Capitalization> $cache = new ArrayList<>();
 
-    lower_snake_case(State.Lower, State.Lower, State.Lower, '_'), // "lower_snake_case"
-    Upper_Snake_Case(State.Upper, State.Lower, State.Upper, '_'), // "Upper_Snake_Case"
+    @Alias("camelBackCase")
+    public static final Capitalization lowerCamelCase = new Capitalization(Case.lower, null); // "lowerCamelCase"
+    @Alias("PascalCase")
+    public static final Capitalization UpperCamelCase = new Capitalization(Case.Upper, null); // "UpperCamelCase"
+
+    public static final Capitalization lower_snake_case = new Capitalization(Case.lower, '_'); // "lower_snake_case"
+    public static final Capitalization Upper_Snake_Case = new Capitalization(Case.Upper, '_'); // "Upper_Snake_Case"
     @Alias("SCREAMING_SNAKE_CASE")
-    CAPS_SNAKE_CASE(State.Upper, State.Upper, State.Upper, '_'), // "CAPS_SNAKE_CASE"
+    public static final Capitalization CAPS_SNAKE_CASE = new Capitalization(Case.CAPS, '_');// "CAPS_SNAKE_CASE"
 
     @Alias("kebab-case")
-    lower_hyphen_case(State.Lower, State.Lower, State.Lower, '-'), // "lower-hyphen-case"
+    public static final Capitalization lower_hyphen_case = new Capitalization(Case.lower, '-'); // "lower-hyphen-case"
     @Alias("Train-Case")
-    Upper_Hyphen_Case(State.Upper, State.Lower, State.Upper, '-'), // "Upper-Hyphen-Case"
-    CAPS_HYPHEN_CASE(State.Upper, State.Upper, State.Upper, '-'), // "CAPS-HYPHEN-CASE"
+    public static final Capitalization Upper_Hyphen_Case = new Capitalization(Case.Upper, '-'); // "Upper-Hyphen-Case"
+    public static final Capitalization CAPS_HYPHEN_CASE = new Capitalization(Case.CAPS, '-');// "CAPS-HYPHEN-CASE"
 
-    lower_dot_case(State.Lower, State.Lower, State.Lower, '.'), // "lower.dot.case"
-    Upper_Dot_Case(State.Upper, State.Lower, State.Upper, '.'), // "Upper.Dot.Case"
-    CAPS_DOT_CASE(State.Upper, State.Upper, State.Upper, '.'), // "CAPS.DOT.CASE"
+    public static final Capitalization lower_dot_case = new Capitalization(Case.lower, '.'); // "lower.dot.case"
+    public static final Capitalization Upper_Dot_Case = new Capitalization(Case.Upper, '.'); // "Upper.Dot.Case"
+    public static final Capitalization CAPS_DOT_CASE = new Capitalization(Case.CAPS, '.');// "CAPS.DOT.CASE"
 
-    Title_Case(State.Upper, State.Lower, State.Upper, ' '); // "Title Case"
+    public static final Capitalization Title_Case = new Capitalization(Case.Upper, ' '); // "Title Case"
 
     public static final Context Default = Context.builder().build();
     public static final Context Current = Default;
 
-    State firstChar;
-    State midWord;
-    State recurringFirstChar;
+    {
+        $cache.add(this);
+    }
+
+    Case capCase;
     @Nullable Character separator;
 
     public static boolean equals(String l, String r) {
@@ -68,22 +70,23 @@ public enum Capitalization implements Named, Comparator<String> {
 
         if (separator != null)
             score += string.chars().filter(separator::equals).count();
-        else score -= Arrays.stream(values())
+        else score -= $cache.stream()
                 .filter(cap -> cap.separator != null)
                 .filter(cap -> string.indexOf(cap.separator) != -1)
                 .count();
 
         final var buf = string.toCharArray();
-        var prev = firstChar;
+        var prev = capCase.firstChar;
         var find = State.Any;
         for (int i = 0; i < buf.length; i++) {
             var c = buf[i];
             find = State.find(c);
-            if (i == 0 && find == firstChar)
+            if (i == 0 && find == capCase.firstChar)
                 score++;
-            else if (i > 0 && prev == firstChar && find == midWord)
+            else if (i > 0 && prev == capCase.firstChar && find == capCase.midWord)
                 score++;
-            else if (i > 1 && prev == midWord && (find == midWord || find == recurringFirstChar || (separator != null && c == separator)))
+            else if (i > 1 && prev == capCase.midWord && (find == capCase.midWord || find == capCase.recurringFirstChar
+                    || (separator != null && c == separator)))
                 score++;
             else score--;
             prev = find;
@@ -103,18 +106,18 @@ public enum Capitalization implements Named, Comparator<String> {
             final int[] count = new int[]{0};
             return Arrays.stream(string.split(separator.toString()))
                     .map(word -> {
-                        word = (count[0]++ == 0 ? to.firstChar : to.recurringFirstChar).apply(word , 0);
-                        return to.midWord.apply(word, IntStream.range(1,word.length()).toArray());
+                        word = (count[0]++ == 0 ? to.capCase.firstChar : to.capCase.recurringFirstChar).apply(word , 0);
+                        return to.capCase.midWord.apply(word, IntStream.range(1,word.length()).toArray());
                     }).collect(Collectors.joining(to.separator != null ? to.separator.toString() : ""));
         } else {
             // find word beginning with this Case
             final var firstLetters = new ArrayList<@NotNull Integer>();
             final var buf = string.toCharArray();
-            var prev = firstChar;
+            var prev = capCase.firstChar;
             for (int i = 0; i < buf.length; i++) {
                 var c = buf[i];
                 var find = State.find(c);
-                if (prev == midWord && find == recurringFirstChar)
+                if (prev == capCase.midWord && find == capCase.recurringFirstChar)
                     firstLetters.add(i);
                 prev = find;
             }
@@ -126,17 +129,17 @@ public enum Capitalization implements Named, Comparator<String> {
                 if (firstLetter && to.separator != null)
                     sb.append(to.separator);
                 sb.append((char) (i == 0
-                        ? to.firstChar
+                        ? to.capCase.firstChar
                         : firstLetter
-                        ? to.recurringFirstChar
-                        : to.midWord).applyAsInt(buf[i]));
+                        ? to.capCase.recurringFirstChar
+                        : to.capCase.midWord).applyAsInt(buf[i]));
             }
             return sb.toString();
         }
     }
 
     public static Wrap<Capitalization> of(final String string) {
-        return Wrap.ofOptional(Arrays.stream(values())
+        return Wrap.ofOptional($cache.stream()
                 // score with each capitalization
                 .map(cap -> new AbstractMap.SimpleImmutableEntry<>(cap.score(string), cap))
                 .peek(e -> log.finer("%s \t-\t %s \t-\t %s".formatted(string, e.getValue(), e.getKey())))
@@ -145,9 +148,22 @@ public enum Capitalization implements Named, Comparator<String> {
                 .map(Map.Entry::getValue));
     }
 
+    @Getter
+    @RequiredArgsConstructor
+    @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
+    public enum Case {
+        lower(State.Lower, State.Lower, State.Lower),
+        Upper(State.Upper, State.Lower, State.Upper),
+        CAPS(State.Upper, State.Upper, State.Upper);
+
+        State firstChar;
+        State midWord;
+        State recurringFirstChar;
+    }
+
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    private enum State implements IntPredicate, IntUnaryOperator {
+    public enum State implements IntPredicate, IntUnaryOperator {
         Any($ -> true, Character::toLowerCase) {
             @Override
             public State invert() {
