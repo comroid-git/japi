@@ -10,6 +10,7 @@ import org.comroid.api.data.seri.Serializer;
 import org.comroid.api.func.util.Cache;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.data.seri.Jackson;
+import org.comroid.api.io.FileTransfer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -101,7 +102,15 @@ public final class REST {
     }
 
     public static Request request(Method method, String uri, @Nullable DataNode body) {
-        return Default.new Request(method, Polyfill.uri(uri), body, Default.serializer);
+        return Default.newRequest(method, uri, body);
+    }
+
+    public Request newRequest(Method method, String uri) {
+        return newRequest(method, uri, null);
+    }
+
+    public Request newRequest(Method method, String uri, @Nullable DataNode body) {
+        return new Request(method, Polyfill.uri(uri), body, Default.serializer);
     }
 
     @Value
@@ -128,6 +137,10 @@ public final class REST {
             this.uri = uri;
             this.body = body;
             this.serializer = serializer;
+        }
+
+        public FileTransfer asTransfer(URI destination) {
+            return new FileTransfer(uri, destination);
         }
 
         public CompletableFuture<Response> execute() {
