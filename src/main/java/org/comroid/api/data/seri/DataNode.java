@@ -331,7 +331,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         public String toString() {
             var str = String.valueOf(value);
             if (value instanceof String)
-                return "\"%s\"".formatted(str);
+                return "\"%s\"".formatted(str.replace("\"", "\\\""));
             return str;
         }
     }
