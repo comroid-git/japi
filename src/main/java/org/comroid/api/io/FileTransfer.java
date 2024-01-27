@@ -1,35 +1,39 @@
 package org.comroid.api.io;
 
 import lombok.AccessLevel;
-import lombok.Data;
+import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import org.comroid.api.attr.Named;
 import org.comroid.api.func.util.DelegateStream;
+import org.comroid.api.func.util.OnDemand;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 
-@Data
+@Value
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class FileTransfer {
     URI source;
     URI destination;
+    OnDemand<FileTransfer> exection = new OnDemand<>(this::exec);
 
     public CompletableFuture<FileTransfer> execute() {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                var inputMethod = Method.find(source.getScheme());
-                var outputMethod = Method.find(destination.getScheme());
-                var read = inputMethod.openRead(source);
-                var write = outputMethod.openWrite(destination);
-                DelegateStream.tryTransfer(read, write);
-                return this;
-            } catch (Throwable t) {
-                throw new RuntimeException("Failed to tranfer " + source + " to " + destination, t);
-            }
-        });
+        return exection.get();
+    }
+
+    private FileTransfer exec() {
+        try {
+            var inputMethod = Method.find(source.getScheme());
+            var outputMethod = Method.find(destination.getScheme());
+            var read = inputMethod.openRead(source);
+            var write = outputMethod.openWrite(destination);
+            DelegateStream.tryTransfer(read, write);
+            return this;
+        } catch (Throwable t) {
+            throw new RuntimeException("Failed to tranfer " + source + " to " + destination, t);
+        }
     }
 
     public enum Method implements Named {
@@ -40,7 +44,7 @@ public class FileTransfer {
             }
 
             @Override
-            public OutputStream openWrite(URI uri) {
+            public OutputStream openWrite(URI uri) throws IOException {
                 return https.openWrite(uri);
             }
         },
@@ -51,7 +55,7 @@ public class FileTransfer {
             }
 
             @Override
-            public OutputStream openWrite(URI uri) {
+            public OutputStream openWrite(URI uri) throws IOException {
                 throw new UnsupportedOperationException("Cannot write to HTTP/S connection");
             }
         },

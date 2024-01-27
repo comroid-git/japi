@@ -70,6 +70,7 @@ public class Activator<T> {
 
                     return it;
                 })
-                .orElseThrow(() -> new NoSuchElementException("No suitable constructor was found for "+struct));
+                .orElseThrow(() -> new NoSuchElementException("No suitable constructor was found for "+struct
+                        +"; available properties:\n\t- "+String.join("\n\t- ", obj.keySet())));
     }
 }
