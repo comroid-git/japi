@@ -2,14 +2,12 @@ package org.comroid.api.io;
 
 import lombok.AccessLevel;
 import lombok.Data;
-import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import org.comroid.api.attr.Named;
 import org.comroid.api.func.util.DelegateStream;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 
