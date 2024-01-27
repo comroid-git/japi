@@ -1,7 +1,5 @@
 import java.util.concurrent.TimeUnit
 
-apply plugin: 'java-library'
-
 static String envOr(String key, String presentPrefix = "", Object or = "") {
     def env = System.getenv()
     if (env.containsKey(key))
@@ -9,92 +7,403 @@ static String envOr(String key, String presentPrefix = "", Object or = "") {
     return or
 }
 
-ext {
-    buildId = TimeUnit.MILLISECONDS.toMinutes(System.currentTimeMillis())
-}
-task tcBuildId {
-    doLast {
-        println "##teamcity[buildNumber '$buildId']"
+allprojects {
+    apply plugin: 'java-library'
+    group 'org.comroid'
+
+    sourceCompatibility = 17
+    targetCompatibility = 17
+
+    apply from: "${rootDir.absolutePath}/gradle/vars.gradle"
+    ext { buildId = TimeUnit.MILLISECONDS.toMinutes(System.currentTimeMillis()) }
+
+    sourceSets {
+        main.java.srcDirs       = files("${rootDir.absolutePath}/src/${project.name}/main/java")
+        main.resources.srcDirs  = files("${rootDir.absolutePath}/src/${project.name}/main/resources")
+        test.java.srcDirs       = files("${rootDir.absolutePath}/src/${project.name}/test/java")
+        test.resources.srcDirs  = files("${rootDir.absolutePath}/src/${project.name}/test/resources")
+    }
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven { url 'https://www.jitpack.io' }
+        mavenCentral()
+    }
+
+    dependencies {
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+        testCompileOnly 'org.projectlombok:lombok:+'
+        testAnnotationProcessor 'org.projectlombok:lombok:+'
     }
 }
-tasks.named('jar').configure { dependsOn tcBuildId }
-group 'org.comroid'
+
+subprojects {
+    dependencies {
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+}
+
+dependencies {
+    rootProject.childProjects.values().forEach { api it }
+}
+
+// collective module
 version '2.0' + '.' + buildId
-
-apply from: 'gradle/vars.gradle'
-
-sourceCompatibility = 17
-targetCompatibility = 17
-
-tasks.findByName('wrapper')?.configure {
-    gradleVersion = '6.2'
-    distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
+ext {
+    projectDescription = ''
 }
 
-configurations {
-    compileClasspath {
-        resolutionStrategy.activateDependencyLocking()
+// core
+project('exceptions', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+project('annotations', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+project('core', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':exceptions')
+        api project(':annotations')
+
+        // annotations
+        api 'org.jetbrains:annotations:+'
+
+        // compile dependencies
+        compileOnly 'org.slf4j:slf4j-api:1.+'
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+// data handling
+project('data', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':core')
+
+        // compile dependencies
+        compileOnly 'javax.persistence:javax.persistence-api:2.+'
+        compileOnly 'org.apache.tomcat:tomcat-annotations-api:10.+'
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+project('data-serialization', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':data')
+
+        // compile dependencies
+        compileOnly 'com.fasterxml.jackson.core:jackson-databind:2.14.+'
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+project('data-struct', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':data')
+        api project(':reflection')
+
+        // compile dependencies
+        compileOnly 'javax.persistence:javax.persistence-api:2.+'
+        compileOnly 'org.apache.tomcat:tomcat-annotations-api:10.+'
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+// basic apis
+project('streams', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':core')
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+project('text', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':core')
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+project('tree', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':core')
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+// networking apis
+project('net', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':data')
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+project('net-github', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':net')
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+project('net-pushover', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':net')
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+// advanced apis
+project('os', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':core')
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+project('reflection', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':core')
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+project('jvm-util', {
+    version '2.0' + '.' + buildId
+    ext {
+        projectDescription = ''
+    }
+    dependencies {
+        api project(':core')
+
+        // lombok
+        compileOnly 'org.projectlombok:lombok:+'
+        annotationProcessor 'org.projectlombok:lombok:+'
+
+        // test dependencies
+        testImplementation 'junit:junit:+'
+        testImplementation 'org.easymock:easymock:+'
+    }
+})
+
+allprojects {
+    tasks.register('tcBuildId', {
+        doLast {
+            println "##teamcity[buildNumber '$buildId']"
+        }
+    })
+    tasks.named('jar').configure { dependsOn tcBuildId }
+
+    task sourcesJar(type: Jar) {
+        from sourceSets.main.allJava
+
+        try {
+            archiveClassifier.set 'sources'
+        } catch (MissingPropertyException ignored) {
+            classifier = "sources"
+        }
+    }
+
+    task javadocJar(type: Jar) {
+        from javadoc.destinationDir
+
+        try {
+            archiveClassifier.set 'javadoc'
+        } catch (MissingPropertyException ignored) {
+            classifier = "javadoc"
+        }
     }
 }
 
-tasks.withType(Javadoc) {
-    source = sourceSets.main.java
+subprojects {
+    ext {
+        artifactName = project.name
+    }
 
-    options {
-        encoding = 'UTF-8'
-        /*
+    tasks.findByName('wrapper')?.configure {
+        gradleVersion = '6.2'
+        distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
+    }
+
+    configurations {
+        compileClasspath {
+            resolutionStrategy.activateDependencyLocking()
+        }
+    }
+
+    tasks.withType(Javadoc) {
+        source = sourceSets.main.java
+
+        options {
+            encoding = 'UTF-8'
+            /*
         links = [
                 "https://docs.oracle.com/javase/8/docs/api/",
                 "https://docs.oracle.com/javaee/7/api/"
         ]
         */
+        }
     }
+
+    compileJava.options.encoding = 'UTF-8'
 }
 
-task sourcesJar(type: Jar) {
-    from sourceSets.main.allJava
-
-    try {
-        archiveClassifier.set 'sources'
-    } catch (MissingPropertyException ignored) {
-        classifier = "sources"
-    }
+allprojects {
+    apply from: "${rootDir.absolutePath}/gradle/publishing.gradle"
 }
-
-task javadocJar(type: Jar) {
-    from javadoc.destinationDir
-
-    try {
-        archiveClassifier.set 'javadoc'
-    } catch (MissingPropertyException ignored) {
-        classifier = "javadoc"
-    }
-}
-
-compileJava.options.encoding = 'UTF-8'
-
-repositories {
-    mavenLocal()
-    mavenCentral()
-    maven { url 'https://www.jitpack.io' }
-    mavenCentral()
-}
-
-dependencies {
-    // annotations
-    api 'org.jetbrains:annotations:+'
-    compileOnly 'com.fasterxml.jackson.core:jackson-databind:2.14.+'
-    compileOnly 'javax.persistence:javax.persistence-api:2.+'
-    compileOnly 'org.apache.tomcat:tomcat-annotations-api:10.+'
-
-    compileOnly 'org.slf4j:slf4j-api:1.+'
-
-    // lombok
-    api 'org.projectlombok:lombok:+'
-    annotationProcessor 'org.projectlombok:lombok:+'
-
-    testImplementation 'junit:junit:+'
-    testImplementation 'org.easymock:easymock:+'
-}
-
-apply from: 'gradle/publishing.gradle'

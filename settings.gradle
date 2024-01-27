@@ -1,1 +1,26 @@
 rootProject.name = 'japi'
+
+// core
+includeFlat('exceptions')
+includeFlat('annotations')
+includeFlat('core')
+
+// data handling
+includeFlat('data')
+includeFlat('data-serialization')
+includeFlat('data-struct')
+
+// basic apis
+includeFlat('streams')
+includeFlat('text')
+includeFlat('tree')
+
+// networking apis
+includeFlat('net')
+includeFlat('net-github')
+includeFlat('net-pushover')
+
+// advanced apis
+includeFlat('os')
+includeFlat('reflection')
+includeFlat('jvm-util')
