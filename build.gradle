@@ -95,6 +95,7 @@ dependencies {
 
     testImplementation 'junit:junit:+'
     testImplementation 'org.easymock:easymock:+'
+    testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.14.+'
 }
 
 apply from: 'gradle/publishing.gradle'
