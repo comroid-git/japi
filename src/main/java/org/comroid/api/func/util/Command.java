@@ -92,6 +92,7 @@ public @interface Command {
 
     @Data
     class Manager {
+        private final UUID id = UUID.randomUUID();
         private final Map<String, Delegate> commands = new ConcurrentHashMap<>();
         private final Handler handler;
 
@@ -167,6 +168,11 @@ public @interface Command {
             if (response != null)
                 handler.handleResponse(cmd, response, Stream.of(args).collect(Streams.append(extraArgs)).toArray());
             return response;
+        }
+
+        @Override
+        public final int hashCode() {
+            return id.hashCode();
         }
     }
 
