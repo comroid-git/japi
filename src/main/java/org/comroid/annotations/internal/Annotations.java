@@ -111,6 +111,13 @@ public class Annotations {
         return stream(types).filter(context::equals).findAny();
     }
 
+    public Stream<? extends Class<?>> related(@NotNull Class<?> it) {
+        return findAnnotations(Related.class, it)
+                .map(Result::getAnnotation)
+                .map(Related::value)
+                .flatMap(Stream::of);
+    }
+
     public boolean ignoreInherit(AnnotatedElement target, Class<? extends Annotation> goal) {
         if (!(target instanceof Class) && !(target instanceof Member))
             return true;
