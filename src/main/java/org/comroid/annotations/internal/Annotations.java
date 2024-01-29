@@ -64,6 +64,13 @@ public class Annotations {
                 .sorted(comparatorAdapter(Result::getAnnotation, Description.COMPARATOR));
     }
 
+    public String descriptionText(@NotNull AnnotatedElement of) {
+        return toString(findAnnotations(Description.class, of)
+                .sorted(comparatorAdapter(Result::getAnnotation, Description.COMPARATOR))
+                .map(Result::getAnnotation)
+                .toArray(Description[]::new));
+    }
+
     public Wrap<Category.Adapter> category(@NotNull AnnotatedElement of) {
         return Wrap.ofStream(findAnnotations(Category.class, of))
                 .map(Result::getAnnotation)
