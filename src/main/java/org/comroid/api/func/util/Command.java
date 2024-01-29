@@ -1,8 +1,16 @@
 package org.comroid.api.func.util;
 
 import lombok.*;
+import lombok.experimental.NonFinal;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import org.comroid.annotations.Default;
+import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.attr.Named;
 import org.comroid.api.java.StackTraceUtils;
+import org.comroid.api.tree.Initializable;
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -10,6 +18,7 @@ import java.io.PrintStream;
 import java.io.StringWriter;
 import java.lang.annotation.*;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -28,7 +37,24 @@ public @interface Command {
     @Target(ElementType.PARAMETER)
     @Retention(RetentionPolicy.RUNTIME)
     @interface Arg {
-        String value() default EmptyAttribute;
+        String[] autoFill() default {};
+
+        Default[] defaultValue() default {};
+
+        @Value
+        class Delegate implements Named {
+            Command cmd;
+            String name;
+            Parameter param;
+            @Nullable Object defaultValue;
+
+            public Delegate(Command cmd, Parameter param) {
+                this.cmd = cmd;
+                this.param = param;
+                this.name = Annotations.aliases(param).stream().findAny().orElseGet(param::getName);
+                this.defaultValue = Annotations.defaultValue(param);
+            }
+        }
     }
 
     interface Handler {
@@ -90,18 +116,27 @@ public @interface Command {
         }
     }
 
-    @Data
-    class Manager {
-        private final UUID id = UUID.randomUUID();
-        private final Map<String, Delegate> commands = new ConcurrentHashMap<>();
-        private final Handler handler;
+    @Value
+    @NonFinal
+    class Manager implements Initializable {
+        public static final Handler DefaultHandler = (cmd, x, args) -> System.out.println(x);
+        UUID id = UUID.randomUUID();
+        Map<String, Delegate> commands = new ConcurrentHashMap<>();
+        Handler handler;
+        @Nullable Adapter adapter;
 
         public Manager() {
-            this((cmd, x, args) -> System.out.println(x));
+            this(DefaultHandler);
         }
 
         public Manager(Handler handler) {
+            this(handler, null);
+        }
+
+        @lombok.Builder
+        public Manager(Handler handler, @Nullable Adapter adapter) {
             register(this.handler = handler);
+            this.adapter = adapter;
         }
 
         @SuppressWarnings("UnusedReturnValue")
@@ -111,6 +146,8 @@ public @interface Command {
                     .filter(mtd -> mtd.isAnnotationPresent(Command.class))
                     .map(mtd -> {
                         var cmd = Optional.of(mtd.getAnnotation(Command.class));
+                        var noArgs = Arrays.stream(mtd.getParameters())
+                                .noneMatch(it -> it.isAnnotationPresent(Arg.class));
                         return new Delegate(
                                 Invocable.ofMethodCall(target, mtd),
                                 cmd.map(Command::value)
@@ -119,10 +156,29 @@ public @interface Command {
                                 cmd.map(Command::ephemeral).orElse(false),
                                 cmd.map(Command::usage)
                                         .filter(x -> !EmptyAttribute.equals(x))
-                                        .orElse(null));
+                                        .orElse(null),
+                                Arrays.stream(mtd.getParameters())
+                                        .filter(it -> noArgs || it.isAnnotationPresent(Arg.class))
+                                        .map(param -> new Arg.Delegate(cmd.get(), param))
+                                        .toList());
                     })
                     .peek(cmd -> commands.put(cmd.name, cmd))
                     .count();
+        }
+
+        @Override
+        public void initialize() throws Throwable {
+            if (adapter != null)
+                adapter.initialize();
+        }
+
+        public final Stream<Map.Entry<String, String>> autoComplete(String fullCommand, String argName, String currentValue) {
+            var split = fullCommand.split(" ");
+            var name = split[0];
+            var cmd = commands.getOrDefault(name, null);
+            cmd.args.stream()
+                    .filter(arg->arg.name.equals(argName))
+                    .findAny()
         }
 
         public final Object execute(String fullCommand, Object... extraArgs) {
@@ -174,6 +230,36 @@ public @interface Command {
         public final int hashCode() {
             return id.hashCode();
         }
+
+        public abstract class Adapter implements Initializable {
+            public abstract Stream<Map.Entry<String, String>> autoComplete(String fullCommand, String argName, String currentValue);
+
+            public abstract Object execute(String fullCommand, Object... extraArgs);
+
+            @Value
+            class JDA extends Adapter {
+                net.dv8tion.jda.api.JDA jda;
+
+                @Override
+                public void initialize() throws Throwable {
+                    jda.updateCommands().addCommands(
+                            commands.values().stream()
+                                    .map(cmd -> Commands.slash(cmd.name, Annotations.descriptionText(cmd.delegate.accessor())))
+                                    .toList()
+                    ).queue();
+                }
+
+                @Override
+                public Stream<Map.Entry<String, String>> autoComplete(String fullCommand, String argName, String currentValue) {
+                    return null;
+                }
+
+                @Override
+                public Object execute(String fullCommand, Object... extraArgs) {
+                    return null;
+                }
+            }
+        }
     }
 
     @Value
@@ -183,12 +269,14 @@ public @interface Command {
         String name;
         boolean ephemeral;
         @Nullable UsageInfo usage;
+        List<Arg.Delegate> args;
 
-        private Delegate(Invocable<?> delegate, String name, boolean ephemeral, @Nullable String usage) {
+        private Delegate(Invocable<?> delegate, String name, boolean ephemeral, @Nullable String usage, List<Arg.Delegate> args) {
             this.delegate = delegate;
             this.name = name;
             this.ephemeral = ephemeral;
             this.usage = usage == null ? null : parseUsageInfo(usage);
+            this.args = args;
         }
 
         @Override
