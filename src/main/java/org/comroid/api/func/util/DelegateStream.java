@@ -537,7 +537,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
         @Override
         public Wrap<InputStream> input() {
-            return Wrap.of(this);
+            return Capability.Input.isFlagSet(getCapabilities())?Wrap.of(toInputStream()):Wrap.empty();
         }
 
         @Override

@@ -85,9 +85,7 @@ public final class Polyfill {
         return throwable -> {
             logger.log(messageLevel, message);
             logger.log(exceptionLevel, StackTraceUtils.toString(throwable));
-            return Wrap.of(fallback)
-                    .map(Supplier::get)
-                    .get();
+            return Wrap.of(fallback).get();
         };
     }
 

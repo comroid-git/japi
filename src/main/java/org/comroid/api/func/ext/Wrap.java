@@ -59,23 +59,39 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         return (Wrap<T>) EMPTY;
     }
 
-    static <T> Wrap<T> ofSupplier(final Supplier<T> selfSupplier) {
-        return selfSupplier::get;
-    }
-
     static <T> Wrap<T> of(final T value) {
         if (value == null)
             return empty();
         return () -> value;
     }
 
-    static <T> Wrap<T> ofStream(Stream<T> stream) {
+    static <T> Wrap<T> of(final Supplier<T> selfSupplier) {
+        return selfSupplier == null ? empty() : selfSupplier::get;
+    }
+
+    static <T> Wrap<T> of(Stream<T> stream) {
         return ofOptional(stream.findAny());
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    static <T> Wrap<T> ofOptional(final Optional<? extends T> optional) {
+    static <T> Wrap<T> of(final Optional<? extends T> optional) {
         return () -> optional.orElse(null);
+    }
+
+    @Deprecated
+    static <T> Wrap<T> ofSupplier(final Supplier<T> selfSupplier) {
+        return of(selfSupplier);
+    }
+
+    @Deprecated
+    static <T> Wrap<T> ofStream(Stream<T> stream) {
+        return of(stream);
+    }
+
+    @Deprecated
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    static <T> Wrap<T> ofOptional(final Optional<? extends T> optional) {
+        return of(optional);
     }
 
     static <R extends DataNode, T extends Throwable> Wrap<R> exceptionally(ThrowingSupplier<R, T> supplier) {

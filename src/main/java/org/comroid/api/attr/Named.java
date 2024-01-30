@@ -58,7 +58,7 @@ public interface Named extends WrappedFormattable {
     default Object setName(@Nullable String name){return this;}
 
     static String $(Object any) {
-        return any instanceof Named ? ((Named) any).getName() : String.valueOf(any);
+        return any instanceof Named named ? named.getName() : String.valueOf(any);
     }
 
     /**
