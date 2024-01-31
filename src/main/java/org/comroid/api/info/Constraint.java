@@ -118,6 +118,7 @@ public class Constraint {
                 .setExpected(expected);
     }
 
+    @Contract("false, _ -> fail")
     public API decide(boolean value, String nameof) {
         return decide(value)
                 .setConstraint("check")
@@ -126,6 +127,7 @@ public class Constraint {
                 .setExpected("true");
     }
 
+    @Contract("null, _ -> new; _, _ -> fail")
     public API isNull(Object it, String nameof) {
         return new API(() -> it == null)
                 .setConstraint("isNull")
@@ -133,6 +135,7 @@ public class Constraint {
                 .setShouldBe("is");
     }
 
+    @Contract("null, _ -> fail")
     public API notNull(Object it, String nameof) {
         return new API(() -> it != null)
                 .setConstraint("notNull")
@@ -140,6 +143,7 @@ public class Constraint {
                 .setShouldBe("not");
     }
 
+    @Contract("false -> fail")
     private API decide(boolean pass) {
         return pass ? pass() : fail();
     }
@@ -167,10 +171,12 @@ public class Constraint {
         return base;
     }
 
+    @Contract("-> new")
     public API pass() {
         return new API(() -> true);
     }
 
+    @Contract("-> fail")
     public API fail() {
         return new API(() -> false);
     }
