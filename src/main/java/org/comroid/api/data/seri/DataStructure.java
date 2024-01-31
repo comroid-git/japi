@@ -361,6 +361,7 @@ public class DataStructure<T> implements Named {
         @Getter @NotNull List<String> description = new ArrayList<>();
         @Getter @NotNull Wrap.Future<Category.Adapter> category = new Wrap.Future<>();
         @NotNull
+        @AnnotatedTarget
         @ToString.Exclude
         @Getter(onMethod = @__(@JsonIgnore))
         AnnotatedElement context;
@@ -396,6 +397,11 @@ public class DataStructure<T> implements Named {
         @JsonIgnore
         public Annotation[] getAnnotations() {
             return streamAnnotations(Annotation.class).toArray(Annotation[]::new);
+        }
+
+        @Override
+        public boolean isAnnotationPresent(@NotNull Class<? extends Annotation> annotationClass) {
+            return annotations.stream().anyMatch(r -> annotationClass.isAssignableFrom(r.annotationType()));
         }
 
         @Ignore
