@@ -1,12 +1,13 @@
 package org.comroid.test.api;
 
+import org.comroid.annotations.Alias;
 import org.comroid.api.func.util.Command;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class CommandTest {
     @Command
-    public static String test(String[] args) {
+    public static String test(@Alias("args") String[] args) {
         return String.valueOf(args.length);
     }
 
