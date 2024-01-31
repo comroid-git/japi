@@ -150,7 +150,7 @@ public @interface Command {
         }
     }
 
-    @Value
+      @Value
     @NonFinal
     @ToString(of = {"id"})
     class Manager implements Initializable {
@@ -336,9 +336,12 @@ public @interface Command {
             @NonFinal
             @Setter
             BiFunction<EmbedBuilder, User, EmbedBuilder> embedFinalizer = null;
+            @NonFinal boolean initialized = false;
 
             @Override
             public void initialize() {
+                if (initialized) return;
+                
                 jda.addEventListener(new ListenerAdapter() {
                     @Override
                     public void onGenericEvent(@NotNull GenericEvent event) {
@@ -383,6 +386,7 @@ public @interface Command {
                                 })
                                 .toList()
                 ).queue();
+                initialized = true;
             }
 
             @Override
