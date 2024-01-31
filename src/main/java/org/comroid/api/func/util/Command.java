@@ -150,7 +150,7 @@ public @interface Command {
         }
     }
 
-      @Value
+    @Value
     @NonFinal
     @ToString(of = {"id"})
     class Manager implements Initializable {
