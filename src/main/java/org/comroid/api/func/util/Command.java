@@ -241,18 +241,19 @@ public @interface Command {
                     .orElseGet(() -> {
                         var map = new HashMap<String, Object>();
                         boolean first = true;
-                        int c = 0;
+                        int c = 1;
                         for (var each : split) {
                             if (first) {
                                 first = false;
                                 continue;
                             }
-                            if (map.put(String.valueOf(c++), each) != null) {
+                            if (map.put("p"+c++, each) != null) {
                                 throw new IllegalStateException("Duplicate key");
                             }
                         }
                         return map;
                     });
+            args.put("args", Arrays.stream(split).skip(1).toArray(String[]::new));
             Throwable thr = null;
             Object response = null;
             try {
