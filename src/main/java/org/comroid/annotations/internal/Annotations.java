@@ -65,8 +65,7 @@ public class Annotations {
     }
 
     public String descriptionText(@NotNull AnnotatedElement of) {
-        return toString(findAnnotations(Description.class, of)
-                .sorted(comparatorAdapter(Result::getAnnotation, Description.COMPARATOR))
+        return toString(description(of)
                 .map(Result::getAnnotation)
                 .toArray(Description[]::new));
     }
