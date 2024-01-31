@@ -3,6 +3,7 @@ package org.comroid.api.java;
 import lombok.SneakyThrows;
 import org.comroid.annotations.Instance;
 import org.comroid.api.Polyfill;
+import org.comroid.api.data.seri.DataStructure;
 import org.comroid.api.func.ext.Wrap;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.ApiStatus;
@@ -13,6 +14,7 @@ import java.lang.annotation.ElementType;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -115,17 +117,13 @@ public final class ReflectionHelper {
     }
 
     public static Set<Field> fieldWithAnnotation(
-            Class<?> type, Class<? extends Annotation> instanceClass
+            Class<?> type, Class<? extends Annotation> annotationType
     ) {
-        Set<Field> yields = new HashSet<>();
-
-        for (Field field : type.getFields()) {
-            if (field.isAnnotationPresent(instanceClass)) {
-                yields.add(field);
-            }
-        }
-
-        return yields;
+        return DataStructure.of(type)
+                .getProperties().stream()
+                .filter(prop->prop.isAnnotationPresent(annotationType))
+                .flatMap(prop->prop.getGetter().accessor() instanceof Field fld ? Stream.of(fld):Stream.empty())
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     public static Set<Method> methodsWithAnnotation(
