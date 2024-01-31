@@ -648,11 +648,9 @@ public @interface Command {
             final var params = new Object[method.getParameterCount()];
             for (int i = 0; i < method.getParameters().length; i++) {
                 final var parameter = method.getParameters()[i];
-                params[i] = Aliased.$(parameter)
+                params[i] = Stream.concat(Stream.of(parameter.getName()), Aliased.$(parameter))
                         .filter(args::containsKey)
                         .findAny()
-                        .or(() -> Optional.of(parameter.getName())
-                                .filter(args::containsKey))
                         .map(args::get)
                         .or(() -> Arrays.stream(extraArgs)
                                 .flatMap(Streams.cast(parameter.getType()))
