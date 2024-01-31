@@ -47,7 +47,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
 
     @Override
     default String toSerializedString() {
-        return toString();
+        return this instanceof JSON.Node ? toString() : json().toSerializedString();
     }
 
     default DelegateStream.Input toInputStream() {
