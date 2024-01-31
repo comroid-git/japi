@@ -26,6 +26,7 @@ import org.comroid.api.data.seri.BoundValueType;
 import org.comroid.api.data.seri.StandardValueType;
 import org.comroid.api.data.seri.ValueType;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.info.Log;
 import org.comroid.api.java.StackTraceUtils;
 import org.comroid.api.tree.Initializable;
 import org.intellij.lang.annotations.Language;
@@ -43,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.logging.Level;
 import java.util.stream.Stream;
 
 import static org.comroid.api.text.Capitalization.lower_hyphen_case;
@@ -95,6 +97,7 @@ public @interface Command {
         void handleResponse(Delegate cmd, @NotNull Object response, Object... args);
 
         default @Nullable String handleThrowable(Throwable throwable) {
+            Log.get().log(Level.WARNING, "Exception occurred in command", throwable);
             var msg = "%s: %s".formatted(StackTraceUtils.lessSimpleName(throwable.getClass()), throwable.getMessage());
             if (throwable instanceof Error)
                 return msg;
