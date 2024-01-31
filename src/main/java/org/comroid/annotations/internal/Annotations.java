@@ -209,6 +209,7 @@ public class Annotations {
         var rep = type.getAnnotation(Repeatable.class);
         var listType = rep.value();
         var list = member.getAnnotation(listType);
+        if (list == null) return empty();
         var mtd = listType.getMethod("value");
         A[]arr=(A[])mtd.invoke(list);
         return Arrays.stream(arr);
