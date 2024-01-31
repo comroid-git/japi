@@ -8,8 +8,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Comparator;
 
+@Inherit(Inherit.Type.None)//todo: inherit from supers
 @Retention(RetentionPolicy.RUNTIME)
-@Inherit(Inherit.Type.FromSupertype)
 @Repeatable(Description.Config.class)
 public @interface Description {
     Comparator<Description> COMPARATOR = Comparator.comparingInt(desc -> desc.mode().getAsInt());
