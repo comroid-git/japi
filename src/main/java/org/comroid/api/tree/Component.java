@@ -42,7 +42,6 @@ import java.util.stream.Stream;
 import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
 import static org.comroid.api.Polyfill.uncheckedCast;
-import static org.comroid.api.func.util.Streams.Multi.*;
 import static org.comroid.api.func.util.Streams.cast;
 
 @Ignore
@@ -97,7 +96,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         return () -> uncheckedCast(components(type).findAny().orElse(null));
     }
 
-    default Set<Dependency<?>> dependencies() {
+    default Set<Dependency> dependencies() {
         return dependencies(getClass());
     }
 
@@ -134,21 +133,26 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
     //static List<Class<? extends Component>> includes()
 
-    static Set<Dependency<?>> dependencies(Class<? extends Component> type) {
+    static Set<Dependency> dependencies(Class<? extends Component> type) {
         return Cache.get("dependencies of " + type.getCanonicalName(), () -> {
             var struct = DataStructure.of(type);
+            //noinspection unchecked,rawtypes            suck my dick, compiler
             return Stream.concat(
                             struct.getProperties().stream()
                                     .flatMap(prop -> prop.streamAnnotations(Inject.class)
                                             .map(Annotations.Result::getAnnotation)
-                                            .map(inject -> new Dependency<>(
-                                                    inject.value(),
-                                                    uncheckedCast(prop.getType().getTargetClass()),
+                                            .map(inject -> new Dependency(
+                                                    Optional.ofNullable(inject.value())
+                                                            .filter(String::isEmpty)
+                                                            .orElseGet(prop::getName),
+                                                    Optional.ofNullable((Class)inject.type())
+                                                            .filter(cls->cls.equals(Component.class))
+                                                            .orElseGet(()->prop.getType().getTargetClass()),
                                                     inject.required(),
-                                                    uncheckedCast(prop)))),
+                                                    (DataStructure<? extends Component>.Property<?>) prop))),
                             Annotations.findAnnotations(Requires.class, type)
-                                    .flatMap(requires -> Arrays.stream(requires.getAnnotation().value())
-                                            .map(cls -> new Dependency<>("", cls, true, null))))
+                                    .flatMap(requires -> Arrays.stream(requires.getAnnotation().value()))
+                                    .map(cls -> new Dependency("", cls, true, null)))
                     .collect(Collectors.toUnmodifiableSet());
         });
     }
@@ -210,14 +214,14 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
     @Value
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
-    class Dependency<T extends Component> {
+    class Dependency {
         String name;
-        Class<T> type;
+        Class<?> type;
         boolean required;
         @Ignore
         @Nullable
         @ToString.Exclude
-        DataStructure<Component>.Property<T> prop;
+        DataStructure<? extends Component>.Property<?> prop;
 
         @Override
         public boolean equals(Object other) {
@@ -369,7 +373,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         private void injectDependencies() {
             dependencies().stream()
                     .filter(dep -> dep.prop != null && dep.prop.canSet())
-                    .<Map.Entry<Dependency<?>, Component>>flatMap(dep -> {
+                    .<Map.Entry<Dependency, Component>>flatMap(dep -> {
                         List<Component> results = getChildren().stream()
                                 .flatMap(cast(Component.class))
                                 .filter(dep.type::isInstance)
