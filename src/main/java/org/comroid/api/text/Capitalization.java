@@ -54,7 +54,7 @@ public enum Capitalization implements Named, Comparator<String> {
     State recurringFirstChar;
     @Nullable Character separator;
 
-    public static boolean equals(String l, String r) {
+    public static boolean equalsIgnoreCase(String l, String r) {
         return of(l).map(cap -> cap.convert(r)).test(l::equals);
     }
 

@@ -44,6 +44,7 @@ import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
 import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.api.func.util.Streams.cast;
+import static org.comroid.api.text.Capitalization.equalsIgnoreCase;
 
 @Ignore
 public interface Component extends Container, LifeCycle, Tickable, EnabledState, Named {
@@ -368,7 +369,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                                     .collect(Collectors.toSet())
                                     : Set.of(dep.name);
                             var byName = results.stream()
-                                    .filter(it -> names.stream().anyMatch(alias -> Capitalization.equals(alias, it.getName())))
+                                    .filter(it -> names.stream().anyMatch(alias -> equalsIgnoreCase(alias, it.getName())))
                                     .toList();
                             if (byName.isEmpty()) {
                                 Log.at(Level.WARNING, "Exact name match yielded no results; attempting to find with contains()");
