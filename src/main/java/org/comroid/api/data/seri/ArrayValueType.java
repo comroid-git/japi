@@ -1,8 +1,6 @@
 package org.comroid.api.data.seri;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.comroid.api.Polyfill;
 
@@ -11,6 +9,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Getter
+@EqualsAndHashCode(of = "targetClass")
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @FieldDefaults(level = AccessLevel.PROTECTED, makeFinal = true)
 public class ArrayValueType<T> implements ValueType<T> {

@@ -232,7 +232,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
             return arr;
         } else {
             var typeOf = typeOf(it);
-            if (typeOf != null && !typeOf.equals(OBJECT))
+            if (typeOf instanceof StandardValueType<?>)
                 return new Value<>(it);
             var obj = new Object();
             properties(it).forEach(e -> obj.put(e.key, e.getValue()));

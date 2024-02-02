@@ -9,6 +9,7 @@ import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 
 import javax.persistence.Transient;
+import java.util.Arrays;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -34,7 +35,15 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named 
     }
 
     default boolean isStandard() {
-        return this instanceof StandardValueType<R> && Stream.of(StandardValueType.OBJECT, StandardValueType.ARRAY).noneMatch(this::equals);
+        return this instanceof StandardValueType<R>;
+    }
+
+    default boolean isBound() {
+        return this instanceof BoundValueType<R>;
+    }
+
+    default boolean isArray() {
+        return this instanceof ArrayValueType<R>;
     }
 
     @Ignore

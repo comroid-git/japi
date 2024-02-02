@@ -1,69 +1,81 @@
 package org.comroid.api.data.seri;
 
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import lombok.Value;
 import org.comroid.api.Polyfill;
 import org.comroid.api.func.ext.Wrap;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.ApiStatus.Experimental;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+import static java.util.function.Predicate.not;
 
 @Value
+@ToString(of = "name")
+@EqualsAndHashCode(of = "targetClass")
 public class StandardValueType<R> implements ValueType<R> {
-    public static final StandardValueType<Boolean> BOOLEAN;
-    public static final StandardValueType<Byte> BYTE;
-    public static final StandardValueType<Character> CHARACTER;
-    public static final StandardValueType<Double> DOUBLE;
-    public static final StandardValueType<Float> FLOAT;
-    public static final StandardValueType<Integer> INTEGER;
-    public static final StandardValueType<Long> LONG;
-    public static final StandardValueType<Short> SHORT;
-    public static final StandardValueType<String> STRING;
-    public static final StandardValueType<UUID> UUID;
+    private static final Set<StandardValueType<?>> $cache = new HashSet<>();
+    public static final Set<StandardValueType<?>> cache = Collections.unmodifiableSet($cache);
+    public static final StandardValueType<Boolean> BOOLEAN = new StandardValueType<>(Boolean.class, boolean.class, "boolean", Boolean::parseBoolean, "checkbox");
+    public static final StandardValueType<Byte> BYTE = new StandardValueType<>(Byte.class, byte.class, "byte", Byte::parseByte, "number", "min='"+Byte.MIN_VALUE+"'", "max='"+Byte.MAX_VALUE+"'");
+    public static final StandardValueType<Character> CHARACTER = new StandardValueType<>(Character.class, char.class, "char", str -> str.toCharArray()[0], "text", "pattern='\\w'");
+    public static final StandardValueType<Double> DOUBLE = new StandardValueType<>(Double.class, double.class, "double", Double::parseDouble, "number", "min='"+Double.MIN_VALUE+"'", "max='"+Double.MAX_VALUE+"'");
+    public static final StandardValueType<Float> FLOAT = new StandardValueType<>(Float.class, float.class, "float", Float::parseFloat, "number", "min='"+Float.MIN_VALUE+"'", "max='"+Float.MAX_VALUE+"'");
+    public static final StandardValueType<Integer> INTEGER = new StandardValueType<>(Integer.class, int.class, "int", Integer::parseInt, "number", "min='"+Integer.MIN_VALUE+"'", "max='"+Integer.MAX_VALUE+"'");
+    public static final StandardValueType<Long> LONG = new StandardValueType<>(Long.class, long.class, "long", Long::parseLong, "number", "min='"+Long.MIN_VALUE+"'", "max='"+Long.MAX_VALUE+"'");
+    public static final StandardValueType<Short> SHORT = new StandardValueType<>(Short.class, short.class, "short", Short::parseShort, "number", "min='"+Short.MIN_VALUE+"'", "max='"+Short.MAX_VALUE+"'");
+    public static final StandardValueType<String> STRING = new StandardValueType<>(String.class, "String", Function.identity(), "text");
+    public static final StandardValueType<UUID> UUID = new StandardValueType<>(UUID.class, "UUID", java.util.UUID::fromString, "text", "pattern='"+RegExpUtil.UUID4_PATTERN+"'");
 
-    public static final StandardValueType<Void> VOID;
-    @Deprecated
-    public static final StandardValueType<Object> OBJECT;
-    public static final StandardValueType<Object[]> ARRAY;
+    public static final StandardValueType<Void> VOID = new StandardValueType<>(void.class, "Void", it -> null, "hidden");
+    /**
+     * @deprecated use {@link BoundValueType}
+     */
+    @Deprecated(forRemoval = true)
+    public static final StandardValueType<Object> OBJECT = new StandardValueType<>(Object.class, "Object", it -> it, "hidden");
+    /**
+     * @deprecated use {@link ArrayValueType}
+     */
+    @Deprecated(forRemoval = true)
+    public static final StandardValueType<Object[]> ARRAY = new StandardValueType<>(Object[].class, "Array", it -> new Object[]{it}, "hidden");
 
-    public static final List<StandardValueType<?>> cache = new ArrayList<>();
-
-    static {
-        BOOLEAN = new StandardValueType<>(Boolean.class, "boolean", Boolean::parseBoolean, "checkbox");
-        BYTE = new StandardValueType<>(Byte.class, "byte", Byte::parseByte, "number", "min='"+Byte.MIN_VALUE+"'", "max='"+Byte.MAX_VALUE+"'");
-        CHARACTER = new StandardValueType<>(Character.class, "char", str -> str.toCharArray()[0], "text", "pattern='\\w'");
-        DOUBLE = new StandardValueType<>(Double.class, "double", Double::parseDouble, "number", "min='"+Double.MIN_VALUE+"'", "max='"+Double.MAX_VALUE+"'");
-        FLOAT = new StandardValueType<>(Float.class, "float", Float::parseFloat, "number", "min='"+Float.MIN_VALUE+"'", "max='"+Float.MAX_VALUE+"'");
-        INTEGER = new StandardValueType<>(Integer.class, "int", Integer::parseInt, "number", "min='"+Integer.MIN_VALUE+"'", "max='"+Integer.MAX_VALUE+"'");
-        LONG = new StandardValueType<>(Long.class, "long", Long::parseLong, "number", "min='"+Long.MIN_VALUE+"'", "max='"+Long.MAX_VALUE+"'");
-        SHORT = new StandardValueType<>(Short.class, "short", Short::parseShort, "number", "min='"+Short.MIN_VALUE+"'", "max='"+Short.MAX_VALUE+"'");
-        STRING = new StandardValueType<>(String.class, "String", Function.identity(), "text");
-        UUID = new StandardValueType<>(UUID.class, "UUID", java.util.UUID::fromString, "text", "pattern='"+RegExpUtil.UUID4_PATTERN+"'");
-        VOID = new StandardValueType<>(void.class, "Void", it -> null, "hidden");
-        OBJECT = new StandardValueType<>(Object.class, "Object", it -> it, "hidden");
-        ARRAY = new StandardValueType<>(Object[].class, "Array", it -> new Object[]{it}, "hidden");
-    }
-
+    @lombok.Builder
     private StandardValueType(
             Class<R> targetClass,
             String name,
             Function<String, R> converter,
             @Language(value = "HTML", prefix = "<input type=\"", suffix = "\">") String htmlInputType,
             @Language(value = "HTML", prefix = "<input ", suffix = ">") String... htmlInputAttributes) {
+        this(targetClass, null, name, converter, htmlInputType, htmlInputAttributes);
+    }
+
+    private StandardValueType(
+            Class<R> targetClass,
+            @Nullable Class<?> primitiveClass,
+            String name,
+            Function<String, R> converter,
+            @Language(value = "HTML", prefix = "<input type=\"", suffix = "\">") String htmlInputType,
+            @Language(value = "HTML", prefix = "<input ", suffix = ">") String... htmlInputAttributes) {
         this.targetClass = targetClass;
+        this.primitiveClass = primitiveClass;
         this.name = name;
         this.converter = converter;
         this.htmlInputType = htmlInputType;
         this.htmlInputAttributes = htmlInputAttributes;
 
-        cache.add(this);
+        if (!List.of("Object", "Array").contains(name))
+            $cache.add(this);
     }
 
     Class<R> targetClass;
+    @Nullable Class<?> primitiveClass;
     String name;
     Function<String, R> converter;
     @Language(value = "HTML", prefix = "<input type=\"", suffix = "\">")
@@ -100,7 +112,7 @@ public class StandardValueType<R> implements ValueType<R> {
     }
 
     public static Wrap<ValueType<?>> forClass(Class<?> cls) {
-        return Wrap.ofOptional(cache.stream()
+        return Wrap.of(cache.stream()
                 .filter(it -> it.getTargetClass().isAssignableFrom(cls) || (cls.isPrimitive() && it.getName().equals(cls.getSimpleName())))
                 .findAny());
     }

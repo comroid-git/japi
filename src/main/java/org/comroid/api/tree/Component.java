@@ -39,6 +39,7 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.util.function.Predicate.not;
 import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
 import static org.comroid.api.Polyfill.uncheckedCast;
@@ -143,12 +144,13 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                                             .map(Annotations.Result::getAnnotation)
                                             .map(inject -> new Dependency(
                                                     Optional.ofNullable(inject.value())
-                                                            .filter(String::isEmpty)
+                                                            .filter(not(String::isEmpty))
                                                             .orElseGet(prop::getName),
                                                     Optional.ofNullable((Class)inject.type())
-                                                            .filter(cls->cls.equals(Component.class))
+                                                            .filter(not(cls -> cls.equals(Component.class)))
                                                             .orElseGet(()->prop.getType().getTargetClass()),
-                                                    inject.required(),
+                                                    !prop.isAnnotationPresent(Nullable.class) && (inject.required()
+                                                            || prop.isAnnotationPresent(NotNull.class)),
                                                     (DataStructure<? extends Component>.Property<?>) prop))),
                             Annotations.findAnnotations(Requires.class, type)
                                     .flatMap(requires -> Arrays.stream(requires.getAnnotation().value()))
@@ -213,6 +215,8 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     }
 
     @Value
+    @ToString(of = {"type", "name"})
+    @EqualsAndHashCode(of = {"type", "name"})
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     class Dependency {
         String name;
@@ -220,24 +224,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         boolean required;
         @Ignore
         @Nullable
-        @ToString.Exclude
         DataStructure<? extends Component>.Property<?> prop;
-
-        @Override
-        public boolean equals(Object other) {
-            if (other instanceof Dependency)
-                return hashCode() == other.hashCode();
-            if (other instanceof Requires req)
-                return name.isEmpty() && Arrays.asList(req.value()).contains(type);
-            if (other instanceof Inject inj)
-                return name.equals(inj.value()) && type.equals(inj.type());
-            return false;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(name, type, required, prop);
-        }
     }
 
     @Getter
@@ -398,7 +385,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                         }
                         if (results.isEmpty()) {
                             if (dep.isRequired())
-                                throw new Constraint.UnmetError("Could not find a valid Component matching " + dep);
+                                throw new Constraint.UnmetError("Unmet required " + dep);
                             else return empty();
                         }
                         var result = results.get(0);
