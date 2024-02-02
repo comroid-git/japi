@@ -361,10 +361,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             dependencies().stream()
                     .filter(dep -> dep.prop != null && dep.prop.canSet())
                     .<Map.Entry<Dependency, Component>>flatMap(dep -> {
-                        List<Component> results = getChildren().stream()
-                                .flatMap(cast(Component.class))
-                                .filter(dep.type::isInstance)
-                                .toList();
+                        var results = components(dep.type).toList();
                         if (results.size() > 1) {
                             final var names = dep.name.isEmpty()
                                     ? Stream.concat(Stream.of(dep.prop.getName()), dep.prop.getAliases().stream())
