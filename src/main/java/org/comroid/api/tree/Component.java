@@ -453,7 +453,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             var caller = StackTraceUtils.caller(1);
             var missing = dependencies().stream()
                     .filter(t -> Arrays.stream(entries)
-                            .anyMatch(e -> e.component.testState(State.PreInit) // todo: this filter is probably wrong
+                            .noneMatch(e -> e.component.testState(State.PreInit) // todo: this filter is probably wrong
                                     && t.type.isAssignableFrom(e.component.getClass())))
                     .map(dep -> dep.type.getCanonicalName())
                     .toList();
