@@ -47,6 +47,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 
@@ -610,10 +611,11 @@ public @interface Command {
 
             @Override
             public void handleResponse(Delegate cmd, @NotNull Object response, Object... args) {
-                var value = response instanceof CompletableFuture<?> future ? future.join() : response;
+                var message = response instanceof CompletableFuture<?> future ? future.join() : response;
                 var sender = Arrays.stream(args)
                         .flatMap(cast(CommandSender.class))
                         .findAny().orElseThrow();
+                sender.sendMessage(String.valueOf(message));
             }
         }
     }
