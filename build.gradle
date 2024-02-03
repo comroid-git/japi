@@ -104,7 +104,9 @@ dependencies {
 
     compileOnly 'org.slf4j:slf4j-api:1.+'
 
+    // soft dependencies
     compileOnly 'net.dv8tion:JDA:5.+'
+    compileOnly 'org.spigotmc:spigot-api:1.18.2-R0.1-SNAPSHOT'
 
     // lombok
     api 'org.projectlombok:lombok:+'

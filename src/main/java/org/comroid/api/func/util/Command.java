@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.unions.GuildChannelUnion;
 import net.dv8tion.jda.api.events.GenericEvent;
@@ -16,6 +17,8 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
+import org.bukkit.command.CommandSender;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.comroid.annotations.Default;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.attr.*;
@@ -47,6 +50,7 @@ import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 
+import static org.comroid.api.func.util.Streams.cast;
 import static org.comroid.api.text.Capitalization.lower_hyphen_case;
 import static org.comroid.api.text.Capitalization.of;
 
@@ -218,7 +222,7 @@ public @interface Command {
             var name = split[0];
             var cmd = commands.getOrDefault(name, null);
             return cmd.args.stream()
-                    .filter(arg -> lower_hyphen_case.convert(arg.name).equals(argName))
+                    .filter(arg -> argName.isBlank() || lower_hyphen_case.convert(arg.name).equals(argName))
                     .flatMap(arg -> arg.autoFill.length == 0 && arg.param.getType().isEnum()
                             ? Arrays.stream(arg.param.getType().getEnumConstants()) // Todo somethings wrong here
                             .flatMap(it -> {
@@ -325,15 +329,17 @@ public @interface Command {
             }
 
             @Override
-            public abstract void initialize();
+            public void initialize() {}
 
-            protected abstract Map<String, Object> expandArgs(Delegate cmd, List<String> args, Object[] extraArgs);
+            protected @Nullable Map<String, Object> expandArgs(Delegate cmd, List<String> args, Object[] extraArgs) {
+                return null;
+            }
         }
 
         @Value
         @RequiredArgsConstructor
         public class Adapter$JDA extends Adapter {
-            net.dv8tion.jda.api.JDA jda;
+            JDA jda;
             Event.Bus<GenericEvent> bus = new Event.Bus<>();
             @Nullable
             @NonFinal
@@ -395,11 +401,11 @@ public @interface Command {
             @Override
             public void handleResponse(Command.Delegate cmd, @NotNull Object response, Object... args) {
                 final var e = Stream.of(args)
-                        .flatMap(Streams.cast(SlashCommandInteractionEvent.class))
+                        .flatMap(cast(SlashCommandInteractionEvent.class))
                         .findAny()
                         .orElseThrow();
                 final var user = Stream.of(args)
-                        .flatMap(Streams.cast(User.class))
+                        .flatMap(cast(User.class))
                         .findAny()
                         .orElseThrow();
                 if (response instanceof CompletableFuture)
@@ -430,7 +436,7 @@ public @interface Command {
             @Override
             protected Map<String, Object> expandArgs(Delegate cmd, List<String> args, Object[] extraArgs) {
                 var event = Stream.of(extraArgs)
-                        .flatMap(Streams.cast(SlashCommandInteractionEvent.class))
+                        .flatMap(cast(SlashCommandInteractionEvent.class))
                         .findAny().orElseThrow();
                 var map = new HashMap<String, Object>();
                 event.getOptions().stream()
@@ -596,6 +602,20 @@ public @interface Command {
                 }
             }
         }
+
+        @Value
+        @RequiredArgsConstructor
+        public class Adapter$Spigot extends Adapter {
+            JavaPlugin plugin;
+
+            @Override
+            public void handleResponse(Delegate cmd, @NotNull Object response, Object... args) {
+                var value = response instanceof CompletableFuture<?> future ? future.join() : response;
+                var sender = Arrays.stream(args)
+                        .flatMap(cast(CommandSender.class))
+                        .findAny().orElseThrow();
+            }
+        }
     }
 
     @Value
@@ -661,7 +681,7 @@ public @interface Command {
                         .findAny()
                         .map(args::get)
                         .or(() -> Arrays.stream(extraArgs)
-                                .flatMap(Streams.cast(parameter.getType()))
+                                .flatMap(cast(parameter.getType()))
                                 .findAny())
                         .orElse(null);
             }
