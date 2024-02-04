@@ -1,5 +1,6 @@
 package org.comroid.api;
 
+import lombok.Builder;
 import lombok.experimental.UtilityClass;
 import org.comroid.api.func.Provider;
 import org.comroid.api.func.ext.Wrap;
@@ -16,12 +17,11 @@ import java.net.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.function.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -231,6 +231,26 @@ public final class Polyfill {
                 + Integer.toHexString(color.getRed())
                 + Integer.toHexString(color.getGreen())
                 + Integer.toHexString(color.getBlue());
+    }
+
+    private static final Pattern DURATION_PATTERN = Pattern.compile("((?<amount>\\d)+(?<unit>[ymwdhs]))");
+    public static Duration parseDuration(String string) {
+        var result = Duration.ZERO;
+        var matcher = DURATION_PATTERN.matcher(string);
+        while (matcher.find()) {
+            var amount = Long.parseLong(matcher.group("amount"));
+            BiFunction<Duration,Long,Duration> plus = switch (matcher.group("unit")) {
+                case "y"-> (d, x) -> d.plusDays(x*365);
+                case "m"->(d,x)->d.plusDays(x*30);
+                case "w"->(d,x)->d.plusDays(x*7);
+                case "d"->Duration::plusDays;
+                case "h"->Duration::plusHours;
+                case "s"->Duration::plusSeconds;
+                default -> throw new IllegalStateException("Unexpected value: " + matcher.group("unit"));
+            };
+            result=plus.apply(result,amount);
+        }
+        return result;
     }
 
     public static Inet4Address parseIPv4(String ipv4) {
