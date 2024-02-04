@@ -281,7 +281,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                 Log.at(Level.FINE, "Initializing " + this);
 
                 injectDependencies();
-                runOnDependencies(Component::initialize).join();
+                var count = runOnDependencies(Component::initialize);
 
                 $initialize();
                 runOnChildren(Initializable.class, Initializable::initialize, it -> test(it, State.PreInit));
@@ -298,7 +298,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         public final synchronized void lateInitialize() {
             if (!testState(State.Init) && !pushState(State.LateInit))
                 return;
-            runOnDependencies(Component::lateInitialize).join();
+            var count = runOnDependencies(Component::lateInitialize);
             $lateInitialize();
             runOnChildren(LifeCycle.class, LifeCycle::lateInitialize, it -> test(it, State.Init));
 
@@ -432,39 +432,18 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             return true;
         }
 
-        private CompletableFuture<Void> runOnDependencies(final ThrowingConsumer<Component, Throwable> action) {
-            record InitEntry(Component component, @Nullable CompletableFuture<?> future) {
-            }
-
+        private long runOnDependencies(final ThrowingConsumer<Component, Throwable> action) {
             if (getParent() == null)
-                return CompletableFuture.completedFuture(null);
+                return 0L;
             final var wrap = action.wrap();
-            final var entries = dependencies().stream()
+            return dependencies().stream()
                     .flatMap(dependency -> getParent().getChildren().stream()
                             .filter(e -> dependency.type.isAssignableFrom(e.getClass()))
                             .flatMap(cast(Component.class)))
                     .filter(c -> c.testState(State.PreInit))
-                    .peek(c -> Log.at(Level.FINE, "Initializing dependency of %s first: %s".formatted(this, c)))
-                    .map(c -> new InitEntry(c, CompletableFuture.supplyAsync(() -> {
-                        wrap.accept(c);
-                        return null;
-                    })))
-                    .toArray(InitEntry[]::new);
-            var caller = StackTraceUtils.caller(1);
-            var missing = dependencies().stream()
-                    .filter(t -> Arrays.stream(entries)
-                            .noneMatch(e -> e.component.testState(State.PreInit) // todo: this filter is probably wrong
-                                    && t.type.isAssignableFrom(e.component.getClass())))
-                    .map(dep -> dep.type.getCanonicalName())
-                    .toList();
-            if (!missing.isEmpty())
-                Log.at(Level.WARNING, "Could not run on all dependencies\n\tat %s\n\tParent Module: %s\n\tEntries:\n\t\t- %s\n\tMissing Dependencies:\n\t\t- %s"
-                        .formatted(caller, this, String.join("\n\t\t- ",
-                                        Arrays.stream(entries).map(e -> e.component.toString()).toArray(String[]::new)),
-                                String.join("\n\t\t- ", missing)));
-            return CompletableFuture.allOf(Arrays.stream(entries)
-                    .map(e -> e.future)
-                    .toArray(CompletableFuture[]::new));
+                    .peek(c -> Log.at(Level.FINE, "Running %s on dependency of %s first: %s".formatted(action, this, c)))
+                    .peek(wrap)
+                    .count();
         }
     }
 
