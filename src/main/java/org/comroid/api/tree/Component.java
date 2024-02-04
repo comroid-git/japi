@@ -11,6 +11,7 @@ import org.comroid.api.attr.EnabledState;
 import org.comroid.api.attr.Named;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.exc.ThrowingConsumer;
+import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Log;
 import org.comroid.api.func.util.Bitmask;
 import org.comroid.api.func.util.Cache;
@@ -437,9 +438,9 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                 return 0L;
             final var wrap = action.wrap();
             return dependencies().stream()
-                    .flatMap(dependency -> getParent().getChildren().stream()
-                            .filter(e -> dependency.type.isAssignableFrom(e.getClass()))
-                            .flatMap(cast(Component.class)))
+                    .filter(dep -> dep.prop != null)
+                    .map(dep -> dep.prop.getFrom(this))
+                    .flatMap(cast(Component.class))
                     .filter(c -> c.testState(State.PreInit))
                     .peek(c -> Log.at(Level.FINE, "Running %s on dependency of %s first: %s".formatted(action, this, c)))
                     .peek(wrap)

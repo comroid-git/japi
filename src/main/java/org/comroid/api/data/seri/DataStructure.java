@@ -522,13 +522,13 @@ public class DataStructure<T> implements Named {
             this.setter = setter;
         }
 
-        public @Nullable V getFrom(T target) {
+        public @Nullable V getFrom(Object target) {
             Constraint.notNull(getter, "getter").run();
             Constraint.notNull(target, "target").run();
             return getter.invokeSilent(target);
         }
 
-        public @Nullable V setFor(T target, V value) {
+        public @Nullable V setFor(Object target, V value) {
             Constraint.decide(!readonly, "not readonly");
             Constraint.decide(canSet(), "canSet");
             Constraint.notNull(value, "value");
