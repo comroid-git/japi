@@ -11,13 +11,12 @@ import org.comroid.api.attr.EnabledState;
 import org.comroid.api.attr.Named;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.exc.ThrowingConsumer;
-import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Log;
 import org.comroid.api.func.util.Bitmask;
 import org.comroid.api.func.util.Cache;
 import org.comroid.api.info.Constraint;
+import org.comroid.api.info.Maintenance;
 import org.comroid.api.java.StackTraceUtils;
-import org.comroid.api.text.Capitalization;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -32,7 +31,6 @@ import java.lang.annotation.Target;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -49,6 +47,12 @@ import static org.comroid.api.text.Capitalization.equalsIgnoreCase;
 
 @Ignore
 public interface Component extends Container, LifeCycle, Tickable, EnabledState, Named {
+    Maintenance.Inspection MI_MissingDependency = Maintenance.Inspection.builder()
+            .name("Component missing Dependency")
+            .format("Component %s is missing Dependency %s")
+            .description("A required dependency is missing")
+            .build();
+
     @Override
     @PostLoad
     @PostConstruct
@@ -383,6 +387,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                             results = byName;
                         }
                         if (results.isEmpty()) {
+                            MI_MissingDependency.new CheckResult(this, this, dep);
                             if (dep.isRequired())
                                 throw new Constraint.UnmetError("Unmet required " + dep);
                             else return empty();
