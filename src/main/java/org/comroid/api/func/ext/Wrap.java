@@ -23,10 +23,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.function.*;
 import java.util.logging.Level;
 import java.util.stream.Stream;
@@ -385,7 +382,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
                     Log.at(logLevel, "Resource was not ready: " + future);
                     return future.join();
                 }
-            } catch (ExecutionException | InterruptedException e) {
+            } catch (CompletionException | ExecutionException | InterruptedException e) {
                 Log.at(logLevel, "Failed to get resource: " + future, e);
                 return null;
             }
