@@ -379,9 +379,14 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         @Override
         public T get() {
             try {
-                return future.get(0, TimeUnit.SECONDS);
-            } catch (ExecutionException | InterruptedException | TimeoutException e) {
-                Log.at(logLevel, "Failed to immediately get resource", e);
+                try {
+                    return future.get(0, TimeUnit.SECONDS);
+                } catch (TimeoutException e) {
+                    Log.at(logLevel, "Resource was not ready: " + future);
+                    return future.join();
+                }
+            } catch (ExecutionException | InterruptedException e) {
+                Log.at(logLevel, "Failed to get resource: " + future, e);
                 return null;
             }
         }
