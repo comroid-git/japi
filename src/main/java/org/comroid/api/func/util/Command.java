@@ -72,6 +72,8 @@ public @interface Command {
     @Target(ElementType.PARAMETER)
     @Retention(RetentionPolicy.RUNTIME)
     @interface Arg {
+        int index() default -1;
+
         String[] autoFill() default {};
 
         Default[] defaultValue() default {};
@@ -84,13 +86,15 @@ public @interface Command {
             String name;
             @AnnotatedTarget Parameter param;
             boolean required;
+            int index;
             String[] autoFill;
             @Nullable Object defaultValue;
 
-            public Delegate(Command cmd, Parameter param, boolean required, String... autoFill) {
+            public Delegate(Command cmd, Parameter param, boolean required, int index, String... autoFill) {
                 this.cmd = cmd;
                 this.param = param;
                 this.name = Annotations.aliases(param).stream().findAny().orElseGet(param::getName);
+                this.index = index;
                 this.defaultValue = Annotations.defaultValue(param);
                 this.required = required;
                 this.autoFill = autoFill;
@@ -205,7 +209,10 @@ public @interface Command {
                                                     .findAny()
                                                     .map(Annotations.Result::getAnnotation)
                                                     .orElse(null);
-                                            return new Arg.Delegate(cmd.get(), param, arg != null && arg.required(), arg == null ? new String[0] : arg.autoFill());
+                                            return new Arg.Delegate(cmd.get(), param,
+                                                    arg != null && arg.required(),
+                                                    arg == null ? -1 : arg.index(),
+                                                    arg == null ? new String[0] : arg.autoFill());
                                         })
                                         .toList());
                     })
