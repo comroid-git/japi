@@ -71,7 +71,7 @@ public class DataStructure<T> implements Named {
     public List<Map.Entry<Category.Adapter, List<DataStructure<? super T>.Property<?>>>> getCategorizedOrderedProperties() {
         Map<Category.Adapter, List<DataStructure<? super T>.Property<?>>> map = new ConcurrentHashMap<>();
         for (var prop : getProperties()) {
-            var cat = prop.getCategory().orElse(Category.None);
+            var cat = prop.getCategory().stream().findFirst().orElse(Category.None);
             map.computeIfAbsent(cat, $ -> new ArrayList<>()).add(prop);
         }
         List<Map.Entry<Category.Adapter, List<DataStructure<? super T>.Property<?>>>> toSort = new ArrayList<>();
@@ -309,7 +309,7 @@ public class DataStructure<T> implements Named {
                 // categories
                 Arrays.stream(sources)
                         .flatMap(it -> Annotations.category(it).stream())
-                        .forEachOrdered(member.category::complete);
+                        .forEachOrdered(member.category::add);
             }
 
             boolean checkAccess(AnnotatedElement member) {
@@ -359,7 +359,7 @@ public class DataStructure<T> implements Named {
         String name;
         @Getter @NotNull Set<String> aliases = new HashSet<>();
         @Getter @NotNull List<String> description = new ArrayList<>();
-        @Getter @NotNull Wrap.Future<Category.Adapter> category = new Wrap.Future<>();
+        @Getter @NotNull List<Category.Adapter> category = new ArrayList<>();
         @NotNull
         @AnnotatedTarget
         @ToString.Exclude
