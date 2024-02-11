@@ -331,11 +331,7 @@ public @interface Command {
             return id.hashCode();
         }
 
-        public abstract class Adapter implements Handler, Initializable {
-            {
-                adapters.add(this);
-            }
-
+        public static abstract class Adapter implements Handler, Initializable {
             @Override
             public void initialize() {}
 
@@ -354,6 +350,10 @@ public @interface Command {
             @Setter
             BiFunction<EmbedBuilder, User, EmbedBuilder> embedFinalizer = null;
             @NonFinal boolean initialized = false;
+
+            {
+                adapters.add(this);
+            }
 
             @Override
             public void initialize() {
@@ -615,6 +615,10 @@ public @interface Command {
         @RequiredArgsConstructor
         public class Adapter$Spigot extends Adapter {
             JavaPlugin plugin;
+
+            {
+                adapters.add(this);
+            }
 
             @Override
             public void handleResponse(Delegate cmd, @NotNull Object response, Object... args) {
