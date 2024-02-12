@@ -22,7 +22,7 @@ public class ID {
             return uuid.toString();
         if (it instanceof UUIDContainer uuidContainer)
             return of(uuidContainer.getUuid());
-        return SoftDepend.type("javax.persistence.Id").stream()
+        return SoftDepend.type("javax.persistence.Id", "jakarta.persistence.Id")
                 .map(Polyfill::<Class<Annotation>>uncheckedCast)
                 .flatMap(idAT -> ReflectionHelper.fieldWithAnnotation(it.getClass(), idAT).stream())
                 .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && (fld.canAccess(it) || fld.trySetAccessible()))
