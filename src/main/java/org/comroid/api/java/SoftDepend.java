@@ -2,17 +2,20 @@ package org.comroid.api.java;
 
 import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
+import org.comroid.api.Polyfill;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Cache;
 import org.comroid.api.func.util.Invocable;
 import org.intellij.lang.annotations.Language;
 
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
+import java.util.stream.Stream;
 
 import static org.comroid.api.func.ext.Wrap.*;
 
@@ -60,6 +63,13 @@ public class SoftDepend {
                 return empty();
             }
         });
+    }
+
+    public <T> Stream<Class<T>> type(final @Language(value = "Java", prefix = "import ", suffix = ";") String... names) {
+        return Arrays.stream(names)
+                .map(SoftDepend::type)
+                .flatMap(Wrap::stream)
+                .map(Polyfill::uncheckedCast);
     }
 
     public <T> Wrap<Class<T>> type(final @Language(value = "Java", prefix = "import ", suffix = ";") String name) {
