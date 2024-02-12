@@ -99,8 +99,8 @@ repositories {
 
 dependencies {
     // annotations
-    api 'org.jetbrains:annotations:+'
-    compileOnly 'com.fasterxml.jackson.core:jackson-databind:2.14.+'
+    api 'org.jetbrains:annotations:24.1.0'
+    compileOnly 'com.fasterxml.jackson.core:jackson-databind:2.+'
     compileOnly 'javax.persistence:javax.persistence-api:2.+'
     compileOnly 'org.apache.tomcat:tomcat-annotations-api:10.+'
 
@@ -111,7 +111,7 @@ dependencies {
     compileOnly 'org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT'
 
     // lombok
-    api 'org.projectlombok:lombok:+'
+    api 'org.projectlombok:lombok:1.18.30'
     annotationProcessor 'org.projectlombok:lombok:+'
 
     testImplementation 'junit:junit:+'
