@@ -77,27 +77,29 @@ public class Annotations {
     }
 
     public <R> @Nullable R defaultValue(@NotNull AnnotatedElement of) {
-        final var silent = new Object(){
-            @SneakyThrows
-            public void throwIfExcPresent(SnippetEvent e) {
-                var exc = e.exception();
-                if (exc != null)
-                    throw exc;
+        try {
+            final var silent = new Object() {
+                @SneakyThrows
+                public void throwIfExcPresent(SnippetEvent e) {
+                    var exc = e.exception();
+                    if (exc != null)
+                        throw exc;
+                }
+            };
+            try (final var jShell = JShell.create()) {
+                return findAnnotations(Default.class, of)
+                        .map(Result::getAnnotation)
+                        .flatMap(expr -> jShell.eval(expr.value()).stream())
+                        .peek(silent::throwIfExcPresent)
+                        .map(SnippetEvent::value)
+                        .filter(Objects::nonNull)
+                        .findAny()
+                        .map(StandardValueType::findGoodType)
+                        .map(Polyfill::<R>uncheckedCast)
+                        .orElse(null);
             }
-        };
-        try (final var jShell = JShell.create()) {
-            return findAnnotations(Default.class, of)
-                    .map(Result::getAnnotation)
-                    .flatMap(expr -> jShell.eval(expr.value()).stream())
-                    .peek(silent::throwIfExcPresent)
-                    .map(SnippetEvent::value)
-                    .filter(Objects::nonNull)
-                    .findAny()
-                    .map(StandardValueType::findGoodType)
-                    .map(Polyfill::<R>uncheckedCast)
-                    .orElse(null);
         } catch (Throwable t) {
-            log.log(Level.WARNING, "Failed to evaluate default expression of " + of, t);
+            log.log(Level.FINE, "Failed to evaluate default expression of " + of, t);
             return null;
         }
     }
