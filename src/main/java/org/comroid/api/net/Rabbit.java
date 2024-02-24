@@ -17,6 +17,7 @@ import org.comroid.api.func.util.Event;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.SoftDepend;
 import org.comroid.api.java.StackTraceUtils;
+import org.jetbrains.annotations.Nullable;
 
 import java.net.URI;
 import java.util.Map;
@@ -30,7 +31,8 @@ public class Rabbit {
     private static final Map<URI, Rabbit> $cache = new ConcurrentHashMap<>();
     public static final Map<URI, Rabbit> CACHE = unmodifiableMap($cache);
 
-    public static Wrap<Rabbit> of(String uri) {
+    public static Wrap<Rabbit> of(@Nullable String uri) {
+        if (uri == null) return Wrap.empty();
         final var _uri = Polyfill.uri(uri);
         return SoftDepend.type("com.rabbitmq.client.Connection")
                 .map($ -> $cache.computeIfAbsent(_uri, Rabbit::new));
