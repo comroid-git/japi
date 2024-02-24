@@ -4,6 +4,7 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
+import lombok.EqualsAndHashCode;
 import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.NonFinal;
@@ -15,12 +16,14 @@ import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Event;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.SoftDepend;
+import org.comroid.api.java.StackTraceUtils;
 
 import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.Collections.unmodifiableMap;
+import static org.comroid.api.Polyfill.uncheckedCast;
 
 @Value
 public class Rabbit {
@@ -35,6 +38,7 @@ public class Rabbit {
 
     URI uri;
     Connection connection;
+    Map<BindingKeys<?>, Binding<?>> bindings = new ConcurrentHashMap<>();
 
     @SneakyThrows
     private Rabbit(URI uri) {
@@ -44,17 +48,31 @@ public class Rabbit {
         this.connection = connFactory.newConnection();
     }
 
+    public <T extends DataNode> Binding<T> bind(String exchange, String routingKey, Class<T> type) {
+        var key = new BindingKeys<>(exchange, routingKey, type);
+        return uncheckedCast(bindings.computeIfAbsent(key, Binding::new));
+    }
+
+    @EqualsAndHashCode
+    public record BindingKeys<T extends DataNode>(String exchange, String routingKey, Class<T> type) {
+        @Override
+        public String toString() {
+            return "%s -> %s: %s".formatted(exchange, routingKey, StackTraceUtils.lessSimpleName(type));
+        }
+    }
+
     @Value
     public class Binding<T extends DataNode> extends Event.Bus<T> {
         String exchange;
         String routingKey;
         Activator<T> ctor;
-        @NonFinal Channel channel;
+        @NonFinal
+        Channel channel;
 
-        public Binding(String exchange, String routingKey, Class<T> type) {
-            this.exchange = exchange;
-            this.routingKey = routingKey;
-            this.ctor = Activator.get(type);
+        private Binding(BindingKeys<T> keys) {
+            this.exchange = keys.exchange;
+            this.routingKey = keys.routingKey;
+            this.ctor = Activator.get(keys.type);
 
             touchChannel();
         }
