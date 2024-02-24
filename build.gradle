@@ -109,6 +109,7 @@ dependencies {
     // soft dependencies
     compileOnly 'net.dv8tion:JDA:5.+'
     compileOnly 'org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT'
+    compileOnly 'com.rabbitmq:amqp-client:5.18.0'
 
     // lombok
     api 'org.projectlombok:lombok:1.18.30'
