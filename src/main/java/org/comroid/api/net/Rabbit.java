@@ -55,7 +55,7 @@ public class Rabbit {
         return uncheckedCast(bindings.computeIfAbsent(key, Binding::new));
     }
 
-    @EqualsAndHashCode
+    //@EqualsAndHashCode
     public record BindingKeys<T extends DataNode>(String exchange, String routingKey, Class<T> type) {
         @Override
         public String toString() {
