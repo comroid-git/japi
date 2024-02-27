@@ -2,6 +2,7 @@ package org.comroid.api.data.seri;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
+import lombok.Builder;
 import lombok.experimental.Delegate;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.*;
@@ -24,6 +25,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
+import java.util.function.BinaryOperator;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
 import java.util.stream.Stream;
 
 import static org.comroid.api.data.seri.StandardValueType.*;
@@ -214,6 +220,36 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
     static Stream<Entry> properties(final java.lang.Object it) {
         if (it instanceof DataNode.Base)
             return ((DataNode) it).properties();
+        if (it instanceof Map<?,?> map)
+            return map.entrySet().stream().collect(new Collector<Map.Entry<?,?>, List<Entry>, Stream<Entry>>() {
+                @Override
+                public Supplier<List<Entry>> supplier() {
+                    return ArrayList::new;
+                }
+
+                @Override
+                public BiConsumer<List<Entry>, Map.Entry<?, ?>> accumulator() {
+                    return (ls,e)->ls.add(new Entry(String.valueOf(e.getKey()), of(e.getValue())));
+                }
+
+                @Override
+                public BinaryOperator<List<Entry>> combiner() {
+                    return (l,r)->{
+                        l.addAll(r);
+                        return l;
+                    };
+                }
+
+                @Override
+                public Function<List<Entry>, Stream<Entry>> finisher() {
+                    return Collection::stream;
+                }
+
+                @Override
+                public Set<Characteristics> characteristics() {
+                    return Set.of();
+                }
+            });
         return DataStructure.of(it.getClass(), java.lang.Object.class)
                 .getDeclaredProperties().values().stream()
                 .map(Polyfill::<DataStructure<java.lang.Object>.Property<Object>>uncheckedCast)
@@ -231,6 +267,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
             ((Iterable<?>) it).iterator().forEachRemaining(arr::append);
             return arr;
         } else {
+            // handle as object node
             var typeOf = typeOf(it);
             if (typeOf instanceof StandardValueType<?>)
                 return new Value<>(it);
