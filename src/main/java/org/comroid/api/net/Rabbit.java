@@ -4,6 +4,7 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.SneakyThrows;
 import lombok.Value;
@@ -50,7 +51,8 @@ public class Rabbit {
         this.connection = connFactory.newConnection();
     }
 
-    public <T extends DataNode> Binding<T> bind(String exchange, String routingKey, Class<T> type) {
+    @lombok.Builder(builderMethodName = "binding", buildMethodName = "bind", builderClassName = "Binder")
+    public <T extends DataNode> Binding<T> bind(String exchange, String routingKey, Class<? extends T> type) {
         var key = new BindingKeys<>(exchange, routingKey, type);
         return uncheckedCast(bindings.computeIfAbsent(key, Binding::new));
     }
