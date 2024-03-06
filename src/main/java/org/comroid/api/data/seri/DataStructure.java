@@ -7,6 +7,8 @@ import org.comroid.annotations.*;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.attr.Named;
 import org.comroid.api.Polyfill;
+import org.comroid.api.data.seri.type.StandardValueType;
+import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.ValuePointer;
 import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Constraint;
@@ -20,18 +22,15 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntPredicate;
 import java.util.logging.Level;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.annotations.internal.Annotations.*;
 import static org.comroid.api.Polyfill.uncheckedCast;
 import static org.comroid.api.java.ReflectionHelper.declaringClass;
-import static org.comroid.api.java.ReflectionHelper.simpleClassName;
 import static org.comroid.api.text.Capitalization.*;
 
 @Value

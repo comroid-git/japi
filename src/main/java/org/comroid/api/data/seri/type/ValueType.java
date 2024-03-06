@@ -1,20 +1,20 @@
-package org.comroid.api.data.seri;
+package org.comroid.api.data.seri.type;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.Polyfill;
+import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ValuePointer;
 import org.comroid.api.attr.Named;
-import org.intellij.lang.annotations.Language;
+import org.comroid.api.html.form.HtmlFormElementDesc;
+import org.comroid.api.html.form.HtmlInputDesc;
 import org.jetbrains.annotations.Nullable;
 
 import javax.persistence.Transient;
-import java.util.Arrays;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
-public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named {
+public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named, HtmlFormElementDesc, Specifiable<ValueType<R>> {
     static <T> ValueType<T> of(final Class<?> type) {
         return StandardValueType.forClass(type)
                 .or(() -> BoundValueType.of(type))
@@ -69,13 +69,8 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named 
         return toType.parse(value.toString());
     }
 
-    @Language(value = "HTML", prefix = "<input type=\"", suffix = "\">")
-    default String getHtmlInputType() {
-        return "text";
-    }
-
-    @Language(value = "HTML", prefix = "<input ", suffix = ">")
-    default @Nullable String[] getHtmlInputAttributes() {
+    @Override
+    default @Nullable String[] getHtmlExtraAttributes() {
         return new String[0];
     }
 

@@ -1,9 +1,8 @@
 package org.comroid.test.api;
 
 import org.comroid.api.data.seri.DataStructure;
-import org.comroid.api.data.seri.StandardValueType;
-import org.comroid.api.data.seri.ValueType;
-import org.comroid.api.func.util.Debug;
+import org.comroid.api.data.seri.type.StandardValueType;
+import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.test.Dummy;
 import org.junit.Test;

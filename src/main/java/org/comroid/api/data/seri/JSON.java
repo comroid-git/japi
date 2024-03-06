@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.SneakyThrows;
 import org.comroid.annotations.Convert;
 import org.comroid.annotations.Instance;
+import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.func.util.DelegateStream;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.NotNull;

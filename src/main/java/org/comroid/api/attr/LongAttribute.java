@@ -2,9 +2,9 @@ package org.comroid.api.attr;
 
 import org.comroid.annotations.Ignore;
 import org.comroid.api.func.ValueBox;
-import org.comroid.api.data.seri.ValueType;
+import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.ext.Wrap;
-import org.comroid.api.data.seri.StandardValueType;
+import org.comroid.api.data.seri.type.StandardValueType;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.function.LongSupplier;

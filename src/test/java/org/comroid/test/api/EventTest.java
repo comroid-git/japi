@@ -1,7 +1,7 @@
 package org.comroid.test.api;
 
 import org.comroid.api.func.util.Event;
-import org.comroid.api.data.seri.StandardValueType;
+import org.comroid.api.data.seri.type.StandardValueType;
 import org.junit.Before;
 import org.junit.Test;
 

@@ -1,26 +1,23 @@
-package org.comroid.api.data.seri;
+package org.comroid.api.data.seri.type;
 
-import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import lombok.Value;
 import org.comroid.api.Polyfill;
+import org.comroid.api.data.seri.RegExpUtil;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.html.form.HtmlInputDesc;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
-
-import static java.util.function.Predicate.not;
 
 @Value
 @ToString(of = "name")
 @EqualsAndHashCode(of = "targetClass")
-public class StandardValueType<R> implements ValueType<R> {
+public class StandardValueType<R> implements ValueType<R>, HtmlInputDesc {
     private static final Set<StandardValueType<?>> $cache = new HashSet<>();
     public static final Set<StandardValueType<?>> cache = Collections.unmodifiableSet($cache);
     public static final StandardValueType<Boolean> BOOLEAN = new StandardValueType<>(Boolean.class, boolean.class, "boolean", Boolean::parseBoolean, "checkbox");
@@ -32,7 +29,7 @@ public class StandardValueType<R> implements ValueType<R> {
     public static final StandardValueType<Long> LONG = new StandardValueType<>(Long.class, long.class, "long", Long::parseLong, "number", "min='"+Long.MIN_VALUE+"'", "max='"+Long.MAX_VALUE+"'");
     public static final StandardValueType<Short> SHORT = new StandardValueType<>(Short.class, short.class, "short", Short::parseShort, "number", "min='"+Short.MIN_VALUE+"'", "max='"+Short.MAX_VALUE+"'");
     public static final StandardValueType<String> STRING = new StandardValueType<>(String.class, "String", Function.identity(), "text");
-    public static final StandardValueType<UUID> UUID = new StandardValueType<>(UUID.class, "UUID", java.util.UUID::fromString, "text", "pattern='"+RegExpUtil.UUID4_PATTERN+"'");
+    public static final StandardValueType<UUID> UUID = new StandardValueType<>(UUID.class, "UUID", java.util.UUID::fromString, "text", "pattern='"+ RegExpUtil.UUID4_PATTERN+"'");
 
     public static final StandardValueType<Void> VOID = new StandardValueType<>(void.class, "Void", it -> null, "hidden");
     /**

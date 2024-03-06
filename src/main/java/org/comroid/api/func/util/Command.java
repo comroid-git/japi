@@ -24,10 +24,10 @@ import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.attr.*;
 import org.comroid.annotations.AnnotatedTarget;
 import org.comroid.api.Polyfill;
-import org.comroid.api.data.seri.ArrayValueType;
-import org.comroid.api.data.seri.BoundValueType;
-import org.comroid.api.data.seri.StandardValueType;
-import org.comroid.api.data.seri.ValueType;
+import org.comroid.api.data.seri.type.ArrayValueType;
+import org.comroid.api.data.seri.type.BoundValueType;
+import org.comroid.api.data.seri.type.StandardValueType;
+import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
 import org.comroid.api.java.StackTraceUtils;
@@ -47,13 +47,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 
 import static org.comroid.api.func.util.Streams.cast;
 import static org.comroid.api.text.Capitalization.lower_hyphen_case;
-import static org.comroid.api.text.Capitalization.of;
 
 @SuppressWarnings("unused")
 @Retention(RetentionPolicy.RUNTIME)

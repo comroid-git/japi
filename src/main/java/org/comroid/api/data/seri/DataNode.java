@@ -2,10 +2,11 @@ package org.comroid.api.data.seri;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
-import lombok.Builder;
 import lombok.experimental.Delegate;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.*;
+import org.comroid.api.data.seri.type.StandardValueType;
+import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.ValueBox;
 import org.comroid.api.func.ext.Convertible;
 import org.comroid.api.func.util.DelegateStream;
@@ -32,7 +33,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
 
-import static org.comroid.api.data.seri.StandardValueType.*;
+import static org.comroid.api.data.seri.type.StandardValueType.*;
 
 @Ignore({Convertible.class, DataStructure.class})
 public interface DataNode extends MimeType.Container, StringSerializable, Specifiable<Object> {

@@ -5,16 +5,11 @@ import lombok.extern.java.Log;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.DataStructure;
-import org.comroid.api.data.seri.ValueType;
+import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.ext.Wrap;
-import org.comroid.api.func.util.Invocable;
-import org.comroid.api.Polyfill;
 import org.comroid.api.func.util.Cache;
 import org.comroid.api.func.util.Streams;
 
-import java.lang.reflect.Parameter;
-import java.util.ArrayList;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.Predicate;
 
