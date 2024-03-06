@@ -1,4 +1,4 @@
-package org.comroid.api.data.seri;
+package org.comroid.api.data;
 
 import java.util.regex.Pattern;
 

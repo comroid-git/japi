@@ -1,9 +1,12 @@
-package org.comroid.api.data.seri;
+package org.comroid.api.data.seri.adp;
 
 import lombok.Data;
 import lombok.SneakyThrows;
 import org.comroid.annotations.Convert;
 import org.comroid.annotations.Instance;
+import org.comroid.api.data.seri.DataNode;
+import org.comroid.api.data.seri.MimeType;
+import org.comroid.api.data.seri.Serializer;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.func.util.DelegateStream;
 import org.intellij.lang.annotations.Language;

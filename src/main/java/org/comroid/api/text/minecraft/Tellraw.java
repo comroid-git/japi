@@ -4,7 +4,7 @@ import lombok.*;
 import org.comroid.api.attr.Named;
 import org.comroid.api.data.Vector;
 import org.comroid.api.data.seri.DataNode;
-import org.comroid.api.data.seri.JSON;
+import org.comroid.api.data.seri.adp.JSON;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

@@ -9,7 +9,7 @@ import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
 import org.comroid.annotations.*;
 import org.comroid.api.Polyfill;
-import org.comroid.api.data.seri.DataStructure;
+import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Constraint;

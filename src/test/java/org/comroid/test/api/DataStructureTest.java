@@ -1,6 +1,6 @@
 package org.comroid.test.api;
 
-import org.comroid.api.data.seri.DataStructure;
+import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.util.Invocable;

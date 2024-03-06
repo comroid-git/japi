@@ -4,7 +4,7 @@ import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import lombok.Value;
 import org.comroid.api.Polyfill;
-import org.comroid.api.data.seri.RegExpUtil;
+import org.comroid.api.data.RegExpUtil;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.html.form.HtmlInputDesc;
 import org.intellij.lang.annotations.Language;

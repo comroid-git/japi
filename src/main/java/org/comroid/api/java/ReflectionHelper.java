@@ -3,7 +3,7 @@ package org.comroid.api.java;
 import lombok.SneakyThrows;
 import org.comroid.annotations.Instance;
 import org.comroid.api.Polyfill;
-import org.comroid.api.data.seri.DataStructure;
+import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.func.ext.Wrap;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.ApiStatus;

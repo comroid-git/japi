@@ -1,6 +1,9 @@
-package org.comroid.api.data.seri;
+package org.comroid.api.data.seri.adp;
 
 import org.comroid.annotations.Instance;
+import org.comroid.api.data.seri.DataNode;
+import org.comroid.api.data.seri.MimeType;
+import org.comroid.api.data.seri.Serializer;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;

@@ -9,7 +9,7 @@ import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.Serializer;
 import org.comroid.api.func.util.Cache;
 import org.comroid.api.info.Constraint;
-import org.comroid.api.data.seri.Jackson;
+import org.comroid.api.data.seri.adp.Jackson;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

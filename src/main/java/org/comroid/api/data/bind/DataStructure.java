@@ -1,4 +1,4 @@
-package org.comroid.api.data.seri;
+package org.comroid.api.data.bind;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;

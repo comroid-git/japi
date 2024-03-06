@@ -3,7 +3,7 @@ package org.comroid.api.info;
 import lombok.experimental.UtilityClass;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.UUIDContainer;
-import org.comroid.api.data.seri.DataStructure;
+import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.SoftDepend;

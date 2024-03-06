@@ -3,7 +3,7 @@ package org.comroid.api.tree;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.*;
-import org.comroid.api.data.seri.DataStructure;
+import org.comroid.api.data.bind.DataStructure;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.attr.BitmaskAttribute;
