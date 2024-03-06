@@ -35,7 +35,7 @@ import java.util.stream.Stream;
 import static org.comroid.api.data.seri.StandardValueType.*;
 
 @Ignore({Convertible.class, DataStructure.class})
-public interface DataNode extends MimeType.Container, StringSerializable, Specifiable<DataNode> {
+public interface DataNode extends MimeType.Container, StringSerializable, Specifiable<Object> {
     @Override
     @JsonIgnore
     default MimeType getMimeType() {
@@ -208,9 +208,12 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
     }
 
     @Override
-    default <R extends DataNode> Wrap<R> as(final Class<R> type) {
+    default <R> Wrap<R> as(final Class<R> type) {
         return Specifiable.super.as(type)
-                .orRef(() -> Wrap.exceptionally(() -> Activator.get(type).createInstance(this)));
+                .orRef(() ->Wrap.of(ValueType.of(type))
+                        .flatMap(StandardValueType.class)
+                        .map(svt->Polyfill.<R>uncheckedCast(svt.parse(asString())))
+                        .or(() -> Activator.get(type).createInstance(this)));
     }
 
     default Stream<Entry> properties() {

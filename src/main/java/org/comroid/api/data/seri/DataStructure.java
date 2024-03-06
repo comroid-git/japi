@@ -258,11 +258,11 @@ public class DataStructure<T> implements Named {
             }
 
             <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterConstructorMembers(R member) {
-                if (member instanceof java.lang.reflect.Constructor<?> ctor)
-                    return checkAccess(ctor);
-                else if (member instanceof Method mtd)
-                    return checkAccess(mtd) && mtd.getReturnType().equals(target);
-                else return false;
+                var base = (member instanceof Method || member instanceof java.lang.reflect.Constructor<?>)
+                        && !member.getName().startsWith("set") && checkAccess(member);
+                if (member instanceof Method mtd)
+                    return base && mtd.getReturnType().equals(target);
+                return base;
             }
 
             <R extends java.lang.reflect.Member & AnnotatedElement> DataStructure<T>.Constructor convertConstructor(R member) {
@@ -277,7 +277,7 @@ public class DataStructure<T> implements Named {
                     param = mtd.getParameters();
                 }
                 if (func == null)
-                    throw new AssertionError("Could not initialize construction adapter for " + member);
+                    throw new RuntimeException("Could not initialize construction adapter for " + member);
                 DataStructure<T>.Constructor ctor = struct.new Constructor(name, member, target, List.of(param), func);
                 setAnnotations(ctor, member);
                 setMetadata(ctor, member);
@@ -558,7 +558,7 @@ public class DataStructure<T> implements Named {
         }
 
         public boolean canSet() {
-            return setter != null;
+            return !isReadonly() && setter != null;
         }
 
         @NoArgsConstructor(access = AccessLevel.PRIVATE)

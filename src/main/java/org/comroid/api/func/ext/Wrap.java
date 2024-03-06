@@ -356,8 +356,8 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         return () -> test(type::isInstance) ? cast() : null;
     }
 
-    default <O> Wrap<O> flatMap(final @NotNull Function<? super T, Supplier<? extends O>> type) {
-        return ifPresentMapOrElseGet(type, ()->null)::get;
+    default <O> Wrap<O> flatMap(final @NotNull Function<? super T, Supplier<? extends O>> func) {
+        return ifPresentMapOrElseGet(func, ()->null)::get;
     }
 
     @Value
