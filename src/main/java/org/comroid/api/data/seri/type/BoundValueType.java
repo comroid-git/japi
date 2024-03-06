@@ -13,6 +13,8 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.comroid.api.Polyfill.uncheckedCast;
+
 @Getter
 @EqualsAndHashCode(of = "targetClass")
 @AllArgsConstructor(access = AccessLevel.PACKAGE)
@@ -33,9 +35,7 @@ public class BoundValueType<T> implements ValueType<T>, HtmlStringInputDesc {
         return "BoundValueType<%s>".formatted(targetClass.getCanonicalName());
     }
 
-    public static <T> BoundValueType<T> of(Class<? extends T> type) {
-        if (type.isEnum())
-            return EnumValueType.of(Polyfill.uncheckedCast(type));
-        return Polyfill.uncheckedCast($cache.computeIfAbsent(type, BoundValueType::new));
+    public static <T> BoundValueType<? extends T> of(Class<? extends T> type) {
+        return uncheckedCast($cache.computeIfAbsent(type, targetClass1 -> type.isEnum() ? new EnumValueType<>(uncheckedCast(type)) : new BoundValueType<>(type)));
     }
 }

@@ -6,6 +6,8 @@ import org.comroid.api.Polyfill;
 import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ValuePointer;
 import org.comroid.api.attr.Named;
+import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.func.util.Streams;
 import org.comroid.api.html.form.HtmlFormElementDesc;
 import org.comroid.api.html.form.HtmlInputDesc;
 import org.jetbrains.annotations.Nullable;

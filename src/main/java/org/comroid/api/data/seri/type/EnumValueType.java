@@ -15,8 +15,8 @@ import java.util.stream.Stream;
 @Getter
 @EqualsAndHashCode(callSuper = true)
 @FieldDefaults(level = AccessLevel.PROTECTED, makeFinal = true)
-public class EnumValueType<T extends Enum<T>> extends BoundValueType<T> implements StreamSupplier<T>, HtmlSelectDesc {
-    public EnumValueType(Class<T> type) {
+public class EnumValueType<T extends Enum<? super T>> extends BoundValueType<T> implements StreamSupplier<T>, HtmlSelectDesc {
+    EnumValueType(Class<T> type) {
         super(type);
     }
 
