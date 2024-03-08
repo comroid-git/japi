@@ -3,10 +3,8 @@ package org.comroid.util;
 import org.comroid.api.Polyfill;
 import org.comroid.api.info.Log;
 
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 
 public final class MultithreadUtil {
@@ -51,6 +49,12 @@ public final class MultithreadUtil {
             each.thenApply(Polyfill::<T>uncheckedCast)
                     .thenAccept(future::complete)
                     .exceptionally(Polyfill.exceptionLogger(Log.get("firstOf"), Level.FINE, "Error in .firstOf() member"));
+        return future;
+    }
+
+    public static <T> CompletableFuture<T> asyncFinish(Consumer<Consumer<T>> starter) {
+        final var future = new CompletableFuture<T>();
+        starter.accept(future::complete);
         return future;
     }
 }
