@@ -50,6 +50,7 @@ import static org.comroid.api.func.exc.ThrowingFunction.sneaky;
 import static org.comroid.api.java.StackTraceUtils.caller;
 import static org.comroid.api.java.StackTraceUtils.lessSimpleName;
 
+@ApiStatus.Experimental
 public interface DelegateStream extends Container, Closeable, Named, Convertible {
     AutoCloseable getDelegate();
 
