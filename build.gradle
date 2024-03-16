@@ -103,6 +103,7 @@ dependencies {
     compileOnly 'com.fasterxml.jackson.core:jackson-databind:2.+'
     compileOnly 'javax.persistence:javax.persistence-api:2.+'
     compileOnly 'org.apache.tomcat:tomcat-annotations-api:10.+'
+    compileOnly 'net.kyori:adventure-api:4.11.+'
 
     compileOnly 'org.slf4j:slf4j-api:1.+'
 
