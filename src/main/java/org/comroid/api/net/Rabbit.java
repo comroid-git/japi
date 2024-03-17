@@ -1,10 +1,7 @@
 package org.comroid.api.net;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.Delivery;
+import com.rabbitmq.client.*;
 import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.NonFinal;
@@ -17,9 +14,9 @@ import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Event;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.SoftDepend;
-import org.comroid.api.java.StackTraceUtils;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
 import java.util.Timer;
@@ -45,8 +42,7 @@ public class Rabbit {
 
     URI uri;
     Connection connection;
-    Map<BindingKeys<?>, Binding<?>> bindings = new ConcurrentHashMap<>();
-    Map<String, Binding.Route> routes = new ConcurrentHashMap<>();
+    Map<String, Exchange> exchanges = new ConcurrentHashMap<>();
 
     @SneakyThrows
     private Rabbit(URI uri) {
@@ -56,85 +52,93 @@ public class Rabbit {
         this.connection = connFactory.newConnection();
     }
 
-    @lombok.Builder(builderMethodName = "binding", buildMethodName = "bind", builderClassName = "Binder")
-    public <T extends DataNode> Binding<T> bind(String exchange, String routingKey, Class<? extends T> type) {
-        var key = new BindingKeys<>(exchange, routingKey, type);
-        return uncheckedCast(bindings.computeIfAbsent(key, Binding::new));
+    public Exchange exchange(String exchange) {
+        return exchanges.computeIfAbsent(exchange, Exchange::new);
     }
 
-    //@EqualsAndHashCode
-    public record BindingKeys<T extends DataNode>(String exchange, String routingKey, Class<T> type) {
-        @Override
-        public String toString() {
-            return "%s -> %s: %s".formatted(exchange, routingKey, StackTraceUtils.lessSimpleName(type));
-        }
+    @lombok.Builder(builderMethodName = "bind", buildMethodName = "create", builderClassName = "Binder")
+    public <T extends DataNode> Exchange.Route<T> bind(String exchange, String routingKey, Class<? extends T> type) {
+        return exchange(exchange).route(routingKey, type);
     }
 
     @Value
-    public class Binding<T extends DataNode> extends Event.Bus<T> {
+    public class Exchange {
+        Map<String, Route<?>> routes = new ConcurrentHashMap<>();
         String exchange;
-        String routingKey;
-        Activator<T> ctor;
-        @NonFinal
-        Route route;
+        @NonFinal Channel channel;
 
-        private Binding(BindingKeys<T> keys) {
-            this.exchange = keys.exchange;
-            this.routingKey = keys.routingKey;
-            this.ctor = Activator.get(keys.type);
+        private Exchange(String exchange) {
+            this.exchange = exchange;
 
             new Timer("Binding Watchdog").schedule(new TimerTask() {
                 @Override
                 public void run() {
-                    touchChannel();
+                    touch();
                 }
             }, 0, TimeUnit.MINUTES.toMillis(15));
         }
 
         @SneakyThrows
-        public Channel touchChannel() {
-            var key = exchange + '@' + routingKey;
-            if (route.channel != null) {
-                if (route.channel.isOpen())
-                    return route.channel;
+        private Channel touch() {
+            if (channel != null) {
+                if (channel.isOpen())
+                    return channel;
                 try {
-                    route.channel.close();
+                    channel.close();
                 } catch (Throwable ignored) {
                 }
             }
-            route = routes.compute(key, (k,v)->createRoute());
-            route.channel.basicConsume(route.queue, true, this::handleRabbitData, consumerTag -> {
-            });
-            return route.channel;
-        }
-
-        @SneakyThrows
-        public void send(T data) {
-            var body = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
-                    .map(ThrowingFunction.logging(log, $$ -> new ObjectMapper().writeValueAsString(data)))
-                    .or(data::toSerializedString)
-                    .assertion();
-            touchChannel().basicPublish(exchange, routingKey, null, body.getBytes());
-        }
-
-        private void handleRabbitData(String $, Delivery content) {
-            final var body = new String(content.getBody());
-            var data = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
-                    .map(ThrowingFunction.logging(log, $$ -> new ObjectMapper().readValue(body, ctor.getTarget())))
-                    .or(() -> ctor.createInstance(JSON.Parser.parse(body)))
-                    .assertion();
-            publish(data);
-        }
-
-        @SneakyThrows
-        private Route createRoute() {
-            var channel = connection.createChannel();
+            channel = connection.createChannel();
             channel.exchangeDeclare(exchange, "topic");
-            var queue = channel.queueDeclare().getQueue();
-            channel.queueBind(queue, exchange, routingKey);
-            return new Route(channel, queue);
+            return channel;
         }
 
-        private record Route(Channel channel, String queue) {}
+        public <T extends DataNode> Route<T> route(String routingKey, Class<? extends T> type) {
+            return uncheckedCast(routes.computeIfAbsent(routingKey, (k) -> new Route<>(routingKey, type)));
+        }
+
+        @Value
+        public class Route<T extends DataNode> extends Event.Bus<T> {
+            String routingKey;
+            Activator<T> ctor;
+            String queue;
+            @NonFinal String tag;
+
+            @SneakyThrows
+            public Route(String routingKey, Class<T> type) {
+                this.routingKey = routingKey;
+                this.ctor = Activator.get(type);
+                this.queue = Exchange.this.touch().queueDeclare().getQueue();
+            }
+
+            @SneakyThrows
+            public Channel touch() {
+                var channel = Exchange.this.touch();
+                if (tag == null) {
+                    channel.queueBind(queue, exchange, routingKey);
+                    tag = channel.basicConsume(queue, this::handleRabbitData, tag -> {
+                    });
+                }
+                return channel;
+            }
+
+            @SneakyThrows
+            public void send(T data) {
+                var body = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
+                        .map(ThrowingFunction.logging(log, $$ -> new ObjectMapper().writeValueAsString(data)))
+                        .or(data::toSerializedString)
+                        .assertion();
+                Exchange.this.touch().basicPublish(exchange, routingKey, null, body.getBytes());
+            }
+
+            private void handleRabbitData(String $, Delivery content) {
+                final var body = new String(content.getBody());
+                var data = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
+                        .map(ThrowingFunction.logging(log, $$ -> new ObjectMapper().readValue(body, ctor.getTarget())))
+                        .or(() -> ctor.createInstance(JSON.Parser.parse(body)))
+                        .assertion();
+                publish(data);
+            }
+        }
     }
 }
