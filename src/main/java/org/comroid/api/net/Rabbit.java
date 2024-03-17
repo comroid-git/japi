@@ -12,7 +12,6 @@ import lombok.extern.java.Log;
 import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.adp.JSON;
-import org.comroid.api.data.seri.adp.Jackson;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Event;
@@ -47,6 +46,7 @@ public class Rabbit {
     URI uri;
     Connection connection;
     Map<BindingKeys<?>, Binding<?>> bindings = new ConcurrentHashMap<>();
+    Map<String, Binding.Route> routes = new ConcurrentHashMap<>();
 
     @SneakyThrows
     private Rabbit(URI uri) {
@@ -76,7 +76,7 @@ public class Rabbit {
         String routingKey;
         Activator<T> ctor;
         @NonFinal
-        Channel channel;
+        Route route;
 
         private Binding(BindingKeys<T> keys) {
             this.exchange = keys.exchange;
@@ -93,21 +93,19 @@ public class Rabbit {
 
         @SneakyThrows
         public Channel touchChannel() {
-            if (channel != null) {
-                if (channel.isOpen())
-                    return channel;
-                else try {
-                    channel.close();
+            var key = exchange + '@' + routingKey;
+            if (route.channel != null) {
+                if (route.channel.isOpen())
+                    return route.channel;
+                try {
+                    route.channel.close();
                 } catch (Throwable ignored) {
                 }
             }
-            this.channel = connection.createChannel();
-            channel.exchangeDeclare(exchange, "topic");
-            var queue = channel.queueDeclare().getQueue();
-            channel.queueBind(queue, exchange, routingKey);
-            channel.basicConsume(queue, true, this::handleRabbitData, consumerTag -> {
+            route = routes.compute(key, (k,v)->createRoute());
+            route.channel.basicConsume(route.queue, true, this::handleRabbitData, consumerTag -> {
             });
-            return channel;
+            return route.channel;
         }
 
         @SneakyThrows
@@ -127,5 +125,16 @@ public class Rabbit {
                     .assertion();
             publish(data);
         }
+
+        @SneakyThrows
+        private Route createRoute() {
+            var channel = connection.createChannel();
+            channel.exchangeDeclare(exchange, "topic");
+            var queue = channel.queueDeclare().getQueue();
+            channel.queueBind(queue, exchange, routingKey);
+            return new Route(channel, queue);
+        }
+
+        private record Route(Channel channel, String queue) {}
     }
 }
