@@ -1,10 +1,12 @@
 package org.comroid.api.func.util;
 
 import lombok.Value;
+import lombok.experimental.NonFinal;
 import lombok.experimental.UtilityClass;
 import org.comroid.annotations.Convert;
 import org.comroid.annotations.Default;
 import org.comroid.annotations.Instance;
+import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.LongAttribute;
 import org.comroid.api.attr.Named;
@@ -99,7 +101,7 @@ public final class Bitmask {
 
     public static Collector<Long, AtomicLong, Long> collector() {
         return new Collector<>() {
-            private static final Set<Characteristics> characteristics
+            private static final java.util.Set<Characteristics> characteristics
                     = Collections.singleton(Characteristics.IDENTITY_FINISH);
             private final Supplier<AtomicLong> supplier
                     = () -> new AtomicLong(0);
@@ -132,7 +134,7 @@ public final class Bitmask {
             }
 
             @Override
-            public Set<Characteristics> characteristics() {
+            public java.util.Set<Characteristics> characteristics() {
                 return characteristics;
             }
         };
@@ -143,11 +145,11 @@ public final class Bitmask {
      * <p>
      * The default generated bitmasks are dependent on the order of constants.
      *
-     * @param <S> The implementing Enum type
+     * @param <T> The implementing Enum type
      * @see #getValue() for further information
      * @see Named Default Enum implementation
      */
-    public interface Attribute<S> extends LongAttribute, SelfDeclared<S>, Named {
+    public interface Attribute<T> extends LongAttribute, SelfDeclared<T>, Named {
         /**
          * Computes a default long value for this bitmask, depending on enum order.
          * If implemented by an enum class, this method provides unique default bitmasks for every enum constant.
@@ -168,7 +170,7 @@ public final class Bitmask {
          * @param <T>     The enum type.
          * @return A set of all Bitmask attributes set in the long value
          */
-        static <T extends java.lang.Enum<? extends T> & Bitmask.Attribute<T>> Set<T> valueOf(long mask, Class<T> viaEnum) {
+        static <T extends java.lang.Enum<? extends T> & Bitmask.Attribute<T>> java.util.Set<T> valueOf(long mask, Class<T> viaEnum) {
             if (!viaEnum.isEnum())
                 throw new IllegalArgumentException("Only enums allowed as parameter 'viaEnum'");
 
@@ -184,7 +186,7 @@ public final class Bitmask {
          * @param <T>    The enum type.
          * @return A set of all Bitmask attributes set in the long value
          */
-        static <T extends Bitmask.Attribute<T>> Set<T> valueOf(long mask, T[] values) {
+        static <T extends Bitmask.Attribute<T>> java.util.Set<T> valueOf(long mask, T[] values) {
             HashSet<T> yields = new HashSet<>();
 
             for (T constant : values) {
@@ -214,7 +216,7 @@ public final class Bitmask {
          * @param other The other attribute.
          * @return Whether the other attribute is contained in this attribute
          */
-        default boolean hasFlag(Bitmask.Attribute<S> other) {
+        default boolean hasFlag(Bitmask.Attribute<T> other) {
             return Bitmask.isFlagSet(getValue(), other.getValue());
         }
 
@@ -250,32 +252,32 @@ public final class Bitmask {
         }
     }
 
-    @Value
-    public static class List<S extends Bitmask.Attribute<S>> extends ArrayList<@NotNull Long> implements Bitmask.Attribute<S> {
-        private static final List<?> EMPTY = new List<>();
+    @Value @NonFinal
+    public static class Set<T extends Attribute<T>> extends HashSet<@NotNull Long> implements Bitmask.Attribute<T> {
+        private static final Set<?> EMPTY = new Set<>();
 
         @Instance @Default
-        public static <S extends Attribute<S>> List<S> empty() {
+        public static <T extends Attribute<T>> Set<T> empty() {
             return Polyfill.uncheckedCast(EMPTY);
         }
 
-        private List() {
+        public Set() {
             this(new long[0]);
         }
 
         @Convert
-        public List(long... flags) {
+        public Set(long... flags) {
             this(LongStream.of(flags).boxed().toList());
         }
 
         @Convert
         @SafeVarargs
-        public List(S... values) {
+        public Set(T... values) {
             this(java.util.List.of(values));
         }
 
         @Convert
-        public List(@NotNull Collection<?> c) {
+        public Set(@NotNull Collection<?> c) {
             super(c.stream().flatMap(it -> {
                 if (it instanceof Long l)
                     return Stream.of(l);
@@ -287,9 +289,34 @@ public final class Bitmask {
             }).toList());
         }
 
+        /**
+         * @implNote adds each bitwise component separately
+         */
+        @Override
+        public boolean add(@NotNull Long value) {
+            // add each bitwise component separately
+            return expand(value).anyMatch(super::add);
+        }
+
+        public boolean add(T it) {return add(it.getValue());}
+
+        /**
+         * @implNote removes each bitwise component separately
+         */
+        @Override
+        public boolean remove(Object it) {
+            return check(it, stream -> stream.allMatch(super::remove));
+        }
+
+        @Override
+        public boolean contains(Object it) {
+            return check(it, stream -> stream.allMatch(super::contains));
+        }
+
         @Override
         public @NotNull Long getValue() {
-            return stream().collect(collector());
+            // using sum() is possible because add() only stores single bit flags
+            return longStream().sum();
         }
 
         @Override
@@ -299,6 +326,44 @@ public final class Bitmask {
 
         public LongStream longStream() {
             return stream().mapToLong(x->x);
+        }
+
+        /**
+         * maps all flags to {@linkplain Annotations#constants(Class) constants} of {@code type}
+         * @param type the type to map to
+         * @return a stream of applicable constants sourced from {@code type}
+         */
+        public <R extends Attribute<R>> Stream<? extends R> boxed(Class<? extends R> type) {
+            final var mask = getValue();
+            return Annotations.constants(type)
+                    .filter(it -> it.isFlagSet(mask));
+        }
+
+        /**
+         * expands a combination of bitwise flags to singular bit flags
+         * output for {@code 7} will be {@code [1, 2, 4]}
+         * @param flags combination of bit flags
+         * @return a stream of all bit flags on their own
+         */
+        public static LongStream expand(final long flags) {
+            return LongStream.range(0, 64)
+                    .map(i -> 1L << i)
+                    .map(m -> flags & m)
+                    .filter(x -> x != 0);
+        }
+
+        /**
+         * run a task on all bit flags of a value
+         * @param it the value; may be {@link Long} or {@link Attribute}
+         * @param task a predicate task to perform on all bit flags
+         * @return whether the task succeeded
+         */
+        public static boolean check(Object it, Predicate<LongStream> task) {
+            if (it instanceof Long value)
+                return task.test(expand(value));
+            if (it instanceof Attribute<?> attr)
+                return check(attr.getAsLong(), task);
+            return false;
         }
     }
 }

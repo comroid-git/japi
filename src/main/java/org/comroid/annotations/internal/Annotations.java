@@ -12,6 +12,8 @@ import org.comroid.api.Polyfill;
 import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.func.util.Bitmask;
+import org.comroid.api.func.util.Invocable;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.SoftDepend;
@@ -28,6 +30,7 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.lang.reflect.Modifier.*;
 import static java.util.Arrays.*;
 import static java.util.stream.Stream.*;
 import static java.util.stream.Stream.of;
@@ -102,6 +105,22 @@ public class Annotations {
             log.log(Level.FINE, "Failed to evaluate default expression of " + of, t);
             return null;
         }
+    }
+
+    public static <T> Stream<T> constants(Class<? extends T> type) {
+        if (type.isEnum())
+            return of(type.getEnumConstants());
+        return of(type.getDeclaredFields())
+                .filter(fld -> {
+                    final int mod = fld.getModifiers();
+                    return isStatic(mod) && isPublic(mod)
+                            && fld.getType().isAssignableFrom(type);
+                })
+                .map(fld -> Invocable.ofFieldGet(fld).invokeRethrow())
+                // do we really need to go through supertypes recursively?
+                .collect(append(of(type.getSuperclass())
+                        .flatMap(Annotations::constants)))
+                .flatMap(cast(type));
     }
 
     public Optional<? extends AnnotatedElement> ignore(@NotNull AnnotatedElement it) {
