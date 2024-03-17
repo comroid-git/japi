@@ -88,7 +88,10 @@ public class Rabbit {
             if (channel != null) {
                 if (channel.isOpen())
                     return channel;
-                //else channel.close();
+                else try {
+                    channel.close();
+                } catch (Throwable ignored) {
+                }
             }
             this.channel = connection.createChannel();
             channel.exchangeDeclare(exchange, "topic");
