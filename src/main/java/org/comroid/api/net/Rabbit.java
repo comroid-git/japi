@@ -104,7 +104,7 @@ public class Rabbit {
                 this.ctor = Activator.get(type);
 
                 var time = TimeUnit.MINUTES.toMillis(15);
-                new Timer("Binding Watchdog").schedule(new TimerTask() {
+                new Timer("Route Watchdog").schedule(new TimerTask() {
                     @Override
                     public void run() {
                         touch();
