@@ -23,7 +23,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.Collections.unmodifiableMap;
 import static org.comroid.api.Polyfill.uncheckedCast;
@@ -80,7 +83,12 @@ public class Rabbit {
             this.routingKey = keys.routingKey;
             this.ctor = Activator.get(keys.type);
 
-            touchChannel();
+            new Timer("Binding Watchdog").schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    touchChannel();
+                }
+            }, 0, TimeUnit.MINUTES.toMillis(15));
         }
 
         @SneakyThrows
