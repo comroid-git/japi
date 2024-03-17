@@ -52,7 +52,8 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
                 .map(name -> supported.getOrDefault(name, null))
                 .filter(Objects::nonNull)
                 .findFirst()
-                .orElseThrow(()->new AbstractMethodError("MimeType was not specified or supported for DataNode " + this));
+                //.orElseThrow(()->new AbstractMethodError("MimeType was not specified or supported for DataNode " + this));
+                .orElse(MimeType.JSON);
     }
 
     @Override

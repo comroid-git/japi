@@ -1,5 +1,6 @@
 package org.comroid.api.net;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
@@ -7,10 +8,12 @@ import com.rabbitmq.client.Delivery;
 import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.NonFinal;
+import lombok.extern.java.Log;
 import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.adp.JSON;
 import org.comroid.api.data.seri.adp.Jackson;
+import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Event;
 import org.comroid.api.java.Activator;
@@ -25,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static java.util.Collections.unmodifiableMap;
 import static org.comroid.api.Polyfill.uncheckedCast;
 
+@Log
 @Value
 public class Rabbit {
     private static final Map<URI, Rabbit> $cache = new ConcurrentHashMap<>();
@@ -84,7 +88,7 @@ public class Rabbit {
             if (channel != null) {
                 if (channel.isOpen())
                     return channel;
-                else channel.close();
+                //else channel.close();
             }
             this.channel = connection.createChannel();
             channel.exchangeDeclare(exchange, "topic");
@@ -97,18 +101,20 @@ public class Rabbit {
 
         @SneakyThrows
         public void send(T data) {
-            var body = data.json().toSerializedString().getBytes();
-            touchChannel().basicPublish(exchange, routingKey, null, body);
+            var body = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
+                    .map(ThrowingFunction.logging(log, $$ -> new ObjectMapper().writeValueAsString(data)))
+                    .or(data::toSerializedString)
+                    .assertion();
+            touchChannel().basicPublish(exchange, routingKey, null, body.getBytes());
         }
 
         private void handleRabbitData(String $, Delivery content) {
             final var body = new String(content.getBody());
             var data = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
-                    .map($$ -> Jackson.JSON.parse(body))
-                    .or(() -> JSON.Parser.parse(body))
+                    .map(ThrowingFunction.logging(log, $$ -> new ObjectMapper().readValue(body, ctor.getTarget())))
+                    .or(() -> ctor.createInstance(JSON.Parser.parse(body)))
                     .assertion();
-            var conv = ctor.createInstance(data);
-            publish(conv);
+            publish(data);
         }
     }
 }

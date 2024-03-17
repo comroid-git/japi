@@ -1,5 +1,6 @@
 package org.comroid.api.data.seri;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Builder;
 import lombok.SneakyThrows;
 import lombok.Value;
@@ -90,12 +91,12 @@ public class MimeType {
 
     @Ignore
     public interface Container {
-        @Ignore
+        @Ignore @JsonIgnore
         default MimeType getMimeType() {
             return getMimeTypes()[0];
         }
 
-        @Ignore
+        @Ignore @JsonIgnore
         default MimeType[] getMimeTypes() {
             return new MimeType[]{getMimeType()};
         }

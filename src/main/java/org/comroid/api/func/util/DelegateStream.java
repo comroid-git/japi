@@ -5,7 +5,6 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import org.comroid.annotations.Convert;
 import org.comroid.api.*;
-import org.comroid.api.attr.Bitmask.Attribute;
 import org.comroid.api.attr.IntegerAttribute;
 import org.comroid.api.attr.Named;
 import org.comroid.api.func.N;
