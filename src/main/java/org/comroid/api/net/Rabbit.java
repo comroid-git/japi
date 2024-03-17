@@ -103,13 +103,12 @@ public class Rabbit {
                 this.routingKey = routingKey;
                 this.ctor = Activator.get(type);
 
-                var time = TimeUnit.MINUTES.toMillis(15);
                 new Timer("Route Watchdog").schedule(new TimerTask() {
                     @Override
                     public void run() {
                         touch();
                     }
-                }, time, time);
+                }, 0, TimeUnit.MINUTES.toMillis(15));
             }
 
             @SneakyThrows
