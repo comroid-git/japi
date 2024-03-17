@@ -6,7 +6,6 @@ import lombok.*;
 import org.comroid.api.data.bind.DataStructure;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.annotations.Ignore;
-import org.comroid.api.attr.BitmaskAttribute;
 import org.comroid.api.attr.EnabledState;
 import org.comroid.api.attr.Named;
 import org.comroid.api.func.ext.Wrap;
@@ -165,7 +164,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         });
     }
 
-    enum State implements BitmaskAttribute<State> {
+    enum State implements Bitmask.Attribute<State> {
         PreInit,
         Init,
         LateInit(Init),

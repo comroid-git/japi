@@ -5,9 +5,9 @@ import org.comroid.annotations.internal.Inherit;
 import java.lang.annotation.*;
 
 @Inherited
-@Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Inherit(Inherit.Type.FromSupertype)
+@Target({ElementType.METHOD,ElementType.CONSTRUCTOR})
 public @interface Convert {
     String identifyVia() default "";
 }

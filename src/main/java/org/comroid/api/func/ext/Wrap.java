@@ -124,7 +124,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         }
     }
 
-    default Stream<? extends T> stream() {
+    default Stream<T> stream() {
         return Stream.of(get()).filter(Objects::nonNull);
     }
 

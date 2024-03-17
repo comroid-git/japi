@@ -5,7 +5,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import org.comroid.annotations.Convert;
 import org.comroid.api.*;
-import org.comroid.api.attr.BitmaskAttribute;
+import org.comroid.api.attr.Bitmask.Attribute;
 import org.comroid.api.attr.IntegerAttribute;
 import org.comroid.api.attr.Named;
 import org.comroid.api.func.N;
@@ -250,7 +250,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
         return new UnsupportedOperationException(String.format("%s has no support for %s", stream, capability));
     }
 
-    enum Capability implements BitmaskAttribute<Capability> {Input, Output, Error}
+    enum Capability implements Bitmask.Attribute<Capability> {Input, Output, Error}
 
     enum EndlMode implements IntegerAttribute {
         Manual, OnNewLine, OnDelegate;
