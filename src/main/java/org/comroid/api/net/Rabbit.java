@@ -99,7 +99,7 @@ public class Rabbit {
             Activator<T> ctor;
             @NonFinal String tag;
 
-            public Route(String routingKey, Class<T> type) {
+            private Route(String routingKey, Class<T> type) {
                 this.routingKey = routingKey;
                 this.ctor = Activator.get(type);
 
