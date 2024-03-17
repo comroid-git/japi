@@ -269,8 +269,22 @@ public final class Bitmask {
         }
 
         @Convert
-        public List(@NotNull Collection<? extends @NotNull Long> c) {
-            super(c);
+        @SafeVarargs
+        public List(S... values) {
+            this(java.util.List.of(values));
+        }
+
+        @Convert
+        public List(@NotNull Collection<?> c) {
+            super(c.stream().flatMap(it -> {
+                if (it instanceof Long l)
+                    return Stream.of(l);
+                if (it instanceof Integer i)
+                    return Stream.of((long) i);
+                if (it instanceof Attribute<?> attr)
+                    return Stream.of(attr.getValue());
+                return Stream.empty();
+            }).toList());
         }
 
         @Override
