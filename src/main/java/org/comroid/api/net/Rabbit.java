@@ -65,17 +65,13 @@ public class Rabbit {
     public class Exchange {
         Map<String, Route<?>> routes = new ConcurrentHashMap<>();
         String exchange;
+        String queue;
         @NonFinal Channel channel;
 
+        @SneakyThrows
         private Exchange(String exchange) {
             this.exchange = exchange;
-
-            new Timer("Binding Watchdog").schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    touch();
-                }
-            }, 0, TimeUnit.MINUTES.toMillis(15));
+            this.queue = Exchange.this.touch().queueDeclare().getQueue();
         }
 
         @SneakyThrows
@@ -101,14 +97,19 @@ public class Rabbit {
         public class Route<T extends DataNode> extends Event.Bus<T> {
             String routingKey;
             Activator<T> ctor;
-            String queue;
             @NonFinal String tag;
 
-            @SneakyThrows
             public Route(String routingKey, Class<T> type) {
                 this.routingKey = routingKey;
                 this.ctor = Activator.get(type);
-                this.queue = Exchange.this.touch().queueDeclare().getQueue();
+
+                var time = TimeUnit.MINUTES.toMillis(15);
+                new Timer("Binding Watchdog").schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        touch();
+                    }
+                }, time, time);
             }
 
             @SneakyThrows
@@ -128,7 +129,7 @@ public class Rabbit {
                         .map(ThrowingFunction.logging(log, $$ -> new ObjectMapper().writeValueAsString(data)))
                         .or(data::toSerializedString)
                         .assertion();
-                Exchange.this.touch().basicPublish(exchange, routingKey, null, body.getBytes());
+                touch().basicPublish(exchange, routingKey, null, body.getBytes());
             }
 
             private void handleRabbitData(String $, Delivery content) {
