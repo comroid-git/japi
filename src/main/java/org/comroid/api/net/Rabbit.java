@@ -65,13 +65,11 @@ public class Rabbit {
     public class Exchange {
         Map<String, Route<?>> routes = new ConcurrentHashMap<>();
         String exchange;
-        String queue;
         @NonFinal Channel channel;
 
         @SneakyThrows
         private Exchange(String exchange) {
             this.exchange = exchange;
-            this.queue = Exchange.this.touch().queueDeclare().getQueue();
         }
 
         @SneakyThrows
@@ -115,6 +113,7 @@ public class Rabbit {
             public Channel touch() {
                 var channel = Exchange.this.touch();
                 if (tag == null) {
+                    var queue = Exchange.this.touch().queueDeclare().getQueue();
                     channel.queueBind(queue, exchange, routingKey);
                     tag = channel.basicConsume(queue, this::handleRabbitData, tag -> {
                     });

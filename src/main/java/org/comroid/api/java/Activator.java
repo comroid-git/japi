@@ -10,6 +10,7 @@ import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Cache;
 import org.comroid.api.func.util.Streams;
 
+import java.util.Comparator;
 import java.util.NoSuchElementException;
 import java.util.function.Predicate;
 
@@ -33,11 +34,12 @@ public class Activator<T> {
     public T createInstance(DataNode data) {
         final var obj = data.asObject();
         return struct.getConstructors().stream()
+                .sorted(Comparator.<DataStructure<T>.Constructor>comparingInt(ctor -> ctor.getArgs().size()).reversed())
                 .filter(ctor -> ctor.getArgs().size() <= data.size())
                 .filter(ctor -> ctor.getArgs().stream()
                         .flatMap(param -> Annotations.aliases(param).stream())
                         .allMatch(obj::containsKey))
-                .findAny()
+                .findFirst()
                 .map(ctor -> {
                     var args = new Object[ctor.getArgs().size()];
 
