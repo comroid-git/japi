@@ -53,6 +53,7 @@ public class Rabbit {
         this.uri = uri;
         var connFactory = new ConnectionFactory();
         connFactory.setUri(uri);
+        /*
         Wrap.of(fallback(SSLContext::getDefault))
                 .ifPresent(fallback ->
                         connFactory.setSslContextFactory(name -> {
@@ -62,6 +63,7 @@ public class Rabbit {
                                 return fallback;
                             }
                         }));
+         */
         this.connection = connFactory.newConnection();
     }
 
