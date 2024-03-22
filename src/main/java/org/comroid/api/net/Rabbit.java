@@ -58,7 +58,7 @@ public class Rabbit {
                         connFactory.setSslContextFactory(name -> {
                             try {
                                 return SSLContext.getInstance(name);
-                            } catch (NoSuchAlgorithmException nsaex) {
+                            } catch (Throwable t) {
                                 return fallback;
                             }
                         }));
