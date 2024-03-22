@@ -10,14 +10,17 @@ import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.adp.JSON;
 import org.comroid.api.func.exc.ThrowingFunction;
+import org.comroid.api.func.exc.ThrowingSupplier;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Event;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.SoftDepend;
 import org.jetbrains.annotations.Nullable;
 
+import javax.net.ssl.SSLContext;
 import java.io.IOException;
 import java.net.URI;
+import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -26,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 
 import static java.util.Collections.unmodifiableMap;
 import static org.comroid.api.Polyfill.uncheckedCast;
+import static org.comroid.api.func.exc.ThrowingSupplier.fallback;
 
 @Log
 @Value
@@ -49,6 +53,15 @@ public class Rabbit {
         this.uri = uri;
         var connFactory = new ConnectionFactory();
         connFactory.setUri(uri);
+        Wrap.of(fallback(SSLContext::getDefault))
+                .ifPresent(fallback ->
+                        connFactory.setSslContextFactory(name -> {
+                            try {
+                                return SSLContext.getInstance(name);
+                            } catch (NoSuchAlgorithmException nsaex) {
+                                return fallback;
+                            }
+                        }));
         this.connection = connFactory.newConnection();
     }
 
