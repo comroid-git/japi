@@ -42,7 +42,7 @@ public interface TextDecoration extends StringAttribute, Function<CharSequence, 
 
     @Contract("null, _ -> null; !null, _ -> !null")
     static <SRC extends TextDecoration> String sanitize(
-            @Nullable CharSequence seq,
+            CharSequence seq,
             Class<SRC> of
     ) {
         return sanitize(seq, of, null);
@@ -50,9 +50,9 @@ public interface TextDecoration extends StringAttribute, Function<CharSequence, 
 
     @Contract("null, _, _ -> null; !null, _, _ -> !null")
     static <SRC extends TextDecoration, TGT extends TextDecoration> String sanitize(
-            @Nullable CharSequence seq,
+            CharSequence seq,
             Class<SRC> of,
-            @Nullable Class<TGT> output
+            Class<TGT> output
     ) {
         if (seq == null) return null;
         var str = convert(seq, of, output);
