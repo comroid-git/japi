@@ -49,11 +49,15 @@ public interface ThrowingSupplier<T, E extends Throwable> {
 
     T get() throws E;
 
-    default Supplier<T> wrap() {
+    default T getOrDefault() {
+        return wrap().orElse(null);
+    }
+
+    default Wrap<T> wrap() {
         return wrap(null);
     }
 
-    default Supplier<T> wrap(final @Nullable Function<E, ? extends RuntimeException> _remapper) {
+    default Wrap<T> wrap(final @Nullable Function<E, ? extends RuntimeException> _remapper) {
         return () -> {
             try {
                 return get();
