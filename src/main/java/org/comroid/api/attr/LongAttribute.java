@@ -5,8 +5,10 @@ import org.comroid.api.func.ValueBox;
 import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.data.seri.type.StandardValueType;
+import org.comroid.api.info.Log;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Comparator;
 import java.util.function.LongSupplier;
 
 /**
@@ -15,6 +17,8 @@ import java.util.function.LongSupplier;
  * @see Named
  */
 public interface LongAttribute extends Named, ValueBox<@NotNull Long>, LongSupplier, Index {
+    Comparator<LongAttribute> COMPARATOR = Comparator.comparingLong(LongAttribute::getAsLong);
+
     @Override
     default int index() {
         return Math.toIntExact(getValue());

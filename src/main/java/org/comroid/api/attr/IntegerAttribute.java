@@ -6,6 +6,7 @@ import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Comparator;
 import java.util.function.IntSupplier;
 
 /**
@@ -14,6 +15,8 @@ import java.util.function.IntSupplier;
  * @see Named
  */
 public interface IntegerAttribute extends Named, ValueBox<@NotNull Integer>, IntSupplier, Index {
+    Comparator<IntegerAttribute> COMPARATOR = Comparator.comparingInt(IntegerAttribute::getAsInt);
+
     @Override
     default int index() {
         return getValue();
