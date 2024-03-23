@@ -78,7 +78,7 @@ public class SoftDepend {
         if (typeCache.containsKey(name))
             return of(typeCache.get(name)).castRef();
         try {
-            var type = ClassLoader.getSystemClassLoader().loadClass(name);
+            var type = SoftDepend.class.getClassLoader().loadClass(name);
             return of(type).castRef();
         } catch (ClassNotFoundException ignored) {
             log.log(Level.WARNING, "Could not load soft dependency class: " + name);
