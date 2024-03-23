@@ -63,8 +63,8 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         return () -> value;
     }
 
-    static <T> Wrap<T> of(final ThrowingSupplier<T,?> selfSupplier) {
-        return selfSupplier == null ? empty() : selfSupplier::getOrDefault;
+    static <T> Wrap<T> of(final Supplier<T> selfSupplier) {
+        return selfSupplier == null ? empty() : selfSupplier::get;
     }
 
     static <T> Wrap<T> of(Stream<T> stream) {
@@ -77,7 +77,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     }
 
     @Deprecated
-    static <T> Wrap<T> ofSupplier(final ThrowingSupplier<T,?> selfSupplier) {
+    static <T> Wrap<T> ofSupplier(final Supplier<T> selfSupplier) {
         return of(selfSupplier);
     }
 
