@@ -18,6 +18,7 @@ import org.comroid.api.func.Referent;
 import org.comroid.api.info.Log;
 import org.comroid.api.java.StackTraceUtils;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -128,7 +129,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         return Stream.of(get()).filter(Objects::nonNull);
     }
 
-    default T assertion() throws AssertionError {
+    default @NotNull T assertion() throws AssertionError {
         try {
             return orElseThrow(AssertionError::new);
         } catch (NullPointerException npe) {
@@ -136,7 +137,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         }
     }
 
-    default T assertion(String message) throws AssertionError {
+    default @NotNull T assertion(String message) throws AssertionError {
         try {
             return orElseThrow(() -> new AssertionError(message));
         } catch (NullPointerException npe) {
@@ -144,7 +145,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         }
     }
 
-    default T assertion(Supplier<String> messageSupplier) throws AssertionError {
+    default @NotNull T assertion(Supplier<String> messageSupplier) throws AssertionError {
         try {
             return orElseThrow(() -> new AssertionError(messageSupplier.get()));
         } catch (NullPointerException npe) {
@@ -152,18 +153,19 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         }
     }
 
-    default T requireNonNull() throws NullPointerException {
+    default @NotNull T requireNonNull() throws NullPointerException {
         return Objects.requireNonNull(get());
     }
 
-    default T requireNonNull(String message) throws NullPointerException {
+    default @NotNull T requireNonNull(String message) throws NullPointerException {
         return Objects.requireNonNull(get(), message);
     }
 
-    default T requireNonNull(Supplier<String> messageSupplier) throws NullPointerException {
+    default @NotNull T requireNonNull(Supplier<String> messageSupplier) throws NullPointerException {
         return Objects.requireNonNull(get(), messageSupplier);
     }
 
+    @Contract("!null -> !null; _ -> _")
     default T orElse(T other) {
         if (isNull())
             return other;
