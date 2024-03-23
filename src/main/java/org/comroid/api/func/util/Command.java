@@ -63,7 +63,8 @@ public @interface Command {
 
     String usage() default EmptyAttribute;
 
-    @Language(value = "Java", prefix = "Object x =", suffix = ";") String permission() default EmptyAttribute;
+    @Language(value = "Groovy", prefix = "Object x =", suffix = ";")
+    String permission() default EmptyAttribute;
 
     boolean ephemeral() default false;
 
