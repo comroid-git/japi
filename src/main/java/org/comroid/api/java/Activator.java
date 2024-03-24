@@ -32,6 +32,8 @@ public class Activator<T> {
     }
 
     public T createInstance(DataNode data) {
+        if (data instanceof DataNode.Value<?> value)
+            return uncheckedCast(value.getValue());
         final var obj = data.asObject();
         return struct.getConstructors().stream()
                 .sorted(Comparator.<DataStructure<T>.Constructor>comparingInt(ctor -> ctor.getArgs().size()).reversed())
