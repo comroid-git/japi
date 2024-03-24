@@ -5,6 +5,7 @@ import lombok.experimental.UtilityClass;
 import org.comroid.api.java.StackTraceUtils;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -16,7 +17,7 @@ public final class Log {
     }
 
     public static Logger get(String name) {
-        return Logger.getLogger(name);
+        return Logger.getLogger(Objects.requireNonNullElse(name,""));
     }
 
     public static Logger get(Class<?> cls) {

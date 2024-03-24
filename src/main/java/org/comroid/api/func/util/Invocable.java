@@ -94,7 +94,11 @@ public interface Invocable<T> extends Named {
 
             @Override
             public @Nullable T invoke(@Nullable Object tgt, Object... args) throws IllegalAccessException {
-                field.set(Objects.requireNonNullElse(tgt, target), args[0]);
+                try {
+                    field.set(Objects.requireNonNullElse(tgt, target), args[0]);
+                } catch (IllegalArgumentException t){
+                    Log.at(Level.WARNING, "Could not set field " + field.getName(), t);
+                }
                 return null;
             }
         };
