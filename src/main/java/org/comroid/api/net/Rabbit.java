@@ -119,7 +119,7 @@ public class Rabbit {
                 new Timer("Route Watchdog").schedule(new TimerTask() {
                     @Override
                     public void run() {
-                        touch();
+                        channel = touch();
                     }
                 }, 0, TimeUnit.MINUTES.toMillis(15));
             }
