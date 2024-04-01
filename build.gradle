@@ -46,6 +46,10 @@ tasks.findByName('wrapper')?.configure {
     distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
 }
 
+jar {
+    dependsOn test
+}
+
 configurations {
     compileClasspath {
         resolutionStrategy.activateDependencyLocking()
