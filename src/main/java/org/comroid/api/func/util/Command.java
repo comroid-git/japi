@@ -330,6 +330,11 @@ public @interface Command {
             return id.hashCode();
         }
 
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof Manager && obj.hashCode() == hashCode();
+        }
+
         public static abstract class Adapter implements Handler, Initializable {
             @Override
             public void initialize() {}
