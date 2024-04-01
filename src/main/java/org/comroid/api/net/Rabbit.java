@@ -105,6 +105,10 @@ public class Rabbit {
             return uncheckedCast(routes.computeIfAbsent(routingKey, (k) -> new Route<>(routingKey, type)));
         }
 
+        public Rabbit rabbit() {
+            return Rabbit.this;
+        }
+
         @Value
         public class Route<T extends DataNode> extends Event.Bus<T> {
             String routingKey;
@@ -155,6 +159,14 @@ public class Rabbit {
                         .or(() -> ctor.createInstance(JSON.Parser.parse(body)))
                         .assertion();
                 publish(data);
+            }
+
+            public Rabbit rabbit() {
+                return Rabbit.this;
+            }
+
+            public Exchange exchange() {
+                return Exchange.this;
             }
         }
     }
