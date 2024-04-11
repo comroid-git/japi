@@ -42,6 +42,13 @@ public interface Named extends WrappedFormattable {
                 this::toString);
     }
 
+    default String getBestName() {
+        var alt = getAlternateName();
+        if (alt != null && !alt.isBlank())
+            return alt;
+        return getName();
+    }
+
     /**
      * Returns the primary common name of this object.
      * If this is an instance of {@link Enum}, returns its {@link Enum#name() enum constant name}.
