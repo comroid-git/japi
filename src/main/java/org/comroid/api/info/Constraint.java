@@ -119,8 +119,8 @@ public class Constraint {
     }
 
     @Contract("false, _ -> fail")
-    public API decide(boolean value, String nameof) {
-        return decide(value)
+    public API decide(boolean pass, String nameof) {
+        return decide(pass)
                 .setConstraint("check")
                 .setNameof(nameof)
                 .setShouldBe("is")
