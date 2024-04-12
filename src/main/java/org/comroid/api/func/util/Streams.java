@@ -2,17 +2,14 @@ package org.comroid.api.func.util;
 
 import lombok.Value;
 import lombok.experimental.UtilityClass;
-import org.comroid.annotations.Description;
-import org.comroid.annotations.internal.Annotations;
-import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Named;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.*;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -124,7 +121,7 @@ public class Streams {
         return t -> Stream.of(function).flatMap(func -> func.apply(t));
     }
 
-    public static <T, C> Comparator<T> comparatorAdapter(final @NotNull Function<T,C> mapper, final @NotNull Comparator<C> comparator) {
+    public static <T, C> Comparator<T> comparatorAdapter(final @NotNull Function<T, C> mapper, final @NotNull Comparator<C> comparator) {
         return (a, b) -> comparator.compare(mapper.apply(a), mapper.apply(b));
     }
 
@@ -512,5 +509,9 @@ public class Streams {
 
         @Override
         public abstract boolean test(BooleanSupplier l, BooleanSupplier r);
+
+        public boolean test(boolean l, boolean r) {
+            return test(() -> l, () -> r);
+        }
     }
 }
