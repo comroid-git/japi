@@ -252,6 +252,17 @@ public interface Vector {
         public Vector setW(double value) {
             throw Vector.outOfBounds(IndexW);
         }
+
+        /* todo
+        @Override
+        public String toString() {
+            final var dims = new char[]{'x','y','z','w'};
+            var ls="";
+            for (var n=0;n<n();n++)
+                ls+=(dims.length>n?dims[n]:'#'+n)+'='+get(n)+',';
+            return "Vector%d(%s\b)".formatted(n(),ls);
+        }
+         */
     }
 
     @Data
