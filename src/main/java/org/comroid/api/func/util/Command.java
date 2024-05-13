@@ -383,8 +383,7 @@ public @interface Command {
                 jda.updateCommands().addCommands(
                         commands.values().stream()
                                 .map(cmd -> {
-                                    final var slash = Commands.slash(cmd.name, cmd.getDescription())
-                                            .setDescription(cmd.getDescription().isBlank()?"No description":cmd.getDescription());
+                                    final var slash = Commands.slash(cmd.name, cmd.getDescription().isBlank()?"No description":cmd.getDescription());
                                     for (var arg : cmd.args) {
                                         final var isEnumArg = arg.param.getType().isEnum();
                                         OptionAdapter.of(arg.param.getType())
