@@ -384,7 +384,7 @@ public @interface Command {
                         commands.values().stream()
                                 .map(cmd -> {
                                     final var slash = Commands.slash(cmd.name, cmd.getDescription())
-                                            .setDescription(cmd.getDescription().isEmpty()?"No description":cmd.getDescription());
+                                            .setDescription(cmd.getDescription().isBlank()?"No description":cmd.getDescription());
                                     for (var arg : cmd.args) {
                                         final var isEnumArg = arg.param.getType().isEnum();
                                         OptionAdapter.of(arg.param.getType())
@@ -394,7 +394,7 @@ public @interface Command {
                                                 .ifPresent(adp -> slash.addOption(
                                                         adp.getOptionType(),
                                                         lower_hyphen_case.convert(arg.name),
-                                                        cmd.getDescription(),
+                                                        cmd.getDescription().isBlank()?"No description":cmd.getDescription(),
                                                         arg.required,
                                                         arg.autoFill.length > 0 || isEnumArg));
                                     }
