@@ -384,7 +384,7 @@ public @interface Command {
                         commands.values().stream()
                                 .map(cmd -> {
                                     final var slash = Commands.slash(cmd.name, cmd.getDescription())
-                                            .setDescription(cmd.getDescription());
+                                            .setDescription(cmd.getDescription().isEmpty()?"No description":cmd.getDescription());
                                     for (var arg : cmd.args) {
                                         final var isEnumArg = arg.param.getType().isEnum();
                                         OptionAdapter.of(arg.param.getType())
