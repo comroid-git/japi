@@ -705,6 +705,13 @@ public @interface Command {
                         .filter(args::containsKey)
                         .findAny()
                         .map(args::get)
+                        .map(it -> {
+                            var type = it.getClass();
+                            // parse primitive java types
+                            if (!type.isArray() && type.getPackageName().startsWith("java"))
+                                return StandardValueType.findGoodType(String.valueOf(it));
+                            return it;
+                        })
                         .or(() -> Arrays.stream(extraArgs)
                                 .flatMap(cast(parameter.getType()))
                                 .findAny())
