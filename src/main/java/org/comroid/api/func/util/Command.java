@@ -17,6 +17,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
+import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.comroid.annotations.Default;
@@ -215,7 +216,10 @@ public @interface Command {
                                         })
                                         .toList());
                     })
-                    .peek(cmd -> commands.put(cmd.name, cmd))
+                    .peek(cmd -> Stream.concat(Stream.of(cmd.getName()), cmd.names())
+                            .flatMap(Streams.filter(key -> !commands.containsKey(key),
+                                    skip -> System.out.println("Skipping command alias " + skip + " because it is a duplicate")))
+                            .forEach(key -> commands.put(key, cmd)))
                     .count();
         }
 
@@ -261,7 +265,7 @@ public @interface Command {
                                 first = false;
                                 continue;
                             }
-                            if (map.put("p"+c++, each) != null) {
+                            if (map.put("arg"+c++, each) != null) {
                                 throw new IllegalStateException("Duplicate key");
                             }
                         }
