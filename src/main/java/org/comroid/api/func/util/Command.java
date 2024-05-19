@@ -635,6 +635,11 @@ public @interface Command {
                         .findAny().orElseThrow();
                 sender.sendMessage(String.valueOf(message));
             }
+
+            @Override
+            public @Nullable String handleThrowable(Throwable throwable) {
+                return ChatColor.RED + super.handleThrowable(throwable);
+            }
         }
     }
 
