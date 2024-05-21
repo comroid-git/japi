@@ -20,9 +20,9 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.persistence.PostLoad;
-import javax.persistence.PostUpdate;
-import javax.persistence.PreRemove;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostUpdate;
+import jakarta.persistence.PreRemove;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

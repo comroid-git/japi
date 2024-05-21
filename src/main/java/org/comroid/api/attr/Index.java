@@ -1,5 +1,9 @@
 package org.comroid.api.attr;
 
 public interface Index {
-    int index();
+    default int index() {
+        if (this instanceof Enum<?> e)
+            return e.ordinal();
+        throw new AbstractMethodError();
+    }
 }

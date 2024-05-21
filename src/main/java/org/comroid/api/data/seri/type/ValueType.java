@@ -12,7 +12,7 @@ import org.comroid.api.html.form.HtmlFormElementDesc;
 import org.comroid.api.html.form.HtmlInputDesc;
 import org.jetbrains.annotations.Nullable;
 
-import javax.persistence.Transient;
+import jakarta.persistence.Transient;
 import java.util.function.Function;
 import java.util.function.Predicate;
 

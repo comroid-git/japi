@@ -13,7 +13,7 @@ import org.comroid.api.func.ext.StreamSupplier;
 import org.comroid.api.func.util.Bitmask;
 import org.comroid.api.html.form.HtmlSelectDesc;
 
-import javax.persistence.NamedAttributeNode;
+import jakarta.persistence.NamedAttributeNode;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;

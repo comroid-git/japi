@@ -1,14 +1,13 @@
 package org.comroid.api.data;
 
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+import jakarta.persistence.AttributeConverter;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.comroid.api.info.Assert;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.function.BiFunction;
 import java.util.function.DoubleUnaryOperator;
@@ -304,6 +303,30 @@ public interface Vector {
         public Vector.N2 ctor(double... dim) {
             return new N3(dim[0], dim[1], dim[2]);
         }
+
+        @Value
+        @jakarta.persistence.Converter(autoApply = true)
+        public class Converter implements AttributeConverter<N3, byte[]> {
+            @Override
+            public byte[] convertToDatabaseColumn(N3 attribute) {
+                var buf = ByteBuffer.allocate(n() */*byte count of double*/8);
+                var i = -8;
+                buf.putDouble(i += 8, x);
+                buf.putDouble(i += 8, y);
+                buf.putDouble(i, z);
+                return buf.array();
+            }
+
+            @Override
+            public N3 convertToEntityAttribute(byte[] dbData) {
+                var buf = ByteBuffer.wrap(dbData);
+                var i = -8;
+                var x = buf.getDouble(i += 8);
+                var y = buf.getDouble(i += 8);
+                var z = buf.getDouble(i);
+                return new N3(x, y, z);
+            }
+        }
     }
 
     @Data
@@ -333,6 +356,32 @@ public interface Vector {
         @Override
         public Vector.N2 ctor(double... dim) {
             return new N4(dim[0], dim[1], dim[2], dim[3]);
+        }
+
+        @Value
+        @jakarta.persistence.Converter(autoApply = true)
+        public class Converter implements AttributeConverter<N4, byte[]> {
+            @Override
+            public byte[] convertToDatabaseColumn(N4 attribute) {
+                var buf = ByteBuffer.allocate(n() */*byte count of double*/8);
+                var i = -8;
+                buf.putDouble(i += 8, x);
+                buf.putDouble(i += 8, y);
+                buf.putDouble(i += 8, z);
+                buf.putDouble(i, w);
+                return buf.array();
+            }
+
+            @Override
+            public N4 convertToEntityAttribute(byte[] dbData) {
+                var buf = ByteBuffer.wrap(dbData);
+                var i = -8;
+                var x = buf.getDouble(i += 8);
+                var y = buf.getDouble(i += 8);
+                var z = buf.getDouble(i += 8);
+                var w = buf.getDouble(i);
+                return new N4(x, y, z, w);
+            }
         }
     }
 }
