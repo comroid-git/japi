@@ -6,6 +6,7 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.comroid.api.info.Assert;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 
 import java.util.Arrays;
@@ -223,6 +224,11 @@ public interface Vector {
             return 2;
         }
 
+        @ApiStatus.Experimental
+        public N3 to3(double z) {
+            return new N3(x, y, z);
+        }
+
         @Override
         public double[] toArray() {
             return new double[]{x, y};
@@ -282,6 +288,11 @@ public interface Vector {
         @Override
         public int n() {
             return 3;
+        }
+
+        @ApiStatus.Experimental
+        public N4 to4(double w) {
+            return new N4(x, y, z, w);
         }
 
         @Override
