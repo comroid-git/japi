@@ -306,14 +306,14 @@ public interface Vector {
 
         @Value
         @jakarta.persistence.Converter(autoApply = true)
-        public class Converter implements AttributeConverter<N3, byte[]> {
+        public static class Converter implements AttributeConverter<N3, byte[]> {
             @Override
             public byte[] convertToDatabaseColumn(N3 attribute) {
-                var buf = ByteBuffer.allocate(n() */*byte count of double*/8);
+                var buf = ByteBuffer.allocate(attribute.n() */*byte count of double*/8);
                 var i = -8;
-                buf.putDouble(i += 8, x);
-                buf.putDouble(i += 8, y);
-                buf.putDouble(i, z);
+                buf.putDouble(i += 8, attribute.x);
+                buf.putDouble(i += 8, attribute.y);
+                buf.putDouble(i, attribute.z);
                 return buf.array();
             }
 
@@ -360,15 +360,15 @@ public interface Vector {
 
         @Value
         @jakarta.persistence.Converter(autoApply = true)
-        public class Converter implements AttributeConverter<N4, byte[]> {
+        public static class Converter implements AttributeConverter<N4, byte[]> {
             @Override
             public byte[] convertToDatabaseColumn(N4 attribute) {
-                var buf = ByteBuffer.allocate(n() */*byte count of double*/8);
+                var buf = ByteBuffer.allocate(attribute.n() */*byte count of double*/8);
                 var i = -8;
-                buf.putDouble(i += 8, x);
-                buf.putDouble(i += 8, y);
-                buf.putDouble(i += 8, z);
-                buf.putDouble(i, w);
+                buf.putDouble(i += 8, attribute.x);
+                buf.putDouble(i += 8, attribute.y);
+                buf.putDouble(i += 8, attribute.z);
+                buf.putDouble(i, attribute.w);
                 return buf.array();
             }
 
