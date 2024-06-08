@@ -59,9 +59,11 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.util.Collections.unmodifiableList;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Stream.of;
 import static org.comroid.api.func.util.Streams.cast;
 
@@ -332,7 +334,7 @@ public @interface Command {
             var attribute = Annotations.findAnnotations(Command.class, source)
                     .findFirst().orElseThrow().getAnnotation();
             var group = Node.Group.builder()
-                    .name(EmptyAttribute.equals(attribute.value()) ? source.getName() : attribute.value())
+                    .name(EmptyAttribute.equals(attribute.value()) ? source.getSimpleName() : attribute.value())
                     .attribute(attribute)
                     .source(source)
                     .attribute(attribute);
@@ -395,6 +397,12 @@ public @interface Command {
             var attribute = Annotations.findAnnotations(Arg.class, source)
                     .findFirst().orElseThrow().getAnnotation();
             return Node.Parameter.builder()
+                    .name(Optional.ofNullable(attribute.value())
+                            .filter(not(EmptyAttribute::equals))
+                            .or(() -> Optional.ofNullable(source.getName())
+                                    .filter(name -> !name.matches("arg\\d+")))
+                            .or(() -> Aliased.$(source).findFirst())
+                            .orElse(String.valueOf(index)))
                     .attribute(attribute)
                     .param(source)
                     .required(!attribute.required()
@@ -443,7 +451,7 @@ public @interface Command {
             return execute(fullCommand.split(" "), null, extraArgs);
         }
 
-        public final Object execute(String[] fullCommand, @Nullable Map<String, Object> namedArgs, Object... extraArgs) {
+        public final Object execute(String[] fullCommand, @Nullable Map<String, Object> namedArgs, Object... extraArgs) throws Error, ArgumentError {
             var usage = createUsageBase(fullCommand);
             usage.advanceFull();
 
@@ -458,12 +466,23 @@ public @interface Command {
             var parameterTypes = call.callable.parameterTypesOrdered();
             Object[] useArgs = new Object[parameterTypes.length];
             var useNamedArgs = hasCapability(Capability.NAMED_ARGS);
-            var callIndex = Arrays.binarySearch(fullCommand, call.getName());
+            var callIndex = IntStream.range(0, fullCommand.length)
+                    .filter(i -> fullCommand[i].equals(call.getName()))
+                    .findFirst().orElse(-1);
+            //var callIndex = Arrays.binarySearch(fullCommand, call.getName());
             if (callIndex < 0 || callIndex >= fullCommand.length)
-                throw new Error("Internal error computing argument offset");
+                throw new Error("Internal error");
             for (int i = 0; i < useArgs.length; i++) {
+                final int i0 = i;
                 var parameterType = parameterTypes[i];
-                var attribute = parameterType.getAnnotation(Arg.class);
+                var parameter = Stream.of(call.callable.accessor())
+                        .flatMap(Streams.cast(Method.class))
+                        .map(mtd -> mtd.getParameters()[i0])
+                        .findAny();
+                var attribute = parameter
+                        .flatMap(param -> Annotations.findAnnotations(Arg.class, param).findFirst())
+                        .map(Annotations.Result::getAnnotation)
+                        .orElse(null);
                 Node.Parameter paramNode = null;
                 if (attribute != null)
                     paramNode = call.parameters.stream()
@@ -474,7 +493,15 @@ public @interface Command {
                     useArgs[i] = Arrays.stream(extraArgs)
                             .filter(parameterType::isInstance)
                             .findAny()
-                            .orElse(null);
+                            .orElseGet(() -> {
+                                if (parameter.stream().flatMap(Aliased::$).anyMatch("args"::equals)
+                                        && parameterType.isArray()
+                                        && parameterType.getComponentType().equals(String.class)) {
+                                    var args = new String[fullCommand.length - callIndex - 1];
+                                    System.arraycopy(fullCommand, callIndex + 1, args, 0, args.length);
+                                    return args;
+                                } else return null;
+                            });
                 } else if (useNamedArgs) {
                     // eg. discord
                     Constraint.notNull(namedArgs, "args").run();
@@ -486,7 +513,7 @@ public @interface Command {
                 } else {
                     // eg. console, minecraft
                     Constraint.notNull(paramNode, "parameter").run();
-                    var argIndex = fullCommand.length - callIndex + i;
+                    var argIndex = callIndex + i;
                     if (paramNode.isRequired() && argIndex > fullCommand.length)
                         throw new ArgumentError("Not enough arguments");
                     var argStr = fullCommand[argIndex];
