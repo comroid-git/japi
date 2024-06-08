@@ -64,6 +64,7 @@ import java.util.stream.Stream;
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.function.Predicate.not;
+import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
 import static org.comroid.api.func.util.Streams.cast;
 
@@ -427,13 +428,17 @@ public @interface Command {
             usage.advanceFull();
             if (!(usage.node instanceof Node.Call call))
                 return usage.node.nodes().map(Node::getName)
+                        .filter(not("$"::equals))
                         .map(str -> new AutoCompletionOption(str, ""));
             Node.Parameter parameter;
             if (hasCapability(Capability.NAMED_ARGS)) {
                 // eg. discord
-                parameter = call.parameters.stream()
+                var any = call.parameters.stream()
                         .filter(p -> argName.equals(p.getName()))
-                        .findAny().orElseThrow();
+                        .findAny();
+                if (any.isEmpty())
+                    return empty();
+                parameter = any.get();
             } else {
                 // eg. minecraft
                 // assume all parameter names as their indices
@@ -441,6 +446,8 @@ public @interface Command {
                 if (callIndex < 0 || callIndex >= fullCommand.length)
                     throw new Error("Internal error computing argument position");
                 var paramIndex = fullCommand.length - callIndex; // already offset bcs of length
+                if (paramIndex > call.parameters.size())
+                    return empty();
                 parameter = call.parameters.get(paramIndex);
             }
             return of(parameter.autoFill)
