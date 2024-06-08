@@ -115,6 +115,8 @@ public @interface Command {
         void handleResponse(Usage command, @NotNull Object response, Object... args);
 
         default String handleThrowable(Throwable throwable) {
+            while (throwable instanceof InvocationTargetException itex)
+                throwable = throwable.getCause();
             Log.get().log(Level.WARNING, "Exception occurred in command", throwable);
             var msg = "%s: %s".formatted(StackTraceUtils.lessSimpleName(throwable.getClass()), throwable.getMessage());
             if (throwable instanceof Error)
