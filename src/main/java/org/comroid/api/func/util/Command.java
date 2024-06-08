@@ -427,43 +427,59 @@ public @interface Command {
             return autoComplete(fullCommand.split(" "), argName, currentValue);
         }
 
-        public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String[] fullCommand, String argName, String currentValue) {
+        public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String[] fullCommand, String argName, @Nullable String currentValue) {
             var usage = createUsageBase(fullCommand);
             return autoComplete(usage, argName, currentValue);
         }
 
-        public final Stream<AutoCompletionOption> autoComplete(Usage usage, String argName, String currentValue) {
-            usage.advanceFull();
-            if (!(usage.node instanceof Node.Call call))
-                return usage.node.nodes().map(Node::getName)
-                        .filter(not("$"::equals))
+        public final Stream<AutoCompletionOption> autoComplete(Usage usage, String argName, @Nullable String currentValue) {
+            try {
+                usage.advanceFull();
+                if (!(usage.node instanceof Node.Call call))
+                    return usage.node.nodes()
+                            .flatMap(node -> "$".equals(node.getName())
+                                    ? node.nodes()
+                                    .flatMap(cast(Node.Parameter.class))
+                                    .flatMap(param -> Arrays.stream(param.autoFill))
+                                    : of(node.getName()))
+                            .filter(not("$"::equals))
+                            .map(str -> new AutoCompletionOption(str, ""));
+                Node.Parameter parameter;
+                if (hasCapability(Capability.NAMED_ARGS)) {
+                    // eg. discord
+                    var any = call.parameters.stream()
+                            .filter(p -> argName.equals(p.getName()))
+                            .findAny();
+                    if (any.isEmpty())
+                        return empty();
+                    parameter = any.get();
+                } else {
+                    // eg. minecraft
+                    // assume all parameter names as their indices
+                    var callIndex = call.names()
+                            .flatMapToInt(name -> IntStream.range(0, usage.fullCommand.length)
+                                    .filter(i -> {
+                                        var str = usage.fullCommand[i];
+                                        return "$".equals(name) || str.equals(name);
+                                    }))
+                            .findAny()
+                            .orElse(-1);
+                    if (callIndex < 0 || callIndex >= usage.fullCommand.length)
+                        throw new Error("Internal error computing argument position");
+                    var paramIndex = usage.fullCommand.length - callIndex - 1;
+                    if (paramIndex >= call.parameters.size())
+                        return empty();
+                    parameter = call.parameters.get(paramIndex);
+                }
+                return of(parameter.autoFill)
+                        .filter(str -> currentValue == null || str.startsWith(currentValue))
                         .map(str -> new AutoCompletionOption(str, ""));
-            Node.Parameter parameter;
-            if (hasCapability(Capability.NAMED_ARGS)) {
-                // eg. discord
-                var any = call.parameters.stream()
-                        .filter(p -> argName.equals(p.getName()))
-                        .findAny();
-                if (any.isEmpty())
-                    return empty();
-                parameter = any.get();
-            } else {
-                // eg. minecraft
-                // assume all parameter names as their indices
-                var callIndex = call.names()
-                        .mapToInt(name -> Arrays.binarySearch(usage.fullCommand, name))
-                        .filter(x -> x >= 0)
-                        .findAny()
-                        .orElse(-1);
-                if (callIndex < 0 || callIndex >= usage.fullCommand.length)
-                    throw new Error("Internal error computing argument position");
-                var paramIndex = usage.fullCommand.length - callIndex - 1; // already offset bcs of length
-                if (paramIndex >= call.parameters.size())
-                    return empty();
-                parameter = call.parameters.get(paramIndex);
+            } catch (Throwable e) {
+                Log.at(Level.WARNING, "An error ocurred during command execution", e);
+                return of(handler.handleThrowable(e))
+                        .map(String::valueOf)
+                        .map(str -> new AutoCompletionOption(str, ""));
             }
-            return of(parameter.autoFill)
-                    .map(str -> new AutoCompletionOption(str, ""));
         }
 
         @Deprecated
