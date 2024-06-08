@@ -3,34 +3,40 @@ package org.comroid.api.func.util;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
+import lombok.experimental.SuperBuilder;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.IMentionable;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.GuildChannelUnion;
 import net.dv8tion.jda.api.events.GenericEvent;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
-import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.comroid.annotations.Default;
-import org.comroid.annotations.internal.Annotations;
-import org.comroid.api.attr.*;
 import org.comroid.annotations.AnnotatedTarget;
+import org.comroid.annotations.Default;
+import org.comroid.annotations.Doc;
+import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.Polyfill;
+import org.comroid.api.attr.*;
+import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.type.ArrayValueType;
 import org.comroid.api.data.seri.type.BoundValueType;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.data.seri.type.ValueType;
+import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.info.Constraint;
 import org.comroid.api.info.Log;
+import org.comroid.api.java.Activator;
 import org.comroid.api.java.StackTraceUtils;
 import org.comroid.api.tree.Initializable;
 import org.intellij.lang.annotations.Language;
@@ -39,20 +45,28 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.PrintStream;
 import java.io.StringWriter;
-import java.lang.annotation.*;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static java.util.Collections.unmodifiableList;
+import static java.util.function.Function.identity;
+import static java.util.function.Predicate.not;
+import static java.util.stream.Stream.empty;
+import static java.util.stream.Stream.of;
 import static org.comroid.api.func.util.Streams.cast;
-import static org.comroid.api.text.Capitalization.lower_hyphen_case;
 
 @SuppressWarnings("unused")
 @Retention(RetentionPolicy.RUNTIME)
@@ -69,9 +83,25 @@ public @interface Command {
 
     boolean ephemeral() default false;
 
+    enum Capability {
+        NAMED_ARGS;
+
+        public interface Provider {
+            default Stream<Capability> capabilities() {
+                return empty();
+            }
+
+            default boolean hasCapability(Capability capability) {
+                return capabilities().anyMatch(capability::equals);
+            }
+        }
+    }
+
     @Target(ElementType.PARAMETER)
     @Retention(RetentionPolicy.RUNTIME)
     @interface Arg {
+        String value() default EmptyAttribute;
+
         int index() default -1;
 
         String[] autoFill() default {};
@@ -79,33 +109,14 @@ public @interface Command {
         Default[] defaultValue() default {};
 
         boolean required() default true;
-
-        @Value
-        class Delegate implements Named, Described, Aliased {
-            Command cmd;
-            String name;
-            @AnnotatedTarget Parameter param;
-            boolean required;
-            int index;
-            String[] autoFill;
-            @Nullable Object defaultValue;
-
-            public Delegate(Command cmd, Parameter param, boolean required, int index, String... autoFill) {
-                this.cmd = cmd;
-                this.param = param;
-                this.name = Annotations.aliases(param).stream().findAny().orElseGet(param::getName);
-                this.index = index;
-                this.defaultValue = Annotations.defaultValue(param);
-                this.required = required;
-                this.autoFill = autoFill;
-            }
-        }
     }
 
-    interface Handler {
-        void handleResponse(Delegate cmd, @NotNull Object response, Object... args);
+    interface Handler extends Capability.Provider {
+        void handleResponse(Usage command, @NotNull Object response, Object... args);
 
-        default @Nullable String handleThrowable(Throwable throwable) {
+        default String handleThrowable(Throwable throwable) {
+            while (throwable instanceof InvocationTargetException itex)
+                throwable = throwable.getCause();
             Log.get().log(Level.WARNING, "Exception occurred in command", throwable);
             var msg = "%s: %s".formatted(StackTraceUtils.lessSimpleName(throwable.getClass()), throwable.getMessage());
             if (throwable instanceof Error)
@@ -129,47 +140,170 @@ public @interface Command {
         }
     }
 
-    @Getter
-    @Setter
-    class Error extends RuntimeException {
-        private Delegate command;
-        private String[] args;
+    @Data
+    @SuperBuilder
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    abstract class Node implements Named, Described, Aliased, Specifiable<Node> {
+        @NotNull
+        String name;
 
-        public Error(String message) {
-            this(null, message, null);
+        public abstract Stream<? extends Node> nodes();
+
+        @Override
+        public Stream<String> names() {
+            return Stream.concat(of(getName()), Aliased.super.names());
         }
 
-        public Error(Delegate command, String message, String[] args) {
-            super(message);
-            this.command = command;
-            this.args = args;
+        @Data
+        @SuperBuilder
+        @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+        public static abstract class Callable extends Node {
+            @NotNull
+            Command attribute;
+
+            public @Nullable String getName() {
+                return EmptyAttribute.equals(attribute.value())
+                        ? Optional.ofNullable(super.getName())
+                        .or(() -> Optional.ofNullable(getAlternateName()))
+                        .orElseThrow(() -> new NullPointerException("No name defined for command " + this))
+                        : attribute.value();
+            }
+
+            @Override
+            public String getAlternateName() {
+                return null; // stub to prevent recursion loop
+            }
         }
 
-        public Error(Delegate command, String message, Throwable cause, String[] args) {
-            super(message, cause);
-            this.command = command;
-            this.args = args;
+        @Value
+        @SuperBuilder
+        public static class Group extends Callable {
+            @NotNull
+            @AnnotatedTarget
+            Class<?> source;
+            @Singular
+            List<Group> groups;
+            @Singular
+            List<Call> calls;
+            @Nullable
+            @lombok.Builder.Default
+            Call defaultCall = null;
+
+            @Override
+            public Stream<? extends Node> nodes() {
+                var stream = Stream.concat(groups.stream(), calls.stream());
+                if (defaultCall != null) stream = stream.collect(Streams.append(defaultCall));
+                return stream;
+            }
+        }
+
+        @Value
+        @SuperBuilder
+        public static class Call extends Callable {
+            @Nullable
+            Object target;
+            @NotNull
+            Method method;
+            @NotNull
+            Invocable<?> callable;
+            @Singular
+            List<Parameter> parameters;
+
+            @Override
+            public Wrap<AnnotatedElement> element() {
+                return Wrap.of(callable.accessor());
+            }
+
+            @Override
+            public String getAlternateName() {
+                return callable.getName();
+            }
+
+            @Override
+            public Stream<? extends Node> nodes() {
+                return parameters.stream().sorted(Parameter.COMPARATOR);
+            }
+        }
+
+        @Value
+        @SuperBuilder
+        public static class Parameter extends Node implements Default.Extension {
+            public static Comparator<? super Parameter> COMPARATOR = Comparator.comparingInt(param -> param.index);
+            @NotNull
+            Arg attribute;
+            @NotNull
+            @AnnotatedTarget
+            java.lang.reflect.Parameter param;
+            boolean required;
+            int index;
+            String[] autoFill;
+
+            @Override
+            public Stream<? extends Node> nodes() {
+                return of(autoFill)
+                        .map(str -> ParameterAutoFill.builder()
+                                .name(str)
+                                .build());
+            }
+        }
+
+        @Value
+        @SuperBuilder
+        private static class ParameterAutoFill extends Node {
+            @NotNull
+            @lombok.Builder.Default
+            String description = "no description";
+
+            @Override
+            public Stream<? extends Node> nodes() {
+                return empty();
+            }
         }
     }
 
-    class ArgumentError extends Error {
-        public ArgumentError(String message) {
-            super(message);
-        }
+    record AutoCompletionOption(String key, String description) {
+    }
 
-        public ArgumentError(String nameof, @Nullable String detail) {
-            super("Invalid argument '" + nameof + "'" + Optional.ofNullable(detail).map(d -> "; " + d).orElse(""));
+    @Value
+    @Builder
+    class Usage {
+        Manager manager;
+        String[] fullCommand;
+        @Singular("context")
+        Set<Object> context;
+        @Nullable
+        @Default
+        @NonFinal
+        @Setter
+        Handler source;
+        @NonFinal
+        Node.Callable node;
+
+        public void advanceFull() {
+            // start from i=1 because the initial node was spawned at creation in Manager#createUsageBase()
+            for (var i = 1; i < fullCommand.length; i++) {
+                var text = fullCommand[i];
+                if (node instanceof Node.Call) // do not advance into parameters
+                    break;
+                var result = node.nodes()
+                        .filter(it -> it.names().anyMatch(text::equals))
+                        .flatMap(cast(Node.Callable.class))
+                        .findAny();
+                if (result.isEmpty())
+                    break;
+                node = result.get();
+            }
         }
     }
 
     @Value
     @NonFinal
     @ToString(of = {"id"})
-    class Manager implements Initializable {
-        public static final Handler DefaultHandler = (cmd, x, args) -> System.out.println(x);
+    class Manager implements Capability.Provider, Initializable {
+        public static final Handler DefaultHandler = (command, x, args) -> System.out.println(x);
         UUID id = UUID.randomUUID();
-        Map<String, Delegate> commands = new ConcurrentHashMap<>();
         Handler handler;
+        Set<Node> baseNodes = new HashSet<>();
         Set<Adapter> adapters = new HashSet<>();
 
         public Manager() {
@@ -181,46 +315,106 @@ public @interface Command {
         }
 
         @SuppressWarnings("UnusedReturnValue")
-        public final int register(final Object target) {
-            var cls = target.getClass();
-            return (int) Arrays.stream(cls.getMethods())
-                    .filter(mtd -> mtd.isAnnotationPresent(Command.class))
-                    .map(mtd -> {
-                        var cmd = Optional.of(mtd.getAnnotation(Command.class));
-                        var noArgs = Arrays.stream(mtd.getParameters())
-                                .noneMatch(it -> it.isAnnotationPresent(Arg.class));
-                        return new Delegate(
-                                mtd,
-                                target,
-                                cmd.map(Command::value)
-                                        .filter(x -> !EmptyAttribute.equals(x))
-                                        .orElseGet(mtd::getName),
-                                cmd.map(Command::permission)
-                                        .filter(x -> !EmptyAttribute.equals(x))
-                                        .orElse(""),
-                                cmd.map(Command::ephemeral).orElse(false),
-                                cmd.map(Command::usage)
-                                        .filter(x -> !EmptyAttribute.equals(x))
-                                        .orElse(null),
-                                Arrays.stream(mtd.getParameters())
-                                        .filter(it -> noArgs || it.isAnnotationPresent(Arg.class))
-                                        .map(param -> {
-                                            var arg = Annotations.findAnnotations(Arg.class, param)
-                                                    .findAny()
-                                                    .map(Annotations.Result::getAnnotation)
-                                                    .orElse(null);
-                                            return new Arg.Delegate(cmd.get(), param,
-                                                    arg != null && arg.required(),
-                                                    arg == null ? -1 : arg.index(),
-                                                    arg == null ? new String[0] : arg.autoFill());
-                                        })
-                                        .toList());
-                    })
-                    .peek(cmd -> Stream.concat(Stream.of(cmd.getName()), cmd.names())
-                            .flatMap(Streams.filter(key -> !commands.containsKey(key),
-                                    skip -> System.out.println("Skipping command alias " + skip + " because it is a duplicate")))
-                            .forEach(key -> commands.put(key, cmd)))
-                    .count();
+        public final Set<Node> register(final Object target) {
+            var klass = target instanceof Class<?> cls0 ? cls0 : target.getClass();
+            var nodes = new HashSet<Node>();
+
+            registerGroups(target, nodes, klass);
+            registerCalls(target, nodes, klass);
+
+            baseNodes.addAll(nodes);
+            return nodes;
+        }
+
+        private void registerGroups(@Nullable Object target, Collection<? super Node.Group> nodes, Class<?> source) {
+            for (var groupNodeSource : source.getClasses()) {
+                if (!groupNodeSource.isAnnotationPresent(Command.class))
+                    continue;
+                var node = createGroupNode(target, groupNodeSource);
+                nodes.add(node);
+            }
+        }
+
+        public Node.Group createGroupNode(@Nullable Object target, Class<?> source) {
+            var attribute = Annotations.findAnnotations(Command.class, source)
+                    .findFirst().orElseThrow().getAnnotation();
+            var group = Node.Group.builder()
+                    .name(EmptyAttribute.equals(attribute.value()) ? source.getSimpleName() : attribute.value())
+                    .attribute(attribute)
+                    .source(source)
+                    .attribute(attribute);
+
+            var groups = new HashSet<Node.Group>();
+            registerGroups(target, groups, source);
+            group.groups(groups);
+
+            var calls = new HashSet<Node.Call>();
+            registerCalls(target, calls, source);
+            var defaultCall = calls.stream()
+                    .filter(call -> "$".equals(call.getName()))
+                    .findAny().orElse(null);
+            if (defaultCall != null)
+                calls.remove(defaultCall);
+            group.calls(calls).defaultCall(defaultCall);
+
+            return group.build();
+        }
+
+        private void registerCalls(@Nullable Object target, Collection<? super Node.Call> nodes, Class<?> source) {
+            for (var callNodeSource : source.getMethods()) {
+                if (!callNodeSource.isAnnotationPresent(Command.class))
+                    continue;
+                var node = createCallNode(target, callNodeSource);
+                nodes.add(node);
+            }
+        }
+
+        public Node.Call createCallNode(@Nullable Object target, Method source) {
+            var attribute = Annotations.findAnnotations(Command.class, source)
+                    .findFirst().orElseThrow().getAnnotation();
+            var call = Node.Call.builder()
+                    .name(EmptyAttribute.equals(attribute.value()) ? source.getName() : attribute.value())
+                    .attribute(attribute)
+                    .target(target)
+                    .method(source)
+                    .callable(Invocable.ofMethodCall(target, source));
+
+            var params = new ArrayList<Node.Parameter>();
+            registerParameters(params, source);
+            params.sort(Node.Parameter.COMPARATOR);
+            call.parameters(unmodifiableList(params));
+
+            return call.build();
+        }
+
+        private void registerParameters(Collection<? super Node.Parameter> nodes, Method source) {
+            var index = 0;
+            for (var paramNodeSource : source.getParameters()) {
+                if (!paramNodeSource.isAnnotationPresent(Arg.class))
+                    continue;
+                var node = createParameterNode(index, source, paramNodeSource);
+                nodes.add(node);
+                index += 1;
+            }
+        }
+
+        private Node.Parameter createParameterNode(int index, Method origin, Parameter source) {
+            var attribute = Annotations.findAnnotations(Arg.class, source)
+                    .findFirst().orElseThrow().getAnnotation();
+            return Node.Parameter.builder()
+                    .name(Optional.ofNullable(attribute.value())
+                            .filter(not(EmptyAttribute::equals))
+                            .or(() -> Optional.ofNullable(source.getName())
+                                    .filter(name -> !name.matches("arg\\d+")))
+                            .or(() -> Aliased.$(source).findFirst())
+                            .orElse(String.valueOf(index)))
+                    .attribute(attribute)
+                    .param(source)
+                    .required(!attribute.required()
+                            && !source.isAnnotationPresent(NotNull.class) && source.isAnnotationPresent(Nullable.class))
+                    .index(index)
+                    .autoFill(attribute.autoFill())
+                    .build();
         }
 
         @Override
@@ -228,95 +422,177 @@ public @interface Command {
             adapters.forEach(Adapter::initialize);
         }
 
-        public final Stream<Map.Entry<String, String>> autoComplete(String fullCommand, String argName, String currentValue) {
-            var split = fullCommand.split(" ");
-            var name = split[0];
-            var cmd = commands.getOrDefault(name, null);
-            return cmd.args.stream()
-                    .filter(arg -> argName.isBlank() || lower_hyphen_case.convert(arg.name).equals(argName))
-                    .flatMap(arg -> arg.autoFill.length == 0 && arg.param.getType().isEnum()
-                            ? Arrays.stream(arg.param.getType().getEnumConstants()) // Todo somethings wrong here
-                            .flatMap(it -> {
-                                var str = Named.$(it);
-                                if (!str.startsWith(currentValue))
-                                    return Stream.empty();
-                                return Stream.of(new AbstractMap.SimpleImmutableEntry<>(str, it.toString()));
-                            })
-                            : Arrays.stream(arg.autoFill)
-                            .map(str -> str.split("[:;=\\s]+]"))
-                            .filter(arr -> arr.length > 0)
-                            .filter(str -> str[0].startsWith(currentValue))
-                            .map(parts -> parts.length == 2
-                                    ? new AbstractMap.SimpleImmutableEntry<>(parts[0], parts[1])
-                                    : new AbstractMap.SimpleImmutableEntry<>(parts[0], parts[0])));
+        @Deprecated
+        public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String fullCommand, String argName, String currentValue) {
+            return autoComplete(fullCommand.split(" "), argName, currentValue);
         }
 
-        public final Object execute(String fullCommand, Object... extraArgs) {
-            var split = fullCommand.split(" ");
-            var name = split[0];
-            var cmd = commands.getOrDefault(name, null);
-            var args = adapter().map(adapter -> adapter.expandArgs(cmd, Arrays.stream(split).skip(1).toList(), extraArgs))
-                    .orElseGet(() -> {
-                        var map = new HashMap<String, Object>();
-                        boolean first = true;
-                        int c = 1;
-                        for (var each : split) {
-                            if (first) {
-                                first = false;
-                                continue;
-                            }
-                            if (map.put("arg"+c++, each) != null) {
-                                throw new IllegalStateException("Duplicate key");
-                            }
-                        }
-                        return map;
-                    });
-            args.put("args", Arrays.stream(split).skip(1).toArray(String[]::new));
-            Throwable thr = null;
-            Object response = null;
+        public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String[] fullCommand, String argName, @Nullable String currentValue) {
+            var usage = createUsageBase(fullCommand);
+            return autoComplete(usage, argName, currentValue);
+        }
+
+        public final Stream<AutoCompletionOption> autoComplete(Usage usage, String argName, @Nullable String currentValue) {
             try {
-                if ("help".equals(name) && !commands.containsKey("help")) {
-                    var sb = new StringBuilder("Commands");
-                    for (var each : commands.values()) {
-                        sb.append("\n\t- ").append(each.name);
-                        if (each.usage != null)
-                            sb.append(' ').append(each.usage.hint);
-                    }
-                    response = sb.toString();
+                usage.advanceFull();
+                if (!(usage.node instanceof Node.Call call))
+                    return usage.node.nodes()
+                            .flatMap(node -> "$".equals(node.getName())
+                                    ? node.nodes()
+                                    .flatMap(cast(Node.Parameter.class))
+                                    .flatMap(param -> Arrays.stream(param.autoFill))
+                                    : of(node.getName()))
+                            .filter(not("$"::equals))
+                            .map(str -> new AutoCompletionOption(str, ""));
+                Node.Parameter parameter;
+                if (hasCapability(Capability.NAMED_ARGS)) {
+                    // eg. discord
+                    var any = call.parameters.stream()
+                            .filter(p -> argName.equals(p.getName()))
+                            .findAny();
+                    if (any.isEmpty())
+                        return empty();
+                    parameter = any.get();
                 } else {
-                    if (cmd == null)
-                        throw new Error("Command not found: " + name);
-                    Object result;
-                    try {
-                        result = cmd.execute(args, extraArgs);
-                    } catch (InvocationTargetException e) {
-                        throw e.getTargetException();
-                    } catch (IllegalAccessException | InstantiationException e) {
-                        throw new RuntimeException(e);
-                    }
-                    if (result instanceof Error)
-                        throw (Error) result;
-                    if (result != null)
-                        response = result;
+                    // eg. minecraft
+                    // assume all parameter names as their indices
+                    var callIndex = call.names()
+                            .flatMapToInt(name -> IntStream.range(0, usage.fullCommand.length)
+                                    .filter(i -> {
+                                        var str = usage.fullCommand[i];
+                                        return "$".equals(name) || str.equals(name);
+                                    }))
+                            .findAny()
+                            .orElse(-1);
+                    if (callIndex < 0 || callIndex >= usage.fullCommand.length)
+                        throw new Error("Internal error computing argument position");
+                    var paramIndex = usage.fullCommand.length - callIndex - 1;
+                    if (paramIndex >= call.parameters.size())
+                        return empty();
+                    parameter = call.parameters.get(paramIndex);
                 }
-            } catch (Error e) {
-                response = e.getClass().getSimpleName() + ": " + e.getMessage();
-            } catch (Throwable t) {
-                assert cmd != null;
-                thr = new RuntimeException("A fatal error occurred during execution of command " + cmd.getName(), t);
+                return of(parameter.autoFill)
+                        .filter(str -> currentValue == null || str.startsWith(currentValue))
+                        .map(str -> new AutoCompletionOption(str, ""));
+            } catch (Throwable e) {
+                Log.at(Level.WARNING, "An error ocurred during command execution", e);
+                return of(handler.handleThrowable(e))
+                        .map(String::valueOf)
+                        .map(str -> new AutoCompletionOption(str, ""));
             }
-            var handler = handler();
-            if (thr != null)
-                response = handler.handleThrowable(thr);
-            if (response == null)
-                response = "✅";
-            handler.handleResponse(cmd, response, Stream.of(args)
-                    .collect(Streams.append(Stream.of(args.values().stream()
-                            .map(Object::toString)
-                            .toArray(String[]::new))))
-                    .collect(Streams.append(extraArgs))
-                    .toArray());
+        }
+
+        @Deprecated
+        public final Object execute(String fullCommand, Object... extraArgs) {
+            return execute(fullCommand.split(" "), null, extraArgs);
+        }
+
+        public final Object execute(String[] fullCommand, @Nullable Map<String, Object> namedArgs, Object... extraArgs) throws Error, ArgumentError {
+            var usage = createUsageBase(fullCommand);
+            return execute(usage, namedArgs, extraArgs);
+        }
+
+        public final Object execute(Usage usage, @Nullable Map<String, Object> namedArgs, Object... extraArgs) throws Error, ArgumentError {
+            Object response = "internal error";
+            Handler handler = adapters.stream().findAny()
+                    .<Handler>map(identity())
+                    .orElseGet(() -> usage.source == null ? this.handler : usage.source);
+            try {
+                usage.advanceFull();
+
+                Node.Call call;
+                if (usage.node instanceof Node.Group group)
+                    call = group.defaultCall;
+                else call = usage.node.as(Node.Call.class, "Invalid node type! Is your syntax correct?");
+                if (call == null)
+                    throw new Error("No such command");
+
+                // sort arguments
+                var parameterTypes = call.callable.parameterTypesOrdered();
+                Object[] useArgs = new Object[parameterTypes.length];
+                var useNamedArgs = hasCapability(Capability.NAMED_ARGS);
+                var callIndex = IntStream.range(0, usage.fullCommand.length)
+                        .filter(i -> {
+                            var str = usage.fullCommand[i];
+                            return "$".equals(call.getName()) || str.equals(call.getName());
+                        })
+                        .findFirst().orElse(-1);
+                //var callIndex = Arrays.binarySearch(fullCommand, call.getName());
+                if (callIndex < 0 || callIndex >= usage.fullCommand.length)
+                    throw new Error("No such command: " + String.join(" ", usage.fullCommand));
+                for (int i = 0; i < useArgs.length; i++) {
+                    final int i0 = i;
+                    var parameterType = parameterTypes[i];
+                    var parameter = of(call.callable.accessor())
+                            .flatMap(cast(Method.class))
+                            .map(mtd -> mtd.getParameters()[i0])
+                            .findAny();
+                    var attribute = parameter
+                            .flatMap(param -> Annotations.findAnnotations(Arg.class, param).findFirst())
+                            .map(Annotations.Result::getAnnotation)
+                            .orElse(null);
+                    Node.Parameter paramNode = null;
+                    if (attribute != null)
+                        paramNode = call.parameters.stream()
+                                .filter(node -> node.attribute.equals(attribute))
+                                .findAny().orElseThrow();
+                    if (attribute == null) {
+                        // try to fit in an extraArg
+                        useArgs[i] = Arrays.stream(extraArgs)
+                                .filter(parameterType::isInstance)
+                                .findAny()
+                                .orElseGet(() -> {
+                                    if (parameter.stream().flatMap(Aliased::$).anyMatch("args"::equals)
+                                            && parameterType.isArray()
+                                            && parameterType.getComponentType().equals(String.class)) {
+                                        var args = new String[usage.fullCommand.length - callIndex - 1];
+                                        System.arraycopy(usage.fullCommand, callIndex + 1, args, 0, args.length);
+                                        return args;
+                                    } else return null;
+                                });
+                    } else if (useNamedArgs) {
+                        // eg. discord
+                        Constraint.notNull(namedArgs, "args").run();
+                        Constraint.notNull(paramNode, "parameter").run();
+                        if (paramNode.isRequired() && !namedArgs.containsKey(paramNode.getName()))
+                            throw new ArgumentError("Missing argument " + paramNode.getName());
+
+                        useArgs[i] = namedArgs.get(paramNode.getName());
+                    } else {
+                        // eg. console, minecraft
+                        Constraint.notNull(paramNode, "parameter").run();
+                        var argIndex = callIndex + i;
+                        if (paramNode.isRequired() && argIndex > usage.fullCommand.length)
+                            throw new ArgumentError("Not enough arguments");
+                        var argStr = usage.fullCommand[argIndex];
+
+                        useArgs[i] = StandardValueType.forClass(parameterType)
+                                .map(svt -> (Object) svt.parse(argStr))
+                                .orElseGet(() -> Activator.get(parameterType)
+                                        .createInstance(DataNode.of(argStr)));
+                    }
+                }
+
+                response = call.callable.invoke(call.target, useArgs);
+            } catch (Throwable e) {
+                Log.at(Level.WARNING, "An error ocurred during command execution", e);
+                response = handler.handleThrowable(e);
+            }
+            if (response != null)
+                handler.handleResponse(usage, response, extraArgs);
             return response;
+        }
+
+        private Usage createUsageBase(String[] fullCommand, Object... extraArgs) {
+            return Usage.builder()
+                    .manager(this)
+                    .fullCommand(fullCommand)
+                    .context(of(extraArgs).collect(Collectors.toSet())) // set should be modifiable
+                    .node(baseNodes.stream() // find base node to initiate advancing to execution node
+                            .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
+                            .flatMap(cast(Node.Callable.class))
+                            .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand))))
+                    .build();
         }
 
         protected Optional<Adapter> adapter() {
@@ -337,6 +613,13 @@ public @interface Command {
         @Override
         public boolean equals(Object obj) {
             return obj instanceof Manager && obj.hashCode() == hashCode();
+        }
+
+        @Override
+        public Stream<Capability> capabilities() {
+            return adapters.stream()
+                    .flatMap(Capability.Provider::capabilities)
+                    .collect(Streams.append(handler.capabilities()));
         }
 
         public static abstract class Adapter implements Handler, Initializable {
@@ -364,9 +647,14 @@ public @interface Command {
             }
 
             @Override
+            public Stream<Capability> capabilities() {
+                return of(Capability.NAMED_ARGS);
+            }
+
+            @Override
             public void initialize() {
                 if (initialized) return;
-                
+
                 jda.addEventListener(new ListenerAdapter() {
                     @Override
                     public void onGenericEvent(@NotNull GenericEvent event) {
@@ -379,15 +667,16 @@ public @interface Command {
                         .subscribeData(event -> {
                             var option = event.getFocusedOption();
                             event.replyChoices(autoComplete(event.getName(), option.getName(), option.getValue())
-                                            .map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.getKey(), e.getValue()))
+                                            .map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key, e.description))
                                             .toList())
                                     .queue();
                         });
 
+                /* todo
                 jda.updateCommands().addCommands(
-                        commands.values().stream()
+                        baseNodes.values().stream()
                                 .map(cmd -> {
-                                    final var slash = Commands.slash(cmd.name, cmd.getDescription().isBlank()?"No description":cmd.getDescription());
+                                    final var slash = Commands.slash(cmd.getName(), cmd.getDescription().isBlank()?"No description":cmd.getDescription());
                                     for (var arg : cmd.args) {
                                         final var isEnumArg = arg.param.getType().isEnum();
                                         OptionAdapter.of(arg.param.getType())
@@ -409,22 +698,22 @@ public @interface Command {
                                     return slash;
                                 })
                                 .toList()
-                ).queue();
+                ).queue();*/
                 initialized = true;
             }
 
             @Override
-            public void handleResponse(Command.Delegate cmd, @NotNull Object response, Object... args) {
-                final var e = Stream.of(args)
+            public void handleResponse(Usage cmd, @NotNull Object response, Object... args) {
+                final var e = of(args)
                         .flatMap(cast(SlashCommandInteractionEvent.class))
                         .findAny()
                         .orElseThrow();
-                final var user = Stream.of(args)
+                final var user = of(args)
                         .flatMap(cast(User.class))
                         .findAny()
                         .orElseThrow();
                 if (response instanceof CompletableFuture)
-                    e.deferReply().setEphemeral(cmd.ephemeral())
+                    e.deferReply().setEphemeral(cmd.node.attribute.ephemeral())
                             .submit()
                             .thenCombine(((CompletableFuture<?>) response), (hook, resp) -> {
                                 WebhookMessageCreateAction<Message> req;
@@ -435,7 +724,7 @@ public @interface Command {
                                 } else req = hook.sendMessage(String.valueOf(resp));
                                 return req.submit();
                             })
-                            .thenCompose(Function.identity())
+                            .thenCompose(identity())
                             .exceptionally(Polyfill.exceptionLogger());
                 else {
                     ReplyCallbackAction req;
@@ -444,10 +733,11 @@ public @interface Command {
                             embed = embedFinalizer.apply(embed, user);
                         req = e.replyEmbeds(embed.build());
                     } else req = e.reply(String.valueOf(response));
-                    req.setEphemeral(cmd.ephemeral()).submit();
+                    req.setEphemeral(cmd.node.attribute.ephemeral()).submit();
                 }
             }
 
+            /*
             @Override
             protected Map<String, Object> expandArgs(Delegate cmd, List<String> args, Object[] extraArgs) {
                 var event = Stream.of(extraArgs)
@@ -473,6 +763,7 @@ public @interface Command {
                         .forEach(e->map.put(e.getKey(),e.getValue()));
                 return map;
             }
+            */
 
             public interface IOptionAdapter {
                 ValueType<?> getValueType();
@@ -628,7 +919,7 @@ public @interface Command {
             }
 
             @Override
-            public void handleResponse(Delegate cmd, @NotNull Object response, Object... args) {
+            public void handleResponse(Usage command, @NotNull Object response, Object... args) {
                 var message = response instanceof CompletableFuture<?> future ? future.join() : response;
                 var sender = Arrays.stream(args)
                         .flatMap(cast(CommandSender.class))
@@ -643,104 +934,36 @@ public @interface Command {
         }
     }
 
-    @Value
-    @SuppressWarnings("ClassExplicitlyAnnotation")
-    @ToString(of = {"name", "permission", "ephemeral", "usage"})
-    class Delegate implements Command, Named, Described, Aliased {
-        @AnnotatedTarget Method method;
-        Object target;
-        String name;
-        String permission;
-        boolean ephemeral;
-        @Nullable UsageInfo usage;
-        List<Arg.Delegate> args;
+    @Getter
+    @Setter
+    class Error extends RuntimeException {
+        private Usage command;
+        private String[] args;
 
-        private Delegate(Method method, Object target, String name, String permission, boolean ephemeral, @Nullable String usage, List<Arg.Delegate> args) {
-            this.method = method;
-            this.target = target;
-            this.name = name;
-            this.permission = permission;
-            this.ephemeral = ephemeral;
-            this.usage = usage == null ? null : parseUsageInfo(usage);
+        public Error(String message) {
+            this(null, message, null);
+        }
+
+        public Error(Usage command, String message, String[] args) {
+            super(message);
+            this.command = command;
             this.args = args;
         }
 
-        @Override
-        public String value() {
-            return name;
+        public Error(Usage command, String message, Throwable cause, String[] args) {
+            super(message, cause);
+            this.command = command;
+            this.args = args;
+        }
+    }
+
+    class ArgumentError extends Error {
+        public ArgumentError(String message) {
+            super(message);
         }
 
-        @Override
-        @Nullable
-        public String usage() {
-            return usage != null ? usage.hint : null;
-        }
-
-        @Override
-        public String permission() {
-            return permission;
-        }
-
-        public <T> T parsePermission(StandardValueType<T> to) {
-            var it = StandardValueType.findGoodType(permission);
-            return StandardValueType.typeOf(it).convert(permission, to);
-        }
-
-        @Override
-        public boolean ephemeral() {
-            return ephemeral;
-        }
-
-        @Override
-        public Class<? extends Annotation> annotationType() {
-            return Command.class;
-        }
-
-        private Object execute(Map<String, Object> args, Object... extraArgs)
-                throws InvocationTargetException, IllegalAccessException, InstantiationException {
-            final var params = new Object[method.getParameterCount()];
-            for (int i = 0; i < method.getParameters().length; i++) {
-                final var parameter = method.getParameters()[i];
-                params[i] = Stream.concat(Stream.of(parameter.getName()), Aliased.$(parameter))
-                        .filter(args::containsKey)
-                        .findAny()
-                        .map(args::get)
-                        .map(it -> {
-                            var type = it.getClass();
-                            // parse primitive java types
-                            if (!type.isArray() && type.getPackageName().startsWith("java"))
-                                return StandardValueType.findGoodType(String.valueOf(it));
-                            return it;
-                        })
-                        .or(() -> Arrays.stream(extraArgs)
-                                .flatMap(cast(parameter.getType()))
-                                .findAny())
-                        .orElse(null);
-            }
-            return method.invoke(target, params);
-        }
-
-        private UsageInfo parseUsageInfo(String usage) {
-            var split = usage.split(" ");
-            return new UsageInfo(usage,
-                    (int) Arrays.stream(split).filter(s -> s.startsWith("<")).count(),
-                    split.length,
-                    Arrays.stream(split).skip(split.length - 1).anyMatch(s -> s.contains("..")));
-        }
-
-        @Value
-        private class UsageInfo {
-            String hint;
-            int required;
-            int total;
-            boolean ellipsis;
-
-            private void validate(String[] args) {
-                if (args.length < required)
-                    throw new Error("not enough arguments; usage: " + name + " " + hint);
-                if (!ellipsis && args.length > total)
-                    throw new Error("too many arguments; usage: " + name + " " + hint);
-            }
+        public ArgumentError(String nameof, @Nullable String detail) {
+            super("Invalid argument '" + nameof + "'" + Optional.ofNullable(detail).map(d -> "; " + d).orElse(""));
         }
     }
 }
