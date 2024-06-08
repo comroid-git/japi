@@ -14,10 +14,8 @@ import net.dv8tion.jda.api.events.GenericEvent;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
-import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.bukkit.ChatColor;
@@ -64,7 +62,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.api.func.util.Streams.cast;
-import static org.comroid.api.text.Capitalization.lower_hyphen_case;
 
 @SuppressWarnings("unused")
 @Retention(RetentionPolicy.RUNTIME)
@@ -98,7 +95,7 @@ public @interface Command {
     @Target(ElementType.PARAMETER)
     @Retention(RetentionPolicy.RUNTIME)
     @interface Arg {
-        String value();
+        String value() default EmptyAttribute;
 
         int index() default -1;
 
@@ -455,6 +452,9 @@ public @interface Command {
                 throw new Error("Internal error computing argument offset");
             for (int i = 0; i < useArgs.length; i++) {
                 var parameter = call.method.getParameters()[i];
+                var paramNode = call.parameters.stream()
+                        .filter(node -> node.getParam().equals(parameter))
+                        .findAny().orElse(null);
                 var attribute = parameter.getAnnotation(Arg.class);
                 if (attribute == null) {
                     // try to fit in an extraArg
@@ -465,10 +465,17 @@ public @interface Command {
                 } else if (useNamedArgs) {
                     // eg. discord
                     Constraint.notNull(namedArgs, "args").run();
-                    useArgs[i] = namedArgs.get(attribute.value());
+                    Constraint.notNull(paramNode, "parameter").run();
+                    if (paramNode.isRequired() && !namedArgs.containsKey(paramNode.getName()))
+                        throw new ArgumentError("Missing argument " + paramNode.getName());
+
+                    useArgs[i] = namedArgs.get(paramNode.getName());
                 } else {
                     // eg. console, minecraft
+                    Constraint.notNull(paramNode, "parameter").run();
                     var argIndex = fullCommand.length - callIndex + i;
+                    if (paramNode.isRequired() && argIndex > fullCommand.length)
+                        throw new ArgumentError("Not enough arguments");
                     var argStr = fullCommand[argIndex];
 
                     useArgs[i] = StandardValueType.forClass(parameter.getType())
@@ -569,15 +576,16 @@ public @interface Command {
                         .subscribeData(event -> {
                             var option = event.getFocusedOption();
                             event.replyChoices(autoComplete(event.getName(), option.getName(), option.getValue())
-                                            .map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.getKey(), e.getValue()))
+                                            .map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key, e.description))
                                             .toList())
                                     .queue();
                         });
 
+                /* todo
                 jda.updateCommands().addCommands(
-                        commands.values().stream()
+                        baseNodes.values().stream()
                                 .map(cmd -> {
-                                    final var slash = Commands.slash(cmd.name, cmd.getDescription().isBlank()?"No description":cmd.getDescription());
+                                    final var slash = Commands.slash(cmd.getName(), cmd.getDescription().isBlank()?"No description":cmd.getDescription());
                                     for (var arg : cmd.args) {
                                         final var isEnumArg = arg.param.getType().isEnum();
                                         OptionAdapter.of(arg.param.getType())
@@ -599,7 +607,7 @@ public @interface Command {
                                     return slash;
                                 })
                                 .toList()
-                ).queue();
+                ).queue();*/
                 initialized = true;
             }
 
@@ -614,7 +622,7 @@ public @interface Command {
                         .findAny()
                         .orElseThrow();
                 if (response instanceof CompletableFuture)
-                    e.deferReply().setEphemeral(cmd.ephemeral())
+                    e.deferReply().setEphemeral(cmd.node.attribute.ephemeral())
                             .submit()
                             .thenCombine(((CompletableFuture<?>) response), (hook, resp) -> {
                                 WebhookMessageCreateAction<Message> req;
@@ -634,10 +642,11 @@ public @interface Command {
                             embed = embedFinalizer.apply(embed, user);
                         req = e.replyEmbeds(embed.build());
                     } else req = e.reply(String.valueOf(response));
-                    req.setEphemeral(cmd.ephemeral()).submit();
+                    req.setEphemeral(cmd.node.attribute.ephemeral()).submit();
                 }
             }
 
+            /*
             @Override
             protected Map<String, Object> expandArgs(Delegate cmd, List<String> args, Object[] extraArgs) {
                 var event = Stream.of(extraArgs)
@@ -663,6 +672,7 @@ public @interface Command {
                         .forEach(e->map.put(e.getKey(),e.getValue()));
                 return map;
             }
+            */
 
             public interface IOptionAdapter {
                 ValueType<?> getValueType();
