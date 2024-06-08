@@ -61,6 +61,8 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.util.Collections.unmodifiableList;
+import static java.util.stream.Stream.of;
 import static org.comroid.api.func.util.Streams.cast;
 
 @SuppressWarnings("unused")
@@ -144,7 +146,7 @@ public @interface Command {
 
         @Override
         public Stream<String> names() {
-            return Stream.concat(Stream.of(getName()), Aliased.super.names());
+            return Stream.concat(of(getName()), Aliased.super.names());
         }
 
         @Data
@@ -214,13 +216,14 @@ public @interface Command {
 
             @Override
             public Stream<? extends Node> nodes() {
-                return parameters.stream();
+                return parameters.stream().sorted(Parameter.COMPARATOR);
             }
         }
 
         @Value
         @SuperBuilder
         public static class Parameter extends Node implements Default.Extension {
+            public static Comparator<? super Parameter> COMPARATOR = Comparator.comparingInt(param -> param.index);
             @NotNull
             Arg attribute;
             @NotNull
@@ -232,7 +235,7 @@ public @interface Command {
 
             @Override
             public Stream<? extends Node> nodes() {
-                return Stream.of(autoFill)
+                return of(autoFill)
                         .map(str -> ParameterAutoFill.builder()
                                 .name(str)
                                 .build());
@@ -316,16 +319,16 @@ public @interface Command {
             return nodes;
         }
 
-        private void registerGroups(@Nullable Object target, HashSet<? super Node.Group> nodes, Class<?> source) {
+        private void registerGroups(@Nullable Object target, Collection<? super Node.Group> nodes, Class<?> source) {
             for (var groupNodeSource : source.getClasses()) {
                 if (!groupNodeSource.isAnnotationPresent(Command.class))
                     continue;
-                var node = registerGroup(target, groupNodeSource);
+                var node = createGroupNode(target, groupNodeSource);
                 nodes.add(node);
             }
         }
 
-        private Node.Group registerGroup(@Nullable Object target, Class<?> source) {
+        public Node.Group createGroupNode(@Nullable Object target, Class<?> source) {
             var attribute = Annotations.findAnnotations(Command.class, source)
                     .findFirst().orElseThrow().getAnnotation();
             var group = Node.Group.builder()
@@ -348,16 +351,16 @@ public @interface Command {
             return group.build();
         }
 
-        private void registerCalls(@Nullable Object target, HashSet<? super Node.Call> nodes, Class<?> source) {
+        private void registerCalls(@Nullable Object target, Collection<? super Node.Call> nodes, Class<?> source) {
             for (var callNodeSource : source.getMethods()) {
                 if (!callNodeSource.isAnnotationPresent(Command.class))
                     continue;
-                var node = registerCall(target, callNodeSource);
+                var node = createCallNode(target, callNodeSource);
                 nodes.add(node);
             }
         }
 
-        private Node.Call registerCall(@Nullable Object target, Method source) {
+        public Node.Call createCallNode(@Nullable Object target, Method source) {
             var attribute = Annotations.findAnnotations(Command.class, source)
                     .findFirst().orElseThrow().getAnnotation();
             var call = Node.Call.builder()
@@ -365,25 +368,26 @@ public @interface Command {
                     .method(source)
                     .callable(Invocable.ofMethodCall(target, source));
 
-            var params = new HashSet<Node.Parameter>();
+            var params = new ArrayList<Node.Parameter>();
             registerParameters(params, source);
-            call.parameters(params);
+            params.sort(Node.Parameter.COMPARATOR);
+            call.parameters(unmodifiableList(params));
 
             return call.build();
         }
 
-        private void registerParameters(Set<? super Node.Parameter> nodes, Method source) {
+        private void registerParameters(Collection<? super Node.Parameter> nodes, Method source) {
             var index = 0;
             for (var paramNodeSource : source.getParameters()) {
                 if (!paramNodeSource.isAnnotationPresent(Arg.class))
                     continue;
-                var node = registerParameter(index, source, paramNodeSource);
+                var node = createParameterNode(index, source, paramNodeSource);
                 nodes.add(node);
                 index += 1;
             }
         }
 
-        private Node.Parameter registerParameter(int index, Method origin, Parameter source) {
+        private Node.Parameter createParameterNode(int index, Method origin, Parameter source) {
             var attribute = Annotations.findAnnotations(Arg.class, source)
                     .findFirst().orElseThrow().getAnnotation();
             return Node.Parameter.builder()
@@ -426,7 +430,7 @@ public @interface Command {
                 var paramIndex = fullCommand.length - callIndex; // already offset bcs of length
                 parameter = call.parameters.get(paramIndex);
             }
-            return Stream.of(parameter.autoFill)
+            return of(parameter.autoFill)
                     .map(str -> new AutoCompletionOption(str, ""));
         }
 
@@ -496,7 +500,7 @@ public @interface Command {
             return Usage.builder()
                     .manager(this)
                     .fullCommand(fullCommand)
-                    .context(Stream.of(extraArgs).collect(Collectors.toSet())) // set should be modifiable
+                    .context(of(extraArgs).collect(Collectors.toSet())) // set should be modifiable
                     .node(baseNodes.stream() // find base node to initiate advancing to execution node
                             .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
                             .flatMap(Streams.cast(Node.Callable.class))
@@ -557,7 +561,7 @@ public @interface Command {
 
             @Override
             public Stream<Capability> capabilities() {
-                return Stream.of(Capability.NAMED_ARGS);
+                return of(Capability.NAMED_ARGS);
             }
 
             @Override
@@ -613,11 +617,11 @@ public @interface Command {
 
             @Override
             public void handleResponse(Usage cmd, @NotNull Object response, Object... args) {
-                final var e = Stream.of(args)
+                final var e = of(args)
                         .flatMap(cast(SlashCommandInteractionEvent.class))
                         .findAny()
                         .orElseThrow();
-                final var user = Stream.of(args)
+                final var user = of(args)
                         .flatMap(cast(User.class))
                         .findAny()
                         .orElseThrow();
