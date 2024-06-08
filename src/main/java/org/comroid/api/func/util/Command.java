@@ -25,6 +25,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.comroid.annotations.AnnotatedTarget;
 import org.comroid.annotations.Default;
+import org.comroid.annotations.Doc;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.*;
@@ -32,6 +33,7 @@ import org.comroid.api.data.seri.type.ArrayValueType;
 import org.comroid.api.data.seri.type.BoundValueType;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.data.seri.type.ValueType;
+import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
 import org.comroid.api.java.StackTraceUtils;
@@ -55,6 +57,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.api.func.util.Streams.cast;
@@ -119,17 +122,22 @@ public @interface Command {
     @Data
     @SuperBuilder
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    abstract class Node implements Named, Described, Aliased {
+    abstract class Node implements Named, Described, Aliased, Specifiable<Node> {
         @Nullable
         @Default
         String name = null;
 
         public abstract Stream<? extends Node> nodes();
 
+        @Override
+        public Stream<String> names() {
+            return Stream.concat(Stream.of(getName()), Aliased.super.names());
+        }
+
         @Data
         @SuperBuilder
         @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-        public static abstract class CommandNode extends Node {
+        public static abstract class Callable extends Node {
             @NotNull
             Command attribute;
 
@@ -143,13 +151,13 @@ public @interface Command {
 
             @Override
             public String getAlternateName() {
-                return null;
+                return null; // stub to prevent recursion loop
             }
         }
 
         @Value
         @SuperBuilder
-        public static class Group extends CommandNode {
+        public static class Group extends Callable {
             @NotNull
             @AnnotatedTarget
             Class<?> source;
@@ -171,7 +179,7 @@ public @interface Command {
 
         @Value
         @SuperBuilder
-        public static class Call extends CommandNode {
+        public static class Call extends Callable {
             @NotNull
             Invocable<?> call;
             @Singular
@@ -215,7 +223,7 @@ public @interface Command {
     @Value
     @Builder
     class Usage {
-        String fullCommand;
+        String[] fullCommand;
         @Singular("context")
         Set<Object> context;
         @Nullable
@@ -223,6 +231,16 @@ public @interface Command {
         Handler source = null;
         @NonFinal
         Node node;
+
+        public void advanceFull() {
+            // start from i=1 because the initial node was spawned at creation in Manager#createUsageBase()
+            for (var i = 1; i < fullCommand.length; i++) {
+                var text = fullCommand[i];
+                node = node.nodes()
+                        .filter(it -> it.names().anyMatch(text::equals))
+                        .findAny().orElseThrow();
+            }
+        }
     }
 
     @Value
@@ -338,10 +356,43 @@ public @interface Command {
             adapters.forEach(Adapter::initialize);
         }
 
-        public final Stream<AutoCompletionOption> autoComplete(String fullCommand, String argName, String currentValue) {
+        @Deprecated
+        public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String fullCommand, String argName, String currentValue) {
+            return autoComplete(fullCommand.split(" "), argName, currentValue);
         }
 
+        public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String[] fullCommand, String argName, String currentValue) {
+            var usage = createUsageBase(fullCommand);
+            usage.advanceFull();
+            return usage.node.nodes().map(node -> new AutoCompletionOption(node.getName(), node.getDescription()));
+        }
+
+        @Deprecated
         public final Object execute(String fullCommand, Object... extraArgs) {
+            return execute(fullCommand.split(" "), extraArgs);
+        }
+
+        public final Object execute(String[] fullCommand, Object... extraArgs) {
+            var usage = createUsageBase(fullCommand);
+            usage.advanceFull();
+
+            Node.Call call;
+            if (usage.node instanceof Node.Group group)
+                call = group.defaultCall;
+            else call = usage.node.as(Node.Call.class, "Invalid node type! Is your syntax correct?");
+
+            var args = call.sortArguments(usage, extraArgs);
+            return call.call.autoInvoke(args);
+        }
+
+        private Usage createUsageBase(String[] fullCommand, Object... extraArgs) {
+            return Usage.builder()
+                    .fullCommand(fullCommand)
+                    .context(Stream.of(extraArgs).collect(Collectors.toSet())) // set should be modifiable
+                    .node(baseNodes.stream() // find base node to initiate advancing to execution node
+                            .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
+                            .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand))))
+                    .build();
         }
 
         protected Optional<Adapter> adapter() {
