@@ -448,11 +448,15 @@ public @interface Command {
             } else {
                 // eg. minecraft
                 // assume all parameter names as their indices
-                var callIndex = Arrays.binarySearch(usage.fullCommand, call.getName());
+                var callIndex = call.names()
+                        .mapToInt(name -> Arrays.binarySearch(usage.fullCommand, name))
+                        .filter(x -> x >= 0)
+                        .findAny()
+                        .orElse(-1);
                 if (callIndex < 0 || callIndex >= usage.fullCommand.length)
                     throw new Error("Internal error computing argument position");
-                var paramIndex = usage.fullCommand.length - callIndex; // already offset bcs of length
-                if (paramIndex > call.parameters.size())
+                var paramIndex = usage.fullCommand.length - callIndex - 1; // already offset bcs of length
+                if (paramIndex >= call.parameters.size())
                     return empty();
                 parameter = call.parameters.get(paramIndex);
             }
