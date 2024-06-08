@@ -19,7 +19,9 @@ public class CommandTest {
     public void test() {
         var cmdr = new Command.Manager();
         cmdr.register(this);
-        var cmd = cmdr.getCommands().get("test");
+        var cmd = cmdr.getBaseNodes().stream()
+                .filter(node -> node.getName().equals("test"))
+                .findAny().orElseThrow();
 
         Assert.assertEquals("description mismatch", Desc, cmd.getDescription());
         Assert.assertEquals("failed to execute command", "2", cmdr.execute("test first second"));

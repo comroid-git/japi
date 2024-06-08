@@ -332,6 +332,8 @@ public @interface Command {
             var attribute = Annotations.findAnnotations(Command.class, source)
                     .findFirst().orElseThrow().getAnnotation();
             var group = Node.Group.builder()
+                    .name(EmptyAttribute.equals(attribute.value()) ? source.getName() : attribute.value())
+                    .attribute(attribute)
                     .source(source)
                     .attribute(attribute);
 
@@ -364,6 +366,8 @@ public @interface Command {
             var attribute = Annotations.findAnnotations(Command.class, source)
                     .findFirst().orElseThrow().getAnnotation();
             var call = Node.Call.builder()
+                    .name(EmptyAttribute.equals(attribute.value()) ? source.getName() : attribute.value())
+                    .attribute(attribute)
                     .target(target)
                     .method(source)
                     .callable(Invocable.ofMethodCall(target, source));
@@ -447,23 +451,28 @@ public @interface Command {
             if (usage.node instanceof Node.Group group)
                 call = group.defaultCall;
             else call = usage.node.as(Node.Call.class, "Invalid node type! Is your syntax correct?");
+            if (call == null)
+                throw new Error("No such command");
 
             // sort arguments
-            Object[] useArgs = new Object[call.method.getParameterCount()];
+            var parameterTypes = call.callable.parameterTypesOrdered();
+            Object[] useArgs = new Object[parameterTypes.length];
             var useNamedArgs = hasCapability(Capability.NAMED_ARGS);
             var callIndex = Arrays.binarySearch(fullCommand, call.getName());
             if (callIndex < 0 || callIndex >= fullCommand.length)
                 throw new Error("Internal error computing argument offset");
             for (int i = 0; i < useArgs.length; i++) {
-                var parameter = call.method.getParameters()[i];
-                var paramNode = call.parameters.stream()
-                        .filter(node -> node.getParam().equals(parameter))
-                        .findAny().orElse(null);
-                var attribute = parameter.getAnnotation(Arg.class);
+                var parameterType = parameterTypes[i];
+                var attribute = parameterType.getAnnotation(Arg.class);
+                Node.Parameter paramNode = null;
+                if (attribute != null)
+                    paramNode = call.parameters.stream()
+                            .filter(node -> node.attribute.equals(attribute))
+                            .findAny().orElseThrow();
                 if (attribute == null) {
                     // try to fit in an extraArg
                     useArgs[i] = Arrays.stream(extraArgs)
-                            .filter(parameter.getType()::isInstance)
+                            .filter(parameterType::isInstance)
                             .findAny()
                             .orElse(null);
                 } else if (useNamedArgs) {
@@ -482,16 +491,16 @@ public @interface Command {
                         throw new ArgumentError("Not enough arguments");
                     var argStr = fullCommand[argIndex];
 
-                    useArgs[i] = StandardValueType.forClass(parameter.getType())
+                    useArgs[i] = StandardValueType.forClass(parameterType)
                             .map(svt -> (Object) svt.parse(argStr))
-                            .orElseGet(() -> Activator.get(parameter.getType())
+                            .orElseGet(() -> Activator.get(parameterType)
                                     .createInstance(DataNode.of(argStr)));
                 }
             }
 
             try {
-                return call.method.invoke(call.target, useArgs);
-            } catch (IllegalAccessException | InvocationTargetException e) {
+                return call.callable.invoke(call.target, useArgs);
+            } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
                 throw new Error(usage, "Internal execution Error", e, new String[0]);
             }
         }
