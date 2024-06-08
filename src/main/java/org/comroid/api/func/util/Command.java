@@ -56,13 +56,13 @@ import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.util.Collections.unmodifiableList;
+import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
@@ -88,7 +88,7 @@ public @interface Command {
 
         public interface Provider {
             default Stream<Capability> capabilities() {
-                return Stream.empty();
+                return empty();
             }
 
             default boolean hasCapability(Capability capability) {
@@ -114,7 +114,7 @@ public @interface Command {
     interface Handler extends Capability.Provider {
         void handleResponse(Usage command, @NotNull Object response, Object... args);
 
-        default @Nullable String handleThrowable(Throwable throwable) {
+        default String handleThrowable(Throwable throwable) {
             Log.get().log(Level.WARNING, "Exception occurred in command", throwable);
             var msg = "%s: %s".formatted(StackTraceUtils.lessSimpleName(throwable.getClass()), throwable.getMessage());
             if (throwable instanceof Error)
@@ -254,7 +254,7 @@ public @interface Command {
 
             @Override
             public Stream<? extends Node> nodes() {
-                return Stream.empty();
+                return empty();
             }
         }
     }
@@ -271,7 +271,9 @@ public @interface Command {
         Set<Object> context;
         @Nullable
         @Default
-        Handler source = null;
+        @NonFinal
+        @Setter
+        Handler source;
         @NonFinal
         Node.Callable node;
 
@@ -425,6 +427,10 @@ public @interface Command {
 
         public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String[] fullCommand, String argName, String currentValue) {
             var usage = createUsageBase(fullCommand);
+            return autoComplete(usage, argName, currentValue);
+        }
+
+        public final Stream<AutoCompletionOption> autoComplete(Usage usage, String argName, String currentValue) {
             usage.advanceFull();
             if (!(usage.node instanceof Node.Call call))
                 return usage.node.nodes().map(Node::getName)
@@ -442,10 +448,10 @@ public @interface Command {
             } else {
                 // eg. minecraft
                 // assume all parameter names as their indices
-                var callIndex = Arrays.binarySearch(fullCommand, call.getName());
-                if (callIndex < 0 || callIndex >= fullCommand.length)
+                var callIndex = Arrays.binarySearch(usage.fullCommand, call.getName());
+                if (callIndex < 0 || callIndex >= usage.fullCommand.length)
                     throw new Error("Internal error computing argument position");
-                var paramIndex = fullCommand.length - callIndex; // already offset bcs of length
+                var paramIndex = usage.fullCommand.length - callIndex; // already offset bcs of length
                 if (paramIndex > call.parameters.size())
                     return empty();
                 parameter = call.parameters.get(paramIndex);
@@ -461,83 +467,98 @@ public @interface Command {
 
         public final Object execute(String[] fullCommand, @Nullable Map<String, Object> namedArgs, Object... extraArgs) throws Error, ArgumentError {
             var usage = createUsageBase(fullCommand);
-            usage.advanceFull();
+            return execute(usage, namedArgs, extraArgs);
+        }
 
-            Node.Call call;
-            if (usage.node instanceof Node.Group group)
-                call = group.defaultCall;
-            else call = usage.node.as(Node.Call.class, "Invalid node type! Is your syntax correct?");
-            if (call == null)
-                throw new Error("No such command");
-
-            // sort arguments
-            var parameterTypes = call.callable.parameterTypesOrdered();
-            Object[] useArgs = new Object[parameterTypes.length];
-            var useNamedArgs = hasCapability(Capability.NAMED_ARGS);
-            var callIndex = IntStream.range(0, fullCommand.length)
-                    .filter(i -> fullCommand[i].equals(call.getName()))
-                    .findFirst().orElse(-1);
-            //var callIndex = Arrays.binarySearch(fullCommand, call.getName());
-            if (callIndex < 0 || callIndex >= fullCommand.length)
-                throw new Error("Internal error");
-            for (int i = 0; i < useArgs.length; i++) {
-                final int i0 = i;
-                var parameterType = parameterTypes[i];
-                var parameter = Stream.of(call.callable.accessor())
-                        .flatMap(Streams.cast(Method.class))
-                        .map(mtd -> mtd.getParameters()[i0])
-                        .findAny();
-                var attribute = parameter
-                        .flatMap(param -> Annotations.findAnnotations(Arg.class, param).findFirst())
-                        .map(Annotations.Result::getAnnotation)
-                        .orElse(null);
-                Node.Parameter paramNode = null;
-                if (attribute != null)
-                    paramNode = call.parameters.stream()
-                            .filter(node -> node.attribute.equals(attribute))
-                            .findAny().orElseThrow();
-                if (attribute == null) {
-                    // try to fit in an extraArg
-                    useArgs[i] = Arrays.stream(extraArgs)
-                            .filter(parameterType::isInstance)
-                            .findAny()
-                            .orElseGet(() -> {
-                                if (parameter.stream().flatMap(Aliased::$).anyMatch("args"::equals)
-                                        && parameterType.isArray()
-                                        && parameterType.getComponentType().equals(String.class)) {
-                                    var args = new String[fullCommand.length - callIndex - 1];
-                                    System.arraycopy(fullCommand, callIndex + 1, args, 0, args.length);
-                                    return args;
-                                } else return null;
-                            });
-                } else if (useNamedArgs) {
-                    // eg. discord
-                    Constraint.notNull(namedArgs, "args").run();
-                    Constraint.notNull(paramNode, "parameter").run();
-                    if (paramNode.isRequired() && !namedArgs.containsKey(paramNode.getName()))
-                        throw new ArgumentError("Missing argument " + paramNode.getName());
-
-                    useArgs[i] = namedArgs.get(paramNode.getName());
-                } else {
-                    // eg. console, minecraft
-                    Constraint.notNull(paramNode, "parameter").run();
-                    var argIndex = callIndex + i;
-                    if (paramNode.isRequired() && argIndex > fullCommand.length)
-                        throw new ArgumentError("Not enough arguments");
-                    var argStr = fullCommand[argIndex];
-
-                    useArgs[i] = StandardValueType.forClass(parameterType)
-                            .map(svt -> (Object) svt.parse(argStr))
-                            .orElseGet(() -> Activator.get(parameterType)
-                                    .createInstance(DataNode.of(argStr)));
-                }
-            }
-
+        public final Object execute(Usage usage, @Nullable Map<String, Object> namedArgs, Object... extraArgs) throws Error, ArgumentError {
+            Object response = "internal error";
+            Handler handler = adapters.stream().findAny()
+                    .<Handler>map(identity())
+                    .orElseGet(() -> usage.source == null ? this.handler : usage.source);
             try {
-                return call.callable.invoke(call.target, useArgs);
-            } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
-                throw new Error(usage, "Internal execution Error", e, new String[0]);
+                usage.advanceFull();
+
+                Node.Call call;
+                if (usage.node instanceof Node.Group group)
+                    call = group.defaultCall;
+                else call = usage.node.as(Node.Call.class, "Invalid node type! Is your syntax correct?");
+                if (call == null)
+                    throw new Error("No such command");
+
+                // sort arguments
+                var parameterTypes = call.callable.parameterTypesOrdered();
+                Object[] useArgs = new Object[parameterTypes.length];
+                var useNamedArgs = hasCapability(Capability.NAMED_ARGS);
+                var callIndex = IntStream.range(0, usage.fullCommand.length)
+                        .filter(i -> {
+                            var str = usage.fullCommand[i];
+                            return "$".equals(call.getName()) || str.equals(call.getName());
+                        })
+                        .findFirst().orElse(-1);
+                //var callIndex = Arrays.binarySearch(fullCommand, call.getName());
+                if (callIndex < 0 || callIndex >= usage.fullCommand.length)
+                    throw new Error("No such command: " + String.join(" ", usage.fullCommand));
+                for (int i = 0; i < useArgs.length; i++) {
+                    final int i0 = i;
+                    var parameterType = parameterTypes[i];
+                    var parameter = of(call.callable.accessor())
+                            .flatMap(cast(Method.class))
+                            .map(mtd -> mtd.getParameters()[i0])
+                            .findAny();
+                    var attribute = parameter
+                            .flatMap(param -> Annotations.findAnnotations(Arg.class, param).findFirst())
+                            .map(Annotations.Result::getAnnotation)
+                            .orElse(null);
+                    Node.Parameter paramNode = null;
+                    if (attribute != null)
+                        paramNode = call.parameters.stream()
+                                .filter(node -> node.attribute.equals(attribute))
+                                .findAny().orElseThrow();
+                    if (attribute == null) {
+                        // try to fit in an extraArg
+                        useArgs[i] = Arrays.stream(extraArgs)
+                                .filter(parameterType::isInstance)
+                                .findAny()
+                                .orElseGet(() -> {
+                                    if (parameter.stream().flatMap(Aliased::$).anyMatch("args"::equals)
+                                            && parameterType.isArray()
+                                            && parameterType.getComponentType().equals(String.class)) {
+                                        var args = new String[usage.fullCommand.length - callIndex - 1];
+                                        System.arraycopy(usage.fullCommand, callIndex + 1, args, 0, args.length);
+                                        return args;
+                                    } else return null;
+                                });
+                    } else if (useNamedArgs) {
+                        // eg. discord
+                        Constraint.notNull(namedArgs, "args").run();
+                        Constraint.notNull(paramNode, "parameter").run();
+                        if (paramNode.isRequired() && !namedArgs.containsKey(paramNode.getName()))
+                            throw new ArgumentError("Missing argument " + paramNode.getName());
+
+                        useArgs[i] = namedArgs.get(paramNode.getName());
+                    } else {
+                        // eg. console, minecraft
+                        Constraint.notNull(paramNode, "parameter").run();
+                        var argIndex = callIndex + i;
+                        if (paramNode.isRequired() && argIndex > usage.fullCommand.length)
+                            throw new ArgumentError("Not enough arguments");
+                        var argStr = usage.fullCommand[argIndex];
+
+                        useArgs[i] = StandardValueType.forClass(parameterType)
+                                .map(svt -> (Object) svt.parse(argStr))
+                                .orElseGet(() -> Activator.get(parameterType)
+                                        .createInstance(DataNode.of(argStr)));
+                    }
+                }
+
+                response = call.callable.invoke(call.target, useArgs);
+            } catch (Throwable e) {
+                Log.at(Level.WARNING, "An error ocurred during command execution", e);
+                response = handler.handleThrowable(e);
             }
+            if (response != null)
+                handler.handleResponse(usage, response, extraArgs);
+            return response;
         }
 
         private Usage createUsageBase(String[] fullCommand, Object... extraArgs) {
@@ -547,7 +568,7 @@ public @interface Command {
                     .context(of(extraArgs).collect(Collectors.toSet())) // set should be modifiable
                     .node(baseNodes.stream() // find base node to initiate advancing to execution node
                             .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
-                            .flatMap(Streams.cast(Node.Callable.class))
+                            .flatMap(cast(Node.Callable.class))
                             .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand))))
                     .build();
         }
@@ -681,7 +702,7 @@ public @interface Command {
                                 } else req = hook.sendMessage(String.valueOf(resp));
                                 return req.submit();
                             })
-                            .thenCompose(Function.identity())
+                            .thenCompose(identity())
                             .exceptionally(Polyfill.exceptionLogger());
                 else {
                     ReplyCallbackAction req;
