@@ -3,9 +3,12 @@ package org.comroid.api.func.util;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
+import lombok.experimental.SuperBuilder;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.IMentionable;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.GuildChannelUnion;
 import net.dv8tion.jda.api.events.GenericEvent;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
@@ -20,11 +23,11 @@ import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.comroid.annotations.AnnotatedTarget;
 import org.comroid.annotations.Default;
 import org.comroid.annotations.internal.Annotations;
-import org.comroid.api.attr.*;
-import org.comroid.annotations.AnnotatedTarget;
 import org.comroid.api.Polyfill;
+import org.comroid.api.attr.*;
 import org.comroid.api.data.seri.type.ArrayValueType;
 import org.comroid.api.data.seri.type.BoundValueType;
 import org.comroid.api.data.seri.type.StandardValueType;
@@ -39,10 +42,12 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.PrintStream;
 import java.io.StringWriter;
-import java.lang.annotation.*;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,6 +77,8 @@ public @interface Command {
     @Target(ElementType.PARAMETER)
     @Retention(RetentionPolicy.RUNTIME)
     @interface Arg {
+        String value() default EmptyAttribute;
+
         int index() default -1;
 
         String[] autoFill() default {};
@@ -79,31 +86,10 @@ public @interface Command {
         Default[] defaultValue() default {};
 
         boolean required() default true;
-
-        @Value
-        class Delegate implements Named, Described, Aliased {
-            Command cmd;
-            String name;
-            @AnnotatedTarget Parameter param;
-            boolean required;
-            int index;
-            String[] autoFill;
-            @Nullable Object defaultValue;
-
-            public Delegate(Command cmd, Parameter param, boolean required, int index, String... autoFill) {
-                this.cmd = cmd;
-                this.param = param;
-                this.name = Annotations.aliases(param).stream().findAny().orElseGet(param::getName);
-                this.index = index;
-                this.defaultValue = Annotations.defaultValue(param);
-                this.required = required;
-                this.autoFill = autoFill;
-            }
-        }
     }
 
     interface Handler {
-        void handleResponse(Delegate cmd, @NotNull Object response, Object... args);
+        void handleResponse(Usage command, @NotNull Object response, Object... args);
 
         default @Nullable String handleThrowable(Throwable throwable) {
             Log.get().log(Level.WARNING, "Exception occurred in command", throwable);
@@ -129,44 +115,118 @@ public @interface Command {
         }
     }
 
-    @Getter
-    @Setter
-    class Error extends RuntimeException {
-        private Delegate command;
-        private String[] args;
+    @Data
+    @SuperBuilder
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    abstract class Node implements Named, Described, Aliased {
+        @Nullable
+        @Default
+        String name = null;
 
-        public Error(String message) {
-            this(null, message, null);
+        public abstract Stream<? extends Node> nodes();
+
+        @Data
+        @SuperBuilder
+        @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+        public static abstract class CommandNode extends Node {
+            @NotNull
+            Command attribute;
+
+            public @Nullable String getName() {
+                return EmptyAttribute.equals(attribute.value())
+                        ? Optional.ofNullable(super.getName())
+                        .or(() -> Optional.ofNullable(getAlternateName()))
+                        .orElseThrow(() -> new NullPointerException("No name defined for command " + this))
+                        : attribute.value();
+            }
+
+            @Override
+            public String getAlternateName() {
+                return null;
+            }
         }
 
-        public Error(Delegate command, String message, String[] args) {
-            super(message);
-            this.command = command;
-            this.args = args;
+        @Value
+        @SuperBuilder
+        public static class Group extends CommandNode {
+            @NotNull
+            @AnnotatedTarget
+            Class<?> source;
+            @Singular
+            List<Group> groups;
+            @Singular
+            List<Call> calls;
+            @Nullable
+            @Default
+            Call defaultCall;
+
+            @Override
+            public Stream<? extends Node> nodes() {
+                return Stream.concat(groups.stream(), calls.stream());
+            }
         }
 
-        public Error(Delegate command, String message, Throwable cause, String[] args) {
-            super(message, cause);
-            this.command = command;
-            this.args = args;
+        @Value
+        @SuperBuilder
+        public static class Call extends CommandNode {
+            @NotNull
+            Invocable<?> call;
+            @Singular
+            List<Parameter> parameters;
+
+            @Override
+            public Wrap<AnnotatedElement> element() {
+                return Wrap.of(call.accessor());
+            }
+
+            @Override
+            public String getAlternateName() {
+                return call.getName();
+            }
+
+            @Override
+            public Stream<? extends Node> nodes() {
+                return parameters.stream();
+            }
+        }
+
+        @Value
+        @SuperBuilder
+        public static class Parameter extends Node implements Default.Extension {
+            @NotNull
+            Arg attribute;
+            @NotNull
+            @AnnotatedTarget
+            java.lang.reflect.Parameter param;
+            boolean required;
+            int index;
+            String[] autoFill;
+
+            @Override
+            public Stream<? extends Node> nodes() {
+                return Stream.empty();
+            }
         }
     }
 
-    class ArgumentError extends Error {
-        public ArgumentError(String message) {
-            super(message);
-        }
-
-        public ArgumentError(String nameof, @Nullable String detail) {
-            super("Invalid argument '" + nameof + "'" + Optional.ofNullable(detail).map(d -> "; " + d).orElse(""));
-        }
+    @Value
+    @Builder
+    class Usage {
+        String fullCommand;
+        @Singular("context")
+        Set<Object> context;
+        @Nullable
+        @Default
+        Handler source = null;
+        @NonFinal
+        Node node;
     }
 
     @Value
     @NonFinal
     @ToString(of = {"id"})
     class Manager implements Initializable {
-        public static final Handler DefaultHandler = (cmd, x, args) -> System.out.println(x);
+        public static final Handler DefaultHandler = (command, x, args) -> System.out.println(x);
         UUID id = UUID.randomUUID();
         Map<String, Delegate> commands = new ConcurrentHashMap<>();
         Handler handler;
@@ -182,8 +242,8 @@ public @interface Command {
 
         @SuppressWarnings("UnusedReturnValue")
         public final int register(final Object target) {
-            var cls = target.getClass();
-            return (int) Arrays.stream(cls.getMethods())
+            var src = target instanceof Class<?> cls0 ? cls0 : target.getClass();
+            return (int) Arrays.stream(src.getMethods())
                     .filter(mtd -> mtd.isAnnotationPresent(Command.class))
                     .map(mtd -> {
                         var cmd = Optional.of(mtd.getAnnotation(Command.class));
@@ -628,7 +688,7 @@ public @interface Command {
             }
 
             @Override
-            public void handleResponse(Delegate cmd, @NotNull Object response, Object... args) {
+            public void handleResponse(Usage command, @NotNull Object response, Object... args) {
                 var message = response instanceof CompletableFuture<?> future ? future.join() : response;
                 var sender = Arrays.stream(args)
                         .flatMap(cast(CommandSender.class))
@@ -643,104 +703,39 @@ public @interface Command {
         }
     }
 
-    @Value
-    @SuppressWarnings("ClassExplicitlyAnnotation")
-    @ToString(of = {"name", "permission", "ephemeral", "usage"})
-    class Delegate implements Command, Named, Described, Aliased {
-        @AnnotatedTarget Method method;
-        Object target;
-        String name;
-        String permission;
-        boolean ephemeral;
-        @Nullable UsageInfo usage;
-        List<Arg.Delegate> args;
+    record AutoCompletionOption(String key, String description) {
+    }
 
-        private Delegate(Method method, Object target, String name, String permission, boolean ephemeral, @Nullable String usage, List<Arg.Delegate> args) {
-            this.method = method;
-            this.target = target;
-            this.name = name;
-            this.permission = permission;
-            this.ephemeral = ephemeral;
-            this.usage = usage == null ? null : parseUsageInfo(usage);
+    @Getter
+    @Setter
+    class Error extends RuntimeException {
+        private Usage command;
+        private String[] args;
+
+        public Error(String message) {
+            this(null, message, null);
+        }
+
+        public Error(Usage command, String message, String[] args) {
+            super(message);
+            this.command = command;
             this.args = args;
         }
 
-        @Override
-        public String value() {
-            return name;
+        public Error(Usage command, String message, Throwable cause, String[] args) {
+            super(message, cause);
+            this.command = command;
+            this.args = args;
+        }
+    }
+
+    class ArgumentError extends Error {
+        public ArgumentError(String message) {
+            super(message);
         }
 
-        @Override
-        @Nullable
-        public String usage() {
-            return usage != null ? usage.hint : null;
-        }
-
-        @Override
-        public String permission() {
-            return permission;
-        }
-
-        public <T> T parsePermission(StandardValueType<T> to) {
-            var it = StandardValueType.findGoodType(permission);
-            return StandardValueType.typeOf(it).convert(permission, to);
-        }
-
-        @Override
-        public boolean ephemeral() {
-            return ephemeral;
-        }
-
-        @Override
-        public Class<? extends Annotation> annotationType() {
-            return Command.class;
-        }
-
-        private Object execute(Map<String, Object> args, Object... extraArgs)
-                throws InvocationTargetException, IllegalAccessException, InstantiationException {
-            final var params = new Object[method.getParameterCount()];
-            for (int i = 0; i < method.getParameters().length; i++) {
-                final var parameter = method.getParameters()[i];
-                params[i] = Stream.concat(Stream.of(parameter.getName()), Aliased.$(parameter))
-                        .filter(args::containsKey)
-                        .findAny()
-                        .map(args::get)
-                        .map(it -> {
-                            var type = it.getClass();
-                            // parse primitive java types
-                            if (!type.isArray() && type.getPackageName().startsWith("java"))
-                                return StandardValueType.findGoodType(String.valueOf(it));
-                            return it;
-                        })
-                        .or(() -> Arrays.stream(extraArgs)
-                                .flatMap(cast(parameter.getType()))
-                                .findAny())
-                        .orElse(null);
-            }
-            return method.invoke(target, params);
-        }
-
-        private UsageInfo parseUsageInfo(String usage) {
-            var split = usage.split(" ");
-            return new UsageInfo(usage,
-                    (int) Arrays.stream(split).filter(s -> s.startsWith("<")).count(),
-                    split.length,
-                    Arrays.stream(split).skip(split.length - 1).anyMatch(s -> s.contains("..")));
-        }
-
-        @Value
-        private class UsageInfo {
-            String hint;
-            int required;
-            int total;
-            boolean ellipsis;
-
-            private void validate(String[] args) {
-                if (args.length < required)
-                    throw new Error("not enough arguments; usage: " + name + " " + hint);
-                if (!ellipsis && args.length > total)
-                    throw new Error("too many arguments; usage: " + name + " " + hint);
-            }
+        public ArgumentError(String nameof, @Nullable String detail) {
+            super("Invalid argument '" + nameof + "'" + Optional.ofNullable(detail).map(d -> "; " + d).orElse(""));
         }
     }
 }

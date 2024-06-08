@@ -2,15 +2,15 @@ package org.comroid.api.func.util;
 
 import org.comroid.annotations.Ignore;
 import org.comroid.annotations.OptionalVararg;
-import org.comroid.api.attr.Named;
 import org.comroid.api.Polyfill;
+import org.comroid.api.attr.Named;
 import org.comroid.api.func.Provider;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.func.exc.ThrowingSupplier;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
-import org.comroid.exception.RethrownException;
 import org.comroid.api.java.ReflectionHelper;
+import org.comroid.exception.RethrownException;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.NotNull;
@@ -493,6 +493,11 @@ public interface Invocable<T> extends Named {
 
             @Override
             public String getName() {
+                return method.getName();
+            }
+
+            @Override
+            public String getAlternateName() {
                 return String.format("OfMethod(%s @ %s)", method.getName(), target);
             }
 
