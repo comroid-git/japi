@@ -425,8 +425,9 @@ public @interface Command {
         public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String[] fullCommand, String argName, String currentValue) {
             var usage = createUsageBase(fullCommand);
             usage.advanceFull();
-            var call = usage.node.as(Node.Call.class)
-                    .orElseThrow(() -> new Error("Invalid node state! Is your syntax correct?"));
+            if (!(usage.node instanceof Node.Call call))
+                return usage.node.nodes().map(Node::getName)
+                        .map(str -> new AutoCompletionOption(str, ""));
             Node.Parameter parameter;
             if (hasCapability(Capability.NAMED_ARGS)) {
                 // eg. discord
