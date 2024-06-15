@@ -121,7 +121,11 @@ public @interface Command {
             while (throwable instanceof InvocationTargetException itex)
                 throwable = throwable.getCause();
             Log.get().log(Level.WARNING, "Exception occurred in command", throwable);
-            var msg = "%s: %s".formatted(StackTraceUtils.lessSimpleName(throwable.getClass()), throwable.getMessage());
+            var msg = "%s: %s".formatted(
+                    throwable instanceof Command.Error
+                            ? throwable.getClass().getSimpleName()
+                            : StackTraceUtils.lessSimpleName(throwable.getClass()),
+                    throwable.getMessage());
             if (throwable instanceof Error)
                 return msg;
             var buf = new StringWriter();
