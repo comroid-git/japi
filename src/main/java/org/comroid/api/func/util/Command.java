@@ -589,6 +589,8 @@ public @interface Command {
                 }
 
                 result = response = call.callable.invoke(call.target, useArgs);
+            } catch (Command.Error err) {
+                response = handler.handleThrowable(err);
             } catch (Throwable e) {
                 Log.at(Level.WARNING, "An error ocurred during command execution", e);
                 response = handler.handleThrowable(e);

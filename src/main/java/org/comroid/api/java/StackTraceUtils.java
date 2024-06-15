@@ -1,12 +1,13 @@
 package org.comroid.api.java;
 
 import lombok.experimental.UtilityClass;
-import org.comroid.api.func.util.DelegateStream;
 import org.comroid.api.func.util.Debug;
+import org.comroid.api.func.util.DelegateStream;
 import org.comroid.api.func.util.Streams;
 
 import java.io.PrintStream;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -14,6 +15,8 @@ import java.util.stream.Stream;
 
 @UtilityClass
 public final class StackTraceUtils {
+    public static final List<String> EXTRA_FILTER_NAMES = new ArrayList<>();
+
     public static String callerString(StackTraceElement[] trace, int index) {
         var me = trace[index];
         var prev = trace[index - 1];
@@ -32,9 +35,9 @@ public final class StackTraceUtils {
             if (filter.contains("$")) filter = filter.substring(filter.lastIndexOf('$'));
             for (int i = skip; i < trace.length; i++) {
                 if (!trace[i].toString().contains(filter))
-                    return callerString(trace,i);
+                    return callerString(trace, i);
             }
-            return callerString(trace,1);
+            return callerString(trace, 1);
         } catch (ArrayIndexOutOfBoundsException e) {
             throw new IllegalArgumentException(String.format("Cannot skip %d classes", skip), e);
         }
@@ -101,9 +104,9 @@ public final class StackTraceUtils {
     }
 
     public static void wrap(Throwable cause, PrintStream out, boolean shorten) {
-        if (shorten || !Debug.isDebug()){
+        if (shorten || !Debug.isDebug()) {
             writeFilteredStacktrace(cause, out);
-        }else cause.printStackTrace(out);
+        } else cause.printStackTrace(out);
     }
 
     public static void writeFilteredStacktrace(Throwable cause, PrintStream out, String... pkgs) {
@@ -117,7 +120,7 @@ public final class StackTraceUtils {
                     first = false;
                     continue;
                 }
-                if (Stream.of("org.comroid","java")
+                if (Stream.concat(Stream.of("java", "org.comroid"), EXTRA_FILTER_NAMES.stream())
                         .collect(Streams.append(pkgs))
                         .anyMatch(element.getClassName()::startsWith))
                     out.println("\tat " + element);
