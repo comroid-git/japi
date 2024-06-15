@@ -1,6 +1,7 @@
 package org.comroid.api.info;
 
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Data;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.StandardException;
 import lombok.experimental.UtilityClass;
@@ -217,6 +218,7 @@ public class Constraint {
         public API invert() {
             final var wrap = test;
             test = () -> !wrap.getAsBoolean();
+            shouldBe = DefaultShouldBe + "; should not be ";
             return this;
         }
 

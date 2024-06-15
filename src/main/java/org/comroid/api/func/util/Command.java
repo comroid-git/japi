@@ -122,10 +122,14 @@ public @interface Command {
                 throwable = throwable.getCause();
             Log.get().log(Level.WARNING, "Exception occurred in command", throwable);
             var msg = "%s: %s".formatted(
-                    throwable instanceof Command.Error
+                    throwable instanceof Error
                             ? throwable.getClass().getSimpleName()
                             : StackTraceUtils.lessSimpleName(throwable.getClass()),
-                    throwable.getMessage());
+                    throwable.getMessage() == null
+                            ? throwable.getCause() == null
+                            ? "Internal Error"
+                            : throwable.getCause().getClass().getSimpleName() + ": " + throwable.getCause().getMessage()
+                            : throwable.getMessage());
             if (throwable instanceof Error)
                 return msg;
             var buf = new StringWriter();
@@ -274,6 +278,7 @@ public @interface Command {
     @Value
     @Builder
     class Usage {
+        public static Usage Dummy = Usage.builder().build();
         Manager manager;
         String[] fullCommand;
         @Singular("context")
@@ -283,15 +288,23 @@ public @interface Command {
         @NonFinal
         @Setter
         Handler source;
+        Node.Callable baseNode;
         @NonFinal
         Node.Callable node;
+        @NonFinal
+        int callIndex;
 
         public void advanceFull() {
+            // reset if necessary
+            if (callIndex != 0) {
+                node = baseNode;
+                callIndex = 0;
+            }
             // start from i=1 because the initial node was spawned at creation in Manager#createUsageBase()
             for (var i = 1; i < fullCommand.length; i++) {
-                var text = fullCommand[i];
                 if (node instanceof Node.Call) // do not advance into parameters
                     break;
+                var text = fullCommand[i];
                 var result = node.nodes()
                         .filter(it -> it.names().anyMatch(text::equals))
                         .flatMap(cast(Node.Callable.class))
@@ -299,6 +312,7 @@ public @interface Command {
                 if (result.isEmpty())
                     break;
                 node = result.get();
+                callIndex = i;
             }
         }
     }
@@ -516,25 +530,20 @@ public @interface Command {
                 usage.advanceFull();
 
                 Node.Call call;
-                if (usage.node instanceof Node.Group group)
+                if (usage.node instanceof Node.Group group) {
                     call = group.defaultCall;
-                else call = usage.node.as(Node.Call.class, "Invalid node type! Is your syntax correct?");
+                    //usage.callIndex += 1;
+                } else call = usage.node.as(Node.Call.class, "Invalid node type! Is your syntax correct?");
                 if (call == null)
                     throw new Error("No such command");
 
                 // sort arguments
+                if (usage.callIndex < 0 || usage.callIndex >= usage.fullCommand.length)
+                    throw new Error("No such command: " + String.join(" ", usage.fullCommand));
                 var parameterTypes = call.callable.parameterTypesOrdered();
                 Object[] useArgs = new Object[parameterTypes.length];
                 var useNamedArgs = hasCapability(Capability.NAMED_ARGS);
-                var callIndex = IntStream.range(0, usage.fullCommand.length)
-                        .filter(i -> {
-                            var str = usage.fullCommand[i];
-                            return "$".equals(call.getName()) || str.equals(call.getName());
-                        })
-                        .findFirst().orElse(-1);
-                //var callIndex = Arrays.binarySearch(fullCommand, call.getName());
-                if (callIndex < 0 || callIndex >= usage.fullCommand.length)
-                    throw new Error("No such command: " + String.join(" ", usage.fullCommand));
+                var argIndex = usage.callIndex + 1;
                 for (int i = 0; i < useArgs.length; i++) {
                     final int i0 = i;
                     var parameterType = parameterTypes[i];
@@ -558,10 +567,10 @@ public @interface Command {
                                 .findAny()
                                 .orElseGet(() -> {
                                     if (parameter.stream().flatMap(Aliased::$).anyMatch("args"::equals)
-                                            && parameterType.isArray()
-                                            && parameterType.getComponentType().equals(String.class)) {
-                                        var args = new String[usage.fullCommand.length - callIndex - 1];
-                                        System.arraycopy(usage.fullCommand, callIndex + 1, args, 0, args.length);
+                                        && parameterType.isArray()
+                                        && parameterType.getComponentType().equals(String.class)) {
+                                        var args = new String[usage.fullCommand.length - usage.callIndex - 1];
+                                        System.arraycopy(usage.fullCommand, usage.callIndex + 1, args, 0, args.length);
                                         return args;
                                     } else return null;
                                 });
@@ -576,10 +585,10 @@ public @interface Command {
                     } else {
                         // eg. console, minecraft
                         Constraint.notNull(paramNode, "parameter").run();
-                        var argIndex = callIndex + i;
-                        if (paramNode.isRequired() && argIndex > usage.fullCommand.length)
+                        if (paramNode.isRequired() && argIndex >= usage.fullCommand.length)
                             throw new ArgumentError("Not enough arguments");
                         var argStr = usage.fullCommand[argIndex];
+                        argIndex += 1;
 
                         useArgs[i] = StandardValueType.forClass(parameterType)
                                 .map(svt -> (Object) svt.parse(argStr))
@@ -589,7 +598,7 @@ public @interface Command {
                 }
 
                 result = response = call.callable.invoke(call.target, useArgs);
-            } catch (Command.Error err) {
+            } catch (Error err) {
                 response = handler.handleThrowable(err);
             } catch (Throwable e) {
                 Log.at(Level.WARNING, "An error ocurred during command execution", e);
@@ -601,15 +610,17 @@ public @interface Command {
         }
 
         private Usage createUsageBase(Handler source, String[] fullCommand, Object... extraArgs) {
+            var baseNode = baseNodes.stream() // find base node to initiate advancing to execution node
+                    .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
+                    .flatMap(cast(Node.Callable.class))
+                    .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand)));
             return Usage.builder()
                     .source(source)
                     .manager(this)
                     .fullCommand(fullCommand)
                     .context(of(extraArgs).collect(Collectors.toSet())) // set should be modifiable
-                    .node(baseNodes.stream() // find base node to initiate advancing to execution node
-                            .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
-                            .flatMap(cast(Node.Callable.class))
-                            .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand))))
+                    .baseNode(baseNode)
+                    .node(baseNode)
                     .build();
         }
 
@@ -991,6 +1002,10 @@ public @interface Command {
     class Error extends RuntimeException {
         private Usage command;
         private String[] args;
+
+        public Error(Throwable cause) {
+            this(Usage.Dummy, null, cause, null);
+        }
 
         public Error(String message) {
             this(null, message, null);

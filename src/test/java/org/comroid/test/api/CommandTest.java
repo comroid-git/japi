@@ -28,10 +28,16 @@ public class CommandTest {
         Assert.assertEquals("failed to execute command", "2", cmdr.execute("test first second"));
         var name = Token.random(8, false);
         Assert.assertEquals("failed to execute command", "hello %s: %d".formatted(name, 1), cmdr.execute("user create " + name));
+        Assert.assertEquals("failed to execute command", name + " is lit af", cmdr.execute("user " + name));
     }
 
     @Command
     public static class user {
+        @Command
+        public static String $(@Command.Arg String name) {
+            return name + " is lit af";
+        }
+
         @Command
         public static String create(@Alias("args") String[] args, @Command.Arg String name) {
             return "hello " + name + ": " + args.length;
