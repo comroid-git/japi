@@ -5,9 +5,8 @@ import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.test.Dummy;
-import org.junit.Test;
-
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class DataStructureTest {
     @Test
@@ -15,8 +14,8 @@ public class DataStructureTest {
         var struct = DataStructure.of(Dummy.Fruit.class);
         //System.out.println(Debug.createObjectDump(struct));
 
-        assertEquals("invalid fruit constructor count", 1, struct.getConstructors().size());
-        assertEquals("invalid fruit property count", 2, struct.getDeclaredProperties().size());
+        Assertions.assertEquals(1, struct.getConstructors().size(), "invalid fruit constructor count");
+        Assertions.assertEquals(2, struct.getDeclaredProperties().size(), "invalid fruit property count");
 
         //price
         testProp(struct, StandardValueType.DOUBLE, "price", 1.99);
@@ -27,8 +26,8 @@ public class DataStructureTest {
         var struct = DataStructure.of(Dummy.Apple.class);
         //System.out.println(Debug.createObjectDump(struct));
 
-        assertEquals("invalid apple constructor count", 2, struct.getConstructors().size());
-        assertEquals("invalid apple property count", 2, struct.getDeclaredProperties().size());
+        Assertions.assertEquals(2, struct.getConstructors().size(), "invalid apple constructor count");
+        Assertions.assertEquals(2, struct.getDeclaredProperties().size(), "invalid apple property count");
 
         // price
         testProp(struct, StandardValueType.DOUBLE, "price", 0.99);
@@ -42,8 +41,8 @@ public class DataStructureTest {
         var struct = DataStructure.of(Dummy.Banana.class);
         //System.out.println(Debug.createObjectDump(struct));
 
-        assertEquals("invalid banana constructor count", 1, struct.getConstructors().size());
-        assertEquals("invalid banana property count", 2, struct.getDeclaredProperties().size());
+        Assertions.assertEquals(1, struct.getConstructors().size(), "invalid banana constructor count");
+        Assertions.assertEquals(2, struct.getDeclaredProperties().size(), "invalid banana property count");
 
         // price
         testProp(struct, StandardValueType.DOUBLE, "price", 1.99);
@@ -54,9 +53,9 @@ public class DataStructureTest {
     }
 
     private void testProp(DataStructure<?> struct, ValueType<?> type, String key, Object expectedValue) {
-        assertTrue(key+" property: missing", struct.getProperty(key).isNonNull());
+        Assertions.assertTrue(struct.getProperty(key).isNonNull(), key + " property: missing");
         var prop = struct.getProperty(key).assertion();
-        assertNotNull(prop);
+        Assertions.assertNotNull(prop);
         var dummy = struct.getConstructors()
                 .stream()
                 .filter(ctor->ctor.getArgs().isEmpty())
@@ -66,17 +65,17 @@ public class DataStructureTest {
                 .autoInvoke();
 
         // type
-        assertEquals(key+" property: wrong type", type, prop.getType());
+        Assertions.assertEquals(type, prop.getType(), key + " property: wrong type");
 
         // accessors
         Invocable<?> accessor = prop.getGetter();
-        assertNotNull(key+" property: getter missing", accessor);
-        assertEquals(key+" property: getter unusable", expectedValue, accessor.invokeSilent(dummy));
+        Assertions.assertNotNull(accessor, key + " property: getter missing");
+        Assertions.assertEquals(expectedValue, accessor.invokeSilent(dummy), key + " property: getter unusable");
         if ("price".equals(prop.getName())) {
             final var newValue = 1.49;
             accessor = prop.getSetter();
-            assertNotNull(key+" property: setter missing", accessor);
-            assertEquals(key+" property: setter unusable", newValue, accessor.invokeSilent(dummy, newValue));
+            Assertions.assertNotNull(accessor, key + " property: setter missing");
+            Assertions.assertEquals(newValue, accessor.invokeSilent(dummy, newValue), key + " property: setter unusable");
         }
     }
 }

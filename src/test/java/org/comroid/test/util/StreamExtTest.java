@@ -1,22 +1,23 @@
 package org.comroid.test.util;
 
 import org.comroid.api.Polyfill;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static org.comroid.api.func.util.Streams.Multi.*;
+import static org.comroid.api.func.util.Streams.Multi.combine;
+import static org.comroid.api.func.util.Streams.Multi.expand;
 
 public class StreamExtTest {
     @Test
     public void testBatches() {
         var list = Polyfill.batches(50, IntStream.range(0, 250).boxed()).toList();
 
-        Assert.assertEquals("Batch count", 5, list.size());
+        Assertions.assertEquals(5, list.size(), "Batch count");
         for (var batch : list)
-            Assert.assertEquals("Batch length", 50, batch.size());
+            Assertions.assertEquals(50, batch.size(), "Batch length");
     }
 
     @Test

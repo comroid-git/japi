@@ -2,9 +2,8 @@ package org.comroid.test.api;
 
 import org.comroid.api.tree.Component;
 import org.comroid.test.Dummy;
-import org.junit.Test;
-
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class ComponentTest {
     @Test
@@ -13,13 +12,13 @@ public class ComponentTest {
 
         basket.addChildren(new Dummy.Fruit(), new Dummy.Apple(), new Dummy.Banana());
 
-        assertNull(basket.fruit);
-        assertNull(basket.apple);
+        Assertions.assertNull(basket.fruit);
+        Assertions.assertNull(basket.apple);
 
         basket.initialize();
 
-        assertNotNull("Fruit was not injected", basket.fruit);
-        assertNotNull("Apple was not injected", basket.apple);
+        Assertions.assertNotNull(basket.fruit, "Fruit was not injected");
+        Assertions.assertNotNull(basket.apple, "Apple was not injected");
         //assertNotNull("Banana was not injected", basket.yellow_bean);
     }
 

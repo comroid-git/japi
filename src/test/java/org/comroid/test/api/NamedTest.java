@@ -1,14 +1,14 @@
 package org.comroid.test.api;
 
 import org.comroid.api.attr.Named;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class NamedTest {
     private Named named;
 
-    @Before
+    @BeforeEach
     public void setup() {
         named = new Named() {
             @Override
@@ -20,7 +20,7 @@ public class NamedTest {
 
     @Test
     public void test() {
-        Assert.assertEquals("name", String.format("%s", named));
-        Assert.assertEquals("Name", String.format("%#s", named));
+        Assertions.assertEquals("name", String.format("%s", named));
+        Assertions.assertEquals("Name", String.format("%#s", named));
     }
 }

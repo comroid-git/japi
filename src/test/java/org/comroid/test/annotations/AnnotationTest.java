@@ -2,28 +2,27 @@ package org.comroid.test.annotations;
 
 import org.comroid.annotations.Ignore;
 import org.comroid.annotations.internal.Annotations;
-import org.comroid.api.func.exc.ThrowingBiFunction;
 import org.comroid.annotations.internal.Expect;
 import org.comroid.annotations.internal.Expects;
+import org.comroid.api.func.exc.ThrowingBiFunction;
 import org.comroid.api.info.Log;
 import org.comroid.api.tree.Component;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 
 import static java.util.stream.Stream.of;
-import static org.comroid.annotations.internal.Annotations.*;
+import static org.comroid.annotations.internal.Annotations.ignore;
 import static org.comroid.api.func.util.Streams.Multi.*;
 
 @SuppressWarnings({"RedundantMethodOverride","unused"})
 public class AnnotationTest {
     @Test
     public void test() throws NoSuchMethodException {
-        Assert.assertFalse("Some expectations weren't met",
-                of(Obj1.class, Obj2.class, Obj3.class, Obj4.class)
+        Assertions.assertFalse(of(Obj1.class, Obj2.class, Obj3.class, Obj4.class)
                         .flatMap(expandFlat($ -> of("getX", "getY", "getZ")))
                         .map(crossA2B(ThrowingBiFunction.rethrowing(Class::getMethod)))
                         .map(crossB2A(mtd -> mtd.getAnnotation(Expects.class)))
@@ -38,7 +37,8 @@ public class AnnotationTest {
                             return of(false);
                         }))
                         .toList()
-                        .contains(false));
+                        .contains(false),
+                "Some expectations weren't met");
         ;
     }
 

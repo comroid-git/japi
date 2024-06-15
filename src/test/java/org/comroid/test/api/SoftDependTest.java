@@ -1,8 +1,8 @@
 package org.comroid.test.api;
 
 import org.comroid.api.java.SoftDepend;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
@@ -19,16 +19,16 @@ public class SoftDependTest {
 
     @Test
     public void testStatic() {
-        Assert.assertEquals("existent field assertion", Integer.MAX_VALUE, SoftDepend.run("java.lang.Integer.MAX_VALUE").get());
-        Assert.assertEquals("existent call assertion", Dummy, SoftDepend.run("org.comroid.test.api.SoftDependTest.test").get());
-        Assert.assertEquals("existent call() assertion ", Dummy, SoftDepend.run("org.comroid.test.api.SoftDependTest.test()").get());
-        Assert.assertNull("invalid call(param) assertion ", SoftDepend.run("org.comroid.test.api.SoftDependTest.invalid(3)").get());
-        Assert.assertNull("nonexistent assertion", SoftDepend.run("org.comroid.mcsd.api.Defaults.Enabled").get());
+        Assertions.assertEquals(Integer.MAX_VALUE, SoftDepend.run("java.lang.Integer.MAX_VALUE").get(), "existent field assertion");
+        Assertions.assertEquals(Dummy, SoftDepend.run("org.comroid.test.api.SoftDependTest.test").get(), "existent call assertion");
+        Assertions.assertEquals(Dummy, SoftDepend.run("org.comroid.test.api.SoftDependTest.test()").get(), "existent call() assertion ");
+        Assertions.assertNull(SoftDepend.run("org.comroid.test.api.SoftDependTest.invalid(3)").get(), "invalid call(param) assertion ");
+        Assertions.assertNull(SoftDepend.run("org.comroid.mcsd.api.Defaults.Enabled").get(), "nonexistent assertion");
     }
 
     @Test
     public void testType() {
-        Assert.assertNotNull("existent assertion", SoftDepend.type("java.lang.String").get());
-        Assert.assertNull("nonexistent assertion", SoftDepend.type("javax.persistence.Id").get());
+        Assertions.assertNotNull(SoftDepend.type("java.lang.String").get(), "existent assertion");
+        Assertions.assertNull(SoftDepend.type("javax.persistence.Id").get(), "nonexistent assertion");
     }
 }

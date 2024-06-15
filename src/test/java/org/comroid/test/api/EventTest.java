@@ -1,16 +1,16 @@
 package org.comroid.test.api;
 
-import org.comroid.api.func.util.Event;
 import org.comroid.api.data.seri.type.StandardValueType;
-import org.junit.Before;
-import org.junit.Test;
+import org.comroid.api.func.util.Event;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class EventTest {
     private Event.Bus<String> busA;
     private Event.Bus<Object> busB;
     private Event.Bus<Integer> busC;
 
-    @Before
+    @BeforeEach
     public void setup() {
         busA = new Event.Bus<>();
         busB = new Event.Bus<>().setUpstream(busA);
