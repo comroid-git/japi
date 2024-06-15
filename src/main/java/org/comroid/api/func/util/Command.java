@@ -19,7 +19,10 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.bukkit.ChatColor;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.comroid.annotations.AnnotatedTarget;
 import org.comroid.annotations.Default;
@@ -423,12 +426,17 @@ public @interface Command {
         }
 
         @Deprecated
-        public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String fullCommand, String argName, String currentValue) {
-            return autoComplete(fullCommand.split(" "), argName, currentValue);
+        public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String fullCommand,
+                                                               String argName,
+                                                               String currentValue) {
+            return autoComplete(handler, fullCommand.split(" "), argName, currentValue);
         }
 
-        public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String[] fullCommand, String argName, @Nullable String currentValue) {
-            var usage = createUsageBase(fullCommand);
+        public final Stream<AutoCompletionOption> autoComplete(Handler source,
+                                                               @Doc("Do not include currentValue") String[] fullCommand,
+                                                               String argName,
+                                                               @Nullable String currentValue) {
+            var usage = createUsageBase(source, fullCommand);
             return autoComplete(usage, argName, currentValue);
         }
 
@@ -483,17 +491,20 @@ public @interface Command {
         }
 
         @Deprecated
-        public final Object execute(String fullCommand, Object... extraArgs) {
-            return execute(fullCommand.split(" "), null, extraArgs);
+        public final @Nullable Object execute(String fullCommand, Object... extraArgs) {
+            return execute(handler, fullCommand.split(" "), null, extraArgs);
         }
 
-        public final Object execute(String[] fullCommand, @Nullable Map<String, Object> namedArgs, Object... extraArgs) throws Error, ArgumentError {
-            var usage = createUsageBase(fullCommand);
-            return execute(usage, namedArgs, extraArgs);
+        public final @Nullable Object execute(Handler source,
+                                  String[] fullCommand,
+                                  @Nullable Map<String, Object> namedArgs,
+                                  Object... extraArgs) {
+            var usage = createUsageBase(source, fullCommand, extraArgs);
+            return execute(usage, namedArgs);
         }
 
-        public final Object execute(Usage usage, @Nullable Map<String, Object> namedArgs, Object... extraArgs) throws Error, ArgumentError {
-            Object response = "internal error";
+        public final @Nullable Object execute(Usage usage, @Nullable Map<String, Object> namedArgs) {
+            Object result = null, response;
             Handler handler = adapters.stream().findAny()
                     .<Handler>map(identity())
                     .orElseGet(() -> usage.source == null ? this.handler : usage.source);
@@ -538,7 +549,7 @@ public @interface Command {
                                 .findAny().orElseThrow();
                     if (attribute == null) {
                         // try to fit in an extraArg
-                        useArgs[i] = Arrays.stream(extraArgs)
+                        useArgs[i] = usage.context.stream()
                                 .filter(parameterType::isInstance)
                                 .findAny()
                                 .orElseGet(() -> {
@@ -573,18 +584,19 @@ public @interface Command {
                     }
                 }
 
-                response = call.callable.invoke(call.target, useArgs);
+                result = response = call.callable.invoke(call.target, useArgs);
             } catch (Throwable e) {
                 Log.at(Level.WARNING, "An error ocurred during command execution", e);
                 response = handler.handleThrowable(e);
             }
             if (response != null)
-                handler.handleResponse(usage, response, extraArgs);
-            return response;
+                handler.handleResponse(usage, response, usage.context.toArray());
+            return result;
         }
 
-        private Usage createUsageBase(String[] fullCommand, Object... extraArgs) {
+        private Usage createUsageBase(Handler source, String[] fullCommand, Object... extraArgs) {
             return Usage.builder()
+                    .source(source)
                     .manager(this)
                     .fullCommand(fullCommand)
                     .context(of(extraArgs).collect(Collectors.toSet())) // set should be modifiable
@@ -626,8 +638,11 @@ public @interface Command {
             @Override
             public void initialize() {}
 
-            protected @Nullable Map<String, Object> expandArgs(Delegate cmd, List<String> args, Object[] extraArgs) {
-                return null;
+            protected String[] strings(String label, String[] args) {
+                var strings = new String[args.length + 1];
+                strings[0] = label;
+                System.arraycopy(args, 0, strings, 1, args.length);
+                return strings;
             }
         }
 
@@ -910,13 +925,16 @@ public @interface Command {
         }
 
         @Value
+        @NonFinal
         @RequiredArgsConstructor
-        public class Adapter$Spigot extends Adapter {
+        public class Adapter$Spigot extends Adapter implements TabCompleter, CommandExecutor {
             JavaPlugin plugin;
 
             {
                 adapters.add(this);
             }
+
+            // todo: try to register components with spigot
 
             @Override
             public void handleResponse(Usage command, @NotNull Object response, Object... args) {
@@ -928,9 +946,37 @@ public @interface Command {
             }
 
             @Override
-            public @Nullable String handleThrowable(Throwable throwable) {
+            public String handleThrowable(Throwable throwable) {
                 return ChatColor.RED + super.handleThrowable(throwable);
             }
+
+            @Override
+            public List<String> onTabComplete(@NotNull CommandSender sender,
+                                              @NotNull org.bukkit.command.Command command,
+                                              @NotNull String alias,
+                                              @NotNull String[] args) {
+                var strings = strings(alias, args);
+                var usage = createUsageBase(this, strings, collectExtraArgs(sender).toArray());
+                return autoComplete(usage, String.valueOf(args.length), strings[strings.length - 1])
+                        .map(AutoCompletionOption::key)
+                        .toList();
+            }
+
+            @Override
+            public boolean onCommand(@NotNull CommandSender sender,
+                                     @NotNull org.bukkit.command.Command command,
+                                     @NotNull String label,
+                                     @NotNull String[] args) {
+                var strings = strings(label, args);
+                var usage = createUsageBase(this, strings, collectExtraArgs(sender).toArray());
+                execute(usage, null);
+                return true;
+            }
+
+            protected Stream<Object> collectExtraArgs(@NotNull CommandSender sender) {
+                return Stream.concat(of(sender), sender instanceof Player plr ? of(plr.getUniqueId()) : empty());
+            }
+
         }
     }
 
