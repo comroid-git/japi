@@ -128,6 +128,8 @@ public @interface Command {
                     throwable.getMessage() == null
                             ? throwable.getCause() == null
                             ? "Internal Error"
+                            : throwable.getCause() instanceof Error
+                            ? throwable.getCause().getMessage()
                             : throwable.getCause().getClass().getSimpleName() + ": " + throwable.getCause().getMessage()
                             : throwable.getMessage());
             if (throwable instanceof Error)
