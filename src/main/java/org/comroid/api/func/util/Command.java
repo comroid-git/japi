@@ -997,6 +997,12 @@ public @interface Command {
             }
 
         }
+
+        public class Adapter$Fabric extends Adapter {
+            @Override
+            public void handleResponse(Usage command, @NotNull Object response, Object... args) {
+            }
+        }
     }
 
     @Getter
