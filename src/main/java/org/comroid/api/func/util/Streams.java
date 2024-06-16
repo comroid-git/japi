@@ -19,6 +19,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Stream.empty;
 import static org.comroid.api.func.N.Consumer.nop;
 
@@ -123,6 +124,27 @@ public class Streams {
 
     public static <T, C> Comparator<T> comparatorAdapter(final @NotNull Function<T, C> mapper, final @NotNull Comparator<C> comparator) {
         return (a, b) -> comparator.compare(mapper.apply(a), mapper.apply(b));
+    }
+
+    public static <T> Collector<T, List<T>, List<List<T>>> groupingEvery(long groupSize) {
+        return Collector.of(ArrayList::new, List::add, (l, r) -> {
+            l.addAll(r);
+            return l;
+        }, ls -> {
+            var out = new ArrayList<List<T>>();
+            var iter = ls.iterator();
+            ArrayList<T> group = null;
+            while (iter.hasNext()) {
+                if (group == null)
+                    group = new ArrayList<>();
+                group.add(iter.next());
+                if (group.size() >= groupSize) {
+                    out.add(unmodifiableList(group));
+                    group = null;
+                }
+            }
+            return unmodifiableList(out);
+        });
     }
 
     @UtilityClass
