@@ -147,6 +147,13 @@ public class Streams {
         });
     }
 
+    public static <T> Collector<T, List<T>, Stream<T>> atLeastOneOrElseGet(Supplier<T> otherwise) {
+        return Collector.of(ArrayList::new, List::add, (l, r) -> {
+            l.addAll(r);
+            return l;
+        }, ls -> ls.isEmpty() ? Stream.of(otherwise.get()) : ls.stream());
+    }
+
     @UtilityClass
     // todo: the first one blocks the second one; Stream.Multi is broken
     public class Multi {
