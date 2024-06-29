@@ -44,7 +44,9 @@ public enum Capitalization implements Named, Comparator<String> {
     Upper_Dot_Case(State.Upper, State.Lower, State.Upper, '.'), // "Upper.Dot.Case"
     CAPS_DOT_CASE(State.Upper, State.Upper, State.Upper, '.'), // "CAPS.DOT.CASE"
 
-    Title_Case(State.Upper, State.Lower, State.Upper, ' '); // "Title Case"
+    Title_Case(State.Upper, State.Lower, State.Upper, ' '), // "Title Case"
+    lower_case(State.Lower, State.Lower, State.Lower, ' '),
+    UPPER_CASE(State.Upper, State.Upper, State.Upper, ' ');
 
     public static final Context Default = Context.builder().build();
     public static final Context Current = Default;
