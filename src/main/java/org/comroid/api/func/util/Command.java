@@ -589,7 +589,9 @@ public @interface Command {
                         Constraint.notNull(paramNode, "parameter").run();
                         if (paramNode.isRequired() && argIndex >= usage.fullCommand.length)
                             throw new ArgumentError("Not enough arguments");
-                        var argStr = usage.fullCommand[argIndex];
+                        var argStr = argIndex < usage.fullCommand.length
+                                ? usage.fullCommand[argIndex]
+                                : null;
                         argIndex += 1;
 
                         useArgs[i] = StandardValueType.forClass(parameterType)
