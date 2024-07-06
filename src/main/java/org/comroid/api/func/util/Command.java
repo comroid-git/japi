@@ -570,9 +570,7 @@ public @interface Command {
                                 .filter(parameterType::isInstance)
                                 .findAny()
                                 .orElseGet(() -> {
-                                    if (parameter.stream().flatMap(Aliased::$).anyMatch("args"::equals)
-                                        && parameterType.isArray()
-                                        && parameterType.getComponentType().equals(String.class)) {
+                                    if (parameterType.isArray() && parameterType.getComponentType().equals(String.class)) {
                                         var args = new String[usage.fullCommand.length - usage.callIndex - 1];
                                         System.arraycopy(usage.fullCommand, usage.callIndex + 1, args, 0, args.length);
                                         return args;
