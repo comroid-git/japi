@@ -18,6 +18,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
+import net.kyori.adventure.text.Component;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -69,6 +70,7 @@ import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
+import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.get;
 import static org.comroid.api.func.util.Streams.cast;
 
 @SuppressWarnings("unused")
@@ -959,11 +961,16 @@ public @interface Command {
 
             @Override
             public void handleResponse(Usage command, @NotNull Object response, Object... args) {
-                var message = response instanceof CompletableFuture<?> future ? future.join() : response;
+                if (response instanceof CompletableFuture<?> future) {
+                    future.thenAcceptAsync(late -> handleResponse(command, late, args));
+                    return;
+                }
                 var sender = Arrays.stream(args)
                         .flatMap(cast(CommandSender.class))
                         .findAny().orElseThrow();
-                sender.sendMessage(String.valueOf(message));
+                if (response instanceof Component component)
+                    sender.spigot().sendMessage(get().serialize(component));
+                else sender.sendMessage(String.valueOf(response));
             }
 
             @Override
