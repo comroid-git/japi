@@ -983,6 +983,8 @@ public @interface Command {
                                               @NotNull org.bukkit.command.Command command,
                                               @NotNull String alias,
                                               @NotNull String[] args) {
+                if (alias.contains(":"))
+                    alias = alias.substring(alias.indexOf(':') + 1);
                 var strings = strings(alias, args);
                 var usage = createUsageBase(this, strings, collectExtraArgs(sender).toArray());
                 return autoComplete(usage, String.valueOf(args.length), strings[strings.length - 1])
@@ -995,6 +997,8 @@ public @interface Command {
                                      @NotNull org.bukkit.command.Command command,
                                      @NotNull String label,
                                      @NotNull String[] args) {
+                if (label.contains(":"))
+                    label = label.substring(label.indexOf(':') + 1);
                 var strings = strings(label, args);
                 var usage = createUsageBase(this, strings, collectExtraArgs(sender).toArray());
                 execute(usage, null);
