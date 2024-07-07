@@ -1,18 +1,16 @@
 package org.comroid.api.data.seri.type;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.Transient;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.Polyfill;
+import org.comroid.api.attr.Named;
 import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ValuePointer;
-import org.comroid.api.attr.Named;
-import org.comroid.api.func.ext.Wrap;
-import org.comroid.api.func.util.Streams;
 import org.comroid.api.html.form.HtmlFormElementDesc;
-import org.comroid.api.html.form.HtmlInputDesc;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
-import jakarta.persistence.Transient;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -76,5 +74,6 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named,
         return new String[0];
     }
 
+    @Contract("null -> null; !null -> _")
     R parse(String data);
 }

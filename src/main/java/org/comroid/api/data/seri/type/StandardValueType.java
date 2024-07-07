@@ -116,6 +116,6 @@ public class StandardValueType<R> implements ValueType<R>, HtmlInputDesc {
 
     @Override
     public R parse(String data) {
-        return converter.apply(data);
+        return data == null ? null : converter.apply(data);
     }
 }
