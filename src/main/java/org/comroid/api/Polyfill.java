@@ -1,9 +1,9 @@
 package org.comroid.api;
 
 import lombok.experimental.UtilityClass;
+import org.comroid.api.data.RegExpUtil;
 import org.comroid.api.func.Provider;
 import org.comroid.api.func.ext.Wrap;
-import org.comroid.api.data.RegExpUtil;
 import org.comroid.api.java.StackTraceUtils;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Contract;
@@ -16,7 +16,10 @@ import java.net.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.*;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -232,7 +235,7 @@ public final class Polyfill {
                 + Integer.toHexString(color.getBlue());
     }
 
-    private static final Pattern DURATION_PATTERN = Pattern.compile("((?<amount>\\d)+(?<unit>[ymwdhs]))");
+    private static final Pattern DURATION_PATTERN = Pattern.compile("((?<amount>\\d)+(?<unit>[yMwdhms][oi]?n?))");
     public static Duration parseDuration(String string) {
         var result = Duration.ZERO;
         var matcher = DURATION_PATTERN.matcher(string);
@@ -240,10 +243,11 @@ public final class Polyfill {
             var amount = Long.parseLong(matcher.group("amount"));
             BiFunction<Duration,Long,Duration> plus = switch (matcher.group("unit")) {
                 case "y"-> (d, x) -> d.plusDays(x*365);
-                case "m"->(d,x)->d.plusDays(x*30);
+                case "M", "Mo", "mo", "Mon", "mon" -> (d, x) -> d.plusDays(x * 30);
                 case "w"->(d,x)->d.plusDays(x*7);
                 case "d"->Duration::plusDays;
                 case "h"->Duration::plusHours;
+                case "m", "mi", "min" -> Duration::plusMinutes;
                 case "s"->Duration::plusSeconds;
                 default -> throw new IllegalStateException("Unexpected value: " + matcher.group("unit"));
             };
