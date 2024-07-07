@@ -44,6 +44,7 @@ import org.comroid.api.java.Activator;
 import org.comroid.api.java.StackTraceUtils;
 import org.comroid.api.tree.Initializable;
 import org.intellij.lang.annotations.Language;
+import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -438,7 +439,12 @@ public @interface Command {
                     .required(!attribute.required()
                             && !source.isAnnotationPresent(NotNull.class) && source.isAnnotationPresent(Nullable.class))
                     .index(index)
-                    .autoFill(attribute.autoFill())
+                    .autoFill(Annotations.findAnnotations(MagicConstant.class, source)
+                            .findAny()
+                            .map(Annotations.Result::getAnnotation)
+                            .map(MagicConstant::stringValues)
+                            .filter(magic -> magic.length > 0)
+                            .orElseGet(attribute::autoFill))
                     .build();
         }
 
