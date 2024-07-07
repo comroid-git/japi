@@ -605,7 +605,7 @@ public @interface Command {
             } catch (Error err) {
                 response = handler.handleThrowable(err);
             } catch (Throwable e) {
-                Log.at(Level.WARNING, "An error ocurred during command execution", e);
+                Log.at(Level.FINE, "An error ocurred during command execution", e);
                 response = handler.handleThrowable(e);
             }
             if (response != null)
