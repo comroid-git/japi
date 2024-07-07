@@ -167,7 +167,7 @@ public @interface Command {
 
         @Override
         public Stream<String> names() {
-            return Stream.concat(of(getName()), Aliased.super.names());
+            return Stream.concat(Aliased.super.names(), of(getName()));
         }
 
         @Data
@@ -330,7 +330,7 @@ public @interface Command {
         UUID id = UUID.randomUUID();
         Handler handler;
         Set<Node> baseNodes = new HashSet<>();
-        Set<Adapter> adapters = new HashSet<>();
+        protected Set<Adapter> adapters = new HashSet<>();
 
         public Manager() {
             this(DefaultHandler);
@@ -619,7 +619,7 @@ public @interface Command {
             return result;
         }
 
-        private Usage createUsageBase(Handler source, String[] fullCommand, Object... extraArgs) {
+        protected Usage createUsageBase(Handler source, String[] fullCommand, Object... extraArgs) {
             var baseNode = baseNodes.stream() // find base node to initiate advancing to execution node
                     .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
                     .flatMap(cast(Node.Callable.class))
@@ -1015,11 +1015,6 @@ public @interface Command {
 
         }
 
-        public class Adapter$Fabric extends Adapter {
-            @Override
-            public void handleResponse(Usage command, @NotNull Object response, Object... args) {
-            }
-        }
     }
 
     @Getter
@@ -1058,4 +1053,5 @@ public @interface Command {
             super("Invalid argument '" + nameof + "'" + Optional.ofNullable(detail).map(d -> "; " + d).orElse(""));
         }
     }
+
 }
