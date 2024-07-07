@@ -589,7 +589,12 @@ public @interface Command {
                         if (paramNode.isRequired() && !namedArgs.containsKey(paramNode.getName()))
                             throw new ArgumentError("Missing argument " + paramNode.getName());
 
-                        useArgs[i] = namedArgs.get(paramNode.getName());
+                        final var finalParamNode = paramNode;
+                        useArgs[i] = Optional.ofNullable(namedArgs.get(paramNode.getName()))
+                                .or(() -> usage.context.stream()
+                                        .flatMap(cast(finalParamNode.param.getType()))
+                                        .findAny())
+                                .orElse(null);
                     } else {
                         // eg. console, minecraft
                         Constraint.notNull(paramNode, "parameter").run();
