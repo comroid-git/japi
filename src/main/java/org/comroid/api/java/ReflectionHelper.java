@@ -303,17 +303,31 @@ public final class ReflectionHelper {
         return true;
     }
 
+    public static <T> @Nullable T forceGetField(Object from, Class<? super T> type) {
+        return Arrays.stream(from.getClass().getFields())
+                .filter(fld -> type.isAssignableFrom(fld.getType()))
+                .findAny()
+                .map(fld -> forceGetField(from, fld))
+                .map(Polyfill::<T>uncheckedCast)
+                .orElse(null);
+    }
+
     public static <T> @Nullable T forceGetField(Object from, String fieldName) {
-        final Class<?> kls = from.getClass();
-
         try {
+        final Class<?> kls = from.getClass();
             final Field field = kls.getDeclaredField(fieldName);
+            return forceGetField(from, field);
+        } catch (NoSuchFieldException e) {
+            return null;
+        }
+    }
 
-            if (!field.isAccessible())
+    public static <T> @Nullable T forceGetField(Object from, Field field) {
+        try {
+            if (!field.canAccess(from))
                 field.setAccessible(true);
-
             return Polyfill.uncheckedCast(field.get(from));
-        } catch (NoSuchFieldException | IllegalAccessException e) {
+        } catch (IllegalAccessException e) {
             return null;
         }
     }
