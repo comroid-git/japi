@@ -20,6 +20,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static java.util.Collections.unmodifiableList;
+import static java.util.function.Function.identity;
 import static java.util.stream.Stream.concat;
 import static java.util.stream.Stream.empty;
 import static org.comroid.api.func.N.Consumer.nop;
@@ -124,7 +125,12 @@ public class Streams {
     }
 
     public static <T> Function<T, Stream<T>> expand(Function<? super T, Stream<? extends T>> by) {
-        return it -> concat(Stream.of(it), by.apply(it));
+        return expand(identity(), by);
+    }
+
+
+    public static <T, R> Function<T, Stream<R>> expand(Function<? super T, R> base, Function<? super T, Stream<? extends R>> by) {
+        return it -> concat(Stream.of(it).map(base), by.apply(it));
     }
 
     public static <T, C> Comparator<T> comparatorAdapter(final @NotNull Function<T, C> mapper, final @NotNull Comparator<C> comparator) {
@@ -326,12 +332,12 @@ public class Streams {
 
         @WrapWith("map")
         public <A, B, X> Function<Entry<A, B>, Entry<X, B>> mapA(final @NotNull Function<A, X> function) {
-            return map(function, Function.identity());
+            return map(function, identity());
         }
 
         @WrapWith("map")
         public <A, B, Y> Function<Entry<A, B>, Entry<A, Y>> mapB(final @NotNull Function<B, Y> function) {
-            return map(Function.identity(), function);
+            return map(identity(), function);
         }
 
         @WrapWith("map")
@@ -458,7 +464,7 @@ public class Streams {
             }
 
             public static <A, B, X, Y> Adapter<A, B, X, Y, Entry<A, B>, Entry<X, Y>> tunnel() {
-                return new Adapter<>(Function.identity(), ($, e) -> e.getKey(), ($, e) -> e.getValue());
+                return new Adapter<>(identity(), ($, e) -> e.getKey(), ($, e) -> e.getValue());
             }
 
             private Entry<X, Y> merge(Entry<A, B> entry, O output) {
