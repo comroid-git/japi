@@ -12,6 +12,14 @@ public interface Aliased extends AnnotatedTarget.Extension {
         return element().stream().flatMap(Aliased::$);
     }
 
+    default String name() {
+        return Stream.concat(names(), Stream.of(this)
+                        .flatMap(Streams.cast(Named.class))
+                        .map(Named::getBestName))
+                .findAny()
+                .orElseGet(this::toString);
+    }
+
     static Stream<String> $(AnnotatedElement element) {
         return Stream.concat(
                 Stream.of(element)
