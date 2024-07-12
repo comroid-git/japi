@@ -20,6 +20,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static java.util.Collections.unmodifiableList;
+import static java.util.stream.Stream.concat;
 import static java.util.stream.Stream.empty;
 import static org.comroid.api.func.N.Consumer.nop;
 
@@ -120,6 +121,10 @@ public class Streams {
     @SafeVarargs
     public static <T, R> Function<T, Stream<R>> multiply(Function<? super T, Stream<? extends R>>... function) {
         return t -> Stream.of(function).flatMap(func -> func.apply(t));
+    }
+
+    public static <T> Function<T, Stream<T>> expand(Function<? super T, Stream<? extends T>> by) {
+        return it -> concat(Stream.of(it), by.apply(it));
     }
 
     public static <T, C> Comparator<T> comparatorAdapter(final @NotNull Function<T, C> mapper, final @NotNull Comparator<C> comparator) {
