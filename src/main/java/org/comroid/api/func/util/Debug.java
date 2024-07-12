@@ -4,7 +4,6 @@ import lombok.experimental.UtilityClass;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.func.comp.StringBasedComparator;
 import org.comroid.api.info.Log;
-import org.comroid.api.java.StackTraceUtils;
 import org.comroid.util.BigotryFilter;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,8 +17,6 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import static java.util.stream.IntStream.range;
-import static org.comroid.api.Polyfill.exceptionLogger;
-import static org.comroid.api.func.util.Streams.intString;
 import static org.comroid.api.java.StackTraceUtils.lessSimpleName;
 
 @UtilityClass
@@ -37,7 +34,8 @@ public final class Debug {
     }
 
     public static boolean isDebug() {
-        return Arrays.stream(IS_DEBUG_CHECKS).allMatch(BooleanSupplier::getAsBoolean);
+        return Cache.get("Debug.isDebug()",
+                () -> Arrays.stream(IS_DEBUG_CHECKS).allMatch(BooleanSupplier::getAsBoolean));
     }
 
     public static boolean isDebugEnv() {
