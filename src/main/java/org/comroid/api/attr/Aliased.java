@@ -8,7 +8,12 @@ import java.lang.reflect.AnnotatedElement;
 import java.util.stream.Stream;
 
 public interface Aliased extends AnnotatedTarget.Extension {
+    @Deprecated
     default Stream<String> names() {
+        return aliases();
+    }
+
+    default Stream<String> aliases() {
         return element().stream().flatMap(Aliased::$);
     }
 

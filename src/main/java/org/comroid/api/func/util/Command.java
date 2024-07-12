@@ -166,8 +166,8 @@ public @interface Command {
         public abstract Stream<? extends Node> nodes();
 
         @Override
-        public Stream<String> names() {
-            return Stream.concat(Aliased.super.names(), of(getName()));
+        public Stream<String> aliases() {
+            return Stream.concat(Aliased.super.aliases(), of(getName()));
         }
 
         @Data
