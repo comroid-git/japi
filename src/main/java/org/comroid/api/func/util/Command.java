@@ -537,21 +537,25 @@ public @interface Command {
                                 .or(() -> usage.context.stream()
                                         .flatMap(cast(finalParamNode.param.getType()))
                                         .findAny())
+                                .or(() -> Optional.ofNullable(finalParamNode.defaultValue())
+                                        .map(Polyfill::uncheckedCast))
                                 .orElse(null);
                     } else {
                         // eg. console, minecraft
                         Constraint.notNull(paramNode, "parameter").run();
                         if (paramNode.isRequired() && argIndex >= usage.fullCommand.length)
                             throw new Error("Not enough arguments");
-                        var argStr = argIndex < usage.fullCommand.length
-                                ? usage.fullCommand[argIndex]
-                                : null;
+                        String argStr;
+                        if (argIndex < usage.fullCommand.length) {
+                            if (attribute.stringMode() == StringMode.GREEDY) {
+                                var buf = new String[usage.fullCommand.length - argIndex];
+                                System.arraycopy(usage.fullCommand, argIndex, buf, 0, buf.length);
+                                argStr = String.join(" ", buf);
+                            } else argStr = usage.fullCommand[argIndex];
+                        } else argStr = null;
                         argIndex += 1;
 
-                        useArgs[i] = StandardValueType.forClass(parameterType)
-                                .map(svt -> (Object) svt.parse(argStr))
-                                .orElseGet(() -> Activator.get(parameterType)
-                                        .createInstance(DataNode.of(argStr)));
+                        useArgs[i] = ValueType.of(parameterType).parse(argStr);
                     }
                 }
 

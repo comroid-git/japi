@@ -12,7 +12,7 @@ import org.comroid.api.Polyfill;
 import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.func.ext.Wrap;
-import org.comroid.api.func.util.Bitmask;
+import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.ReflectionHelper;
@@ -25,14 +25,19 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Repeatable;
 import java.lang.reflect.*;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.lang.reflect.Modifier.*;
-import static java.util.Arrays.*;
-import static java.util.stream.Stream.*;
+import static java.lang.reflect.Modifier.isPublic;
+import static java.lang.reflect.Modifier.isStatic;
+import static java.util.Arrays.asList;
+import static java.util.Arrays.stream;
+import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
 import static org.comroid.api.func.util.Streams.*;
 
@@ -80,6 +85,10 @@ public class Annotations {
     }
 
     public <R> @Nullable R defaultValue(@NotNull AnnotatedElement of) {
+        var expr = findAnnotations(Default.class, of)
+                .map(Result::getAnnotation)
+                .map(Default::value)
+                .toList();
         try {
             final var silent = new Object() {
                 @SneakyThrows
@@ -90,20 +99,23 @@ public class Annotations {
                 }
             };
             try (final var jShell = JShell.create()) {
-                return findAnnotations(Default.class, of)
-                        .map(Result::getAnnotation)
-                        .flatMap(expr -> jShell.eval(expr.value()).stream())
+                return expr.stream()
+                        .flatMap(code -> jShell.eval(code).stream())
                         .peek(silent::throwIfExcPresent)
                         .map(SnippetEvent::value)
                         .filter(Objects::nonNull)
                         .findAny()
                         .map(StandardValueType::findGoodType)
                         .map(Polyfill::<R>uncheckedCast)
-                        .orElse(null);
+                        .orElseThrow();
             }
         } catch (Throwable t) {
-            log.log(Level.FINE, "Failed to evaluate default expression of " + of, t);
-            return null;
+            log.log(Debug.isDebug() ? Level.WARNING : Level.FINE, "Failed to evaluate default expression of " + of, t);
+
+            // attempt to parse using SVT
+            var parse = String.join("", expr);
+            var goodType = StandardValueType.findGoodType(parse);
+            return Polyfill.uncheckedCast(goodType);
         }
     }
 
