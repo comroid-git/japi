@@ -28,6 +28,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.comroid.annotations.AnnotatedTarget;
 import org.comroid.annotations.Default;
 import org.comroid.annotations.Doc;
+import org.comroid.annotations.Instance;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.*;
@@ -41,10 +42,10 @@ import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.info.Log;
 import org.comroid.api.java.Activator;
+import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.StackTraceUtils;
 import org.comroid.api.tree.Initializable;
 import org.intellij.lang.annotations.Language;
-import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -73,6 +74,7 @@ import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
 import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.get;
 import static org.comroid.api.func.util.Streams.cast;
+import static org.comroid.api.func.util.Streams.expand;
 
 @SuppressWarnings("unused")
 @Retention(RetentionPolicy.RUNTIME)
@@ -112,9 +114,70 @@ public @interface Command {
 
         String[] autoFill() default {};
 
+        Class<? extends AutoFillProvider>[] autoFillProvider() default {};
+
         Default[] defaultValue() default {};
 
         boolean required() default true;
+    }
+
+    @FunctionalInterface
+    interface AutoFillProvider {
+        Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue);
+
+        enum Duration implements AutoFillProvider {
+            @Instance INSTANCE;
+
+            private static Stream<String> expandShorthands(String base) {
+                return of(base).flatMap(expand(str -> str.length() == 1
+                        ? empty()
+                        : IntStream.range(1, str.length())
+                        .mapToObj(i -> base.substring(0, base.length() - i))));
+            }
+
+            @Override
+            public Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue) {
+                var fullCommand = usage.getFullCommand();
+                var str = fullCommand[fullCommand.length - 1];
+                var chars = str.toCharArray();
+
+                // don't suggest on empty input
+                if (!str.isEmpty()) {
+                    var last = chars[chars.length - 1];
+                    if (Character.isDigit(last))
+                        return of("min", "h", "d", "Mon", "mon", "y")
+                                .flatMap(Duration::expandShorthands)
+                                .distinct()
+                                .map(suffix -> str + suffix);
+                }
+                return empty();
+            }
+        }
+
+        @Value
+        class Array implements AutoFillProvider {
+            String[] options;
+
+            public Array(String... options) {
+                this.options = options;
+            }
+
+            @Override
+            public Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue) {
+                return of(options);
+            }
+        }
+
+        @Value
+        class Enum implements AutoFillProvider {
+            Class<? extends java.lang.Enum<?>> type;
+
+            @Override
+            public Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue) {
+                return Arrays.stream(type.getEnumConstants())
+                        .map(Named::$);
+            }
+        }
     }
 
     interface Handler extends Capability.Provider {
@@ -163,8 +226,6 @@ public @interface Command {
         @NotNull
         String name;
 
-        public abstract Stream<? extends Node> nodes();
-
         @Override
         public Stream<String> aliases() {
             return Stream.concat(Aliased.super.aliases(), of(getName()));
@@ -176,6 +237,8 @@ public @interface Command {
         public static abstract class Callable extends Node {
             @NotNull
             Command attribute;
+
+            public abstract Stream<? extends Node> nodes();
 
             public @Nullable String getName() {
                 return EmptyAttribute.equals(attribute.value())
@@ -206,7 +269,7 @@ public @interface Command {
             Call defaultCall = null;
 
             @Override
-            public Stream<? extends Node> nodes() {
+            public Stream<Callable> nodes() {
                 var stream = Stream.concat(groups.stream(), calls.stream());
                 if (defaultCall != null) stream = stream.collect(Streams.append(defaultCall));
                 return stream;
@@ -236,14 +299,14 @@ public @interface Command {
             }
 
             @Override
-            public Stream<? extends Node> nodes() {
+            public Stream<Parameter> nodes() {
                 return parameters.stream().sorted(Parameter.COMPARATOR);
             }
         }
 
         @Value
         @SuperBuilder
-        public static class Parameter extends Node implements Default.Extension {
+        public static class Parameter extends Node implements AutoFillProvider, Default.Extension {
             public static Comparator<? super Parameter> COMPARATOR = Comparator.comparingInt(param -> param.index);
             @NotNull
             Arg attribute;
@@ -252,27 +315,14 @@ public @interface Command {
             java.lang.reflect.Parameter param;
             boolean required;
             int index;
-            String[] autoFill;
+            @Singular
+            List<AutoFillProvider> autoFillProviders;
 
             @Override
-            public Stream<? extends Node> nodes() {
-                return of(autoFill)
-                        .map(str -> ParameterAutoFill.builder()
-                                .name(str)
-                                .build());
-            }
-        }
-
-        @Value
-        @SuperBuilder
-        private static class ParameterAutoFill extends Node {
-            @NotNull
-            @lombok.Builder.Default
-            String description = "no description";
-
-            @Override
-            public Stream<? extends Node> nodes() {
-                return empty();
+            public Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue) {
+                return autoFillProviders.stream()
+                        .flatMap(provider -> provider.autoFill(usage, argName, currentValue))
+                        .distinct();
             }
         }
     }
@@ -427,7 +477,7 @@ public @interface Command {
         private Node.Parameter createParameterNode(int index, Method origin, Parameter source) {
             var attribute = Annotations.findAnnotations(Arg.class, source)
                     .findFirst().orElseThrow().getAnnotation();
-            return Node.Parameter.builder()
+            var builder = Node.Parameter.builder()
                     .name(Optional.ofNullable(attribute.value())
                             .filter(not(EmptyAttribute::equals))
                             .or(() -> Optional.ofNullable(source.getName())
@@ -436,16 +486,17 @@ public @interface Command {
                             .orElse(String.valueOf(index)))
                     .attribute(attribute)
                     .param(source)
-                    .required(!source.isAnnotationPresent(Nullable.class)
-                            && (attribute.required() || source.isAnnotationPresent(NotNull.class)))
+                    .required(attribute.required())
                     .index(index)
-                    .autoFill(Annotations.findAnnotations(MagicConstant.class, source)
-                            .findAny()
-                            .map(Annotations.Result::getAnnotation)
-                            .map(MagicConstant::stringValues)
-                            .filter(magic -> magic.length > 0)
-                            .orElseGet(attribute::autoFill))
-                    .build();
+                    .autoFillProvider(new AutoFillProvider.Array(attribute.autoFill()));
+            for (var providerType : attribute.autoFillProvider()) {
+                var provider = ReflectionHelper.instanceField(providerType).stream()
+                        .flatMap(cast(AutoFillProvider.class))
+                        .findAny()
+                        .orElseGet(() -> Activator.get(providerType).createInstance(DataNode.Value.NULL));
+                builder.autoFillProvider(provider);
+            }
+            return builder.build();
         }
 
         @Override
@@ -470,46 +521,15 @@ public @interface Command {
 
         public final Stream<AutoCompletionOption> autoComplete(Usage usage, String argName, @Nullable String currentValue) {
             try {
+                // ensure usage is advanced
                 usage.advanceFull();
-                if (!(usage.node instanceof Node.Call call))
-                    return usage.node.nodes()
-                            .flatMap(node -> "$".equals(node.getName())
-                                    ? node.nodes()
-                                    .flatMap(cast(Node.Parameter.class))
-                                    .flatMap(param -> Arrays.stream(param.autoFill))
-                                    : of(node.getName()))
-                            .filter(not("$"::equals))
-                            .map(str -> new AutoCompletionOption(str, ""));
-                Node.Parameter parameter;
-                if (hasCapability(Capability.NAMED_ARGS)) {
-                    // eg. discord
-                    var any = call.parameters.stream()
-                            .filter(p -> argName.equals(p.getName()))
-                            .findAny();
-                    if (any.isEmpty())
-                        return empty();
-                    parameter = any.get();
-                } else {
-                    // eg. minecraft
-                    // assume all parameter names as their indices
-                    var callIndex = call.names()
-                            .flatMapToInt(name -> IntStream.range(0, usage.fullCommand.length)
-                                    .filter(i -> {
-                                        var str = usage.fullCommand[i];
-                                        return "$".equals(name) || str.equals(name);
-                                    }))
-                            .findAny()
-                            .orElse(-1);
-                    if (callIndex < 0 || callIndex >= usage.fullCommand.length)
-                        throw new Error("Internal error computing argument position");
-                    var paramIndex = usage.fullCommand.length - callIndex - 1;
-                    if (paramIndex >= call.parameters.size())
-                        return empty();
-                    parameter = call.parameters.get(paramIndex);
-                }
-                return of(parameter.autoFill)
-                        .filter(str -> currentValue == null || str.startsWith(currentValue))
-                        .map(str -> new AutoCompletionOption(str, ""));
+
+                return (usage.node instanceof Node.Call call
+                        ? call.nodes().flatMap(param -> param.autoFill(usage, argName, currentValue))
+                        : usage.node.nodes().map(Node::getName))
+                        .distinct()
+                        .filter(not("$"::equals))
+                        .map(str -> new AutoCompletionOption(str, str));
             } catch (Throwable e) {
                 Log.at(Level.WARNING, "An error ocurred during command execution", e);
                 return of(handler.handleThrowable(e))
