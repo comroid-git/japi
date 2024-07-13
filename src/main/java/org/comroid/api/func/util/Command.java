@@ -880,8 +880,6 @@ public @interface Command {
                 addChild(this);
             }
 
-            // todo: try to register components with spigot
-
             @Override
             public Stream<Object> expandContext(Object... context) {
                 return super.expandContext(context).flatMap(expand(it -> {
