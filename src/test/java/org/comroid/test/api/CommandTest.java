@@ -7,6 +7,8 @@ import org.comroid.api.net.Token;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
 
+import java.util.Map;
+
 public class CommandTest {
     public static final String Desc = "this is a cool command";
 
@@ -25,10 +27,14 @@ public class CommandTest {
                 .findAny().orElseThrow();
 
         Assertions.assertEquals(Desc, cmd.getDescription(), "description mismatch");
-        Assertions.assertEquals("2", cmdr.execute("test first second"), "failed to execute command");
+        Assertions.assertEquals("2", execute(cmdr, "test first second"), "failed to execute command");
         var name = Token.random(8, false);
-        Assertions.assertEquals("hello %s: %d".formatted(name, 1), cmdr.execute("user create " + name), "failed to execute command");
-        Assertions.assertEquals(name + " is lit af", cmdr.execute("user " + name), "failed to execute command");
+        Assertions.assertEquals("hello %s: %d".formatted(name, 1), execute(cmdr, "user create " + name), "failed to execute command");
+        Assertions.assertEquals(name + " is lit af", execute(cmdr, "user " + name), "failed to execute command");
+    }
+
+    public Object execute(Command.Manager cmdr, String command) {
+        return cmdr.execute(Command.Manager.DefaultHandler, command.split(" "), Map.of());
     }
 
     @Command
