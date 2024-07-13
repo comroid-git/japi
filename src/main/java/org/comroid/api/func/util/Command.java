@@ -19,6 +19,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.util.TriState;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -48,6 +49,7 @@ import org.comroid.api.text.StringMode;
 import org.comroid.api.tree.Container;
 import org.comroid.api.tree.Initializable;
 import org.intellij.lang.annotations.Language;
+import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,6 +66,7 @@ import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -124,6 +127,53 @@ public @interface Command {
     @FunctionalInterface
     interface ContextProvider {
         Stream<Object> expandContext(Object... context);
+    }
+
+    @FunctionalInterface
+    interface PermissionChecker {
+        PermissionChecker ALLOW_ALL = (usage, key) -> true;
+        PermissionChecker DENY_ALL = (usage, key) -> false;
+
+        static PermissionChecker minecraft(Adapter adapter) {
+            return (usage, key) -> {
+                var userId = usage.getContext().stream()
+                        .flatMap(Streams.cast(UUID.class))
+                        .findAny().orElseThrow();
+                return key instanceof Integer level
+                        ? adapter.checkOpLevel(userId, level)
+                        : adapter.checkPermission(userId, key.toString(), false)
+                        .toBooleanOrElse(false);
+            };
+        }
+
+        static Error insufficientPermissions(@Nullable String detail) {
+            return new Error("You dont have permission to do this " + (detail == null ? "\b" : detail));
+        }
+
+        default Optional<Object> getPermissionKey(Usage usage) {
+            return Optional.of(usage.getNode().getAttribute().permission())
+                    .filter(Predicate.<String>not(Command.EmptyAttribute::equals)
+                            .and(not(String::isBlank)))
+                    .map(StandardValueType::findGoodType);
+        }
+
+        default boolean userHasPermission(Usage usage) {
+            return getPermissionKey(usage)
+                    .filter(key -> userHasPermission(usage, key))
+                    .isPresent();
+        }
+
+        boolean userHasPermission(Usage usage, Object key);
+
+        interface Adapter {
+            default boolean checkOpLevel(UUID playerId) {
+                return checkOpLevel(playerId, 1);
+            }
+
+            boolean checkOpLevel(UUID playerId, @MagicConstant(intValues = {0, 1, 2, 3, 4}) int minimum);
+
+            TriState checkPermission(UUID playerId, String key, boolean explicit);
+        }
     }
 
     @FunctionalInterface
@@ -274,7 +324,7 @@ public @interface Command {
     @Value
     @NonFinal
     @ToString(of = {"id"})
-    class Manager extends Container.Base implements Info {
+    class Manager extends Container.Base implements Info, PermissionChecker {
         public static final Handler DefaultHandler = (command, x, args) -> System.out.println(x);
         UUID id = UUID.randomUUID();
         Set<Node> baseNodes = new HashSet<>();
@@ -351,6 +401,38 @@ public @interface Command {
             return streamChildren(ContextProvider.class).flatMap(multiply(provider -> provider.expandContext(baseContext)));
         }
 
+        protected final Usage createUsageBase(Handler source, String[] fullCommand, Object... baseArgs) {
+            var baseNode = baseNodes.stream() // find base node to initiate advancing to execution node
+                    .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
+                    .flatMap(cast(Node.Callable.class))
+                    .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand)));
+            return Usage.builder()
+                    .source(source)
+                    .manager(this)
+                    .fullCommand(fullCommand)
+                    .context(expandContext(concat(Stream.of(this, source), Arrays.stream(baseArgs)).toArray())
+                            .collect(Collectors.toSet()))
+                    .baseNode(baseNode)
+                    .node(baseNode)
+                    .build();
+        }
+
+        @Override
+        public final boolean userHasPermission(Usage usage, Object key) {
+            return streamChildren(PermissionChecker.class)
+                    .findFirst()
+                    .filter(pc -> pc.userHasPermission(usage))
+                    .isPresent();
+        }
+
+        private void verifyPermission(Usage usage) {
+            var opt = getPermissionKey(usage);
+            if (opt.isEmpty()) return;
+            var key = opt.get();
+            if (!userHasPermission(usage, key))
+                throw PermissionChecker.insufficientPermissions("(missing permission: '%s')".formatted(key));
+        }
+
         public final Stream<AutoFillOption> autoComplete(Handler source,
                                                          @Doc("Do not include currentValue") String[] fullCommand,
                                                          String argName,
@@ -361,8 +443,8 @@ public @interface Command {
 
         public final Stream<AutoFillOption> autoComplete(Usage usage, String argName, @Nullable String currentValue) {
             try {
-                // ensure usage is advanced
                 usage.advanceFull();
+                verifyPermission(usage);
 
                 return (usage.node instanceof Node.Call call
                         ? call.nodes()
@@ -398,6 +480,7 @@ public @interface Command {
             Object result = null, response;
             try {
                 usage.advanceFull();
+                verifyPermission(usage);
 
                 Node.Call call;
                 if (usage.node instanceof Node.Group group) {
@@ -482,22 +565,6 @@ public @interface Command {
             if (response != null)
                 usage.source.handleResponse(usage, response, usage.context.toArray());
             return result;
-        }
-
-        protected final Usage createUsageBase(Handler source, String[] fullCommand, Object... baseArgs) {
-            var baseNode = baseNodes.stream() // find base node to initiate advancing to execution node
-                    .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
-                    .flatMap(cast(Node.Callable.class))
-                    .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand)));
-            return Usage.builder()
-                    .source(source)
-                    .manager(this)
-                    .fullCommand(fullCommand)
-                    .context(expandContext(concat(Stream.of(this, source), Arrays.stream(baseArgs)).toArray())
-                            .collect(Collectors.toSet()))
-                    .baseNode(baseNode)
-                    .node(baseNode)
-                    .build();
         }
 
         protected Optional<Adapter> adapter() {
