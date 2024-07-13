@@ -3,7 +3,6 @@ package org.comroid.api.java;
 import lombok.SneakyThrows;
 import org.comroid.annotations.Instance;
 import org.comroid.api.Polyfill;
-import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.func.ext.Wrap;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.ApiStatus;
@@ -70,6 +69,7 @@ public final class ReflectionHelper {
                 .findAny()
                 .map(field -> {
                     try {
+                        field.setAccessible(true);
                         return (T) field.get(null);
                     } catch (IllegalAccessException e) {
                         throw new AssertionError("Cannot access field", e);
@@ -119,10 +119,8 @@ public final class ReflectionHelper {
     public static Set<Field> fieldWithAnnotation(
             Class<?> type, Class<? extends Annotation> annotationType
     ) {
-        return DataStructure.of(type)
-                .getProperties().stream()
+        return Arrays.stream(type.getFields())
                 .filter(prop->prop.isAnnotationPresent(annotationType))
-                .flatMap(prop->prop.getGetter().accessor() instanceof Field fld ? Stream.of(fld):Stream.empty())
                 .collect(Collectors.toUnmodifiableSet());
     }
 
@@ -141,29 +139,18 @@ public final class ReflectionHelper {
     }
 
     public static boolean typeCompat(Class<?> expected, Class<?> target) {
-        if (expected.getName().contains("."))
-            // type is not primitive
-            return expected.equals(target) || expected.isAssignableFrom(target);
-
-        // type is primitive
-        switch (expected.getName()) {
-            case "int":
-                return typeCompat(Integer.class, target);
-            case "double":
-                return typeCompat(Double.class, target);
-            case "long":
-                return typeCompat(Long.class, target);
-            case "char":
-                return typeCompat(Character.class, target);
-            case "boolean":
-                return typeCompat(Boolean.class, target);
-            case "short":
-                return typeCompat(Short.class, target);
-            case "float":
-                return typeCompat(Float.class, target);
-        }
-
-        return false;
+        return expected.getName().contains(".")
+                ? expected.equals(target) || expected.isAssignableFrom(target)
+                : switch (expected.getName()) {
+            case "int" -> typeCompat(Integer.class, target);
+            case "double" -> typeCompat(Double.class, target);
+            case "long" -> typeCompat(Long.class, target);
+            case "char" -> typeCompat(Character.class, target);
+            case "boolean" -> typeCompat(Boolean.class, target);
+            case "short" -> typeCompat(Short.class, target);
+            case "float" -> typeCompat(Float.class, target);
+            default -> expected.isAssignableFrom(target);
+        };
     }
 
     public static <T> Set<T> collectStaticFields(
