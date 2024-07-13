@@ -1,5 +1,6 @@
 package org.comroid.api.func.util;
 
+import lombok.Builder;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
@@ -19,7 +20,6 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import net.kyori.adventure.text.Component;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -44,6 +44,7 @@ import org.comroid.api.info.Log;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.StackTraceUtils;
+import org.comroid.api.tree.Container;
 import org.comroid.api.tree.Initializable;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.NotNull;
@@ -70,11 +71,10 @@ import java.util.stream.Stream;
 import static java.util.Collections.unmodifiableList;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
-import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
+import static java.util.stream.Stream.*;
 import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.get;
-import static org.comroid.api.func.util.Streams.cast;
-import static org.comroid.api.func.util.Streams.expand;
+import static org.comroid.api.func.util.Streams.*;
 
 @SuppressWarnings("unused")
 @Retention(RetentionPolicy.RUNTIME)
@@ -86,24 +86,11 @@ public @interface Command {
 
     String usage() default EmptyAttribute;
 
+    @SuppressWarnings("LanguageMismatch")
     @Language(value = "Groovy", prefix = "Object x =", suffix = ";")
     String permission() default EmptyAttribute;
 
     boolean ephemeral() default false;
-
-    enum Capability {
-        NAMED_ARGS;
-
-        public interface Provider {
-            default Stream<Capability> capabilities() {
-                return empty();
-            }
-
-            default boolean hasCapability(Capability capability) {
-                return capabilities().anyMatch(capability::equals);
-            }
-        }
-    }
 
     @Target(ElementType.PARAMETER)
     @Retention(RetentionPolicy.RUNTIME)
@@ -119,6 +106,24 @@ public @interface Command {
         Default[] defaultValue() default {};
 
         boolean required() default true;
+    }
+
+    enum Capability {
+        NAMED_ARGS;
+
+        @FunctionalInterface
+        public interface Provider {
+            Set<Capability> getCapabilities();
+
+            default boolean hasCapability(Capability capability) {
+                return getCapabilities().stream().anyMatch(capability::equals);
+            }
+        }
+    }
+
+    @FunctionalInterface
+    interface ContextProvider {
+        Stream<Object> expandContext(Object... context);
     }
 
     @FunctionalInterface
@@ -180,7 +185,8 @@ public @interface Command {
         }
     }
 
-    interface Handler extends Capability.Provider {
+    @FunctionalInterface
+    interface Handler {
         void handleResponse(Usage command, @NotNull Object response, Object... args);
 
         default String handleThrowable(Throwable throwable) {
@@ -217,131 +223,29 @@ public @interface Command {
                 str = str.substring(0, 1950);
             return str;
         }
-    }
 
-    @Data
-    @SuperBuilder
-    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    abstract class Node implements Named, Described, Aliased, Specifiable<Node> {
-        @NotNull
-        String name;
-
-        @Override
-        public Stream<String> aliases() {
-            return Stream.concat(Aliased.super.aliases(), of(getName()));
-        }
-
-        @Data
-        @SuperBuilder
-        @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-        public static abstract class Callable extends Node {
-            @NotNull
-            Command attribute;
-
-            public abstract Stream<? extends Node> nodes();
-
-            public @Nullable String getName() {
-                return EmptyAttribute.equals(attribute.value())
-                        ? Optional.ofNullable(super.getName())
-                        .or(() -> Optional.ofNullable(getAlternateName()))
-                        .orElseThrow(() -> new NullPointerException("No name defined for command " + this))
-                        : attribute.value();
-            }
-
+        interface Minecraft extends Handler {
             @Override
-            public String getAlternateName() {
-                return null; // stub to prevent recursion loop
-            }
-        }
-
-        @Value
-        @SuperBuilder
-        public static class Group extends Callable {
-            @NotNull
-            @AnnotatedTarget
-            Class<?> source;
-            @Singular
-            List<Group> groups;
-            @Singular
-            List<Call> calls;
-            @Nullable
-            @lombok.Builder.Default
-            Call defaultCall = null;
-
-            @Override
-            public Stream<Callable> nodes() {
-                var stream = Stream.concat(groups.stream(), calls.stream());
-                if (defaultCall != null) stream = stream.collect(Streams.append(defaultCall));
-                return stream;
-            }
-        }
-
-        @Value
-        @SuperBuilder
-        public static class Call extends Callable {
-            @Nullable
-            Object target;
-            @NotNull
-            Method method;
-            @NotNull
-            Invocable<?> callable;
-            @Singular
-            List<Parameter> parameters;
-
-            @Override
-            public Wrap<AnnotatedElement> element() {
-                return Wrap.of(callable.accessor());
-            }
-
-            @Override
-            public String getAlternateName() {
-                return callable.getName();
-            }
-
-            @Override
-            public Stream<Parameter> nodes() {
-                return parameters.stream().sorted(Parameter.COMPARATOR);
-            }
-        }
-
-        @Value
-        @SuperBuilder
-        public static class Parameter extends Node implements AutoFillProvider, Default.Extension {
-            public static Comparator<? super Parameter> COMPARATOR = Comparator.comparingInt(param -> param.index);
-            @NotNull
-            Arg attribute;
-            @NotNull
-            @AnnotatedTarget
-            java.lang.reflect.Parameter param;
-            boolean required;
-            int index;
-            @Singular
-            List<AutoFillProvider> autoFillProviders;
-
-            @Override
-            public Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue) {
-                return autoFillProviders.stream()
-                        .flatMap(provider -> provider.autoFill(usage, argName, currentValue))
-                        .distinct();
+            default String handleThrowable(Throwable throwable) {
+                return "§c" + Handler.super.handleThrowable(throwable);
             }
         }
     }
 
-    record AutoCompletionOption(String key, String description) {
+    interface Info extends Capability.Provider, ContextProvider, Initializable {
+    }
+
+    record AutoFillOption(String key, String description) {
     }
 
     @Value
     @Builder
     class Usage {
-        public static Usage Dummy = Usage.builder().build();
         Manager manager;
         String[] fullCommand;
         @Singular("context")
         Set<Object> context;
-        @Nullable
-        @Default
-        @NonFinal
-        @Setter
+        @NotNull
         Handler source;
         Node.Callable baseNode;
         @NonFinal
@@ -375,19 +279,16 @@ public @interface Command {
     @Value
     @NonFinal
     @ToString(of = {"id"})
-    class Manager implements Capability.Provider, Initializable {
+    class Manager extends Container.Base implements Info {
         public static final Handler DefaultHandler = (command, x, args) -> System.out.println(x);
         UUID id = UUID.randomUUID();
-        Handler handler;
         Set<Node> baseNodes = new HashSet<>();
-        protected Set<Adapter> adapters = new HashSet<>();
 
-        public Manager() {
-            this(DefaultHandler);
-        }
-
-        public Manager(Handler handler) {
-            register(this.handler = handler);
+        @Override
+        public final Set<Capability> getCapabilities() {
+            return streamChildren(Capability.Provider.class)
+                    .flatMap(provider -> provider.getCapabilities().stream())
+                    .collect(Collectors.toUnmodifiableSet());
         }
 
         @SuppressWarnings("UnusedReturnValue")
@@ -402,16 +303,7 @@ public @interface Command {
             return nodes;
         }
 
-        private void registerGroups(@Nullable Object target, Collection<? super Node.Group> nodes, Class<?> source) {
-            for (var groupNodeSource : source.getClasses()) {
-                if (!groupNodeSource.isAnnotationPresent(Command.class))
-                    continue;
-                var node = createGroupNode(target, groupNodeSource);
-                nodes.add(node);
-            }
-        }
-
-        public Node.Group createGroupNode(@Nullable Object target, Class<?> source) {
+        public final Node.Group createGroupNode(@Nullable Object target, Class<?> source) {
             var attribute = Annotations.findAnnotations(Command.class, source)
                     .findFirst().orElseThrow().getAnnotation();
             var group = Node.Group.builder()
@@ -436,16 +328,7 @@ public @interface Command {
             return group.build();
         }
 
-        private void registerCalls(@Nullable Object target, Collection<? super Node.Call> nodes, Class<?> source) {
-            for (var callNodeSource : source.getMethods()) {
-                if (!callNodeSource.isAnnotationPresent(Command.class))
-                    continue;
-                var node = createCallNode(target, callNodeSource);
-                nodes.add(node);
-            }
-        }
-
-        public Node.Call createCallNode(@Nullable Object target, Method source) {
+        public final Node.Call createCallNode(@Nullable Object target, Method source) {
             var attribute = Annotations.findAnnotations(Command.class, source)
                     .findFirst().orElseThrow().getAnnotation();
             var call = Node.Call.builder()
@@ -461,6 +344,189 @@ public @interface Command {
             call.parameters(unmodifiableList(params));
 
             return call.build();
+        }
+
+        @Override
+        public final void initialize() {
+            streamChildren(Adapter.class).forEach(Adapter::initialize);
+        }
+
+        @Override
+        public final Stream<Object> expandContext(Object... baseContext) {
+            return streamChildren(ContextProvider.class).flatMap(multiply(provider -> provider.expandContext(baseContext)));
+        }
+
+        public final Stream<AutoFillOption> autoComplete(Handler source,
+                                                         @Doc("Do not include currentValue") String[] fullCommand,
+                                                         String argName,
+                                                         @Nullable String currentValue) {
+            var usage = createUsageBase(source, fullCommand);
+            return autoComplete(usage, argName, currentValue);
+        }
+
+        public final Stream<AutoFillOption> autoComplete(Usage usage, String argName, @Nullable String currentValue) {
+            try {
+                // ensure usage is advanced
+                usage.advanceFull();
+
+                return (usage.node instanceof Node.Call call
+                        ? call.nodes().flatMap(param -> param.autoFill(usage, argName, currentValue))
+                        : usage.node.nodes().map(Node::getName))
+                        .distinct()
+                        .filter(not("$"::equals))
+                        .map(str -> new AutoFillOption(str, str));
+            } catch (Throwable e) {
+                Log.at(Level.WARNING, "An error ocurred during command execution", e);
+                return Stream.of(usage.source.handleThrowable(e))
+                        .map(String::valueOf)
+                        .map(str -> new AutoFillOption(str, ""));
+            }
+        }
+
+        public final @Nullable Object execute(Handler source,
+                                  String[] fullCommand,
+                                  @Nullable Map<String, Object> namedArgs,
+                                  Object... extraArgs) {
+            var usage = createUsageBase(source, fullCommand, extraArgs);
+            return execute(usage, namedArgs);
+        }
+
+        public final @Nullable Object execute(Usage usage, @Nullable Map<String, Object> namedArgs) {
+            Object result = null, response;
+            try {
+                usage.advanceFull();
+
+                Node.Call call;
+                if (usage.node instanceof Node.Group group) {
+                    call = group.defaultCall;
+                    //usage.callIndex += 1;
+                } else call = usage.node.as(Node.Call.class, "Invalid node type! Is your syntax correct?");
+                if (call == null)
+                    throw new Error("No such command");
+
+                // sort arguments
+                if (usage.callIndex < 0 || usage.callIndex >= usage.fullCommand.length)
+                    throw new Error("No such command: " + String.join(" ", usage.fullCommand));
+                var parameterTypes = call.callable.parameterTypesOrdered();
+                Object[] useArgs = new Object[parameterTypes.length];
+                var useNamedArgs = hasCapability(Capability.NAMED_ARGS);
+                var argIndex = usage.callIndex + 1;
+                for (int i = 0; i < useArgs.length; i++) {
+                    final int i0 = i;
+                    var parameterType = parameterTypes[i];
+                    var parameter = Stream.of(call.callable.accessor())
+                            .flatMap(cast(Method.class))
+                            .map(mtd -> mtd.getParameters()[i0])
+                            .findAny();
+                    var attribute = parameter
+                            .flatMap(param -> Annotations.findAnnotations(Arg.class, param).findFirst())
+                            .map(Annotations.Result::getAnnotation)
+                            .orElse(null);
+                    Node.Parameter paramNode = null;
+                    if (attribute != null)
+                        paramNode = call.parameters.stream()
+                                .filter(node -> node.attribute.equals(attribute))
+                                .findAny().orElseThrow();
+                    if (attribute == null) {
+                        // try to fit in an extraArg
+                        useArgs[i] = usage.context.stream()
+                                .filter(parameterType::isInstance)
+                                .findAny()
+                                .orElseGet(() -> {
+                                    if (parameterType.isArray() && parameterType.getComponentType().equals(String.class)) {
+                                        var args = new String[usage.fullCommand.length - usage.callIndex - 1];
+                                        System.arraycopy(usage.fullCommand, usage.callIndex + 1, args, 0, args.length);
+                                        return args;
+                                    } else return null;
+                                });
+                    } else if (useNamedArgs) {
+                        // eg. discord
+                        Constraint.notNull(namedArgs, "args").run();
+                        Constraint.notNull(paramNode, "parameter").run();
+                        if (paramNode.isRequired() && !namedArgs.containsKey(paramNode.getName()))
+                            throw new Error("Missing argument " + paramNode.getName());
+
+                        final var finalParamNode = paramNode;
+                        useArgs[i] = Optional.ofNullable(namedArgs.get(paramNode.getName()))
+                                .or(() -> usage.context.stream()
+                                        .flatMap(cast(finalParamNode.param.getType()))
+                                        .findAny())
+                                .orElse(null);
+                    } else {
+                        // eg. console, minecraft
+                        Constraint.notNull(paramNode, "parameter").run();
+                        if (paramNode.isRequired() && argIndex >= usage.fullCommand.length)
+                            throw new Error("Not enough arguments");
+                        var argStr = argIndex < usage.fullCommand.length
+                                ? usage.fullCommand[argIndex]
+                                : null;
+                        argIndex += 1;
+
+                        useArgs[i] = StandardValueType.forClass(parameterType)
+                                .map(svt -> (Object) svt.parse(argStr))
+                                .orElseGet(() -> Activator.get(parameterType)
+                                        .createInstance(DataNode.of(argStr)));
+                    }
+                }
+
+                result = response = call.callable.invoke(call.target, useArgs);
+            } catch (Error err) {
+                response = usage.source.handleThrowable(err);
+            } catch (Throwable e) {
+                Log.at(Level.FINE, "An error ocurred during command execution", e);
+                response = usage.source.handleThrowable(e);
+            }
+            if (response != null)
+                usage.source.handleResponse(usage, response, usage.context.toArray());
+            return result;
+        }
+
+        protected final Usage createUsageBase(Handler source, String[] fullCommand, Object... baseArgs) {
+            var baseNode = baseNodes.stream() // find base node to initiate advancing to execution node
+                    .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
+                    .flatMap(cast(Node.Callable.class))
+                    .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand)));
+            return Usage.builder()
+                    .source(source)
+                    .manager(this)
+                    .fullCommand(fullCommand)
+                    .context(expandContext(concat(Stream.of(this, source), Arrays.stream(baseArgs)).toArray())
+                            .collect(Collectors.toSet()))
+                    .baseNode(baseNode)
+                    .node(baseNode)
+                    .build();
+        }
+
+        protected Optional<Adapter> adapter() {
+            return streamChildren(Adapter.class).findAny();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof Manager && obj.hashCode() == hashCode();
+        }
+
+        @Override
+        public final int hashCode() {
+            return id.hashCode();
+        }
+
+        private void registerGroups(@Nullable Object target, Collection<? super Node.Group> nodes, Class<?> source) {
+            for (var groupNodeSource : source.getClasses()) {
+                if (!groupNodeSource.isAnnotationPresent(Command.class))
+                    continue;
+                var node = createGroupNode(target, groupNodeSource);
+                nodes.add(node);
+            }
+        }
+
+        private void registerCalls(@Nullable Object target, Collection<? super Node.Call> nodes, Class<?> source) {
+            for (var callNodeSource : source.getMethods()) {
+                if (!callNodeSource.isAnnotationPresent(Command.class))
+                    continue;
+                var node = createCallNode(target, callNodeSource);
+                nodes.add(node);
+            }
         }
 
         private void registerParameters(Collection<? super Node.Parameter> nodes, Method source) {
@@ -499,196 +565,14 @@ public @interface Command {
             return builder.build();
         }
 
-        @Override
-        public void initialize() {
-            adapters.forEach(Adapter::initialize);
-        }
-
-        @Deprecated
-        public final Stream<AutoCompletionOption> autoComplete(@Doc("Do not include currentValue") String fullCommand,
-                                                               String argName,
-                                                               String currentValue) {
-            return autoComplete(handler, fullCommand.split(" "), argName, currentValue);
-        }
-
-        public final Stream<AutoCompletionOption> autoComplete(Handler source,
-                                                               @Doc("Do not include currentValue") String[] fullCommand,
-                                                               String argName,
-                                                               @Nullable String currentValue) {
-            var usage = createUsageBase(source, fullCommand);
-            return autoComplete(usage, argName, currentValue);
-        }
-
-        public final Stream<AutoCompletionOption> autoComplete(Usage usage, String argName, @Nullable String currentValue) {
-            try {
-                // ensure usage is advanced
-                usage.advanceFull();
-
-                return (usage.node instanceof Node.Call call
-                        ? call.nodes().flatMap(param -> param.autoFill(usage, argName, currentValue))
-                        : usage.node.nodes().map(Node::getName))
-                        .distinct()
-                        .filter(not("$"::equals))
-                        .map(str -> new AutoCompletionOption(str, str));
-            } catch (Throwable e) {
-                Log.at(Level.WARNING, "An error ocurred during command execution", e);
-                return of(handler.handleThrowable(e))
-                        .map(String::valueOf)
-                        .map(str -> new AutoCompletionOption(str, ""));
-            }
-        }
-
-        @Deprecated
-        public final @Nullable Object execute(String fullCommand, Object... extraArgs) {
-            return execute(handler, fullCommand.split(" "), null, extraArgs);
-        }
-
-        public final @Nullable Object execute(Handler source,
-                                  String[] fullCommand,
-                                  @Nullable Map<String, Object> namedArgs,
-                                  Object... extraArgs) {
-            var usage = createUsageBase(source, fullCommand, extraArgs);
-            return execute(usage, namedArgs);
-        }
-
-        public final @Nullable Object execute(Usage usage, @Nullable Map<String, Object> namedArgs) {
-            Object result = null, response;
-            Handler handler = adapters.stream().findAny()
-                    .<Handler>map(identity())
-                    .orElseGet(() -> usage.source == null ? this.handler : usage.source);
-            try {
-                usage.advanceFull();
-
-                Node.Call call;
-                if (usage.node instanceof Node.Group group) {
-                    call = group.defaultCall;
-                    //usage.callIndex += 1;
-                } else call = usage.node.as(Node.Call.class, "Invalid node type! Is your syntax correct?");
-                if (call == null)
-                    throw new Error("No such command");
-
-                // sort arguments
-                if (usage.callIndex < 0 || usage.callIndex >= usage.fullCommand.length)
-                    throw new Error("No such command: " + String.join(" ", usage.fullCommand));
-                var parameterTypes = call.callable.parameterTypesOrdered();
-                Object[] useArgs = new Object[parameterTypes.length];
-                var useNamedArgs = hasCapability(Capability.NAMED_ARGS);
-                var argIndex = usage.callIndex + 1;
-                for (int i = 0; i < useArgs.length; i++) {
-                    final int i0 = i;
-                    var parameterType = parameterTypes[i];
-                    var parameter = of(call.callable.accessor())
-                            .flatMap(cast(Method.class))
-                            .map(mtd -> mtd.getParameters()[i0])
-                            .findAny();
-                    var attribute = parameter
-                            .flatMap(param -> Annotations.findAnnotations(Arg.class, param).findFirst())
-                            .map(Annotations.Result::getAnnotation)
-                            .orElse(null);
-                    Node.Parameter paramNode = null;
-                    if (attribute != null)
-                        paramNode = call.parameters.stream()
-                                .filter(node -> node.attribute.equals(attribute))
-                                .findAny().orElseThrow();
-                    if (attribute == null) {
-                        // try to fit in an extraArg
-                        useArgs[i] = usage.context.stream()
-                                .filter(parameterType::isInstance)
-                                .findAny()
-                                .orElseGet(() -> {
-                                    if (parameterType.isArray() && parameterType.getComponentType().equals(String.class)) {
-                                        var args = new String[usage.fullCommand.length - usage.callIndex - 1];
-                                        System.arraycopy(usage.fullCommand, usage.callIndex + 1, args, 0, args.length);
-                                        return args;
-                                    } else return null;
-                                });
-                    } else if (useNamedArgs) {
-                        // eg. discord
-                        Constraint.notNull(namedArgs, "args").run();
-                        Constraint.notNull(paramNode, "parameter").run();
-                        if (paramNode.isRequired() && !namedArgs.containsKey(paramNode.getName()))
-                            throw new ArgumentError("Missing argument " + paramNode.getName());
-
-                        final var finalParamNode = paramNode;
-                        useArgs[i] = Optional.ofNullable(namedArgs.get(paramNode.getName()))
-                                .or(() -> usage.context.stream()
-                                        .flatMap(cast(finalParamNode.param.getType()))
-                                        .findAny())
-                                .orElse(null);
-                    } else {
-                        // eg. console, minecraft
-                        Constraint.notNull(paramNode, "parameter").run();
-                        if (paramNode.isRequired() && argIndex >= usage.fullCommand.length)
-                            throw new ArgumentError("Not enough arguments");
-                        var argStr = argIndex < usage.fullCommand.length
-                                ? usage.fullCommand[argIndex]
-                                : null;
-                        argIndex += 1;
-
-                        useArgs[i] = StandardValueType.forClass(parameterType)
-                                .map(svt -> (Object) svt.parse(argStr))
-                                .orElseGet(() -> Activator.get(parameterType)
-                                        .createInstance(DataNode.of(argStr)));
-                    }
-                }
-
-                result = response = call.callable.invoke(call.target, useArgs);
-            } catch (Error err) {
-                response = handler.handleThrowable(err);
-            } catch (Throwable e) {
-                Log.at(Level.FINE, "An error ocurred during command execution", e);
-                response = handler.handleThrowable(e);
-            }
-            if (response != null)
-                handler.handleResponse(usage, response, usage.context.toArray());
-            return result;
-        }
-
-        protected Usage createUsageBase(Handler source, String[] fullCommand, Object... extraArgs) {
-            var baseNode = baseNodes.stream() // find base node to initiate advancing to execution node
-                    .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
-                    .flatMap(cast(Node.Callable.class))
-                    .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand)));
-            return Usage.builder()
-                    .source(source)
-                    .manager(this)
-                    .fullCommand(fullCommand)
-                    .context(of(extraArgs).collect(Collectors.toSet())) // set should be modifiable
-                    .baseNode(baseNode)
-                    .node(baseNode)
-                    .build();
-        }
-
-        protected Optional<Adapter> adapter() {
-            return adapters.stream().findAny();
-        }
-
-        protected Handler handler() {
-            return adapter()
-                    .map(Polyfill::<Handler>uncheckedCast)
-                    .orElse(handler);
-        }
-
-        @Override
-        public final int hashCode() {
-            return id.hashCode();
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            return obj instanceof Manager && obj.hashCode() == hashCode();
-        }
-
-        @Override
-        public Stream<Capability> capabilities() {
-            return adapters.stream()
-                    .flatMap(Capability.Provider::capabilities)
-                    .collect(Streams.append(handler.capabilities()));
-        }
-
-        public static abstract class Adapter implements Handler, Initializable {
+        public static abstract class Adapter implements Info, Handler {
             @Override
             public void initialize() {}
+
+            @Override
+            public Stream<Object> expandContext(Object... context) {
+                return Stream.of(context);
+            }
 
             protected String[] strings(String label, String[] args) {
                 var strings = new String[args.length + 1];
@@ -701,6 +585,7 @@ public @interface Command {
         @Value
         @RequiredArgsConstructor
         public class Adapter$JDA extends Adapter {
+            Set<Capability> capabilities = Set.of(Capability.NAMED_ARGS);
             JDA jda;
             Event.Bus<GenericEvent> bus = new Event.Bus<>();
             @Nullable
@@ -710,12 +595,7 @@ public @interface Command {
             @NonFinal boolean initialized = false;
 
             {
-                adapters.add(this);
-            }
-
-            @Override
-            public Stream<Capability> capabilities() {
-                return of(Capability.NAMED_ARGS);
+                addChild(this);
             }
 
             @Override
@@ -729,11 +609,21 @@ public @interface Command {
                     }
                 });
                 bus.flatMap(SlashCommandInteractionEvent.class).listen()
-                        .subscribeData(event -> execute(event.getName(), event, event.getUser(), event.getGuild(), event.getChannel()));
+                        .subscribeData(event -> execute(Adapter$JDA.this,
+                                event.getCommandString().split(" "),
+                                Map.of(),
+                                event.getName(),
+                                event,
+                                event.getUser(),
+                                event.getGuild(),
+                                event.getChannel()));
                 bus.flatMap(CommandAutoCompleteInteractionEvent.class).listen()
                         .subscribeData(event -> {
                             var option = event.getFocusedOption();
-                            event.replyChoices(autoComplete(event.getName(), option.getName(), option.getValue())
+                            event.replyChoices(autoComplete(Adapter$JDA.this,
+                                            event.getCommandString().split(" "),
+                                            option.getName(),
+                                            option.getValue())
                                             .map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key, e.description))
                                             .toList())
                                     .queue();
@@ -771,11 +661,11 @@ public @interface Command {
 
             @Override
             public void handleResponse(Usage cmd, @NotNull Object response, Object... args) {
-                final var e = of(args)
+                final var e = Stream.of(args)
                         .flatMap(cast(SlashCommandInteractionEvent.class))
                         .findAny()
                         .orElseThrow();
-                final var user = of(args)
+                final var user = Stream.of(args)
                         .flatMap(cast(User.class))
                         .findAny()
                         .orElseThrow();
@@ -979,14 +869,51 @@ public @interface Command {
         @Value
         @NonFinal
         @RequiredArgsConstructor
-        public class Adapter$Spigot extends Adapter implements TabCompleter, CommandExecutor {
+        public class Adapter$Spigot extends Adapter implements Handler.Minecraft, TabCompleter, CommandExecutor {
+            Set<Capability> capabilities = Set.of();
             JavaPlugin plugin;
 
             {
-                adapters.add(this);
+                addChild(this);
             }
 
             // todo: try to register components with spigot
+
+            @Override
+            public Stream<Object> expandContext(Object... context) {
+                return super.expandContext(context).flatMap(expand(it -> {
+                    if (it instanceof Player player)
+                        return Stream.of(player.getUniqueId());
+                    return empty();
+                }));
+            }
+
+            @Override
+            public List<String> onTabComplete(@NotNull CommandSender sender,
+                                              @NotNull org.bukkit.command.Command command,
+                                              @NotNull String alias,
+                                              @NotNull String[] args) {
+                if (alias.contains(":"))
+                    alias = alias.substring(alias.indexOf(':') + 1);
+                var strings = strings(alias, args);
+                var usage = createUsageBase(this, strings, expandContext(sender).toArray());
+                return autoComplete(usage, String.valueOf(args.length), strings[strings.length - 1])
+                        .map(AutoFillOption::key)
+                        .toList();
+            }
+
+            @Override
+            public boolean onCommand(@NotNull CommandSender sender,
+                                     @NotNull org.bukkit.command.Command command,
+                                     @NotNull String label,
+                                     @NotNull String[] args) {
+                if (label.contains(":"))
+                    label = label.substring(label.indexOf(':') + 1);
+                var strings = strings(label, args);
+                var usage = createUsageBase(this, strings, expandContext(sender).toArray());
+                execute(usage, null);
+                return true;
+            }
 
             @Override
             public void handleResponse(Usage command, @NotNull Object response, Object... args) {
@@ -1001,45 +928,115 @@ public @interface Command {
                     sender.spigot().sendMessage(get().serialize(component));
                 else sender.sendMessage(String.valueOf(response));
             }
+        }
+    }
 
-            @Override
-            public String handleThrowable(Throwable throwable) {
-                return ChatColor.RED + super.handleThrowable(throwable);
-            }
+    @Data
+    @SuperBuilder
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    abstract class Node implements Named, Described, Aliased, Specifiable<Node> {
+        @NotNull
+        String name;
 
-            @Override
-            public List<String> onTabComplete(@NotNull CommandSender sender,
-                                              @NotNull org.bukkit.command.Command command,
-                                              @NotNull String alias,
-                                              @NotNull String[] args) {
-                if (alias.contains(":"))
-                    alias = alias.substring(alias.indexOf(':') + 1);
-                var strings = strings(alias, args);
-                var usage = createUsageBase(this, strings, collectExtraArgs(sender).toArray());
-                return autoComplete(usage, String.valueOf(args.length), strings[strings.length - 1])
-                        .map(AutoCompletionOption::key)
-                        .toList();
-            }
-
-            @Override
-            public boolean onCommand(@NotNull CommandSender sender,
-                                     @NotNull org.bukkit.command.Command command,
-                                     @NotNull String label,
-                                     @NotNull String[] args) {
-                if (label.contains(":"))
-                    label = label.substring(label.indexOf(':') + 1);
-                var strings = strings(label, args);
-                var usage = createUsageBase(this, strings, collectExtraArgs(sender).toArray());
-                execute(usage, null);
-                return true;
-            }
-
-            protected Stream<Object> collectExtraArgs(@NotNull CommandSender sender) {
-                return Stream.concat(of(sender), sender instanceof Player plr ? of(plr.getUniqueId()) : empty());
-            }
-
+        @Override
+        public Stream<String> aliases() {
+            return Stream.concat(Aliased.super.aliases(), of(getName()));
         }
 
+        @Data
+        @SuperBuilder
+        @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+        public static abstract class Callable extends Node {
+            @NotNull
+            Command attribute;
+
+            public abstract Stream<? extends Node> nodes();
+
+            public @Nullable String getName() {
+                return EmptyAttribute.equals(attribute.value())
+                        ? Optional.ofNullable(super.getName())
+                        .or(() -> Optional.ofNullable(getAlternateName()))
+                        .orElseThrow(() -> new NullPointerException("No name defined for command " + this))
+                        : attribute.value();
+            }
+
+            @Override
+            public String getAlternateName() {
+                return null; // stub to prevent recursion loop
+            }
+        }
+
+        @Value
+        @SuperBuilder
+        public static class Group extends Callable {
+            @NotNull
+            @AnnotatedTarget
+            Class<?> source;
+            @Singular
+            List<Group> groups;
+            @Singular
+            List<Call> calls;
+            @Nullable
+            @lombok.Builder.Default
+            Call defaultCall = null;
+
+            @Override
+            public Stream<Callable> nodes() {
+                var stream = Stream.concat(groups.stream(), calls.stream());
+                if (defaultCall != null) stream = stream.collect(Streams.append(defaultCall));
+                return stream;
+            }
+        }
+
+        @Value
+        @SuperBuilder
+        public static class Call extends Callable {
+            @Nullable
+            Object target;
+            @NotNull
+            Method method;
+            @NotNull
+            Invocable<?> callable;
+            @Singular
+            List<Parameter> parameters;
+
+            @Override
+            public Wrap<AnnotatedElement> element() {
+                return Wrap.of(callable.accessor());
+            }
+
+            @Override
+            public String getAlternateName() {
+                return callable.getName();
+            }
+
+            @Override
+            public Stream<Parameter> nodes() {
+                return parameters.stream().sorted(Parameter.COMPARATOR);
+            }
+        }
+
+        @Value
+        @SuperBuilder
+        public static class Parameter extends Node implements AutoFillProvider, Default.Extension {
+            public static Comparator<? super Parameter> COMPARATOR = Comparator.comparingInt(param -> param.index);
+            @NotNull
+            Arg attribute;
+            @NotNull
+            @AnnotatedTarget
+            java.lang.reflect.Parameter param;
+            boolean required;
+            int index;
+            @Singular
+            List<AutoFillProvider> autoFillProviders;
+
+            @Override
+            public Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue) {
+                return autoFillProviders.stream()
+                        .flatMap(provider -> provider.autoFill(usage, argName, currentValue))
+                        .distinct();
+            }
+        }
     }
 
     @Getter
@@ -1049,7 +1046,7 @@ public @interface Command {
         private String[] args;
 
         public Error(Throwable cause) {
-            this(Usage.Dummy, null, cause, null);
+            this(null, null, cause, null);
         }
 
         public Error(String message) {
@@ -1068,15 +1065,4 @@ public @interface Command {
             this.args = args;
         }
     }
-
-    class ArgumentError extends Error {
-        public ArgumentError(String message) {
-            super(message);
-        }
-
-        public ArgumentError(String nameof, @Nullable String detail) {
-            super("Invalid argument '" + nameof + "'" + Optional.ofNullable(detail).map(d -> "; " + d).orElse(""));
-        }
-    }
-
 }
