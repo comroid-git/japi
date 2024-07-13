@@ -952,9 +952,9 @@ public @interface Command {
 
             public abstract Stream<? extends Node> nodes();
 
-            public @Nullable String getName() {
+            public @NotNull String getName() {
                 return EmptyAttribute.equals(attribute.value())
-                        ? Optional.ofNullable(super.getName())
+                        ? Optional.of(super.getName())
                         .or(() -> Optional.ofNullable(getAlternateName()))
                         .orElseThrow(() -> new NullPointerException("No name defined for command " + this))
                         : attribute.value();
@@ -986,6 +986,11 @@ public @interface Command {
                 if (defaultCall != null) stream = stream.collect(Streams.append(defaultCall));
                 return stream;
             }
+
+            @Override
+            public Wrap<AnnotatedElement> element() {
+                return () -> source;
+            }
         }
 
         @Value
@@ -1001,11 +1006,6 @@ public @interface Command {
             List<Parameter> parameters;
 
             @Override
-            public Wrap<AnnotatedElement> element() {
-                return Wrap.of(callable.accessor());
-            }
-
-            @Override
             public String getAlternateName() {
                 return callable.getName();
             }
@@ -1013,6 +1013,11 @@ public @interface Command {
             @Override
             public Stream<Parameter> nodes() {
                 return parameters.stream().sorted(Parameter.COMPARATOR);
+            }
+
+            @Override
+            public Wrap<AnnotatedElement> element() {
+                return callable::accessor;
             }
         }
 
@@ -1035,6 +1040,11 @@ public @interface Command {
                 return autoFillProviders.stream()
                         .flatMap(provider -> provider.autoFill(usage, argName, currentValue))
                         .distinct();
+            }
+
+            @Override
+            public Wrap<AnnotatedElement> element() {
+                return () -> param;
             }
         }
     }
