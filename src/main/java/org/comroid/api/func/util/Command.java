@@ -64,7 +64,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.util.Collections.unmodifiableList;
@@ -127,33 +126,23 @@ public @interface Command {
 
     @FunctionalInterface
     interface AutoFillProvider {
-        Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue);
+        Stream<String> autoFill(Usage usage, String argName, String currentValue);
 
         enum Duration implements AutoFillProvider {
             @Instance INSTANCE;
 
-            private static Stream<String> expandShorthands(String base) {
-                return of(base).flatMap(expand(str -> str.length() == 1
-                        ? empty()
-                        : IntStream.range(1, str.length())
-                        .mapToObj(i -> base.substring(0, base.length() - i))));
-            }
-
             @Override
-            public Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue) {
-                var fullCommand = usage.getFullCommand();
-                var str = fullCommand[fullCommand.length - 1];
-                var chars = str.toCharArray();
+            public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
+                var chars = currentValue.toCharArray();
 
-                if (!str.isEmpty()) {
+                if (!currentValue.isEmpty()) {
                     var last = chars[chars.length - 1];
                     if (Character.isDigit(last))
-                        return of("min", "h", "d", "w", "mon", "y")
-                                .flatMap(Duration::expandShorthands)
+                        return of("m", "h", "d", "w", "mo", "y")
                                 .distinct()
-                                .map(suffix -> str + suffix);
+                                .map(suffix -> currentValue + suffix);
                 }
-                return of("6h", "3d", "2w", "1y");
+                return of("5m", "6h", "3d", "2w", "1y");
             }
         }
 
@@ -166,7 +155,7 @@ public @interface Command {
             }
 
             @Override
-            public Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue) {
+            public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
                 return of(options);
             }
         }
@@ -176,7 +165,7 @@ public @interface Command {
             Class<? extends java.lang.Enum<?>> type;
 
             @Override
-            public Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue) {
+            public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
                 return Arrays.stream(type.getEnumConstants())
                         .map(Named::$);
             }
@@ -1035,7 +1024,7 @@ public @interface Command {
             List<AutoFillProvider> autoFillProviders;
 
             @Override
-            public Stream<String> autoFill(Usage usage, String argName, @Nullable String currentValue) {
+            public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
                 return autoFillProviders.stream()
                         .flatMap(provider -> provider.autoFill(usage, argName, currentValue))
                         .distinct();
