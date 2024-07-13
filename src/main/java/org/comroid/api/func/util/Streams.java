@@ -129,6 +129,7 @@ public class Streams {
         return it -> concat(Stream.of(it).map(base), by.apply(it));
     }
 
+    @SuppressWarnings("ReplaceInefficientStreamCount")
     public static <T> Collector<T, Set<T>, Stream<T>> expandRecursive(Function<? super T, Stream<? extends T>> by) {
         return Collector.of(
                 HashSet::new,
@@ -136,11 +137,16 @@ public class Streams {
                 (l, r) -> Stream.concat(l.stream(), r.stream())
                         .collect(Collectors.toSet()),
                 out -> {
-                    while (out.stream()
+                    Set<T> ls = new HashSet<>(), buf1 = out, buf2 = ls;
+                    while (buf1.stream()
                             .flatMap(by)
-                            .anyMatch(out::add))
-                        ; // nop
-                    return out.stream();
+                            .filter(buf2::add)
+                            .count() > 0) {
+                        var buf0 = buf1;
+                        buf1 = buf2;
+                        buf2 = buf0;
+                    }
+                    return concat(buf1.stream(), buf2.stream()).distinct();
                 });
     }
 

@@ -1,6 +1,5 @@
 package org.comroid.api.func.util;
 
-import lombok.Builder;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
@@ -239,7 +238,7 @@ public @interface Command {
     }
 
     @Value
-    @Builder
+    @lombok.Builder
     class Usage {
         Manager manager;
         String[] fullCommand;
@@ -247,7 +246,8 @@ public @interface Command {
         Set<Object> context;
         @NotNull
         Handler source;
-        Node.Callable baseNode;
+        @lombok.Builder.Default
+        Node.Callable baseNode = null;
         @NonFinal
         Node.Callable node;
         @NonFinal
