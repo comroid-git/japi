@@ -370,8 +370,13 @@ public @interface Command {
                         .limit(1)
                         .flatMap(param -> param.autoFill(usage, argName, currentValue))
                         : usage.node.nodes().map(Node::getName))
+                        .map(String::trim)
                         .distinct()
                         .filter(not("$"::equals))
+                        .filter(str -> {
+                            var current = currentValue == null ? "" : currentValue;
+                            return str.toLowerCase().startsWith(current.toLowerCase());
+                        })
                         .map(str -> new AutoFillOption(str, str));
             } catch (Throwable e) {
                 Log.at(Level.WARNING, "An error ocurred during command execution", e);
@@ -901,7 +906,7 @@ public @interface Command {
                     alias = alias.substring(alias.indexOf(':') + 1);
                 var strings = strings(alias, args);
                 var usage = createUsageBase(this, strings, expandContext(sender).toArray());
-                return autoComplete(usage, String.valueOf(args.length), strings[strings.length - 1])
+                return autoComplete(usage, String.valueOf(args.length - 1), strings[strings.length - 1])
                         .map(AutoFillOption::key)
                         .toList();
             }
