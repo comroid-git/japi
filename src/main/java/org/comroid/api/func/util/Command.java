@@ -365,7 +365,10 @@ public @interface Command {
                 usage.advanceFull();
 
                 return (usage.node instanceof Node.Call call
-                        ? call.nodes().flatMap(param -> param.autoFill(usage, argName, currentValue))
+                        ? call.nodes()
+                        .skip(usage.callIndex + usage.fullCommand.length - 2)
+                        .limit(1)
+                        .flatMap(param -> param.autoFill(usage, argName, currentValue))
                         : usage.node.nodes().map(Node::getName))
                         .distinct()
                         .filter(not("$"::equals))
