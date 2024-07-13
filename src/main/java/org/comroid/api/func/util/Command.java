@@ -443,7 +443,7 @@ public @interface Command {
                                     } else return null;
                                 });
                     } else if (useNamedArgs) {
-                        // eg. discord
+                        // eg. discord, fabric
                         Constraint.notNull(namedArgs, "args").run();
                         Constraint.notNull(paramNode, "parameter").run();
                         if (paramNode.isRequired() && !namedArgs.containsKey(paramNode.getName()))
