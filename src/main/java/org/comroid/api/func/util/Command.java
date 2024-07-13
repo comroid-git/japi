@@ -148,7 +148,7 @@ public @interface Command {
                 if (!str.isEmpty()) {
                     var last = chars[chars.length - 1];
                     if (Character.isDigit(last))
-                        return of("min", "h", "d", "w", "Mon", "mon", "y")
+                        return of("min", "h", "d", "w", "mon", "y")
                                 .flatMap(Duration::expandShorthands)
                                 .distinct()
                                 .map(suffix -> str + suffix);
