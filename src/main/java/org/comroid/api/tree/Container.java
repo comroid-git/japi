@@ -1,6 +1,8 @@
 package org.comroid.api.tree;
 
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.Polyfill;
@@ -75,6 +77,10 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
 
         public Base(Object... children) {
             this.children = new HashSet<>(Set.of(children));
+        }
+
+        public <T> T addChild(@Nullable T it) {
+            return Polyfill.uncheckedCast(addChildren(it));
         }
 
         public Object addChildren(@Nullable Object @NotNull ... children) {
