@@ -542,8 +542,11 @@ public @interface Command {
                     .attribute(attribute)
                     .param(source)
                     .required(attribute.required())
-                    .index(index)
-                    .autoFillProvider(new AutoFillProvider.Array(attribute.autoFill()));
+                    .index(index);
+            if (source.getType().isEnum())
+                builder.autoFillProvider(new AutoFillProvider.Enum(Polyfill.uncheckedCast(source.getType())));
+            else if (attribute.autoFill().length > 0)
+                builder.autoFillProvider(new AutoFillProvider.Array(attribute.autoFill()));
             for (var providerType : attribute.autoFillProvider()) {
                 var provider = ReflectionHelper.instanceField(providerType).stream()
                         .flatMap(cast(AutoFillProvider.class))
