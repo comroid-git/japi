@@ -145,16 +145,15 @@ public @interface Command {
                 var str = fullCommand[fullCommand.length - 1];
                 var chars = str.toCharArray();
 
-                // don't suggest on empty input
                 if (!str.isEmpty()) {
                     var last = chars[chars.length - 1];
                     if (Character.isDigit(last))
-                        return of("min", "h", "d", "Mon", "mon", "y")
+                        return of("min", "h", "d", "w", "Mon", "mon", "y")
                                 .flatMap(Duration::expandShorthands)
                                 .distinct()
                                 .map(suffix -> str + suffix);
                 }
-                return empty();
+                return of("6h", "3d", "2w", "1y");
             }
         }
 
