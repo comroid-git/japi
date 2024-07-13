@@ -43,6 +43,7 @@ import org.comroid.api.info.Log;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.StackTraceUtils;
+import org.comroid.api.text.Capitalization;
 import org.comroid.api.text.StringMode;
 import org.comroid.api.tree.Container;
 import org.comroid.api.tree.Initializable;
@@ -168,7 +169,8 @@ public @interface Command {
             @Override
             public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
                 return Arrays.stream(type.getEnumConstants())
-                        .map(Named::$);
+                        .map(Named::$)
+                        .map(usage.source.getDesiredKeyCapitalization()::convert);
             }
         }
     }
@@ -210,6 +212,10 @@ public @interface Command {
             if (str.length() > 1950)
                 str = str.substring(0, 1950);
             return str;
+        }
+
+        default Capitalization getDesiredKeyCapitalization() {
+            return Capitalization.lower_case;
         }
 
         interface Minecraft extends Handler {
@@ -532,6 +538,7 @@ public @interface Command {
         private Node.Parameter createParameterNode(int index, Method origin, Parameter source) {
             var attribute = Annotations.findAnnotations(Arg.class, source)
                     .findFirst().orElseThrow().getAnnotation();
+            // construct parameter node
             var builder = Node.Parameter.builder()
                     .name(Optional.ofNullable(attribute.value())
                             .filter(not(EmptyAttribute::equals))
@@ -543,10 +550,14 @@ public @interface Command {
                     .param(source)
                     .required(attribute.required())
                     .index(index);
+
+            // init special types
             if (source.getType().isEnum())
                 builder.autoFillProvider(new AutoFillProvider.Enum(Polyfill.uncheckedCast(source.getType())));
             else if (attribute.autoFill().length > 0)
                 builder.autoFillProvider(new AutoFillProvider.Array(attribute.autoFill()));
+
+            // init custom autofill providers
             for (var providerType : attribute.autoFillProvider()) {
                 var provider = ReflectionHelper.instanceField(providerType).stream()
                         .flatMap(cast(AutoFillProvider.class))

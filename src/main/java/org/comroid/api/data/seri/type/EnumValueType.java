@@ -4,21 +4,14 @@ import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
-import org.comroid.annotations.internal.Annotations;
-import org.comroid.api.attr.IntegerAttribute;
-import org.comroid.api.attr.LongAttribute;
-import org.comroid.api.attr.Named;
-import org.comroid.api.attr.UUIDContainer;
+import org.comroid.annotations.Default;
+import org.comroid.api.Polyfill;
 import org.comroid.api.func.ext.StreamSupplier;
-import org.comroid.api.func.util.Bitmask;
 import org.comroid.api.html.form.HtmlSelectDesc;
+import org.comroid.api.java.ReflectionHelper;
 
-import jakarta.persistence.NamedAttributeNode;
-import java.util.Arrays;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -32,26 +25,13 @@ public class EnumValueType<T extends Enum<? super T>> extends BoundValueType<T> 
 
     @Override
     public T parse(final String data) {
-        Predicate<T> test = t -> {
-            var parse = StandardValueType.findGoodType(data);
-            if (parse instanceof UUID && t instanceof UUIDContainer attr)
-                return attr.getUuid().equals(parse);
-            if (parse instanceof Number) {
-                if (t instanceof Bitmask.Attribute<?> attr)
-                    return attr.isFlagSet((long)parse);
-                if (t instanceof LongAttribute attr)
-                    return attr.equals((long)parse);
-                if (t instanceof IntegerAttribute attr)
-                    return attr.equals((int)parse);
-            }
-            if (parse instanceof String)
-                if (t instanceof Named attr)
-                    return attr.getName().equals(parse);
-            return t.toString().equals(data);
-        };
-        return Annotations.constants(getTargetClass())
-                .filter(test)
+        return stream()
+                .filter(it -> it.name().equalsIgnoreCase(data))
                 .findAny()
+                .map(Polyfill::<T>uncheckedCast)
+                .or(() -> ReflectionHelper.fieldWithAnnotation(targetClass, Default.class).stream()
+                        .flatMap(fld -> Stream.ofNullable(ReflectionHelper.<T>forceGetField(null, fld)))
+                        .findAny())
                 .orElse(null);
     }
 

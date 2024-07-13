@@ -5,8 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
-import org.comroid.api.Polyfill;
-import org.comroid.api.html.form.HtmlInputDesc;
 import org.comroid.api.html.form.HtmlStringInputDesc;
 
 import java.util.Collections;
@@ -23,7 +21,7 @@ public class BoundValueType<T> implements ValueType<T>, HtmlStringInputDesc {
     private static final Map<Class<?>, BoundValueType<?>> $cache = new ConcurrentHashMap<>();
     public static final Map<Class<?>, BoundValueType<?>> cache = Collections.unmodifiableMap($cache);
 
-    Class<T> targetClass;
+    protected Class<T> targetClass;
 
     @Override
     public T parse(String data) {
