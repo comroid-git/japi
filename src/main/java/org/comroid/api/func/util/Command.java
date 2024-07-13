@@ -43,6 +43,7 @@ import org.comroid.api.info.Log;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.StackTraceUtils;
+import org.comroid.api.text.StringMode;
 import org.comroid.api.tree.Container;
 import org.comroid.api.tree.Initializable;
 import org.intellij.lang.annotations.Language;
@@ -101,9 +102,9 @@ public @interface Command {
 
         Class<? extends AutoFillProvider>[] autoFillProvider() default {};
 
-        Default[] defaultValue() default {};
-
         boolean required() default true;
+
+        StringMode stringMode() default StringMode.NORMAL;
     }
 
     enum Capability {
