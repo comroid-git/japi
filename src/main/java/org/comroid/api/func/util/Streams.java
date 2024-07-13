@@ -14,10 +14,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
-import java.util.stream.Collector;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+import java.util.stream.*;
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.function.Function.identity;
@@ -128,13 +125,23 @@ public class Streams {
         return expand(identity(), by);
     }
 
-
     public static <T, R> Function<T, Stream<R>> expand(Function<? super T, R> base, Function<? super T, Stream<? extends R>> by) {
         return it -> concat(Stream.of(it).map(base), by.apply(it));
     }
 
-    public static <T, C> Comparator<T> comparatorAdapter(final @NotNull Function<T, C> mapper, final @NotNull Comparator<C> comparator) {
-        return (a, b) -> comparator.compare(mapper.apply(a), mapper.apply(b));
+    public static <T> Collector<T, Set<T>, Stream<T>> expandRecursive(Function<? super T, Stream<? extends T>> by) {
+        return Collector.of(
+                HashSet::new,
+                Collection::add,
+                (l, r) -> Stream.concat(l.stream(), r.stream())
+                        .collect(Collectors.toSet()),
+                out -> {
+                    while (out.stream()
+                            .flatMap(by)
+                            .anyMatch(out::add))
+                        ; // nop
+                    return out.stream();
+                });
     }
 
     public static <T> Collector<T, List<T>, List<List<T>>> groupingEvery(long groupSize) {
@@ -163,6 +170,11 @@ public class Streams {
             l.addAll(r);
             return l;
         }, ls -> ls.isEmpty() ? Stream.of(otherwise.get()) : ls.stream());
+    }
+
+    @Deprecated(forRemoval = true)
+    public static <T, C> Comparator<T> comparatorAdapter(final @NotNull Function<T, C> mapper, final @NotNull Comparator<C> comparator) {
+        return (a, b) -> comparator.compare(mapper.apply(a), mapper.apply(b));
     }
 
     @UtilityClass
