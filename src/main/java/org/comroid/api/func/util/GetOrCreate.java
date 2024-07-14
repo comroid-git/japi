@@ -18,7 +18,9 @@ import java.util.function.Function;
 public class GetOrCreate<T, B> extends Almost<T, B> {
     private final @Nullable ThrowingSupplier<@Nullable T, Throwable> get;
     private final @NotNull ThrowingSupplier<@NotNull B, Throwable> create;
-    private final @NotNull ThrowingFunction<@NotNull B, @Nullable T, Throwable> finalize;
+    private final @NotNull ThrowingFunction<@NotNull B, @Nullable T, Throwable> build;
+    private final @NotNull Consumer<@Nullable T> finalize;
+    private @Nullable Function<T, T> updateOriginal;
     private @Nullable Function<Throwable, @NotNull T> exceptionHandler;
 
     @Override
@@ -28,13 +30,13 @@ public class GetOrCreate<T, B> extends Almost<T, B> {
         T result;
         try {
             if (get != null && (result = get.get()) != null)
-                return result;
+                return updateOriginal == null ? result : updateOriginal.apply(result);
             builder = create.get();
             c++; // 1 - passed origin
             if (modifier != null)
                 modifier.accept(builder);
             c++; // 2 - passed modifier
-            result = finalize.apply(builder);
+            result = build.apply(builder);
             c++; // 3 - passed finalize
         } catch (Throwable t) {
             if (exceptionHandler == null)
@@ -53,6 +55,8 @@ public class GetOrCreate<T, B> extends Almost<T, B> {
             log.fine("Recovered from an exception that occurred during " + stage);
             log.finer(StackTraceUtils.toString(t));
         }
+        if (result != null)
+            finalize.accept(result);
         return Objects.requireNonNull(result);
     }
 }
