@@ -1,6 +1,7 @@
 package org.comroid.api;
 
 import lombok.experimental.UtilityClass;
+import org.comroid.annotations.Doc;
 import org.comroid.api.data.RegExpUtil;
 import org.comroid.api.func.Provider;
 import org.comroid.api.func.ext.Wrap;
@@ -235,27 +236,6 @@ public final class Polyfill {
                 + Integer.toHexString(color.getBlue());
     }
 
-    private static final Pattern DURATION_PATTERN = Pattern.compile("((?<amount>\\d)+(?<unit>[yMwdhms][oi]?n?))");
-    public static Duration parseDuration(String string) {
-        var result = Duration.ZERO;
-        var matcher = DURATION_PATTERN.matcher(string);
-        while (matcher.find()) {
-            var amount = Long.parseLong(matcher.group("amount"));
-            BiFunction<Duration,Long,Duration> plus = switch (matcher.group("unit")) {
-                case "y"-> (d, x) -> d.plusDays(x*365);
-                case "M", "Mo", "mo", "Mon", "mon" -> (d, x) -> d.plusDays(x * 30);
-                case "w"->(d,x)->d.plusDays(x*7);
-                case "d"->Duration::plusDays;
-                case "h"->Duration::plusHours;
-                case "m", "mi", "min" -> Duration::plusMinutes;
-                case "s"->Duration::plusSeconds;
-                default -> throw new IllegalStateException("Unexpected value: " + matcher.group("unit"));
-            };
-            result=plus.apply(result,amount);
-        }
-        return result;
-    }
-
     public static Inet4Address parseIPv4(String ipv4) {
         String[] split = ipv4.split("\\.");
         byte[] addr = new byte[4];
@@ -294,13 +274,7 @@ public final class Polyfill {
                 .collect(Collectors.toMap(entry -> entry[0], entry -> entry[1]));
     }
 
-    public static String plural(Collection<?> list, String singular, String plural) {
-        if (list.size()==1)
-            return singular;
-        if (plural.charAt(0) == '+')
-            return singular + plural.substring(1);
-        return plural;
-    }
+    private static final Pattern DURATION_PATTERN = Pattern.compile("((?<amount>\\d)+(?<unit>[yMwdhms][oi]?n?))");
 
     @SafeVarargs
     public static <T> Stream<T> stream(Stream<? extends T>... streams) {
@@ -333,24 +307,58 @@ public final class Polyfill {
             falling.run();
         return current != newState;
     }
+    private static final Map<@Doc("secondsFactor") Long, @Doc("suffix") String> durationStringBase = Map.of(
+            60L, "min", // minutes
+            3600L, "h", // hours
+            86400L, "d", // days
+            604800L, "w" // weeks
+    );
+
+    public static String plural(Collection<?> list, String singular, String plural) {
+        if (list.size() == 1)
+            return singular;
+        if (plural.charAt(0) == '+')
+            return singular + plural.substring(1);
+        return plural;
+    }
+
+    public static Duration parseDuration(String string) {
+        var result = Duration.ZERO;
+        var matcher = DURATION_PATTERN.matcher(string);
+        while (matcher.find()) {
+            var amount = Long.parseLong(matcher.group("amount"));
+            BiFunction<Duration, Long, Duration> plus = switch (matcher.group("unit")) {
+                case "y" -> (d, x) -> d.plusDays(x * 365);
+                case "M", "Mo", "mo", "Mon", "mon" -> (d, x) -> d.plusDays(x * 30);
+                case "w" -> (d, x) -> d.plusDays(x * 7);
+                case "d" -> Duration::plusDays;
+                case "h" -> Duration::plusHours;
+                case "m", "mi", "min" -> Duration::plusMinutes;
+                case "s" -> Duration::plusSeconds;
+                default -> throw new IllegalStateException("Unexpected value: " + matcher.group("unit"));
+            };
+            result = plus.apply(result, amount);
+        }
+        return result;
+    }
 
     public static String durationString(Duration d) {
         long seconds = d.getSeconds();
         long absSeconds = Math.abs(seconds);
-        var t = "";
-        if (absSeconds > 3600) {
-            var diff = absSeconds / (3600);
-            t += diff + "h";
-            absSeconds -= diff * 3600;
-        }
-        if (absSeconds > 60) {
-            var diff = absSeconds / 60;
-            t += diff + "min";
-            absSeconds -= diff * 60;
+        var sb = new StringBuilder();
+        for (var e : durationStringBase.entrySet().stream()
+                .sorted(Comparator.<Map.Entry<Long, String>>comparingLong(Map.Entry::getKey).reversed())
+                .toList()) {
+            var secondsFactor = e.getKey();
+            if (absSeconds > secondsFactor) {
+                var diff = absSeconds / secondsFactor;
+                sb.append(diff).append(e.getValue());
+                absSeconds -= diff * secondsFactor;
+            }
         }
         if (absSeconds > 0)
-            t += (absSeconds) + "sec";
-        return t;
+            sb.append((absSeconds)).append("sec");
+        return sb.toString();
     }
 
     public static String ordinal(int n) {
