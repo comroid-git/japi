@@ -9,8 +9,10 @@ import org.comroid.api.Polyfill;
 import org.comroid.api.func.ext.StreamSupplier;
 import org.comroid.api.html.form.HtmlSelectDesc;
 import org.comroid.api.java.ReflectionHelper;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -21,6 +23,12 @@ import java.util.stream.Stream;
 public class EnumValueType<T extends Enum<? super T>> extends BoundValueType<T> implements StreamSupplier<T>, HtmlSelectDesc {
     EnumValueType(Class<T> type) {
         super(type);
+    }
+
+    @Override
+    public @Nullable Object defaultValue() {
+        return Optional.ofNullable(super.defaultValue())
+                .orElseGet(() -> targetClass.getEnumConstants()[0]);
     }
 
     @Override

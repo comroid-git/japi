@@ -2,19 +2,30 @@ package org.comroid.api.data.seri.type;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Transient;
+import org.comroid.annotations.Default;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Named;
 import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ValuePointer;
 import org.comroid.api.html.form.HtmlFormElementDesc;
+import org.comroid.api.java.ReflectionHelper;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named, HtmlFormElementDesc, Specifiable<ValueType<R>> {
+public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named, HtmlFormElementDesc, Specifiable<ValueType<R>>, Default.Extension {
+    @Override
+    @Nullable
+    default Object defaultValue() {
+        return ReflectionHelper.fieldWithAnnotation(getTargetClass(), Default.class)
+                .stream().findAny()
+                .map(fld -> ReflectionHelper.forceGetField(null, fld))
+                .orElse(null);
+    }
+
     static <T> ValueType<T> of(final Class<?> type) {
         return StandardValueType.forClass(type)
                 .or(() -> BoundValueType.of(type))
