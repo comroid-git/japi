@@ -553,9 +553,10 @@ public @interface Command {
                                 argStr = String.join(" ", buf);
                             } else argStr = usage.fullCommand[argIndex];
                         } else argStr = null;
-                        argIndex += 1;
 
-                        useArgs[i] = ValueType.of(parameterType).parse(argStr);
+                        argIndex += 1;
+                        var valueType = ValueType.of(parameterType);
+                        useArgs[i] = argStr == null ? valueType.defaultValue() : valueType.parse(argStr);
                     }
                 }
 
