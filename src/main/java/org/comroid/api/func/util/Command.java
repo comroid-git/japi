@@ -255,7 +255,7 @@ public @interface Command {
                     break;
                 cause = c;
             } while (cause instanceof InvocationTargetException
-                    || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
+                     || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
             StackTraceUtils.wrap(cause, out, true);
             var str = buf.toString();
             if (str.length() > 1950)
@@ -468,9 +468,9 @@ public @interface Command {
         }
 
         public final @Nullable Object execute(Handler source,
-                                  String[] fullCommand,
-                                  @Nullable Map<String, Object> namedArgs,
-                                  Object... extraArgs) {
+                                              String[] fullCommand,
+                                              @Nullable Map<String, Object> namedArgs,
+                                              Object... extraArgs) {
             var usage = createUsageBase(source, fullCommand, extraArgs);
             return execute(usage, namedArgs);
         }
@@ -561,7 +561,7 @@ public @interface Command {
 
                 result = response = call.callable.invoke(call.target, useArgs);
             } catch (Error err) {
-                response = usage.source.handleThrowable(err);
+                response = err.response == null ? usage.source.handleThrowable(err) : err.response;
             } catch (Throwable e) {
                 Log.at(Level.FINE, "An error ocurred during command execution", e);
                 response = usage.source.handleThrowable(e);
@@ -649,7 +649,8 @@ public @interface Command {
 
         public static abstract class Adapter implements Info, Handler {
             @Override
-            public void initialize() {}
+            public void initialize() {
+            }
 
             @Override
             public Stream<Object> expandContext(Object... context) {
@@ -674,7 +675,8 @@ public @interface Command {
             @NonFinal
             @Setter
             BiFunction<EmbedBuilder, User, EmbedBuilder> embedFinalizer = null;
-            @NonFinal boolean initialized = false;
+            @NonFinal
+            boolean initialized = false;
 
             {
                 addChild(this);
@@ -803,12 +805,6 @@ public @interface Command {
                 return map;
             }
             */
-
-            public interface IOptionAdapter {
-                ValueType<?> getValueType();
-                OptionType getOptionType();
-                Object getFrom(OptionMapping option);
-            }
 
             @Getter
             @RequiredArgsConstructor
@@ -940,11 +936,19 @@ public @interface Command {
                     public Object getFrom(OptionMapping option) {
                         final var value = OptionAdapter.this.getFrom(option);
                         return Arrays.stream(enumType.getEnumConstants())
-                                .filter(it->attribute(it).contentEquals(value))
+                                .filter(it -> attribute(it).contentEquals(value))
                                 .findAny()
                                 .orElseThrow(() -> new NoSuchElementException("Invalid enum value: " + value));
                     }
                 }
+            }
+
+            public interface IOptionAdapter {
+                ValueType<?> getValueType();
+
+                OptionType getOptionType();
+
+                Object getFrom(OptionMapping option);
             }
         }
 
@@ -1130,29 +1134,35 @@ public @interface Command {
     }
 
     @Getter
-    @Setter
     class Error extends RuntimeException {
-        private Usage command;
-        private String[] args;
-
-        public Error(Throwable cause) {
-            this(null, null, cause, null);
-        }
+        private final @Nullable Object response;
+        private final @Nullable Usage command;
 
         public Error(String message) {
-            this(null, message, null);
+            this(message, null);
         }
 
-        public Error(Usage command, String message, String[] args) {
-            super(message);
-            this.command = command;
-            this.args = args;
+        public Error(Object response) {
+            this(response, null);
         }
 
-        public Error(Usage command, String message, Throwable cause, String[] args) {
+        public Error(String message, @Nullable Throwable cause) {
+            this(message, cause, null);
+        }
+
+        public Error(Object response, @Nullable Throwable cause) {
+            this(null, cause, response);
+        }
+
+        public Error(@Nullable String message, @Nullable Throwable cause, @Nullable Object response) {
+            this(message, cause, response, null);
+        }
+
+        @lombok.Builder
+        public Error(@Nullable String message, @Nullable Throwable cause, @Nullable Object response, @Nullable Usage command) {
             super(message, cause);
+            this.response = response;
             this.command = command;
-            this.args = args;
         }
     }
 }
