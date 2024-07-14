@@ -97,7 +97,7 @@ public final class StackTraceUtils {
     public static String toString(Throwable t) {
         var buf = new StringWriter();
         try (var stream = new DelegateStream.Output(buf);
-             var printer = stream.convert(PrintStream.class)) {
+             var printer = new PrintStream(stream)) {
             t.printStackTrace(printer);
             return buf.toString();
         }
