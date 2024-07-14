@@ -338,10 +338,10 @@ public final class Polyfill {
         long seconds = d.getSeconds();
         long absSeconds = Math.abs(seconds);
         var t = "";
-        if (absSeconds > 60 * 60) {
-            var diff = absSeconds / (60 * 60);
+        if (absSeconds > 3600) {
+            var diff = absSeconds / (3600);
             t += diff + "h";
-            absSeconds -= diff * 60 * 60;
+            absSeconds -= diff * 3600;
         }
         if (absSeconds > 60) {
             var diff = absSeconds / 60;
@@ -351,5 +351,13 @@ public final class Polyfill {
         if (absSeconds > 0)
             t += (absSeconds) + "sec";
         return t;
+    }
+
+    public static String ordinal(int n) {
+        String[] suffixes = new String[]{"th", "st", "nd", "rd", "th", "th", "th", "th", "th", "th"};
+        return switch (n % 100) {
+            case 11, 12, 13 -> n + "th";
+            default -> n + suffixes[n % 10];
+        };
     }
 }
