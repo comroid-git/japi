@@ -1,20 +1,23 @@
 package org.comroid.api.data.seri;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.experimental.Delegate;
 import org.comroid.annotations.Ignore;
-import org.comroid.api.*;
+import org.comroid.api.Polyfill;
 import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.data.seri.adp.FormData;
 import org.comroid.api.data.seri.adp.JSON;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.data.seri.type.ValueType;
+import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ValueBox;
 import org.comroid.api.func.ext.Convertible;
-import org.comroid.api.func.util.DelegateStream;
-import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.func.util.DelegateStream;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.StackTraceUtils;
@@ -26,8 +29,13 @@ import java.io.OutputStream;
 import java.io.StringReader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
-import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BinaryOperator;
@@ -38,8 +46,68 @@ import java.util.stream.Stream;
 
 import static org.comroid.api.data.seri.type.StandardValueType.*;
 
-@Ignore({Convertible.class, DataStructure.class})
+@Ignore({ Convertible.class, DataStructure.class })
 public interface DataNode extends MimeType.Container, StringSerializable, Specifiable<Object> {
+    static Stream<Entry> properties(final java.lang.Object it) {
+        if (it instanceof DataNode.Base)
+            return ((DataNode) it).properties();
+        if (it instanceof Map<?, ?> map)
+            return map.entrySet().stream().collect(new Collector<Map.Entry<?, ?>, List<Entry>, Stream<Entry>>() {
+                @Override
+                public Supplier<List<Entry>> supplier() {
+                    return ArrayList::new;
+                }
+
+                @Override
+                public BiConsumer<List<Entry>, Map.Entry<?, ?>> accumulator() {
+                    return (ls, e) -> ls.add(new Entry(String.valueOf(e.getKey()), of(e.getValue())));
+                }
+
+                @Override
+                public BinaryOperator<List<Entry>> combiner() {
+                    return (l, r) -> {
+                        l.addAll(r);
+                        return l;
+                    };
+                }
+
+                @Override
+                public Function<List<Entry>, Stream<Entry>> finisher() {
+                    return Collection::stream;
+                }
+
+                @Override
+                public Set<Characteristics> characteristics() {
+                    return Set.of();
+                }
+            });
+        return DataStructure.of(it.getClass(), java.lang.Object.class)
+                .getDeclaredProperties().values().stream()
+                .map(Polyfill::<DataStructure<java.lang.Object>.Property<Object>>uncheckedCast)
+                .map(prop -> new Entry(prop.getName(), of(prop.getFrom(it))));
+    }
+
+    static DataNode of(java.lang.Object it) {
+        if (it == null)
+            return Value.NULL;
+        else if (it instanceof DataNode.Base)
+            return (DataNode) it;
+        else if (it instanceof Iterable) {
+            // handle as array node
+            var arr = new Array();
+            ((Iterable<?>) it).iterator().forEachRemaining(arr::append);
+            return arr;
+        } else {
+            // handle as object node
+            var typeOf = typeOf(it);
+            if (typeOf instanceof StandardValueType<?>)
+                return new Value<>(it);
+            var obj = new Object();
+            properties(it).forEach(e -> obj.put(e.key, e.getValue()));
+            return obj;
+        }
+    }
+
     @Override
     @JsonIgnore
     default MimeType getMimeType() {
@@ -86,24 +154,6 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         return of(this).form();
     }
 
-    default Object asObject() {
-        return asType(Object.class);
-    }
-
-    default Array asArray() {
-        return asType(Array.class);
-    }
-
-    default <T> Value<T> asValue() {
-        return asType(Value.class);
-    }
-
-    default <T extends DataNode, R extends T> R asType(Class<? extends T> type) {
-        Constraint.Type.anyOf(this, "type", type)
-                .setConstraint("preliminary cast check").run();
-        return Polyfill.uncheckedCast(type.cast(this));
-    }
-
     default int size() {
         return (int) properties().count();
     }
@@ -113,9 +163,31 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         return Objects.requireNonNullElse(asObject().get(String.valueOf(key)), Value.NULL);
     }
 
+    default Object asObject() {
+        return asType(Object.class);
+    }
+
+    default <T extends DataNode, R extends T> R asType(Class<? extends T> type) {
+        Constraint.Type.anyOf(this, "type", type)
+                .setConstraint("preliminary cast check").run();
+        return Polyfill.uncheckedCast(type.cast(this));
+    }
+
     @NotNull
     default DataNode get(int index) {
         return Objects.requireNonNullElse(asArray().get(index), Value.NULL);
+    }
+
+    default Array asArray() {
+        return asType(Array.class);
+    }
+
+    default boolean asBoolean() {
+        return asBoolean(false);
+    }
+
+    default boolean asBoolean(boolean fallback) {
+        return as(BOOLEAN).orElse(fallback);
     }
 
     default <T> Wrap<T> as(ValueType<T> type) {
@@ -128,83 +200,69 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         return Wrap.of(type.getTargetClass().cast(val));
     }
 
-    default boolean asBoolean() {
-        return asBoolean(false);
+    default <T> Value<T> asValue() {
+        return asType(Value.class);
     }
 
     default byte asByte() {
         return asByte((byte) 0);
     }
 
-    default char asChar() {
-        return asChar((char) 0);
-    }
-
-    default short asShort() {
-        return asShort((short) 0);
-    }
-
-    default int asInt() {
-        return asInt(0);
-    }
-
-    default long asLong() {
-        return asLong(0L);
-    }
-
-    default float asFloat() {
-        return asFloat(0f);
-    }
-
-    default double asDouble() {
-        return asDouble(0d);
-    }
-
-    @Nullable
-    default String asString() {
-        return asString(null);
-    }
-
-    @Nullable
-    default UUID asUUID() {
-        return asUUID(null);
-    }
-
-    default boolean asBoolean(boolean fallback) {
-        return as(BOOLEAN).orElse(fallback);
-    }
-
     default byte asByte(byte fallback) {
         return as(BYTE).orElse(fallback);
+    }
+
+    default char asChar() {
+        return asChar((char) 0);
     }
 
     default char asChar(char fallback) {
         return as(CHARACTER).orElse(fallback);
     }
 
+    default short asShort() {
+        return asShort((short) 0);
+    }
+
     default short asShort(short fallback) {
         return as(SHORT).orElse(fallback);
+    }
+
+    default int asInt() {
+        return asInt(0);
     }
 
     default int asInt(int fallback) {
         return as(INTEGER).orElse(fallback);
     }
 
+    default long asLong() {
+        return asLong(0L);
+    }
+
     default long asLong(long fallback) {
         return as(LONG).orElse(fallback);
+    }
+
+    default float asFloat() {
+        return asFloat(0f);
     }
 
     default float asFloat(float fallback) {
         return as(FLOAT).orElse(fallback);
     }
 
+    default double asDouble() {
+        return asDouble(0d);
+    }
+
     default double asDouble(double fallback) {
         return as(DOUBLE).orElse(fallback);
     }
 
-    @Contract("null -> _; !null -> !null")
-    default String asString(String fallback) {
-        return as(STRING).orElse(fallback);
+    @Nullable
+    default UUID asUUID() {
+        return asUUID(null);
     }
 
     @Contract("null -> _; !null -> !null")
@@ -215,74 +273,24 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
     @Override
     default <R> Wrap<R> as(final Class<R> type) {
         return Specifiable.super.as(type)
-                .orRef(() ->Wrap.of(ValueType.of(type))
+                .orRef(() -> Wrap.of(ValueType.of(type))
                         .flatMap(StandardValueType.class)
-                        .map(svt->Polyfill.<R>uncheckedCast(svt.parse(asString())))
+                        .map(svt -> Polyfill.<R>uncheckedCast(svt.parse(asString())))
                         .or(() -> Activator.get(type).createInstance(this)));
+    }
+
+    @Nullable
+    default String asString() {
+        return asString(null);
+    }
+
+    @Contract("null -> _; !null -> !null")
+    default String asString(String fallback) {
+        return as(STRING).orElse(fallback);
     }
 
     default Stream<Entry> properties() {
         return properties(this);
-    }
-
-    static Stream<Entry> properties(final java.lang.Object it) {
-        if (it instanceof DataNode.Base)
-            return ((DataNode) it).properties();
-        if (it instanceof Map<?,?> map)
-            return map.entrySet().stream().collect(new Collector<Map.Entry<?,?>, List<Entry>, Stream<Entry>>() {
-                @Override
-                public Supplier<List<Entry>> supplier() {
-                    return ArrayList::new;
-                }
-
-                @Override
-                public BiConsumer<List<Entry>, Map.Entry<?, ?>> accumulator() {
-                    return (ls,e)->ls.add(new Entry(String.valueOf(e.getKey()), of(e.getValue())));
-                }
-
-                @Override
-                public BinaryOperator<List<Entry>> combiner() {
-                    return (l,r)->{
-                        l.addAll(r);
-                        return l;
-                    };
-                }
-
-                @Override
-                public Function<List<Entry>, Stream<Entry>> finisher() {
-                    return Collection::stream;
-                }
-
-                @Override
-                public Set<Characteristics> characteristics() {
-                    return Set.of();
-                }
-            });
-        return DataStructure.of(it.getClass(), java.lang.Object.class)
-                .getDeclaredProperties().values().stream()
-                .map(Polyfill::<DataStructure<java.lang.Object>.Property<Object>>uncheckedCast)
-                .map(prop -> new Entry(prop.getName(), of(prop.getFrom(it))));
-    }
-
-    static DataNode of(java.lang.Object it) {
-        if (it == null)
-            return Value.NULL;
-        else if (it instanceof DataNode.Base)
-            return (DataNode) it;
-        else if (it instanceof Iterable) {
-            // handle as array node
-            var arr = new Array();
-            ((Iterable<?>) it).iterator().forEachRemaining(arr::append);
-            return arr;
-        } else {
-            // handle as object node
-            var typeOf = typeOf(it);
-            if (typeOf instanceof StandardValueType<?>)
-                return new Value<>(it);
-            var obj = new Object();
-            properties(it).forEach(e -> obj.put(e.key, e.getValue()));
-            return obj;
-        }
     }
 
     @Data
@@ -354,13 +362,13 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
     @AllArgsConstructor
     @Ignore(Convertible.class)
     class Value<T> extends Base implements ValueBox<T> {
-        public static final DataNode NULL = new Value<>(null){
+        public static final DataNode NULL = new Value<>(null) {
             @Override
             public ValueType<?> getHeldType() {
                 return VOID;
             }
         };
-        protected @Nullable T value;
+        protected @Nullable T        value;
 
         @Override
         public int size() {
@@ -382,8 +390,8 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
     }
 
     class Entry implements Map.Entry<String, DataNode> {
-        private final String key;
-        private DataNode value;
+        private final String   key;
+        private       DataNode value;
 
         public Entry(String key, DataNode value) {
             this.key = key;

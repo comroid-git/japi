@@ -1,7 +1,5 @@
 package org.comroid.api.func.ext;
 
-import org.comroid.api.func.ext.Wrap;
-
 /**
  * An interface that declares itself as a type parameter
  *

@@ -22,8 +22,8 @@ import static org.comroid.api.func.ext.Wrap.*;
 @Log
 @UtilityClass
 public class SoftDepend {
-    private final Map<String, Class<?>> typeCache = new ConcurrentHashMap<>();
-    private final Set<String> nonexistentTypes = new HashSet<>();
+    private final Map<String, Class<?>> typeCache        = new ConcurrentHashMap<>();
+    private final Set<String>           nonexistentTypes = new HashSet<>();
 
     public <T> Wrap<T> run(final @Language(value = "Java", prefix = "import static ", suffix = ";") String name) {
         return Cache.get("SoftDepend @ static " + name, () -> {
@@ -59,7 +59,7 @@ public class SoftDepend {
                 T value = member.silentAutoInvoke();
                 return of(value).castRef();
             } catch (Throwable t) {
-                log.log(Level.WARNING, "Could not load soft dependency: " + name + "\n\t"+t);
+                log.log(Level.WARNING, "Could not load soft dependency: " + name + "\n\t" + t);
                 return empty();
             }
         });

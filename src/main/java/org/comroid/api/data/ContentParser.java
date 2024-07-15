@@ -30,15 +30,7 @@ public interface ContentParser extends Readable {
         return new StringReader(content);
     }
 
-    default Wrap<String> wrapContent(boolean createIfAbsent) {
-        return Wrap.of(getContent(createIfAbsent));
-    }
-
-    default Wrap<String> wrapContent() {
-        return wrapContent(false);
-    }
-
-    @SuppressWarnings({"unchecked", "removal"}) // todo: Fix removal warning
+    @SuppressWarnings({ "unchecked", "removal" }) // todo: Fix removal warning
     default <R> @Nullable R parsefromContext(Context context) {
         return context.getFromContext(Serializer.class)
                 .ifPresentMap(serializer -> parse((Serializer<R>) serializer));
@@ -54,5 +46,13 @@ public interface ContentParser extends Readable {
         } catch (IllegalArgumentException parseException) {
             return elseGet.get();
         }
+    }
+
+    default Wrap<String> wrapContent() {
+        return wrapContent(false);
+    }
+
+    default Wrap<String> wrapContent(boolean createIfAbsent) {
+        return Wrap.of(getContent(createIfAbsent));
     }
 }

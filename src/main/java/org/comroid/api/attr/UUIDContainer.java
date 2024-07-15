@@ -18,15 +18,10 @@ public interface UUIDContainer {
         return getUuid();
     }
 
-    @ToString(of="id")
-    @EqualsAndHashCode(of="id")
+    @ToString(of = "id")
+    @EqualsAndHashCode(of = "id")
     class Base implements UUIDContainer {
         protected final UUID id;
-
-        @Override
-        public UUID getUUID() {
-            return id;
-        }
 
         public Base() {
             this(null);
@@ -34,6 +29,11 @@ public interface UUIDContainer {
 
         public Base(@Nullable UUID id) {
             this.id = id == null ? UUID.randomUUID() : id;
+        }
+
+        @Override
+        public UUID getUUID() {
+            return id;
         }
     }
 

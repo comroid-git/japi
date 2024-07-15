@@ -39,9 +39,9 @@ public interface AbstractMap<K, V> extends Map<K, V> {
     default Set<K> keySet() {
         //noinspection SimplifyStreamApiCallChains
         return Collections.unmodifiableSet(entrySet()
-                .stream()
-                .map(Entry::getKey)
-                .collect(Collectors.toSet()));
+                                                   .stream()
+                                                   .map(Entry::getKey)
+                                                   .collect(Collectors.toSet()));
     }
 
     @NotNull
@@ -49,8 +49,8 @@ public interface AbstractMap<K, V> extends Map<K, V> {
     default List<V> values() {
         //noinspection SimplifyStreamApiCallChains
         return Collections.unmodifiableList(entrySet()
-                .stream()
-                .map(Entry::getValue)
-                .collect(Collectors.toList()));
+                                                    .stream()
+                                                    .map(Entry::getValue)
+                                                    .collect(Collectors.toList()));
     }
 }

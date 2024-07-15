@@ -13,7 +13,11 @@ import org.comroid.api.func.ext.Wrap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Map;
 import java.util.function.IntPredicate;
 import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
@@ -51,14 +55,24 @@ public enum Capitalization implements Named, Comparator<String> {
     public static final Context Default = Context.builder().build();
     public static final Context Current = Default;
 
+    public static boolean equalsIgnoreCase(String l, String r) {
+        return of(l).map(cap -> cap.convert(r)).test(l::equals);
+    }
+
+    public static Wrap<Capitalization> of(final String string) {
+        return Wrap.ofOptional(Arrays.stream(values())
+                                       // score with each capitalization
+                                       .map(cap -> new AbstractMap.SimpleImmutableEntry<>(cap.score(string), cap))
+                                       .peek(e -> log.finer("%s \t-\t %s \t-\t %s".formatted(string, e.getValue(), e.getKey())))
+                                       // return the one with the highest score
+                                       .max(Comparator.comparingInt(Map.Entry::getKey))
+                                       .map(Map.Entry::getValue));
+    }
+
     State firstChar;
     State midWord;
     State recurringFirstChar;
     @Nullable Character separator;
-
-    public static boolean equalsIgnoreCase(String l, String r) {
-        return of(l).map(cap -> cap.convert(r)).test(l::equals);
-    }
 
     @Override
     public int compare(String l, String r) {
@@ -75,9 +89,9 @@ public enum Capitalization implements Named, Comparator<String> {
                 .filter(cap -> string.indexOf(cap.separator) != -1)
                 .count();
 
-        final var buf = string.toCharArray();
-        var prev = firstChar;
-        var find = State.Any;
+        final var buf  = string.toCharArray();
+        var       prev = firstChar;
+        var       find = State.Any;
         for (int i = 0; i < buf.length; i++) {
             var c = buf[i];
             find = State.find(c);
@@ -95,24 +109,24 @@ public enum Capitalization implements Named, Comparator<String> {
     }
 
     public String convert(String string) {
-        var current = of(string).assertion("Could not determine capitalization case from string '"+string+'\'');
+        var current = of(string).assertion("Could not determine capitalization case from string '" + string + '\'');
         if (current == this) return string;
         return current.convert(this, string);
     }
 
     public String convert(Capitalization to, String string) {
         if (separator != null) {
-            final int[] count = new int[]{0};
+            final int[] count = new int[]{ 0 };
             return Arrays.stream(string.split(separator.toString()))
                     .map(word -> {
-                        word = (count[0]++ == 0 ? to.firstChar : to.recurringFirstChar).apply(word , 0);
-                        return to.midWord.apply(word, IntStream.range(1,word.length()).toArray());
+                        word = (count[0]++ == 0 ? to.firstChar : to.recurringFirstChar).apply(word, 0);
+                        return to.midWord.apply(word, IntStream.range(1, word.length()).toArray());
                     }).collect(Collectors.joining(to.separator != null ? to.separator.toString() : ""));
         } else {
             // find word beginning with this Case
             final var firstLetters = new ArrayList<@NotNull Integer>();
-            final var buf = string.toCharArray();
-            var prev = firstChar;
+            final var buf  = string.toCharArray();
+            var       prev = firstChar;
             for (int i = 0; i < buf.length; i++) {
                 var c = buf[i];
                 var find = State.find(c);
@@ -128,23 +142,13 @@ public enum Capitalization implements Named, Comparator<String> {
                 if (firstLetter && to.separator != null)
                     sb.append(to.separator);
                 sb.append((char) (i == 0
-                        ? to.firstChar
-                        : firstLetter
-                        ? to.recurringFirstChar
-                        : to.midWord).applyAsInt(buf[i]));
+                                  ? to.firstChar
+                                  : firstLetter
+                                    ? to.recurringFirstChar
+                                    : to.midWord).applyAsInt(buf[i]));
             }
             return sb.toString();
         }
-    }
-
-    public static Wrap<Capitalization> of(final String string) {
-        return Wrap.ofOptional(Arrays.stream(values())
-                // score with each capitalization
-                .map(cap -> new AbstractMap.SimpleImmutableEntry<>(cap.score(string), cap))
-                .peek(e -> log.finer("%s \t-\t %s \t-\t %s".formatted(string, e.getValue(), e.getKey())))
-                // return the one with the highest score
-                .max(Comparator.comparingInt(Map.Entry::getKey))
-                .map(Map.Entry::getValue));
     }
 
     @AllArgsConstructor
@@ -186,8 +190,8 @@ public enum Capitalization implements Named, Comparator<String> {
 
         static State find(int c) {
             return Wrap.ofOptional(Stream.of(Lower, Upper)
-                            .filter(it -> it.test(c))
-                            .findAny())
+                                           .filter(it -> it.test(c))
+                                           .findAny())
                     .orElse(Any);
         }
     }
@@ -196,10 +200,10 @@ public enum Capitalization implements Named, Comparator<String> {
     @Builder
     public static class Context {
         @lombok.Builder.Default Capitalization constants = UpperCamelCase;
-        @lombok.Builder.Default Capitalization types = UpperCamelCase;
+        @lombok.Builder.Default Capitalization types     = UpperCamelCase;
         @lombok.Builder.Default Capitalization properties = lowerCamelCase;
-        @lombok.Builder.Default Capitalization paths = lower_hyphen_case;
-        @lombok.Builder.Default Capitalization display = Title_Case;
-        @lombok.Builder.Default Capitalization version = lower_dot_case;
+        @lombok.Builder.Default Capitalization paths     = lower_hyphen_case;
+        @lombok.Builder.Default Capitalization display   = Title_Case;
+        @lombok.Builder.Default Capitalization version   = lower_dot_case;
     }
 }

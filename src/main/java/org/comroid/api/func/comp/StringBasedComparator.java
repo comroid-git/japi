@@ -60,7 +60,7 @@ public final class StringBasedComparator<T> implements Comparator<T> {
 
         // if checksums are equal, use length
         return iv == ov
-                ? ic.length - oc.length
-                : (int) (iv - ov);
+               ? ic.length - oc.length
+               : (int) (iv - ov);
     }
 }

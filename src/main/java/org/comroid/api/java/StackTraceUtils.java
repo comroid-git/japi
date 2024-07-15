@@ -17,15 +17,6 @@ import java.util.stream.Stream;
 public final class StackTraceUtils {
     public static final List<String> EXTRA_FILTER_NAMES = new ArrayList<>();
 
-    public static String callerString(StackTraceElement[] trace, int index) {
-        var me = trace[index];
-        var prev = trace[index - 1];
-        var call = prev.getClassName();
-        if (call.contains("."))
-            call = call.substring(call.lastIndexOf('.') + 1);
-        return "call to " + call + '.' + prev.getMethodName() + "() in " + me;
-    }
-
     public static String caller(int skip) {
         try {
             var trace = new Throwable().getStackTrace();
@@ -41,6 +32,15 @@ public final class StackTraceUtils {
         } catch (ArrayIndexOutOfBoundsException e) {
             throw new IllegalArgumentException(String.format("Cannot skip %d classes", skip), e);
         }
+    }
+
+    public static String callerString(StackTraceElement[] trace, int index) {
+        var me   = trace[index];
+        var prev = trace[index - 1];
+        var call = prev.getClassName();
+        if (call.contains("."))
+            call = call.substring(call.lastIndexOf('.') + 1);
+        return "call to " + call + '.' + prev.getMethodName() + "() in " + me;
     }
 
     public static Class<?> callerClass(int skip) {
@@ -83,21 +83,23 @@ public final class StackTraceUtils {
         }
     }
 
-    public static String lessSimpleName(Class<?> type) {
-        return Optional.ofNullable(type.getCanonicalName())
-                .map(name -> name.indexOf('.') == -1 ? name
-                        : name.substring(type.getPackageName().length() + 1))
-                .orElseGet(type::getSimpleName);
-    }
-
     public static String lessSimpleDetailedName(Class<?> type) {
         return type.getPackageName() + '.' + lessSimpleName(type);
     }
 
+    public static String lessSimpleName(Class<?> type) {
+        return Optional.ofNullable(type.getCanonicalName())
+                .map(name -> name.indexOf('.') == -1 ? name
+                                                     : name.substring(type.getPackageName().length() + 1))
+                .orElseGet(type::getSimpleName);
+    }
+
     public static String toString(Throwable t) {
         var buf = new StringWriter();
-        try (var stream = new DelegateStream.Output(buf);
-             var printer = new PrintStream(stream)) {
+        try (
+                var stream = new DelegateStream.Output(buf);
+                var printer = new PrintStream(stream)
+        ) {
             t.printStackTrace(printer);
             return buf.toString();
         }

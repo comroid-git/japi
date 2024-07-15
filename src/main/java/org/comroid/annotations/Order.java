@@ -12,11 +12,11 @@ import java.util.Comparator;
 @Inherit(Inherit.Type.FromSupertype)
 public @interface Order {
     Comparator<AnnotatedElement> COMPARATOR = Comparator.comparingInt(it ->
-            Annotations.findAnnotations(Order.class, it)
-                    .findAny()
-                    .map(Annotations.Result::getAnnotation)
-                    .map(Order::value)
-                    .orElse(0));
+                                                                              Annotations.findAnnotations(Order.class, it)
+                                                                                      .findAny()
+                                                                                      .map(Annotations.Result::getAnnotation)
+                                                                                      .map(Order::value)
+                                                                                      .orElse(0));
 
     int value();
 }

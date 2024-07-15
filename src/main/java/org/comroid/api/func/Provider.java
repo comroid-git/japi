@@ -13,10 +13,6 @@ import java.util.function.Supplier;
 
 @FunctionalInterface
 public interface Provider<T> extends Supplier<CompletableFuture<T>> {
-    default boolean isInstant() {
-        return this instanceof Now;
-    }
-
     static <T> Provider<T> of(CompletableFuture<T> future) {
         return Polyfill.constantSupplier(future)::get;
     }
@@ -35,6 +31,10 @@ public interface Provider<T> extends Supplier<CompletableFuture<T>> {
 
     static <T> Provider<T> completingOnce(CompletableFuture<T> from) {
         return new Support.Once<>(from);
+    }
+
+    default boolean isInstant() {
+        return this instanceof Now;
     }
 
     @Blocking
@@ -66,8 +66,7 @@ public interface Provider<T> extends Supplier<CompletableFuture<T>> {
         }
     }
 
-    @Internal
-    final class Support {
+    @Internal final class Support {
         private static final class Constant<T> implements Provider.Now<T> {
             private static final Map<Object, Constant<Object>> cache = new ConcurrentHashMap<>();
             private final T value;
@@ -96,7 +95,5 @@ public interface Provider<T> extends Supplier<CompletableFuture<T>> {
         }
 
         private static final Provider<?> EMPTY = constant(null);
-
-
     }
 }

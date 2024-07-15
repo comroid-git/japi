@@ -10,12 +10,6 @@ public interface ThrowingPredicate<R, T extends Throwable> {
         return rethrowing(predicate, nil -> null);
     }
 
-    static <R> Predicate<R> rethrowing(
-            ThrowingPredicate<R, Throwable> predicate
-    ) {
-        return rethrowing(predicate, RuntimeException::new);
-    }
-
     static <R, T extends Throwable> Predicate<R> rethrowing(
             ThrowingPredicate<R, T> predicate,
             Function<Throwable, ? extends RuntimeException> remapper
@@ -33,4 +27,10 @@ public interface ThrowingPredicate<R, T extends Throwable> {
     }
 
     boolean test(R it) throws T;
+
+    static <R> Predicate<R> rethrowing(
+            ThrowingPredicate<R, Throwable> predicate
+    ) {
+        return rethrowing(predicate, RuntimeException::new);
+    }
 }

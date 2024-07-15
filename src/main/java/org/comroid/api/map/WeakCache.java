@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @Deprecated // todo: broken
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class WeakCache<K,V> extends AbstractMap<K,V> {
+public class WeakCache<K, V> extends AbstractMap<K, V> {
     Map<K, WeakEntry> map = new ConcurrentHashMap<>();
     @Getter Function<K, V> provider;
 
@@ -33,7 +33,7 @@ public class WeakCache<K,V> extends AbstractMap<K,V> {
     @Override
     public final Set<Entry<K, V>> entrySet() {
         return map.entrySet().stream()
-                .map(e->new SimpleImmutableEntry<>(e.getKey(),e.getValue().touch()))
+                .map(e -> new SimpleImmutableEntry<>(e.getKey(), e.getValue().touch()))
                 .collect(Collectors.toUnmodifiableSet());
     }
 
@@ -49,7 +49,7 @@ public class WeakCache<K,V> extends AbstractMap<K,V> {
         V touch() {
             return Wrap.of(ref)
                     .map(Reference::get)
-                    .orRef(()-> Wrap.of(key)
+                    .orRef(() -> Wrap.of(key)
                             .map(provider) // todo sometimes causes NPE
                             .peek(it -> ref = new WeakReference<>(it)))
                     .orElseThrow(() -> new AssertionError("Unable to touch WeakCache object with key " + key));

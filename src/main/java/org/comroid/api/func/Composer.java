@@ -8,15 +8,15 @@ import java.util.concurrent.CompletableFuture;
  * @param <T> The type of the result object
  */
 public interface Composer<T> extends Provider<T> {
+    @Override
+    default CompletableFuture<T> get() {
+        return compose();
+    }
+
     /**
      * Starts computation for the creation of the object.
      *
      * @return A future to complete with the final object.
      */
     CompletableFuture<T> compose();
-
-    @Override
-    default CompletableFuture<T> get() {
-        return compose();
-    }
 }

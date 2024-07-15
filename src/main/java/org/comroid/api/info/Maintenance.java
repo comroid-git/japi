@@ -1,6 +1,8 @@
 package org.comroid.api.info;
 
-import lombok.*;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Value;
 import lombok.experimental.UtilityClass;
 import org.comroid.api.attr.Described;
 import org.comroid.api.attr.Named;
@@ -17,7 +19,7 @@ public class Maintenance {
 
     @Value
     @Builder
-    @EqualsAndHashCode(of = {"name"})
+    @EqualsAndHashCode(of = { "name" })
     public static class Inspection implements Named, Described {
         String name;
         String format;
@@ -29,10 +31,10 @@ public class Maintenance {
         }
 
         @Value
-        @EqualsAndHashCode(of = {"id"})
+        @EqualsAndHashCode(of = { "id" })
         public class CheckResult implements Described {
             Inspection inspection = Inspection.this;
-            Object id;
+            Object   id;
             Object[] formatArgs;
 
             public CheckResult(Object id, Object... formatArgs) {

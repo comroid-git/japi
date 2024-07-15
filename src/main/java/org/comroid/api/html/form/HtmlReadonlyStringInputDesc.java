@@ -6,6 +6,6 @@ public interface HtmlReadonlyStringInputDesc extends HtmlStringInputDesc {
     @Override
     @Nullable
     default String[] getHtmlExtraAttributes() {
-        return new String[]{"readonly"};
+        return new String[]{ "readonly" };
     }
 }

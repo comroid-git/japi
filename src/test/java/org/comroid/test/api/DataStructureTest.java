@@ -21,6 +21,33 @@ public class DataStructureTest {
         testProp(struct, StandardValueType.DOUBLE, "price", 1.99);
     }
 
+    private void testProp(DataStructure<?> struct, ValueType<?> type, String key, Object expectedValue) {
+        Assertions.assertTrue(struct.getProperty(key).isNonNull(), key + " property: missing");
+        var prop = struct.getProperty(key).assertion();
+        Assertions.assertNotNull(prop);
+        var dummy = struct.getConstructors()
+                .stream()
+                .filter(ctor -> ctor.getArgs().isEmpty())
+                .findAny()
+                .orElseThrow()
+                .getCtor()
+                .autoInvoke();
+
+        // type
+        Assertions.assertEquals(type, prop.getType(), key + " property: wrong type");
+
+        // accessors
+        Invocable<?> accessor = prop.getGetter();
+        Assertions.assertNotNull(accessor, key + " property: getter missing");
+        Assertions.assertEquals(expectedValue, accessor.invokeSilent(dummy), key + " property: getter unusable");
+        if ("price".equals(prop.getName())) {
+            final var newValue = 1.49;
+            accessor = prop.getSetter();
+            Assertions.assertNotNull(accessor, key + " property: setter missing");
+            Assertions.assertEquals(newValue, accessor.invokeSilent(dummy, newValue), key + " property: setter unusable");
+        }
+    }
+
     @Test
     public void testApple() {
         var struct = DataStructure.of(Dummy.Apple.class);
@@ -50,32 +77,5 @@ public class DataStructureTest {
         // ripeness -> color, color
         testProp(struct, StandardValueType.INTEGER, "color", 0x22dd88);
         testProp(struct, StandardValueType.INTEGER, "ripeness", 0x22dd88);
-    }
-
-    private void testProp(DataStructure<?> struct, ValueType<?> type, String key, Object expectedValue) {
-        Assertions.assertTrue(struct.getProperty(key).isNonNull(), key + " property: missing");
-        var prop = struct.getProperty(key).assertion();
-        Assertions.assertNotNull(prop);
-        var dummy = struct.getConstructors()
-                .stream()
-                .filter(ctor->ctor.getArgs().isEmpty())
-                .findAny()
-                .orElseThrow()
-                .getCtor()
-                .autoInvoke();
-
-        // type
-        Assertions.assertEquals(type, prop.getType(), key + " property: wrong type");
-
-        // accessors
-        Invocable<?> accessor = prop.getGetter();
-        Assertions.assertNotNull(accessor, key + " property: getter missing");
-        Assertions.assertEquals(expectedValue, accessor.invokeSilent(dummy), key + " property: getter unusable");
-        if ("price".equals(prop.getName())) {
-            final var newValue = 1.49;
-            accessor = prop.getSetter();
-            Assertions.assertNotNull(accessor, key + " property: setter missing");
-            Assertions.assertEquals(newValue, accessor.invokeSilent(dummy, newValue), key + " property: setter unusable");
-        }
     }
 }

@@ -1,7 +1,11 @@
 package org.comroid.api.data;
 
 import jakarta.persistence.AttributeConverter;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import org.comroid.api.info.Assert;
 import org.jetbrains.annotations.ApiStatus;
@@ -14,41 +18,34 @@ import java.util.function.DoubleUnaryOperator;
 import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
-import static java.lang.Math.pow;
-import static java.lang.Math.sqrt;
+import static java.lang.Math.*;
 
 @SuppressWarnings("unused")
 public interface Vector {
-    int IndexX = 0;
-    int IndexY = 1;
-    int IndexZ = 2;
-    int IndexW = 3;
-    Vector Zero = units(4, 0);
-    Vector One = units(4, 1);
-    N4 UnitX = new N4(1, 0, 0, 0);
-    N4 UnitY = new N4(0, 1, 0, 0);
-    N4 UnitZ = new N4(0, 0, 1, 0);
-    N4 UnitW = new N4(0, 0, 0, 1);
-
-    default int n() {
-        return 0;
-    }
-
-    double[] toArray();
+    int    IndexX = 0;
+    int    IndexY = 1;
+    int    IndexZ = 2;
+    int    IndexW = 3;
+    Vector Zero   = units(4, 0);
+    Vector One    = units(4, 1);
+    N4     UnitX  = new N4(1, 0, 0, 0);
+    N4     UnitY  = new N4(0, 1, 0, 0);
+    N4     UnitZ  = new N4(0, 0, 1, 0);
+    N4     UnitW  = new N4(0, 0, 0, 1);
 
     default DoubleStream stream() {
         return Arrays.stream(toArray());
     }
 
-    default Vector ctor() {
-        return ctor(new double[4]);
-    }
-
-    Vector ctor(double... dim);
+    double getX();
 
     default Vector map(DoubleUnaryOperator op) {
         return ctor(DoubleStream.of(toArray()).map(op).toArray());
     }
+
+    Vector setX(double value);
+
+    double getY();
 
     default double get(int dim) {
         if (dim < n()) switch (dim) {
@@ -62,6 +59,37 @@ public interface Vector {
                 return getW();
         }
         throw outOfBounds(dim + 1);
+    }
+
+    Vector setY(double value);
+
+    @Contract(mutates = "this")
+    default void $(BiFunction<Vector, Vector, Vector> mod, Vector other) {
+        var result = mod.apply(this, other);
+        Assert.Equal(n(), result.n());
+        IntStream.range(0, n()).forEach(i -> set(i, result.get(i)));
+    }
+
+    default Vector muli(Vector other) {
+        var a = toArray();
+        var b = toArray();
+        var r = ctor();
+        for (var i = 0; i < n(); i++) r.set(i, a[i] * b[i]);
+        return r;
+    }
+
+    double[] toArray();
+
+    double getZ();
+
+    Vector setZ(double value);
+
+    double getW();
+
+    Vector setW(double value);
+
+    default int n() {
+        return 0;
     }
 
     default Vector set(int dim, double value) {
@@ -78,27 +106,8 @@ public interface Vector {
         throw outOfBounds(dim + 1);
     }
 
-    double getX();
-
-    double getY();
-
-    double getZ();
-
-    double getW();
-
-    Vector setX(double value);
-
-    Vector setY(double value);
-
-    Vector setZ(double value);
-
-    Vector setW(double value);
-
-    @Contract(mutates = "this")
-    default void $(BiFunction<Vector, Vector, Vector> mod, Vector other) {
-        var result = mod.apply(this, other);
-        Assert.Equal(n(), result.n());
-        IntStream.range(0, n()).forEach(i -> set(i, result.get(i)));
+    default Vector ctor() {
+        return ctor(new double[4]);
     }
 
     @Contract(mutates = "this")
@@ -112,75 +121,20 @@ public interface Vector {
         return muli(-1);
     }
 
-    default Vector addi(double other) {
-        return addi(units(n(), other));
-    }
-
-    default Vector subi(double other) {
-        return subi(units(n(), other));
-    }
-
     default Vector muli(double other) {
         return muli(units(n(), other));
     }
 
-    default Vector divi(double other) {
-        return divi(units(n(), other));
+    Vector ctor(double... dim);
+
+    default Vector addi(double other) {
+        return addi(units(n(), other));
     }
 
-    default Vector modi(double other) {
-        return modi(units(n(), other));
-    }
-
-    default Vector addi(Vector other) {
-        var a = toArray();
-        var b = toArray();
-        var r = ctor();
-        for (var i = 0; i < n(); i++) r.set(i, a[i] + b[i]);
-        return r;
-    }
-
-    default Vector subi(Vector other) {
-        var a = toArray();
-        var b = toArray();
-        var r = ctor();
-        for (var i = 0; i < n(); i++) r.set(i, a[i] - b[i]);
-        return r;
-    }
-
-    default Vector muli(Vector other) {
-        var a = toArray();
-        var b = toArray();
-        var r = ctor();
-        for (var i = 0; i < n(); i++) r.set(i, a[i] * b[i]);
-        return r;
-    }
-
-    default Vector divi(Vector other) {
-        var a = toArray();
-        var b = toArray();
-        var r = ctor();
-        for (var i = 0; i < n(); i++) r.set(i, a[i] / b[i]);
-        return r;
-    }
-
-    default Vector modi(Vector other) {
-        var a = toArray();
-        var b = toArray();
-        var r = ctor();
-        for (var i = 0; i < n(); i++) r.set(i, a[i] % b[i]);
-        return r;
-    }
-
-    default double magnitude() {
-        var sum = 0d;
-        for (double dim : toArray())
-            sum += pow(dim, 2);
-        return sqrt(sum);
-    }
-
-    default Vector normalize() {
-        return divi(magnitude());
+    static Vector units(int n, double length) {
+        var arr = new double[n];
+        Arrays.fill(arr, length);
+        return of(arr);
     }
 
     static Vector of(double... dim) {
@@ -195,14 +149,63 @@ public interface Vector {
         throw outOfBounds(dim.length);
     }
 
-    static Vector units(int n, double length) {
-        var arr = new double[n];
-        Arrays.fill(arr, length);
-        return of(arr);
-    }
-
     private static UnsupportedOperationException outOfBounds(int n) {
         return new UnsupportedOperationException("Unsupported Vector dimension: " + n);
+    }
+
+    default Vector addi(Vector other) {
+        var a = toArray();
+        var b = toArray();
+        var r = ctor();
+        for (var i = 0; i < n(); i++) r.set(i, a[i] + b[i]);
+        return r;
+    }
+
+    default Vector subi(double other) {
+        return subi(units(n(), other));
+    }
+
+    default Vector subi(Vector other) {
+        var a = toArray();
+        var b = toArray();
+        var r = ctor();
+        for (var i = 0; i < n(); i++) r.set(i, a[i] - b[i]);
+        return r;
+    }
+
+    default Vector modi(double other) {
+        return modi(units(n(), other));
+    }
+
+    default Vector modi(Vector other) {
+        var a = toArray();
+        var b = toArray();
+        var r = ctor();
+        for (var i = 0; i < n(); i++) r.set(i, a[i] % b[i]);
+        return r;
+    }
+
+    default Vector normalize() {
+        return divi(magnitude());
+    }
+
+    default Vector divi(double other) {
+        return divi(units(n(), other));
+    }
+
+    default Vector divi(Vector other) {
+        var a = toArray();
+        var b = toArray();
+        var r = ctor();
+        for (var i = 0; i < n(); i++) r.set(i, a[i] / b[i]);
+        return r;
+    }
+
+    default double magnitude() {
+        var sum = 0d;
+        for (double dim : toArray())
+            sum += pow(dim, 2);
+        return sqrt(sum);
     }
 
     @Data
@@ -219,32 +222,7 @@ public interface Vector {
         }
 
         @Override
-        public int n() {
-            return 2;
-        }
-
-        @ApiStatus.Experimental
-        public N3 to3(double z) {
-            return new N3(x, y, z);
-        }
-
-        @Override
-        public double[] toArray() {
-            return new double[]{x, y};
-        }
-
-        @Override
-        public Vector.N2 ctor(double... dim) {
-            return new N2(dim[0], dim[1]);
-        }
-
-        @Override
         public double getZ() {
-            return 0;
-        }
-
-        @Override
-        public double getW() {
             return 0;
         }
 
@@ -254,8 +232,33 @@ public interface Vector {
         }
 
         @Override
+        public double getW() {
+            return 0;
+        }
+
+        @Override
         public Vector setW(double value) {
             throw Vector.outOfBounds(IndexW);
+        }
+
+        @Override
+        public int n() {
+            return 2;
+        }
+
+        @Override
+        public double[] toArray() {
+            return new double[]{ x, y };
+        }
+
+        @Override
+        public Vector.N2 ctor(double... dim) {
+            return new N2(dim[0], dim[1]);
+        }
+
+        @ApiStatus.Experimental
+        public N3 to3(double z) {
+            return new N3(x, y, z);
         }
 
         /* todo
@@ -289,19 +292,19 @@ public interface Vector {
             return 3;
         }
 
-        @ApiStatus.Experimental
-        public N4 to4(double w) {
-            return new N4(x, y, z, w);
-        }
-
         @Override
         public double[] toArray() {
-            return new double[]{x, y, z};
+            return new double[]{ x, y, z };
         }
 
         @Override
         public Vector.N2 ctor(double... dim) {
             return new N3(dim[0], dim[1], dim[2]);
+        }
+
+        @ApiStatus.Experimental
+        public N4 to4(double w) {
+            return new N4(x, y, z, w);
         }
 
         @Value
@@ -350,7 +353,7 @@ public interface Vector {
 
         @Override
         public double[] toArray() {
-            return new double[]{x, y, z, w};
+            return new double[]{ x, y, z, w };
         }
 
         @Override

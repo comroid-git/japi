@@ -6,9 +6,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 public interface Owned {
-    Object getOwner();
+    static Object wrap(Object it) {
+        return it instanceof Owned ? ((Owned) it).getOwner() : it;
+    }
 
-    static Object wrap(Object it) {return it instanceof Owned ? ((Owned)it).getOwner() : it;}
+    Object getOwner();
 
     @Getter
     @RequiredArgsConstructor

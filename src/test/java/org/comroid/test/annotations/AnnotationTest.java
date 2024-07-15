@@ -14,31 +14,31 @@ import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 
-import static java.util.stream.Stream.of;
-import static org.comroid.annotations.internal.Annotations.ignore;
+import static java.util.stream.Stream.*;
+import static org.comroid.annotations.internal.Annotations.*;
 import static org.comroid.api.func.util.Streams.Multi.*;
 
-@SuppressWarnings({"RedundantMethodOverride","unused"})
+@SuppressWarnings({ "RedundantMethodOverride", "unused" })
 public class AnnotationTest {
     @Test
     public void test() throws NoSuchMethodException {
         Assertions.assertFalse(of(Obj1.class, Obj2.class, Obj3.class, Obj4.class)
-                        .flatMap(expandFlat($ -> of("getX", "getY", "getZ")))
-                        .map(crossA2B(ThrowingBiFunction.rethrowing(Class::getMethod)))
-                        .map(crossB2A(mtd -> mtd.getAnnotation(Expects.class)))
-                        .flatMap(flatMapA(Stream::ofNullable))
-                        .flatMap(flatMapA(expect -> Arrays.stream(expect.value())))
-                        .flatMap(filterA(expect -> !expect.onTarget().equals("ignore-why")))
-                        .flatMap(merge((expect, method) -> {
-                            var result = ignore(method).isPresent();
-                            if (String.valueOf(result).equals(expect.value()))
-                                return of(true);
-                            Log.at(Level.WARNING, Annotations.toString(expect, method));
-                            return of(false);
-                        }))
-                        .toList()
-                        .contains(false),
-                "Some expectations weren't met");
+                                       .flatMap(expandFlat($ -> of("getX", "getY", "getZ")))
+                                       .map(crossA2B(ThrowingBiFunction.rethrowing(Class::getMethod)))
+                                       .map(crossB2A(mtd -> mtd.getAnnotation(Expects.class)))
+                                       .flatMap(flatMapA(Stream::ofNullable))
+                                       .flatMap(flatMapA(expect -> Arrays.stream(expect.value())))
+                                       .flatMap(filterA(expect -> !expect.onTarget().equals("ignore-why")))
+                                       .flatMap(merge((expect, method) -> {
+                                           var result = ignore(method).isPresent();
+                                           if (String.valueOf(result).equals(expect.value()))
+                                               return of(true);
+                                           Log.at(Level.WARNING, Annotations.toString(expect, method));
+                                           return of(false);
+                                       }))
+                                       .toList()
+                                       .contains(false),
+                               "Some expectations weren't met");
         ;
     }
 
@@ -57,7 +57,8 @@ public class AnnotationTest {
 
         /** should not be ignored */
         @Expect(value = "false", onTarget = "ignore")
-        public void getZ() {}}
+        public void getZ() {}
+    }
 
     /** should not be ignored */
     @Expect(value = "false", onTarget = "ignore")
@@ -75,7 +76,8 @@ public class AnnotationTest {
 
         /** should not be ignored */
         @Expect(value = "false", onTarget = "ignore")
-        public void getZ() {}}
+        public void getZ() {}
+    }
 
     /** should be ignored */
     @Ignore
@@ -96,7 +98,8 @@ public class AnnotationTest {
         /** should be ignored, reason: Obj3 annotation */
         @Expect(value = "true", onTarget = "ignore")
         @Expect(value = "obj3", onTarget = "ignore-why")
-        public void getZ() {}}
+        public void getZ() {}
+    }
 
     /** should not be ignored */
     @Expect(value = "false", onTarget = "ignore")

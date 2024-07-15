@@ -3,12 +3,12 @@ package org.comroid.test;
 import lombok.ToString;
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Ignore;
-import org.comroid.api.tree.Component;
 import org.comroid.api.data.bind.DataStructure;
+import org.comroid.api.tree.Component;
 
 public class Dummy {
-    public static final String AliasFruit = "food";
-    public static final String AliasApple = "red delight";
+    public static final String AliasFruit  = "food";
+    public static final String AliasApple  = "red delight";
     public static final String AliasBanana = "yellow bean";
     public static final String AliasBananaColor = "ripeness";
 
@@ -25,13 +25,13 @@ public class Dummy {
             return 1.99;
         }
 
-        public double setPrice(double price) {
-            return price;
-        }
-
         @Ignore(DataStructure.class)
         public int getColor() {
             return 0xffffff;
+        }
+
+        public double setPrice(double price) {
+            return price;
         }
     }
 

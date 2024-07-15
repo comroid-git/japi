@@ -6,20 +6,36 @@ import org.comroid.api.func.WrappedFormattable;
 import java.net.URI;
 
 public final class EMailAddress implements CharSequence, WrappedFormattable {
+    public static EMailAddress parse(String parse) {
+        parse = parse.replace("%40", "@");
+        int index = parse.indexOf('@');
+
+        String user   = parse.substring(0, index);
+        String domain = parse.substring(index + 1);
+
+        return new EMailAddress(user, domain);
+    }
+
     private final String user;
     private final String domain;
     private final String string;
+
+    public EMailAddress(String user, String domain) {
+        this.user   = user;
+        this.domain = domain;
+        this.string = user + '@' + domain;
+    }
 
     public String getUser() {
         return user;
     }
 
-    public String getDomain() {
-        return domain;
-    }
-
     public URI getDomainAsURI() {
         return Polyfill.uri("http://" + getDomain());
+    }
+
+    public String getDomain() {
+        return domain;
     }
 
     public URI getMailtoURI() {
@@ -36,20 +52,8 @@ public final class EMailAddress implements CharSequence, WrappedFormattable {
         return String.format("EMailAddress{user=%s, domain=%s}", user, domain);
     }
 
-    public EMailAddress(String user, String domain) {
-        this.user = user;
-        this.domain = domain;
-        this.string = user + '@' + domain;
-    }
-
-    public static EMailAddress parse(String parse) {
-        parse = parse.replace("%40", "@");
-        int index = parse.indexOf('@');
-
-        String user = parse.substring(0, index);
-        String domain = parse.substring(index + 1);
-
-        return new EMailAddress(user, domain);
+    public int hashCode() {
+        return string.hashCode();
     }
 
     public boolean equals(Object o) {
@@ -59,8 +63,9 @@ public final class EMailAddress implements CharSequence, WrappedFormattable {
         } else return false;
     }
 
-    public int hashCode() {
-        return string.hashCode();
+    @Override
+    public String toString() {
+        return string;
     }
 
     @Override
@@ -76,10 +81,5 @@ public final class EMailAddress implements CharSequence, WrappedFormattable {
     @Override
     public CharSequence subSequence(int start, int end) {
         return string.subSequence(start, end);
-    }
-
-    @Override
-    public String toString() {
-        return string;
     }
 }

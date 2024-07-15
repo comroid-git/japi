@@ -16,14 +16,18 @@ import java.util.function.Function;
 @Log
 @Data
 public class AlmostComplete<T> extends Almost<T, T> {
+    public static <T> AlmostComplete<T> of(final @NotNull T value) {
+        return new AlmostComplete<>(() -> value, null);
+    }
+
     private final @NotNull ThrowingSupplier<@NotNull T, Throwable> origin;
     private final @Nullable ThrowingConsumer<@NotNull T, Throwable> finalize;
-    private @Nullable Function<Throwable, @Nullable T> exceptionHandler;
+    private @Nullable      Function<Throwable, @Nullable T>        exceptionHandler;
 
     @Override
     public @NotNull T complete(@Nullable Consumer<T> modifier) {
-        int c = 0;
-        T it = null;
+        int c  = 0;
+        T   it = null;
         try {
             it = origin.get();
             c++; // 1 - passed origin
@@ -48,13 +52,9 @@ public class AlmostComplete<T> extends Almost<T, T> {
             };
             if (it == null)
                 throw new RethrownException(t);
-            log.fine("Recovered from an exception that occurred during "+stage);
+            log.fine("Recovered from an exception that occurred during " + stage);
             log.finer(StackTraceUtils.toString(t));
         }
         return it;
-    }
-
-    public static <T> AlmostComplete<T> of(final @NotNull T value) {
-        return new AlmostComplete<>(()->value, null);
     }
 }

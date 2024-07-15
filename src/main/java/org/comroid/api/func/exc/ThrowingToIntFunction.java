@@ -4,7 +4,10 @@ import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
 public interface ThrowingToIntFunction<I, T extends Throwable> {
-    default ToIntFunction<I> wrap() {return wrap(RuntimeException::new);}
+    default ToIntFunction<I> wrap() {
+        return wrap(RuntimeException::new);
+    }
+
     default ToIntFunction<I> wrap(Function<Throwable, ? extends RuntimeException> remapper) {
         return in -> {
             try {

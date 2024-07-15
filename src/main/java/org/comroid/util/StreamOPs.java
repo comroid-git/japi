@@ -7,10 +7,6 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 public final class StreamOPs {
-    private StreamOPs() {
-        throw new UnsupportedOperationException();
-    }
-
     public static <T, R, IC extends Collection<T>> List<R> map(
             IC values,
             Function<T, R> mapper
@@ -26,5 +22,9 @@ public final class StreamOPs {
         return values.stream()
                 .map(mapper)
                 .collect(collector);
+    }
+
+    private StreamOPs() {
+        throw new UnsupportedOperationException();
     }
 }

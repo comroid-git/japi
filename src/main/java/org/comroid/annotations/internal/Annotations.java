@@ -7,7 +7,14 @@ import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
-import org.comroid.annotations.*;
+import org.comroid.annotations.Alias;
+import org.comroid.annotations.Category;
+import org.comroid.annotations.Convert;
+import org.comroid.annotations.Default;
+import org.comroid.annotations.Description;
+import org.comroid.annotations.Ignore;
+import org.comroid.annotations.Readonly;
+import org.comroid.annotations.Related;
 import org.comroid.api.Polyfill;
 import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.data.seri.type.StandardValueType;
@@ -24,7 +31,12 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Repeatable;
-import java.lang.reflect.*;
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Objects;
@@ -34,20 +46,18 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.lang.reflect.Modifier.isPublic;
-import static java.lang.reflect.Modifier.isStatic;
-import static java.util.Arrays.asList;
-import static java.util.Arrays.stream;
-import static java.util.stream.Stream.empty;
+import static java.lang.reflect.Modifier.*;
+import static java.util.Arrays.*;
 import static java.util.stream.Stream.of;
+import static java.util.stream.Stream.*;
 import static org.comroid.api.func.util.Streams.*;
 
 @Log
 @UtilityClass
 @ApiStatus.Internal
-@SuppressWarnings({"DuplicatedCode","BooleanMethodIsAlwaysInverted"})
+@SuppressWarnings({ "DuplicatedCode", "BooleanMethodIsAlwaysInverted" })
 public class Annotations {
-    public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class, Class.class, Annotation.class};
+    public static final Class<?>[] SystemFilters = new Class<?>[]{ Object.class, Class.class, Annotation.class };
 
     @ApiStatus.Experimental
     @Convert(identifyVia = "annotationType")
@@ -75,8 +85,8 @@ public class Annotations {
 
     public static String descriptionText(@NotNull AnnotatedElement of) {
         return toString(description(of)
-                .map(Result::getAnnotation)
-                .toArray(Description[]::new));
+                                .map(Result::getAnnotation)
+                                .toArray(Description[]::new));
     }
 
     public static Wrap<Category.Adapter> category(@NotNull AnnotatedElement of) {
@@ -132,7 +142,7 @@ public class Annotations {
                 .map(fld -> Invocable.ofFieldGet(fld).invokeRethrow())
                 // do we really need to go through supertypes recursively?
                 .collect(append(of(type.getSuperclass())
-                        .flatMap(Annotations::constants)))
+                                        .flatMap(Annotations::constants)))
                 .flatMap(cast(type));
     }
 
@@ -218,7 +228,6 @@ public class Annotations {
             else if (type.equals(Ignore.Inherit.class))
                 sources = sources.collect(append(decl));
 
-
             // get most relevant annotation
             return sources.flatMap(mem -> {
                 if (mem == null) {
@@ -232,41 +241,6 @@ public class Annotations {
                         .map(anno -> new Result<>(anno, member, mem, decl));
             });
         });
-    }
-
-    @SneakyThrows
-    @SuppressWarnings("unchecked")
-    private static <A extends Annotation> Stream<A> getRepeatableAnnotationsByType(AnnotatedElement member, Class<A> type) {
-        if (!type.isAnnotationPresent(Repeatable.class))
-            return of(member.getAnnotation(type));
-        var rep = type.getAnnotation(Repeatable.class);
-        var listType = rep.value();
-        if (!member.isAnnotationPresent(listType))
-            return of(member.getAnnotation(type));
-        var list = member.getAnnotation(listType);
-        if (list == null) return empty();
-        var mtd = listType.getMethod("value");
-        A[] arr = (A[]) mtd.invoke(list);
-        return Arrays.stream(arr);
-    }
-
-    private static @NotNull ElementType getElementType(AnnotatedElement member) {
-        member = unwrapStructMember(member);
-        ElementType et;
-        if (member instanceof Class<?>) et=ElementType.TYPE;
-        else if (member instanceof Field) et=ElementType.FIELD;
-        else if (member instanceof Method) et=ElementType.METHOD;
-        else if (member instanceof Parameter) et=ElementType.PARAMETER;
-        else if (member instanceof Constructor<?>) et=ElementType.CONSTRUCTOR;
-        else if (member instanceof Package) et=ElementType.PACKAGE;
-        else throw new RuntimeException("Unsupported member: " + member);
-        return et;
-    }
-
-    private static AnnotatedElement unwrapStructMember(AnnotatedElement member) {
-        if (member instanceof DataStructure.Member struct)
-            return struct.getContext();
-        return member;
     }
 
     @SuppressWarnings("ConstantValue") // false positive
@@ -327,6 +301,41 @@ public class Annotations {
                 member.getDeclaringClass().getSimpleName(), member.getName(), expect.value(), expect.onTarget());
     }
 
+    @SneakyThrows
+    @SuppressWarnings("unchecked")
+    private static <A extends Annotation> Stream<A> getRepeatableAnnotationsByType(AnnotatedElement member, Class<A> type) {
+        if (!type.isAnnotationPresent(Repeatable.class))
+            return of(member.getAnnotation(type));
+        var rep      = type.getAnnotation(Repeatable.class);
+        var listType = rep.value();
+        if (!member.isAnnotationPresent(listType))
+            return of(member.getAnnotation(type));
+        var list = member.getAnnotation(listType);
+        if (list == null) return empty();
+        var mtd = listType.getMethod("value");
+        A[] arr = (A[]) mtd.invoke(list);
+        return Arrays.stream(arr);
+    }
+
+    private static @NotNull ElementType getElementType(AnnotatedElement member) {
+        member = unwrapStructMember(member);
+        ElementType et;
+        if (member instanceof Class<?>) et = ElementType.TYPE;
+        else if (member instanceof Field) et = ElementType.FIELD;
+        else if (member instanceof Method) et = ElementType.METHOD;
+        else if (member instanceof Parameter) et = ElementType.PARAMETER;
+        else if (member instanceof Constructor<?>) et = ElementType.CONSTRUCTOR;
+        else if (member instanceof Package) et = ElementType.PACKAGE;
+        else throw new RuntimeException("Unsupported member: " + member);
+        return et;
+    }
+
+    private static AnnotatedElement unwrapStructMember(AnnotatedElement member) {
+        if (member instanceof DataStructure.Member struct)
+            return struct.getContext();
+        return member;
+    }
+
     @Value
     @AllArgsConstructor
     public static class Result<A extends Annotation> implements Annotation {
@@ -342,5 +351,4 @@ public class Annotations {
             return annotation.annotationType();
         }
     }
-
 }

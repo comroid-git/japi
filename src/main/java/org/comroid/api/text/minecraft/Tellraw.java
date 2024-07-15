@@ -1,6 +1,12 @@
 package org.comroid.api.text.minecraft;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Singular;
+import lombok.SneakyThrows;
+import lombok.Value;
+import lombok.With;
 import org.comroid.api.attr.Named;
 import org.comroid.api.data.Vector;
 import org.comroid.api.data.seri.DataNode;
@@ -13,8 +19,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.comroid.api.text.minecraft.McFormatCode.Reset;
-import static org.comroid.api.text.minecraft.McFormatCode.White;
+import static org.comroid.api.text.minecraft.McFormatCode.*;
 
 public interface Tellraw {
     static Command.Builder notify(Object selector, Component title, String content) {
@@ -39,7 +44,7 @@ public interface Tellraw {
         public String toString() {
             return "tellraw " + selector + " " + components.stream()
                     .map(Component::toString)
-                    .collect(Collectors.joining(",","[","]"));
+                    .collect(Collectors.joining(",", "[", "]"));
         }
     }
 
@@ -47,6 +52,29 @@ public interface Tellraw {
     @Value
     @Builder
     class Selector {
+        Base base;
+        @Nullable Vector.N3 coordinate;
+        @Nullable Double    distance;
+        @Nullable Vector.N3 dimensions;
+        @Nullable Double    Pitch;
+        @Nullable Double    Yaw;
+        @Nullable String    tag;
+        @Nullable String    team;
+        @Nullable String    name;
+        @Nullable String    type;
+        @Nullable String    predicate;
+        @Nullable String    nbt;
+        @Nullable Double    level;
+        @Nullable String    gamemode;
+        @Nullable @Singular List<String> scores;
+        @Nullable @Singular List<String> advancements;
+
+        @Override
+        @SneakyThrows
+        public String toString() {
+            return base.string; // todo
+        }
+
         @Getter
         public enum Base {
             NEAREST_PLAYER("@p"),
@@ -67,29 +95,6 @@ public interface Tellraw {
                 return string;
             }
         }
-
-        Base base;
-        @Nullable Vector.N3 coordinate;
-        @Nullable Double distance;
-        @Nullable Vector.N3 dimensions;
-        @Nullable Double Pitch;
-        @Nullable Double Yaw;
-        @Nullable String tag;
-        @Nullable String team;
-        @Nullable String name;
-        @Nullable String type;
-        @Nullable String predicate;
-        @Nullable String nbt;
-        @Nullable Double level;
-        @Nullable String gamemode;
-        @Nullable @Singular List<String> scores;
-        @Nullable @Singular List<String> advancements;
-
-        @Override
-        @SneakyThrows
-        public String toString() {
-            return base.string; // todo
-        }
     }
 
     @With
@@ -102,10 +107,20 @@ public interface Tellraw {
         @Nullable Event clickEvent;
         @Nullable Event hoverEvent;
 
+        public String toFullString() {
+            return "[%s]".formatted(toString());
+        }
+
+        @Override
+        @SneakyThrows
+        public String toString() {
+            return json().toString();
+        }
+
         public JSON.Object json() {
             var json = new JSON.Object();
-            if (text!=null)json.set("text", text);
-            if (format!=null) for (var code : format) {
+            if (text != null) json.set("text", text);
+            if (format != null) for (var code : format) {
                 if (code.isFormat())
                     json.set(code.name().toLowerCase(), true);
                 else if (code.isColor())
@@ -116,19 +131,9 @@ public interface Tellraw {
                     json.set("color", White.name().toLowerCase());
                 }
             }
-            if (clickEvent!=null)json.put("clickEvent", clickEvent.json());
-            if (hoverEvent!=null)json.put("hoverEvent", hoverEvent.json());
+            if (clickEvent != null) json.put("clickEvent", clickEvent.json());
+            if (hoverEvent != null) json.put("hoverEvent", hoverEvent.json());
             return json;
-        }
-
-        @Override
-        @SneakyThrows
-        public String toString() {
-            return json().toString();
-        }
-
-        public String toFullString() {
-            return "[%s]".formatted(toString());
         }
     }
 
@@ -140,6 +145,12 @@ public interface Tellraw {
         @NotNull Action action;
         @NotNull String value;
 
+        @Override
+        @SneakyThrows
+        public String toString() {
+            return json().toString();
+        }
+
         public JSON.Object json() {
             var json = new JSON.Object();
             json.set("action", action.name());
@@ -149,12 +160,6 @@ public interface Tellraw {
                     .map(DataNode.Value::new)
                     .collect(Collectors.toCollection(JSON.Array::new)));
             return json;
-        }
-
-        @Override
-        @SneakyThrows
-        public String toString() {
-            return json().toString();
         }
 
         @SuppressWarnings("unused")

@@ -16,15 +16,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import static java.util.stream.IntStream.range;
-import static org.comroid.api.java.StackTraceUtils.lessSimpleName;
+import static java.util.stream.IntStream.*;
+import static org.comroid.api.java.StackTraceUtils.*;
 
 @UtilityClass
 @lombok.extern.java.Log
 public final class Debug {
-    public static String[] DEBUG_ENV_KEYS = new String[]{"DEBUG", "DEBUG_ENV", "IS_DEBUG", "TRACE", "TRACE_ENV", "IS_TRACE"};
-    public static BooleanSupplier[] IS_DEBUG_CHECKS = new BooleanSupplier[]{Debug::isDebugEnv};
-    public static Logger logger = Log.get(Debug.class);
+    public static String[]          DEBUG_ENV_KEYS  = new String[]{ "DEBUG", "DEBUG_ENV", "IS_DEBUG", "TRACE", "TRACE_ENV", "IS_TRACE" };
+    public static BooleanSupplier[] IS_DEBUG_CHECKS = new BooleanSupplier[]{ Debug::isDebugEnv };
+    public static Logger            logger          = Log.get(Debug.class);
 
     static {
         try {
@@ -35,7 +35,7 @@ public final class Debug {
 
     public static boolean isDebug() {
         return Cache.get("Debug.isDebug()",
-                () -> Arrays.stream(IS_DEBUG_CHECKS).allMatch(BooleanSupplier::getAsBoolean));
+                         () -> Arrays.stream(IS_DEBUG_CHECKS).allMatch(BooleanSupplier::getAsBoolean));
     }
 
     public static boolean isDebugEnv() {
@@ -92,7 +92,7 @@ public final class Debug {
                 // append name, then values
                 for (var entry : obj.entrySet().stream()
                         .sorted(Comparator.<Map.Entry<String, DataNode>>comparingInt(x -> x.getValue().size())
-                                .thenComparing(new StringBasedComparator<>(Map.Entry::getKey))).toList())
+                                        .thenComparing(new StringBasedComparator<>(Map.Entry::getKey))).toList())
                     result.append(pad(rec, c++)).append(entry.getKey()).append(": ")
                             .append(createObjectDump(entry.getValue(), rec + 1)).append('\n');
             } else if (data instanceof DataNode.Array arr) {

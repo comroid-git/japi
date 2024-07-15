@@ -45,18 +45,6 @@ public enum McFormatCode implements TextDecoration, Named {
     @Getter private final String code;
     @Getter private final int hex;
 
-    public boolean isReset() {
-        return Reset == this;
-    }
-
-    public boolean isColor() {
-        return hex != 0xFFFF_FFFF;
-    }
-
-    public boolean isFormat() {
-        return !isColor() && !isReset();
-    }
-
     McFormatCode(char ident) {
         this(ident, 0xFFFF_FFFF);
     }
@@ -66,24 +54,20 @@ public enum McFormatCode implements TextDecoration, Named {
         this.hex = hex;
     }
 
-    public Tellraw.Component.Builder text(String text) {
-        return Tellraw.Component.builder()
-                .text(text)
-                .format(this);
+    public boolean isFormat() {
+        return !isColor() && !isReset();
+    }
+
+    public boolean isReset() {
+        return Reset == this;
+    }
+
+    public boolean isColor() {
+        return hex != 0xFFFF_FFFF;
     }
 
     public Color getColor() {
         return new Color(hex);
-    }
-
-    @Override
-    public CharSequence getPrefix() {
-        return code;
-    }
-
-    @Override
-    public CharSequence getSuffix() {
-        return Reset.getPrefix();
     }
 
     @Override
@@ -94,5 +78,21 @@ public enum McFormatCode implements TextDecoration, Named {
     @Override
     public String getPrimaryName() {
         return code;
+    }
+
+    @Override
+    public CharSequence getPrefix() {
+        return code;
+    }
+
+    public Tellraw.Component.Builder text(String text) {
+        return Tellraw.Component.builder()
+                .text(text)
+                .format(this);
+    }
+
+    @Override
+    public CharSequence getSuffix() {
+        return Reset.getPrefix();
     }
 }

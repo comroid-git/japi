@@ -5,11 +5,6 @@ import org.comroid.api.attr.Named;
 public final class MacAddress implements Named {
     private final byte[] bytes;
 
-    @Override
-    public String getName() {
-        return toString();
-    }
-
     public MacAddress(String parse) {
         this(parseBytes(parse));
     }
@@ -26,6 +21,11 @@ public final class MacAddress implements Named {
         for (int i = 0; i < split.length; i++)
             bytes[i] = (byte) Integer.parseInt(split[i], 16);
         return bytes;
+    }
+
+    @Override
+    public String getName() {
+        return toString();
     }
 
     @Override

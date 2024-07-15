@@ -6,9 +6,12 @@ import org.comroid.api.func.util.Pair;
 import org.comroid.api.func.util.Streams;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.Nullable;
 
-import java.lang.annotation.*;
+import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Map;
@@ -19,27 +22,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public interface TextDecoration extends StringAttribute, Function<CharSequence, String>, Predicate<CharSequence>, org.comroid.api.func.WrappedFormattable {
-    CharSequence getPrefix();
-
-    CharSequence getSuffix();
-
-    @Override
-    default String apply(CharSequence seq) {
-        return String.valueOf(getPrefix()) + seq + getSuffix();
-    }
-
-    @Override
-    default boolean test(CharSequence seq) {
-        final var str = seq.toString();
-        var i = str.indexOf(getPrefix().toString());
-        return i != -1 && str.indexOf(getSuffix().toString(), i) != -1;
-    }
-
-    @Override
-    default String getString() {
-        return getPrefix().toString();
-    }
-
     @Contract("null, _ -> null; !null, _ -> !null")
     static <SRC extends TextDecoration> String sanitize(
             CharSequence seq,
@@ -80,8 +62,7 @@ public interface TextDecoration extends StringAttribute, Function<CharSequence, 
             Class<SRC> from,
             Class<TGT> to
     ) {
-        @Language("RegExp")
-        final var patternBase = "(%s)([\\w\\s]+)[^\\\\]??(%s)?"; // todo: escape sequences are broken
+        @Language("RegExp") final var patternBase = "(%s)([\\w\\s]+)[^\\\\]??(%s)?"; // todo: escape sequences are broken
         return styles(from, to).entrySet().stream()
                 .map(e -> new Pair<>(
                         patternBase.formatted(e.getKey().getPrefix(), e.getKey().getSuffix()).replace("*", "\\*"),
@@ -100,7 +81,7 @@ public interface TextDecoration extends StringAttribute, Function<CharSequence, 
                         .stream())
                 .collect(Collectors.toUnmodifiableMap(Pair::getFirst, Pair::getSecond));
     }
-    
+
     private static <T> Optional<T> findField(Class<T> type, Class<? extends Annotation> annotation) {
         if (type == null || annotation == null)
             return Optional.empty();
@@ -114,33 +95,48 @@ public interface TextDecoration extends StringAttribute, Function<CharSequence, 
                 .findAny();
     }
 
-    @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME)
-    @interface Italic {
+    CharSequence getPrefix();
+
+    CharSequence getSuffix();
+
+    @Override
+    default String getString() {
+        return getPrefix().toString();
+    }
+
+    @Override
+    default String apply(CharSequence seq) {
+        return String.valueOf(getPrefix()) + seq + getSuffix();
+    }
+
+    @Override
+    default boolean test(CharSequence seq) {
+        final var str = seq.toString();
+        var       i   = str.indexOf(getPrefix().toString());
+        return i != -1 && str.indexOf(getSuffix().toString(), i) != -1;
     }
 
     @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME)
-    @interface Bold {
+    @Retention(RetentionPolicy.RUNTIME) @interface Italic {
     }
 
     @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME)
-    @interface Underline {
+    @Retention(RetentionPolicy.RUNTIME) @interface Bold {
     }
 
     @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME)
-    @interface Strikethrough {
+    @Retention(RetentionPolicy.RUNTIME) @interface Underline {
     }
 
     @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME)
-    @interface Quote {
+    @Retention(RetentionPolicy.RUNTIME) @interface Strikethrough {
     }
 
     @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME)
-    @interface Verbatim {
+    @Retention(RetentionPolicy.RUNTIME) @interface Quote {
+    }
+
+    @Target(ElementType.FIELD)
+    @Retention(RetentionPolicy.RUNTIME) @interface Verbatim {
     }
 }

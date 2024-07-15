@@ -1,11 +1,18 @@
 package org.comroid.api.func.util;
 
-import lombok.*;
+import lombok.AccessLevel;
 import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.java.Log;
-import org.comroid.api.*;
+import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Named;
 import org.comroid.api.attr.UUIDContainer;
 import org.comroid.api.func.N;
@@ -18,23 +25,39 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.Closeable;
-import java.lang.annotation.*;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static org.comroid.api.Polyfill.uncheckedCast;
-import static org.comroid.api.java.StackTraceUtils.caller;
+import static org.comroid.api.Polyfill.*;
+import static org.comroid.api.java.StackTraceUtils.*;
 
 @Data
-@EqualsAndHashCode(of = {"cancelled", "unixNanos", "key", "seq"})
+@EqualsAndHashCode(of = { "cancelled", "unixNanos", "key", "seq" })
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class Event<T> implements Wrap<T> {
@@ -42,15 +65,20 @@ public class Event<T> implements Wrap<T> {
     long seq;
     @Nullable Long flag;
     @Nullable String key;
-    @Nullable T data;
+    @Nullable T    data;
     @NonFinal
     boolean cancelled = false;
 
-    public <R> @Nullable Event<R> withData(@Nullable R data) {
-        return data == null ? null : new Event<>(seq, flag, key, data).setCancelled(cancelled);
+    public Instant getTimestamp() {
+        return Instant.ofEpochMilli(unixNanos / 1000);
     }
+
     public <R> @Nullable Event<R> withDataBy(@NotNull Function<@Nullable T, @Nullable R> function) {
         return withData(function.apply(getData()));
+    }
+
+    public <R> @Nullable Event<R> withData(@Nullable R data) {
+        return data == null ? null : new Event<>(seq, flag, key, data).setCancelled(cancelled);
     }
 
     public boolean cancel() {
@@ -66,21 +94,19 @@ public class Event<T> implements Wrap<T> {
         return this::getKey;
     }
 
-    public Instant getTimestamp() {
-        return Instant.ofEpochMilli(unixNanos / 1000);
-    }
-
     @Target(ElementType.METHOD)
     @Retention(RetentionPolicy.RUNTIME)
     public @interface Subscriber {
-        String EmptyName = "@@@";
-        long DefaultFlag = 0xffffffffffffffffL;
+        String EmptyName   = "@@@";
+        long   DefaultFlag = 0xffffffffffffffffL;
 
         String value() default EmptyName;
+
         long flag() default DefaultFlag;
+
         FlagMode mode() default FlagMode.BitwiseOr;
 
-        enum FlagMode { Numeric, BitwiseOr, BitwiseNot }
+        enum FlagMode {Numeric, BitwiseOr, BitwiseNot}
     }
 
     @Getter
@@ -88,16 +114,16 @@ public class Event<T> implements Wrap<T> {
     public static abstract class Factory<T, E extends Event<? super T>> implements N.Function.$3<T, String, Long, E> {
         @NotNull AtomicLong counter = new AtomicLong(0);
 
+        @Override
+        public E apply(T data, String key, Long flag) {
+            return factory(counter(), data, key, flag);
+        }
+
         public Long counter() {
             var seq = counter.addAndGet(1);
             if (seq == Long.MAX_VALUE)
                 counter.set(0);
             return seq;
-        }
-
-        @Override
-        public E apply(T data, String key, Long flag) {
-            return factory(counter(), data, key, flag);
         }
 
         public abstract E factory(long seq, T data, String key, long flag);
@@ -109,8 +135,8 @@ public class Event<T> implements Wrap<T> {
     @ToString(of = "location", includeFieldNames = false)
     public static class Listener<T> extends Container.Base implements Predicate<Event<T>>, Consumer<Event<T>>, Comparable<Listener<?>>, Closeable, Named {
         @NotNull
-        static Comparator<Listener<?>> Comparator = java.util.Comparator.<Listener<?>>comparingInt(Listener::getPriority).reversed();
-        @NotNull Event.Bus<T> bus;
+        static   Comparator<Listener<?>> Comparator = java.util.Comparator.<Listener<?>>comparingInt(Listener::getPriority).reversed();
+        @NotNull Event.Bus<T>            bus;
         @lombok.experimental.Delegate
         Predicate<Event<T>> requirement;
         @lombok.experimental.Delegate
@@ -118,19 +144,19 @@ public class Event<T> implements Wrap<T> {
         String location;
         @NonFinal
         @Setter
-        int priority = 0;
+        int     priority = 0;
         @NonFinal
         @Setter
         @Nullable
-        String name;
+        String  name;
         @NonFinal
-        boolean active = true;
+        boolean active   = true;
 
         private Listener(@Nullable String key, @NotNull Bus<T> bus, Predicate<Event<T>> requirement, Consumer<Event<T>> action) {
-            this.name = key;
-            this.bus = bus;
+            this.name     = key;
+            this.bus      = bus;
             this.requirement = requirement;
-            this.action = action;
+            this.action   = action;
             this.location = caller(2);
         }
 
@@ -150,19 +176,19 @@ public class Event<T> implements Wrap<T> {
 
     @Log
     @Getter
-    @EqualsAndHashCode(of = {}, callSuper = true)
-    @ToString(of = {"name", "upstream", "factory", "active"})
+    @EqualsAndHashCode(of = { }, callSuper = true)
+    @ToString(of = { "name", "upstream", "factory", "active" })
     public static class Bus<T> extends Container.Base implements Named, N.Consumer.$3<T, String, Long>, Provider<T>, UUIDContainer {
         @Nullable
-        private Event.Bus<?> upstream;
-        @NotNull Set<Event.Bus<?>> downstream = new HashSet<>();
-        @NotNull Queue<Event.Listener<T>> listeners = new ConcurrentLinkedQueue<>();
+        private  Event.Bus<?>                                    upstream;
+        @NotNull Set<Event.Bus<?>>                               downstream = new HashSet<>();
+        @NotNull Queue<Event.Listener<T>>                        listeners  = new ConcurrentLinkedQueue<>();
         @Nullable
-        private Function<@NotNull Event<?>, @Nullable Event<T>> function;
+        private  Function<@NotNull Event<?>, @Nullable Event<T>> function;
         @Nullable
-        private Function<String, String> keyFunction;
+        private  Function<String, String>                        keyFunction;
         @Setter
-        private Event.Factory<T, ? extends Event<T>> factory = new Factory<>() {
+        private  Event.Factory<T, ? extends Event<T>>            factory    = new Factory<>() {
             @Override
             public Event<T> factory(long seq, T data, String key, long flag) {
                 return new Event<>(seq, flag, key, data);
@@ -170,32 +196,23 @@ public class Event<T> implements Wrap<T> {
         };
         @Setter
         //private Executor executor = Context.wrap(Executor.class).orElseGet(()->Runnable::run);
-        private Executor executor = Context.wrap(Executor.class).orElseGet(()->Executors.newFixedThreadPool(4));
+        private  Executor                                        executor   = Context.wrap(Executor.class).orElseGet(() -> Executors.newFixedThreadPool(4));
         @Setter
-        private boolean active = true;
+        private  boolean                                         active     = true;
         @Setter
-        private String name = null;
+        private  String                                          name       = null;
 
-        @Contract(value = "_ -> this", mutates = "this")
-        public Event.Bus<T> setUpstream(@NotNull Event.Bus<? extends T> parent) {
-            return setUpstream(parent, Function.identity());
+        public Bus() {
+            this("EventBus @ " + caller(1));
         }
 
-        @Contract(value = "_, _ -> this", mutates = "this")
-        public <I> Bus<T> setUpstream(
-                @NotNull Event.Bus<? extends I> parent,
-                @NotNull Function<@NotNull Event<I>, @Nullable Event<T>> function
-        ) {
-            return setUpstream(parent, function, UnaryOperator.identity());
+        public Bus(@Nullable String name) {
+            this(Objects.requireNonNullElseGet(name, () -> "Event.Bus @ " + caller(3)), null);
+            this.name = name;
         }
 
-        @Contract(value = "_, _, _ -> this", mutates = "this")
-        public <I> Event.Bus<T> setUpstream(
-                @NotNull Event.Bus<? extends I> parent,
-                @NotNull Function<@NotNull Event<I>, @Nullable Event<T>> function,
-                @Nullable Function<String, String> keyFunction
-        ) {
-            return setDependent(parent, function, keyFunction, true);
+        private Bus(@NotNull String name, @Nullable Event.Bus<? extends T> upstream) {
+            this(name, upstream, Polyfill::uncheckedCast);
         }
 
         /*
@@ -220,42 +237,6 @@ public class Event<T> implements Wrap<T> {
         }
          */
 
-        private <I> Bus<T> setDependent(
-                final @NotNull Bus<? extends I> parent,
-                final @NotNull Function<@NotNull Event<I>, @Nullable Event<T>> function,
-                final @Nullable Function<String, String> keyFunction,
-                final boolean cleanup
-        ) {
-            if (cleanup && this.upstream != null)
-                this.upstream.downstream.remove(this);
-            this.upstream = parent;
-            this.function = Polyfill.uncheckedCast(function);
-            this.keyFunction = keyFunction;
-            this.upstream.downstream.add(this);
-            return this;
-        }
-
-        public Bus() {
-            this("EventBus @ " + caller(1));
-        }
-
-        public Bus(@Nullable String name) {
-            this(Objects.requireNonNullElseGet(name,()->"Event.Bus @ " + caller(3)), null);
-            this.name = name;
-        }
-
-        private Bus(@Nullable Event.Bus<? extends T> upstream) {
-            this("Event.Bus @ " + caller(1), upstream);
-        }
-
-        private Bus(@NotNull String name, @Nullable Event.Bus<? extends T> upstream) {
-            this(name, upstream, Polyfill::uncheckedCast);
-        }
-
-        private <P> Bus(@Nullable Event.Bus<P> upstream, @Nullable Function<@NotNull Event<P>, @Nullable Event<T>> function) {
-            this("Event.Bus @ " + caller(1), upstream, function);
-        }
-
         private <P> Bus(@NotNull String name, @Nullable Event.Bus<P> upstream, @Nullable Function<@NotNull Event<P>, @Nullable Event<T>> function) {
             this.name = name;
             this.upstream = upstream;
@@ -264,10 +245,6 @@ public class Event<T> implements Wrap<T> {
             if (upstream != null)
                 upstream.downstream.add(this);
             register(this);
-        }
-
-        public @Nullable Listener<T> register(Class<?> target) {
-            return registerTargetListener(target, null);
         }
 
         public @Nullable Listener<T> register(Object target) {
@@ -280,7 +257,7 @@ public class Event<T> implements Wrap<T> {
             //final var autoTypes = List.of(Event.class, String.class, Long.class, Instant.class);
             var subscribers = new HashSet<SubscriberImpl>();
             for (var method : type.getMethods()) {
-                if ((target!=null&&!Modifier.isStatic(method.getModifiers())&&!method.canAccess(target)) || !method.isAnnotationPresent(Subscriber.class))
+                if ((target != null && !Modifier.isStatic(method.getModifiers()) && !method.canAccess(target)) || !method.isAnnotationPresent(Subscriber.class))
                     continue;
                 var subscriber = method.getAnnotation(Subscriber.class);
                 /*
@@ -303,55 +280,65 @@ public class Event<T> implements Wrap<T> {
             return listener;
         }
 
-        public Event.Bus.Filter<T> listen() {
-            return new Filter<>(this);
+        private Bus(@Nullable Event.Bus<? extends T> upstream) {
+            this("Event.Bus @ " + caller(1), upstream);
         }
 
-        @Data
-        public static final class Filter<T> {
-            @NotNull Event.Bus<T> bus;
-            @Nullable String key;
-            @Nullable Long flag;
-            @Nullable Class<? extends T> type;
-            @Nullable Predicate<Event<T>> predicate;
-            @Nullable Duration timeout;
+        private <P> Bus(@Nullable Event.Bus<P> upstream, @Nullable Function<@NotNull Event<P>, @Nullable Event<T>> function) {
+            this("Event.Bus @ " + caller(1), upstream, function);
+        }
 
-            private Predicate<Event<T>> filters() {
-                return ((Predicate<Event<T>>)(e -> key == null || Subscriber.EmptyName.equals(key) || Objects.equals(e.key, key)))
-                        .and(e -> flag == null || flag == Subscriber.DefaultFlag || Objects.equals(e.flag, flag))
-                        .and(Objects.requireNonNullElse(predicate, $->true))
-                        .and(e -> type == null || e.testIfPresent(type::isInstance));
-            }
+        @Contract(value = "_ -> this", mutates = "this")
+        public Event.Bus<T> setUpstream(@NotNull Event.Bus<? extends T> parent) {
+            return setUpstream(parent, Function.identity());
+        }
 
-            public Listener<T> subscribeData(final @NotNull Consumer<T> action) {
-                return subscribe(e->action.accept(e.getData()));
-            }
-            public Listener<T> subscribe(final @NotNull Consumer<Event<T>> action) {
-                var listener = new Event.Listener<>(key, bus, filters(), action);
-                synchronized (bus.listeners) {
-                    bus.listeners.add(listener);
-                }
-                return listener;
-            }
+        @Contract(value = "_, _ -> this", mutates = "this")
+        public <I> Bus<T> setUpstream(
+                @NotNull Event.Bus<? extends I> parent,
+                @NotNull Function<@NotNull Event<I>, @Nullable Event<T>> function
+        ) {
+            return setUpstream(parent, function, UnaryOperator.identity());
+        }
 
-            public CompletableFuture<Event<T>> once() {
-                final var future = new CompletableFuture<Event<T>>();
-                final var filters = filters();
-                final var listener = subscribe(e -> {
-                    if (future.isDone() || !filters.test(e))
-                        return;
-                    future.complete(e);
-                });
-                future.whenComplete((e, t) -> listener.close());
-                return timeout == null ? future : future.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS);
-            }
+        @Contract(value = "_, _, _ -> this", mutates = "this")
+        public <I> Event.Bus<T> setUpstream(
+                @NotNull Event.Bus<? extends I> parent,
+                @NotNull Function<@NotNull Event<I>, @Nullable Event<T>> function,
+                @Nullable Function<String, String> keyFunction
+        ) {
+            return setDependent(parent, function, keyFunction, true);
+        }
+
+        private <I> Bus<T> setDependent(
+                final @NotNull Bus<? extends I> parent,
+                final @NotNull Function<@NotNull Event<I>, @Nullable Event<T>> function,
+                final @Nullable Function<String, String> keyFunction,
+                final boolean cleanup
+        ) {
+            if (cleanup && this.upstream != null)
+                this.upstream.downstream.remove(this);
+            this.upstream    = parent;
+            this.function    = Polyfill.uncheckedCast(function);
+            this.keyFunction = keyFunction;
+            this.upstream.downstream.add(this);
+            return this;
+        }
+
+        public @Nullable Listener<T> register(Class<?> target) {
+            return registerTargetListener(target, null);
         }
 
         public Listener<T> subscribeData(final @NotNull Consumer<T> action) {
-            return subscribe(e->action.accept(e.getData()));
+            return subscribe(e -> action.accept(e.getData()));
         }
+
         public Listener<T> subscribe(final @NotNull Consumer<Event<T>> action) {
             return listen().subscribe(action);
+        }
+
+        public Event.Bus.Filter<T> listen() {
+            return new Filter<>(this);
         }
 
         public Event.Bus<T> peekData(final Consumer<@NotNull T> action) {
@@ -360,12 +347,19 @@ public class Event<T> implements Wrap<T> {
                 return true;
             });
         }
+
         public Event.Bus<T> filterData(final Predicate<@NotNull T> predicate) {
             return mapData(x -> predicate.test(x) ? x : null);
         }
+
         public <R> Event.Bus<R> mapData(final @NotNull Function<T, @Nullable R> function) {
-            return map(e->e.withDataBy(function));
+            return map(e -> e.withDataBy(function));
         }
+
+        public <R> Event.Bus<R> map(final @NotNull Function<@NotNull Event<T>, @Nullable Event<R>> function) {
+            return new Event.Bus<>(this, function);
+        }
+
         public <R extends T> Event.Bus<R> flatMap(final Class<R> type) {
             return filterData(type::isInstance).mapData(type::cast);
         }
@@ -376,11 +370,9 @@ public class Event<T> implements Wrap<T> {
                 return true;
             });
         }
+
         public Event.Bus<T> filter(final Predicate<Event<@NotNull T>> predicate) {
             return map(x -> predicate.test(x) ? x : null);
-        }
-        public <R> Event.Bus<R> map(final @NotNull Function<@NotNull Event<T>, @Nullable Event<R>> function) {
-            return new Event.Bus<>(this, function);
         }
 
         @Override
@@ -465,7 +457,7 @@ public class Event<T> implements Wrap<T> {
 
         @Value
         private class SubscriberImpl implements Predicate<Event<T>>, BiConsumer<@Nullable Object, Event<T>> {
-            Method method;
+            Method     method;
             Invocable<?> delegate;
             Subscriber subscriber;
 
@@ -474,7 +466,7 @@ public class Event<T> implements Wrap<T> {
                 var key = Optional.of(subscriber.value())
                         .filter(Predicate.not(Subscriber.EmptyName::equals))
                         .orElseGet(method::getName);
-                return Wrap.of(event.flag).or(()->0xffff_ffff_ffff_ffffL).testIfPresent(this::testFlag)
+                return Wrap.of(event.flag).or(() -> 0xffff_ffff_ffff_ffffL).testIfPresent(this::testFlag)
                         && (Objects.equals(key, event.key) || ("null".equals(key)
                         && (Objects.isNull(event.key) || Subscriber.EmptyName.equals(event.key))));
             }
@@ -483,11 +475,11 @@ public class Event<T> implements Wrap<T> {
                 var y = subscriber.flag();
                 switch (subscriber.mode()) {
                     case Numeric:
-                        return x==y;
+                        return x == y;
                     case BitwiseOr:
-                        return (x&y)!=0;
+                        return (x & y) != 0;
                     case BitwiseNot:
-                        return (x&~y)!=0;
+                        return (x & ~y) != 0;
                 }
                 throw new IllegalStateException("Unexpected value: " + subscriber.mode());
             }
@@ -506,8 +498,9 @@ public class Event<T> implements Wrap<T> {
 
             public SubscriberListener(
                     @Nullable Object target,
-                    HashSet<SubscriberImpl> subscribers) {
-                super(null, Bus.this, $->true, $->{});
+                    HashSet<SubscriberImpl> subscribers
+            ) {
+                super(null, Bus.this, $ -> true, $ -> {});
                 this.target = target;
                 this.subscribers = subscribers;
             }
@@ -517,6 +510,47 @@ public class Event<T> implements Wrap<T> {
                 for (var subscriber : subscribers)
                     if (subscriber.test(event))
                         subscriber.accept(target, event);
+            }
+        }
+
+        @Data
+        public static final class Filter<T> {
+            @NotNull  Event.Bus<T>        bus;
+            @Nullable String              key;
+            @Nullable Long                flag;
+            @Nullable Class<? extends T>  type;
+            @Nullable Predicate<Event<T>> predicate;
+            @Nullable Duration            timeout;
+
+            public Listener<T> subscribeData(final @NotNull Consumer<T> action) {
+                return subscribe(e -> action.accept(e.getData()));
+            }
+
+            public Listener<T> subscribe(final @NotNull Consumer<Event<T>> action) {
+                var listener = new Event.Listener<>(key, bus, filters(), action);
+                synchronized (bus.listeners) {
+                    bus.listeners.add(listener);
+                }
+                return listener;
+            }
+
+            private Predicate<Event<T>> filters() {
+                return ((Predicate<Event<T>>) (e -> key == null || Subscriber.EmptyName.equals(key) || Objects.equals(e.key, key)))
+                        .and(e -> flag == null || flag == Subscriber.DefaultFlag || Objects.equals(e.flag, flag))
+                        .and(Objects.requireNonNullElse(predicate, $ -> true))
+                        .and(e -> type == null || e.testIfPresent(type::isInstance));
+            }
+
+            public CompletableFuture<Event<T>> once() {
+                final var future  = new CompletableFuture<Event<T>>();
+                final var filters = filters();
+                final var listener = subscribe(e -> {
+                    if (future.isDone() || !filters.test(e))
+                        return;
+                    future.complete(e);
+                });
+                future.whenComplete((e, t) -> listener.close());
+                return timeout == null ? future : future.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS);
             }
         }
     }

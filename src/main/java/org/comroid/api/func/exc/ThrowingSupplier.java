@@ -10,7 +10,10 @@ import java.util.function.Supplier;
 public interface ThrowingSupplier<T, E extends Throwable> {
     static <R, E extends Throwable> Supplier<@Nullable R> fallback(
             ThrowingSupplier<R, E> supplier
-    ) {return fallback(supplier,null);}
+    ) {
+        return fallback(supplier, null);
+    }
+
     static <R, E extends Throwable> Supplier<@Nullable R> fallback(
             ThrowingSupplier<@Nullable R, E> supplier,
             @Nullable Function<Throwable, @Nullable R> fallback
@@ -25,6 +28,8 @@ public interface ThrowingSupplier<T, E extends Throwable> {
             }
         };
     }
+
+    T get() throws E;
 
     static <R> Wrap<R> rethrowing(
             ThrowingSupplier<R, Throwable> supplier
@@ -46,8 +51,6 @@ public interface ThrowingSupplier<T, E extends Throwable> {
             }
         };
     }
-
-    T get() throws E;
 
     default Supplier<T> wrap() {
         return wrap(null);

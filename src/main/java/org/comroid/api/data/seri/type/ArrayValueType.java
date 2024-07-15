@@ -1,6 +1,9 @@
 package org.comroid.api.data.seri.type;
 
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 import org.comroid.api.Polyfill;
 import org.comroid.api.html.form.HtmlReadonlyStringInputDesc;
@@ -18,6 +21,10 @@ public class ArrayValueType<T> implements ValueType<T>, HtmlReadonlyStringInputD
     private static final Map<Class<?>, ArrayValueType<?>> $cache = new ConcurrentHashMap<>();
     public static final Map<Class<?>, ArrayValueType<?>> cache = Collections.unmodifiableMap($cache);
 
+    public static <T> ArrayValueType<T> of(Class<? extends T> type) {
+        return Polyfill.uncheckedCast($cache.computeIfAbsent(type.arrayType(), ArrayValueType::new));
+    }
+
     Class<T> targetClass;
 
     @Override
@@ -33,9 +40,5 @@ public class ArrayValueType<T> implements ValueType<T>, HtmlReadonlyStringInputD
     @Override
     public String toString() {
         return "ArrayValueType<%s>".formatted(targetClass.getCanonicalName());
-    }
-
-    public static <T> ArrayValueType<T> of(Class<? extends T> type) {
-        return Polyfill.uncheckedCast($cache.computeIfAbsent(type.arrayType(), ArrayValueType::new));
     }
 }

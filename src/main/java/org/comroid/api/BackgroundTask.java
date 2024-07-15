@@ -1,7 +1,9 @@
 package org.comroid.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 import org.comroid.api.func.ValueBox;
 import org.comroid.api.func.util.OnDemand;
@@ -31,11 +33,11 @@ public class BackgroundTask<T> extends Container.Base implements ValueBox<T>, Ru
     @Getter long repeatRateMs;
     @Getter
     OnDemand<Timer> timer = new OnDemand<>(Timer::new);
-    @Getter OnDemand<@Nullable Executor> executor = new OnDemand<>(Executors::newSingleThreadExecutor);
-    @JsonIgnore FutureTask<T> computation;
+    @Getter     OnDemand<@Nullable Executor> executor = new OnDemand<>(Executors::newSingleThreadExecutor);
+    @JsonIgnore FutureTask<T>                computation;
 
     public BackgroundTask(Runnable action) {
-        this(null, $->action.run());
+        this(null, $ -> action.run());
     }
 
     public BackgroundTask(T value, Consumer<T> action) {
@@ -48,7 +50,7 @@ public class BackgroundTask<T> extends Container.Base implements ValueBox<T>, Ru
 
     @lombok.Builder
     public BackgroundTask(T value, Consumer<T> action, long repeatRateMs, @Nullable Executor executor) {
-        this.value = value;
+        this.value  = value;
         this.action = action;
         this.repeatRateMs = repeatRateMs;
         this.executor.setOverride(executor);
@@ -81,16 +83,16 @@ public class BackgroundTask<T> extends Container.Base implements ValueBox<T>, Ru
         return this;
     }
 
-    public BackgroundTask<T> pause() {
-        computation.cancel(false);
-        return this;
-    }
-
     private void exec(final @Nullable Executor executor_) {
         var executor = Optional.ofNullable(executor_)
                 .orElseGet(this.executor::block);
         assert executor != null;
         executor.execute(this);
+    }
+
+    public BackgroundTask<T> pause() {
+        computation.cancel(false);
+        return this;
     }
 
     @Override
@@ -102,13 +104,13 @@ public class BackgroundTask<T> extends Container.Base implements ValueBox<T>, Ru
     }
 
     @Override
-    public void cancel(boolean mayInterruptIfRunning) {
-        if (computation != null)
-            computation.cancel(mayInterruptIfRunning);
+    public void closeSelf() {
+        cancel(true);
     }
 
     @Override
-    public void closeSelf() {
-        cancel(true);
+    public void cancel(boolean mayInterruptIfRunning) {
+        if (computation != null)
+            computation.cancel(mayInterruptIfRunning);
     }
 }

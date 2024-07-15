@@ -9,9 +9,6 @@ import java.util.function.Consumer;
 
 @Slf4j
 public abstract class Almost<T, B> implements Wrap<T> {
-    @NotNull
-    public abstract T complete(@Nullable Consumer<B> modifier);
-
     public final T get() {
         try {
             return complete(null);
@@ -20,4 +17,7 @@ public abstract class Almost<T, B> implements Wrap<T> {
             return null;
         }
     }
+
+    @NotNull
+    public abstract T complete(@Nullable Consumer<B> modifier);
 }

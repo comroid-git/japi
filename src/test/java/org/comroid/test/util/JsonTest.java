@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class JsonTest {
-    public static final String[] Names = new String[]{"Logan_Mcclain", "Ayers_Rowe", "Lorene_William"};
-    public static final @Language("json") String TestData = """
+    public static final                   String[] Names    = new String[]{ "Logan_Mcclain", "Ayers_Rowe", "Lorene_William" };
+    public static final @Language("json") String   TestData = """
             [
                   {
                     "id": 0,

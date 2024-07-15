@@ -18,11 +18,10 @@ public @interface Description {
 
     Mode mode() default Mode.Lines;
 
+    enum Mode implements IntegerAttribute {Usage, Lines, Steps}
+
     @Retention(RetentionPolicy.RUNTIME)
-    @Inherit(Inherit.Type.FromSupertype)
-    @interface Config {
+    @Inherit(Inherit.Type.FromSupertype) @interface Config {
         Description[] value();
     }
-
-    enum Mode implements IntegerAttribute { Usage, Lines, Steps }
 }

@@ -6,16 +6,20 @@ import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.util.Formattable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 public final class ReaderUtil {
-    private ReaderUtil() {
-        throw new UnsupportedOperationException();
-    }
-
     @Internal
     public static void main(String[] args) throws IOException {
         String first = "abc";
@@ -26,14 +30,18 @@ public final class ReaderUtil {
         runTest(first, second, new char[8]);
     }
 
-    @Internal
-    private static void runTest(String first, String second, char[] buf) throws IOException {
-        Reader reader = combine(';', new StringReader(first), new StringReader(second));
-        int read = reader.read(buf);
-        String content = new String(buf).substring(0, read);
+    public static int transferTo(Reader reader, Writer writer) throws IOException {
+        int    r, w = 0;
+        char[] buf  = new char[1024];
+        while ((r = reader.read(buf)) != -1) {
+            writer.write(buf, 0, r);
+            w += r;
+        }
+        return w;
+    }
 
-        System.out.printf("read = %d / %d%n", read, buf.length);
-        System.out.printf("content = %s%n", content);
+    private ReaderUtil() {
+        throw new UnsupportedOperationException();
     }
 
     public static Reader combine(Object... parts) {
@@ -75,22 +83,8 @@ public final class ReaderUtil {
         return combine(null, readers);
     }
 
-    public static Reader combine(@Nullable Character delimiter, Reader... readers) {
-        return new CombinedReader(delimiter, readers);
-    }
-
     public static Reader peek(Reader reader, Consumer<char[]> action) {
         return new PeekingReader(reader, action);
-    }
-
-    public static int transferTo(Reader reader, Writer writer) throws IOException {
-        int r, w = 0;
-        char[] buf = new char[1024];
-        while ((r = reader.read(buf)) != -1) {
-            writer.write(buf, 0, r);
-            w += r;
-        }
-        return w;
     }
 
     public static Reader empty() {
@@ -118,8 +112,22 @@ public final class ReaderUtil {
         }
     }
 
+    @Internal
+    private static void runTest(String first, String second, char[] buf) throws IOException {
+        Reader reader  = combine(';', new StringReader(first), new StringReader(second));
+        int    read    = reader.read(buf);
+        String content = new String(buf).substring(0, read);
+
+        System.out.printf("read = %d / %d%n", read, buf.length);
+        System.out.printf("content = %s%n", content);
+    }
+
     public static Readable ofArray(byte[] bytes) {
         return () -> new InputStreamReader(new ByteArrayInputStream(bytes));
+    }
+
+    public static Reader combine(@Nullable Character delimiter, Reader... readers) {
+        return new CombinedReader(delimiter, readers);
     }
 
     private static class PeekingReader extends Reader {
@@ -147,7 +155,7 @@ public final class ReaderUtil {
     private static class CombinedReader extends Reader {
         private final AtomicInteger readerIndex = new AtomicInteger(0);
         private final Character delimiter;
-        private final Reader[] readers;
+        private final Reader[]  readers;
 
         private CombinedReader(@Nullable Character delimiter, Reader[] readers) {
             this.delimiter = delimiter;

@@ -1,12 +1,19 @@
 package org.comroid.api.io;
 
-import org.comroid.api.data.ContentParser;
 import org.comroid.api.attr.Named;
+import org.comroid.api.data.ContentParser;
 import org.comroid.api.data.seri.StringSerializable;
 import org.comroid.api.os.OSBasedFileMover;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -14,17 +21,38 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 
 public final class FileHandle extends File implements Named, ContentParser {
-    private final boolean dir;
+    public static String guessMimeTypeFromName(String name) {
+        String ext = "*";
 
-    @NotNull
-    @Override
-    public final String getName() {
-        return getAbsolutePath();
+        if (name.contains("."))
+            ext = name.substring(name.lastIndexOf('.'));
+        return String.format("*/%s", ext); // todo: improve
     }
 
-    @NotNull
-    public final String getShortName() {
-        return super.getName();
+    public static FileHandle of(File file) {
+        if (file instanceof FileHandle)
+            return (FileHandle) file;
+        return new FileHandle(file);
+    }
+
+    private final boolean dir;
+
+    public FileHandle(File file) {
+        this(file.getAbsolutePath(), file.isDirectory());
+    }
+
+    public FileHandle(String absolutePath, boolean dir) {
+        super(absolutePath);
+
+        this.dir = dir;
+    }
+
+    public FileHandle(String absolutePath) {
+        this(absolutePath, absolutePath.endsWith(File.separator));
+    }
+
+    public FileHandle(File parent, String name, boolean dir) {
+        this(parent.getAbsolutePath() + File.separator + name + (dir ? File.separator : ""), dir);
     }
 
     @Override
@@ -32,9 +60,15 @@ public final class FileHandle extends File implements Named, ContentParser {
         return getName();
     }
 
+    @NotNull
     @Override
-    public final String getAlternateName() {
-        return getShortName();
+    public final String getName() {
+        return getAbsolutePath();
+    }
+
+    @Override
+    public FileHandle getParentFile() {
+        return new FileHandle(super.getParentFile().getAbsolutePath(), true);
     }
 
     @Override
@@ -43,8 +77,25 @@ public final class FileHandle extends File implements Named, ContentParser {
     }
 
     @Override
-    public FileHandle getParentFile() {
-        return new FileHandle(super.getParentFile().getAbsolutePath(), true);
+    public boolean mkdirs() {
+        if (isDirectory())
+            return super.mkdirs();
+        else return getParentFile().mkdirs();
+    }
+
+    @Override
+    public String toString() {
+        return getAbsolutePath();
+    }
+
+    @Override
+    public final String getAlternateName() {
+        return getShortName();
+    }
+
+    @NotNull
+    public final String getShortName() {
+        return super.getName();
     }
 
     public List<String> getLines() {
@@ -79,38 +130,6 @@ public final class FileHandle extends File implements Named, ContentParser {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public FileHandle(File file) {
-        this(file.getAbsolutePath(), file.isDirectory());
-    }
-
-    public FileHandle(String absolutePath) {
-        this(absolutePath, absolutePath.endsWith(File.separator));
-    }
-
-    public FileHandle(File parent, String name, boolean dir) {
-        this(parent.getAbsolutePath() + File.separator + name + (dir ? File.separator : ""), dir);
-    }
-
-    public FileHandle(String absolutePath, boolean dir) {
-        super(absolutePath);
-
-        this.dir = dir;
-    }
-
-    public static String guessMimeTypeFromName(String name) {
-        String ext = "*";
-
-        if (name.contains("."))
-            ext = name.substring(name.lastIndexOf('.'));
-        return String.format("*/%s", ext); // todo: improve
-    }
-
-    public static FileHandle of(File file) {
-        if (file instanceof FileHandle)
-            return (FileHandle) file;
-        return new FileHandle(file);
     }
 
     @Override
@@ -170,13 +189,6 @@ public final class FileHandle extends File implements Named, ContentParser {
         return isDirectory();
     }
 
-    @Override
-    public boolean mkdirs() {
-        if (isDirectory())
-            return super.mkdirs();
-        else return getParentFile().mkdirs();
-    }
-
     public CompletableFuture<FileHandle> move(FileHandle target) {
         return move(target, ForkJoinPool.commonPool());
     }
@@ -214,10 +226,5 @@ public final class FileHandle extends File implements Named, ContentParser {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    @Override
-    public String toString() {
-        return getAbsolutePath();
     }
 }

@@ -18,28 +18,12 @@ public interface ThrowingConsumer<I, T extends Throwable> {
         return rethrowing(consumer, remapper);
     }
 
-    static <I> Consumer<I> logging(Logger log, ThrowingConsumer<I, Throwable> action) {
-        return it->{
-            try {
-                action.accept(it);
-            } catch (Throwable e) {
-                log.log(Level.WARNING, "An internal exception occurred", e);
-            }
-        };
-    }
-
-    static <I> Consumer<I> rethrowing(
-            ThrowingConsumer<I, Throwable> consumer
-    ) {
-        return rethrowing(consumer, RuntimeException::new);
-    }
-
     static <I, T extends Throwable> Consumer<I> rethrowing(
             ThrowingConsumer<I, T> consumer,
             @Nullable Function<T, ? extends RuntimeException> remapper
     ) {
         final Function<T, ? extends RuntimeException> finalRemapper = Polyfill.notnullOr(remapper,
-                (Function<T, ? extends RuntimeException>) RuntimeException::new
+                                                                                         (Function<T, ? extends RuntimeException>) RuntimeException::new
         );
 
         return in -> {
@@ -50,6 +34,24 @@ public interface ThrowingConsumer<I, T extends Throwable> {
                 throw finalRemapper.apply((T) thr);
             }
         };
+    }
+
+    static <I> Consumer<I> logging(Logger log, ThrowingConsumer<I, Throwable> action) {
+        return it -> {
+            try {
+                action.accept(it);
+            } catch (Throwable e) {
+                log.log(Level.WARNING, "An internal exception occurred", e);
+            }
+        };
+    }
+
+    void accept(I input) throws T;
+
+    static <I> Consumer<I> rethrowing(
+            ThrowingConsumer<I, Throwable> consumer
+    ) {
+        return rethrowing(consumer, RuntimeException::new);
     }
 
     static <T extends Throwable> ThrowingConsumer<T, T> doThrow() {
@@ -86,6 +88,4 @@ public interface ThrowingConsumer<I, T extends Throwable> {
             }
         };
     }
-
-    void accept(I input) throws T;
 }

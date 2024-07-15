@@ -20,8 +20,20 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.lang.reflect.*;
-import java.util.*;
+import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.AnnotatedType;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
+import java.lang.reflect.Field;
+import java.lang.reflect.InaccessibleObjectException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -65,13 +77,13 @@ public interface Invocable<T> extends Named {
             }
 
             @Override
-            public Class<?>[] parameterTypesOrdered() {
-                return new Class[0];
+            public @Nullable T invoke(@Nullable Object tgt, Object... args) throws IllegalAccessException {
+                return Polyfill.uncheckedCast(field.get(Wrap.of(tgt).orElse(target)));
             }
 
             @Override
-            public @Nullable T invoke(@Nullable Object tgt, Object... args) throws IllegalAccessException {
-                return Polyfill.uncheckedCast(field.get(Wrap.of(tgt).orElse(target)));
+            public Class<?>[] parameterTypesOrdered() {
+                return new Class[0];
             }
         };
     }
@@ -88,18 +100,18 @@ public interface Invocable<T> extends Named {
             }
 
             @Override
-            public Class<?>[] parameterTypesOrdered() {
-                return new Class[]{field.getType()};
-            }
-
-            @Override
             public @Nullable T invoke(@Nullable Object tgt, Object... args) throws IllegalAccessException {
                 try {
                     field.set(Objects.requireNonNullElse(tgt, target), args[0]);
-                } catch (IllegalArgumentException t){
+                } catch (IllegalArgumentException t) {
                     Log.at(Level.WARNING, "Could not set field " + field.getName(), t);
                 }
                 return null;
+            }
+
+            @Override
+            public Class<?>[] parameterTypesOrdered() {
+                return new Class[]{ field.getType() };
             }
         };
     }
@@ -116,8 +128,12 @@ public interface Invocable<T> extends Named {
         throw new IllegalArgumentException("Unknown type: " + executable);
     }
 
-    static <T> Invocable<T> ofMethodCall(Class<?> inClass, String methodName) {
-        return ofMethodCall(null, inClass, methodName);
+    static <T> Invocable<T> ofMethodCall(@Nullable Object target, Method method) {
+        return new Support.OfMethod<>(method, target);
+    }
+
+    static <T> Invocable<T> ofConstructor(Constructor<T> constructor) {
+        return new Support.OfConstructor<>(constructor);
     }
 
     static <T> Invocable<T> ofMethodCall(@NotNull Object target, String methodName) {
@@ -133,12 +149,8 @@ public interface Invocable<T> extends Named {
                         String.format("Class %s does not have a method named %s", inClass, methodName)));
     }
 
-    static <T> Invocable<T> ofMethodCall(Method method) {
-        return ofMethodCall(null, method);
-    }
-
-    static <T> Invocable<T> ofMethodCall(@Nullable Object target, Method method) {
-        return new Support.OfMethod<>(method, target);
+    static <T> Invocable<T> ofMethodCall(Class<?> inClass, String methodName) {
+        return ofMethodCall(null, inClass, methodName);
     }
 
     static <T> Invocable<T> ofConstructor(Class<T> type, @OptionalVararg Class<?>... params) {
@@ -153,12 +165,12 @@ public interface Invocable<T> extends Named {
                     .orElseThrow(() -> new NoSuchElementException("No suitable constructor could be found in " + type));
         } else {
             return ofConstructor(ReflectionHelper.findConstructor(type, params)
-                    .orElseThrow(() -> new NoSuchElementException("No suitable constructor found in " + type)));
+                                         .orElseThrow(() -> new NoSuchElementException("No suitable constructor found in " + type)));
         }
     }
 
-    static <T> Invocable<T> ofConstructor(Constructor<T> constructor) {
-        return new Support.OfConstructor<>(constructor);
+    static <T> Invocable<T> ofMethodCall(Method method) {
+        return ofMethodCall(null, method);
     }
 
     static <T> Invocable<T> ofClass(Class<? extends T> type) {
@@ -200,14 +212,14 @@ public interface Invocable<T> extends Named {
         return t;
     }
 
-    @Nullable
-    default AccessibleObject accessor() {
-        return null;
-    }
-
     default boolean canAccess(Object target) {
         var func = accessor();
         return func != null && func.canAccess(target);
+    }
+
+    @Nullable
+    default AccessibleObject accessor() {
+        return null;
     }
 
     default boolean makeAccessible() {
@@ -221,10 +233,6 @@ public interface Invocable<T> extends Named {
         }
     }
 
-    Class<?>[] parameterTypesOrdered();
-
-    @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException;
-
     default @Nullable T invokeSilent(@Nullable Object target, Object... args) {
         try {
             return invoke(target, args);
@@ -236,6 +244,27 @@ public interface Invocable<T> extends Named {
     default T invokeAutoOrder(Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
         return invoke(null, tryArrange(args, parameterTypesOrdered()));
     }
+
+    default @Nullable T silentAutoInvoke(Object... args) {
+        try {
+            return autoInvoke(args);
+        } catch (Throwable ignored) {
+            Log.at(Level.WARNING, "silentAutoInvoke() swallowed exception", ignored);
+            return null;
+        }
+    }
+
+    default T autoInvoke(Object... args) {
+        try {
+            return invokeAutoOrder(args);
+        } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException;
+
+    Class<?>[] parameterTypesOrdered();
 
     @Internal
     default Object[] tryArrange(Object[] args, Class<?>[] typesOrdered) {
@@ -251,7 +280,7 @@ public interface Invocable<T> extends Named {
             if (simulate)
                 return null;
             throw new IllegalArgumentException(String.format("unable to arrange arguments: %s - %s",
-                    getName(), Arrays.toString(args)), iaEx);
+                                                             getName(), Arrays.toString(args)), iaEx);
         }
         return arranged;
     }
@@ -269,23 +298,6 @@ public interface Invocable<T> extends Named {
             return invoke(null, args);
         } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
             throw remapper.apply(e);
-        }
-    }
-
-    default T autoInvoke(Object... args) {
-        try {
-            return invokeAutoOrder(args);
-        } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    default @Nullable T silentAutoInvoke(Object... args) {
-        try {
-            return autoInvoke(args);
-        } catch (Throwable ignored) {
-            Log.at(Level.WARNING, "silentAutoInvoke() swallowed exception", ignored);
-            return null;
         }
     }
 
@@ -327,24 +339,6 @@ public interface Invocable<T> extends Named {
     }
 
     interface TypeMap<T> extends Invocable<T> {
-        static Map<Class<?>, Object> mapArgs(Object... args) {
-            final long distinct = Stream.of(args)
-                    .map(Object::getClass)
-                    .distinct()
-                    .count();
-
-            if (distinct != args.length)
-                throw new IllegalArgumentException("Duplicate argument types detected");
-
-            final Map<Class<?>, Object> yield = new HashMap<>();
-
-            for (Object arg : args) {
-                yield.put(arg.getClass(), arg);
-            }
-
-            return yield;
-        }
-
         static <T> TypeMap<T> boxed(Invocable<T> invocable) {
             return new TypeMap<T>() {
                 private final Invocable<T> underlying = invocable;
@@ -358,8 +352,8 @@ public interface Invocable<T> extends Named {
                 @Override
                 public T invoke(Map<Class<?>, Object> args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
                     if (underlying instanceof Support.OfMethod) {
-                        final Method method = ((Support.OfMethod<T>) underlying).method;
-                        final Class<?>[] param = method.getParameterTypes();
+                        final Method     method = ((Support.OfMethod<T>) underlying).method;
+                        final Class<?>[] param  = method.getParameterTypes();
                         final AnnotatedType[] annParam = method.getAnnotatedParameterTypes();
 
                         for (int i = 0; i < param.length; i++) {
@@ -392,11 +386,28 @@ public interface Invocable<T> extends Named {
             return invoke(mapArgs(args));
         }
 
+        static Map<Class<?>, Object> mapArgs(Object... args) {
+            final long distinct = Stream.of(args)
+                    .map(Object::getClass)
+                    .distinct()
+                    .count();
+
+            if (distinct != args.length)
+                throw new IllegalArgumentException("Duplicate argument types detected");
+
+            final Map<Class<?>, Object> yield = new HashMap<>();
+
+            for (Object arg : args) {
+                yield.put(arg.getClass(), arg);
+            }
+
+            return yield;
+        }
+
         @Nullable T invoke(Map<Class<?>, Object> args) throws InvocationTargetException, IllegalAccessException, InstantiationException;
 
         @Target(ElementType.PARAMETER)
-        @Retention(RetentionPolicy.RUNTIME)
-        @interface Null {
+        @Retention(RetentionPolicy.RUNTIME) @interface Null {
         }
     }
 
@@ -404,15 +415,15 @@ public interface Invocable<T> extends Named {
     abstract class Magic<T> implements Invocable<T> {
         private final Invocable<T> underlying;
 
-        @Override
-        public String getName() {
-            return underlying.getName();
-        }
-
         protected Magic() {
             this.underlying = Invocable.ofMethodCall(this, ReflectionHelper.externalMethodsAbove(Magic.class, getClass())
                     .findAny()
                     .orElseThrow(() -> new NoSuchElementException("Could not find matching method")));
+        }
+
+        @Override
+        public String getName() {
+            return underlying.getName();
         }
 
         @Nullable
@@ -427,20 +438,19 @@ public interface Invocable<T> extends Named {
         }
     }
 
-    @Internal
-    final class Support {
+    @Internal final class Support {
         private static final Invocable<?> Empty = constant(null);
 
         private static final class OfProvider<T> implements Invocable<T> {
             private final Provider<T> provider;
 
+            public OfProvider(Provider<T> provider) {
+                this.provider = provider;
+            }
+
             @Override
             public String getName() {
                 return "OfProvider";
-            }
-
-            public OfProvider(Provider<T> provider) {
-                this.provider = provider;
             }
 
             @Nullable
@@ -458,13 +468,18 @@ public interface Invocable<T> extends Named {
         private static final class OfConstructor<T> implements Invocable<T> {
             private final Constructor<T> constructor;
 
+            public OfConstructor(Constructor<T> constructor) {
+                this.constructor = constructor;
+            }
+
             @Override
             public String getName() {
                 return String.format("OfConstructor(%s)", constructor.getName());
             }
 
-            public OfConstructor(Constructor<T> constructor) {
-                this.constructor = constructor;
+            @Override
+            public @Nullable AccessibleObject accessor() {
+                return constructor;
             }
 
             @Override
@@ -477,11 +492,6 @@ public interface Invocable<T> extends Named {
             }
 
             @Override
-            public @Nullable AccessibleObject accessor() {
-                return constructor;
-            }
-
-            @Override
             public Class<?>[] parameterTypesOrdered() {
                 return constructor.getParameterTypes();
             }
@@ -490,16 +500,6 @@ public interface Invocable<T> extends Named {
         private static final class OfMethod<T> implements Invocable<T> {
             private final Method method;
             private final Object target;
-
-            @Override
-            public String getName() {
-                return method.getName();
-            }
-
-            @Override
-            public String getAlternateName() {
-                return String.format("OfMethod(%s @ %s)", method.getName(), target);
-            }
 
             private OfMethod(Method method, @Nullable Object target) {
                 /*
@@ -514,16 +514,26 @@ public interface Invocable<T> extends Named {
                 this.target = target;
             }
 
-            @Nullable
             @Override
-            public T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException {
-                //noinspection unchecked
-                return (T) method.invoke(target == null ? this.target : target, args);
+            public String getName() {
+                return method.getName();
+            }
+
+            @Override
+            public String getAlternateName() {
+                return String.format("OfMethod(%s @ %s)", method.getName(), target);
             }
 
             @Override
             public @Nullable AccessibleObject accessor() {
                 return method;
+            }
+
+            @Nullable
+            @Override
+            public T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException {
+                //noinspection unchecked
+                return (T) method.invoke(target == null ? this.target : target, args);
             }
 
             @Override
@@ -536,14 +546,14 @@ public interface Invocable<T> extends Named {
             private final Class<T> type;
             private final Class<?>[] typeArray;
 
+            private ParamReturning(Class<T> type) {
+                this.type      = type;
+                this.typeArray = new Class[]{ type };
+            }
+
             @Override
             public String getName() {
                 return "Returning" + type.getSimpleName();
-            }
-
-            private ParamReturning(Class<T> type) {
-                this.type = type;
-                this.typeArray = new Class[]{type};
             }
 
             @Nullable
@@ -555,7 +565,7 @@ public interface Invocable<T> extends Named {
                         .findAny()
                         .map(it -> (T) it)
                         .orElseThrow(() -> new NoSuchElementException(String.format("No parameter with type %s given",
-                                type.getName()
+                                                                                    type.getName()
                         )));
             }
 
@@ -569,13 +579,13 @@ public interface Invocable<T> extends Named {
             private static final Map<Object, Invocable<Object>> Cache = new ConcurrentHashMap<>();
             private final T value;
 
+            private Constant(T value) {
+                this.value = value;
+            }
+
             @Override
             public String getName() {
                 return String.format("Constant(%s)", value);
-            }
-
-            private Constant(T value) {
-                this.value = value;
             }
 
             @Nullable
@@ -591,19 +601,19 @@ public interface Invocable<T> extends Named {
         }
 
         private static final class OfConsumer<T> implements Invocable<T> {
-            private final Class<T> argType;
+            private final Class<T>   argType;
             private final Consumer<T> consumer;
             private final Class<?>[] argTypeArr;
+
+            private OfConsumer(Class<T> argType, Consumer<T> consumer) {
+                this.argType    = argType;
+                this.consumer   = consumer;
+                this.argTypeArr = new Class[]{ argType };
+            }
 
             @Override
             public String getName() {
                 return String.format("OfConsumer(%s)", argType.getName());
-            }
-
-            private OfConsumer(Class<T> argType, Consumer<T> consumer) {
-                this.argType = argType;
-                this.consumer = consumer;
-                this.argTypeArr = new Class[]{argType};
             }
 
             @Nullable
@@ -614,8 +624,8 @@ public interface Invocable<T> extends Named {
                     return null;
                 } else {
                     throw new IllegalArgumentException(String.format("Invalid Type: %s",
-                            args[0].getClass()
-                                    .getName()
+                                                                     args[0].getClass()
+                                                                             .getName()
                     ));
                 }
             }
@@ -629,13 +639,25 @@ public interface Invocable<T> extends Named {
         private static final class OfClass<T> implements Invocable<T> {
             private final Class<? extends T> type;
 
+            private OfClass(Class<? extends T> type) {
+                this.type = type;
+            }
+
             @Override
             public String getName() {
                 return String.format("OfClass(%s)", type.getName());
             }
 
-            private OfClass(Class<? extends T> type) {
-                this.type = type;
+            @Override
+            public @Nullable T invoke(@Nullable Object target, Object... args)
+            throws InvocationTargetException, IllegalAccessException, InstantiationException {
+                final Constructor<? extends T> constructor = ReflectionHelper
+                        .findConstructor(type, ReflectionHelper.types(args))
+                        .orElse(null);
+
+                if (constructor == null)
+                    return null;
+                return constructor.newInstance(tryArrange(args, constructor.getParameterTypes()));
             }
 
             @Override
@@ -644,17 +666,6 @@ public interface Invocable<T> extends Named {
                         .min(Comparator.comparingInt(Constructor::getParameterCount))
                         .map(Constructor::getParameterTypes)
                         .orElseGet(() -> new Class[0]);
-            }
-
-            @Override
-            public @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
-                final Constructor<? extends T> constructor = ReflectionHelper
-                        .findConstructor(type, ReflectionHelper.types(args))
-                        .orElse(null);
-
-                if (constructor == null)
-                    return null;
-                return constructor.newInstance(tryArrange(args, constructor.getParameterTypes()));
             }
         }
     }

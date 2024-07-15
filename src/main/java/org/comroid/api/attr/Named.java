@@ -15,6 +15,22 @@ import org.jetbrains.annotations.Nullable;
  * @see WrappedFormattable as this class extends {@link java.util.Formattable}
  */
 public interface Named extends WrappedFormattable {
+    static String $(Object any) {
+        return any instanceof Named named ? named.getName() : String.valueOf(any);
+    }
+
+    /**
+     * Returns the primary common name of this object.
+     * If this is an instance of {@link Enum}, returns its {@link Enum#name() enum constant name}.
+     *
+     * @return the primary common name.
+     */
+    default String getName() {
+        if (this instanceof Enum)
+            return ((Enum<?>) this).name();
+        return toString();
+    }
+
     /**
      * Default implementation to get the primary name.
      * By default, invokes {@link #getName()}.
@@ -27,6 +43,7 @@ public interface Named extends WrappedFormattable {
     default String getPrimaryName() {
         return getName();
     }
+
     /**
      * Default implementation to get the primary name.
      * By default, invokes {@link #getName()}.
@@ -49,23 +66,9 @@ public interface Named extends WrappedFormattable {
         return getName();
     }
 
-    /**
-     * Returns the primary common name of this object.
-     * If this is an instance of {@link Enum}, returns its {@link Enum#name() enum constant name}.
-     *
-     * @return the primary common name.
-     */
-    default String getName() {
-        if (this instanceof Enum)
-            return ((Enum<?>) this).name();
-        return toString();
-    }
-
     @Experimental
-    default Object setName(@Nullable String name){return this;}
-
-    static String $(Object any) {
-        return any instanceof Named named ? named.getName() : String.valueOf(any);
+    default Object setName(@Nullable String name) {
+        return this;
     }
 
     /**
@@ -74,13 +77,13 @@ public interface Named extends WrappedFormattable {
     class Base implements Named {
         private final String name;
 
+        protected Base(String name) {
+            this.name = name;
+        }
+
         @Override
         public final String getName() {
             return name;
-        }
-
-        protected Base(String name) {
-            this.name = name;
         }
     }
 }

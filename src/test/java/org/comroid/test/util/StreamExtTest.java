@@ -7,8 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static org.comroid.api.func.util.Streams.Multi.combine;
-import static org.comroid.api.func.util.Streams.Multi.expand;
+import static org.comroid.api.func.util.Streams.Multi.*;
 
 public class StreamExtTest {
     @Test
@@ -24,7 +23,7 @@ public class StreamExtTest {
     public void testEntries() {
         Stream.of("mushroom", "doretta", "rock and stone!")
                 .map(expand(String::length))
-                .map(combine((s,l)->s+l))
+                .map(combine((s, l) -> s + l))
                 .forEach(System.out::println);
     }
 }

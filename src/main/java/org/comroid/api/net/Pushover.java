@@ -1,10 +1,13 @@
 package org.comroid.api.net;
 
-import lombok.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.SneakyThrows;
+import lombok.Value;
 import lombok.extern.java.Log;
 import org.comroid.api.data.seri.DataNode;
-import org.comroid.api.func.ext.Context;
 import org.comroid.api.data.seri.adp.FormData;
+import org.comroid.api.func.ext.Context;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,9 +20,9 @@ import java.util.concurrent.CompletableFuture;
 @Log
 @Value
 public class Pushover {
-    private static final URI URI = java.net.URI.create("https://api.pushover.net/1/messages.json");
+    private static final URI        URI  = java.net.URI.create("https://api.pushover.net/1/messages.json");
     private static final HttpClient http = Context.wrap(HttpClient.class)
-            .orElseGet(()->HttpClient.newBuilder().build());
+            .orElseGet(() -> HttpClient.newBuilder().build());
     Config config;
 
     public CompletableFuture<Void> send(@NotNull String message) {
@@ -58,9 +61,9 @@ public class Pushover {
 
         private Message(Config config, @Nullable String title, String message) {
             super.token = config.token;
-            super.user = config.user;
+            super.user  = config.user;
             super.device = config.device;
-            this.title = title;
+            this.title  = title;
             this.message = message;
         }
     }

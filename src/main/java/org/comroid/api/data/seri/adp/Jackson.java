@@ -19,9 +19,10 @@ public enum Jackson implements Serializer<JSON.Node> {
     public @Nullable JSON.Node parse(@Language("JSON") @Nullable String data) {
         //noinspection unchecked
         return data == null ? DataNode.Value.NULL.json()
-                : data.trim().startsWith("{") ? org.comroid.api.data.seri.adp.JSON.Object.of(new ObjectMapper().readValue(data, Map.class))
-                : data.trim().startsWith("[") ? org.comroid.api.data.seri.adp.JSON.Array.of(new ObjectMapper().readValue(data, List.class))
-                : DataNode.of(new ObjectMapper().readTree(data)).json();
+                            : data.trim().startsWith("{") ? org.comroid.api.data.seri.adp.JSON.Object.of(new ObjectMapper().readValue(data, Map.class))
+                                                          : data.trim().startsWith("[") ? org.comroid.api.data.seri.adp.JSON.Array.of(
+                                                                  new ObjectMapper().readValue(data, List.class))
+                                                                                        : DataNode.of(new ObjectMapper().readTree(data)).json();
     }
 
     @Override

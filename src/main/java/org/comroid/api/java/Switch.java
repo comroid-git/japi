@@ -1,6 +1,10 @@
 package org.comroid.api.java;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.Singular;
+import lombok.Value;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -31,11 +35,6 @@ public class Switch<I, O> implements Function<I, @Nullable O> {
     }
 
     @Contract(pure = true, value = "_,_ -> this")
-    public Switch<I, O> option(Predicate<I> predicate, final O result) {
-        return option(predicate, () -> result);
-    }
-
-    @Contract(pure = true, value = "_,_ -> this")
     public Switch<I, O> option(Predicate<I> predicate, Supplier<O> supplier) {
         return option(new Case(predicate, supplier));
     }
@@ -44,6 +43,11 @@ public class Switch<I, O> implements Function<I, @Nullable O> {
     public Switch<I, O> option(Case it) {
         cases.add(it);
         return this;
+    }
+
+    @Contract(pure = true, value = "_,_ -> this")
+    public Switch<I, O> option(Predicate<I> predicate, final O result) {
+        return option(predicate, () -> result);
     }
 
     @Override

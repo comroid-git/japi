@@ -7,10 +7,10 @@ import java.io.Serializable;
 import java.io.StringReader;
 
 public interface StringSerializable extends Readable, Serializable {
-    String toSerializedString();
-
     @Override
     default Reader toReader() {
         return new StringReader(toSerializedString());
     }
+
+    String toSerializedString();
 }

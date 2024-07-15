@@ -1,6 +1,11 @@
 package org.comroid.api.java;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 
 public interface ResourceLoader {
     ResourceLoader SYSTEM_CLASS_LOADER = ofClassLoader(ClassLoader.getSystemClassLoader());
@@ -9,12 +14,12 @@ public interface ResourceLoader {
         return ofClassLoader(ClassLoader.getSystemClassLoader());
     }
 
-    static ResourceLoader ofCallerClassLoader() {
-        return ofClassLoader(StackTraceUtils.callerClass(1).getClassLoader());
-    }
-
     static ResourceLoader ofClassLoader(final ClassLoader classLoader) {
         return classLoader::getResourceAsStream;
+    }
+
+    static ResourceLoader ofCallerClassLoader() {
+        return ofClassLoader(StackTraceUtils.callerClass(1).getClassLoader());
     }
 
     static ResourceLoader ofDirectory(final File dir) {
@@ -31,9 +36,9 @@ public interface ResourceLoader {
         };
     }
 
-    InputStream getResource(String name);
-
     default Reader getResourceReader(String name) {
         return new InputStreamReader(getResource(name));
     }
+
+    InputStream getResource(String name);
 }

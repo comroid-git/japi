@@ -7,7 +7,7 @@ import java.util.Arrays;
 public class StringComparatorTest {
     public static void main(String[] words) {
         if (words.length == 0)
-            words = new String[]{"hello", "world", "how", "are", "you", "doing", "today"};
+            words = new String[]{ "hello", "world", "how", "are", "you", "doing", "today" };
 
         System.out.println("words input  = " + Arrays.toString(words));
         Arrays.sort(words, new StringBasedComparator<>());

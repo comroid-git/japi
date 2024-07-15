@@ -12,7 +12,7 @@ public class MD5 {
     public String calculate(InputStream inputStream) {
         MessageDigest md5Digest = MessageDigest.getInstance("MD5");
         byte[] buffer = new byte[8192]; // Buffer size can be adjusted as per your requirement
-        int bytesRead;
+        int    bytesRead;
 
         // Read data from the InputStream and update the MessageDigest
         while ((bytesRead = inputStream.read(buffer)) != -1) {

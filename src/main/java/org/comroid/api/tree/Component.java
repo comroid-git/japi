@@ -2,34 +2,47 @@ package org.comroid.api.tree;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import lombok.*;
-import org.comroid.api.data.bind.DataStructure;
-import org.comroid.annotations.internal.Annotations;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostUpdate;
+import jakarta.persistence.PreRemove;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.SneakyThrows;
+import lombok.ToString;
+import lombok.Value;
 import org.comroid.annotations.Ignore;
+import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.attr.EnabledState;
 import org.comroid.api.attr.Named;
-import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.func.exc.ThrowingConsumer;
-import org.comroid.api.info.Log;
+import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Bitmask;
 import org.comroid.api.func.util.Cache;
 import org.comroid.api.info.Constraint;
+import org.comroid.api.info.Log;
 import org.comroid.api.info.Maintenance;
 import org.comroid.api.java.StackTraceUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import jakarta.persistence.PostLoad;
-import jakarta.persistence.PostUpdate;
-import jakarta.persistence.PreRemove;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.text.MessageFormat;
 import java.time.Duration;
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -37,12 +50,11 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.util.function.Predicate.not;
-import static java.util.stream.Stream.empty;
-import static java.util.stream.Stream.of;
-import static org.comroid.api.Polyfill.uncheckedCast;
-import static org.comroid.api.func.util.Streams.cast;
-import static org.comroid.api.text.Capitalization.equalsIgnoreCase;
+import static java.util.function.Predicate.*;
+import static java.util.stream.Stream.*;
+import static org.comroid.api.Polyfill.*;
+import static org.comroid.api.func.util.Streams.*;
+import static org.comroid.api.text.Capitalization.*;
 
 @Ignore
 public interface Component extends Container, LifeCycle, Tickable, EnabledState, Named {
@@ -52,24 +64,33 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             .description("A required dependency is missing")
             .build();
 
-    @Override
-    @PostLoad
-    @PostConstruct
-    void initialize();
-
-    @Override
-    @PostUpdate
-    void tick();
-
-    @Override
-    @PreRemove
-    @PreDestroy
-    void terminate();
-
-    State getCurrentState();
-
     default boolean isActive() {
         return getCurrentState() == State.Active;
+    }
+
+    static Set<Dependency> dependencies(Class<? extends Component> type) {
+        return Cache.get("dependencies of " + type.getCanonicalName(), () -> {
+            var struct = DataStructure.of(type);
+            //noinspection unchecked,rawtypes            suck my dick, compiler
+            return Stream.concat(
+                            struct.getProperties().stream()
+                                    .flatMap(prop -> prop.streamAnnotations(Inject.class)
+                                            .map(Annotations.Result::getAnnotation)
+                                            .map(inject -> new Dependency(
+                                                    Optional.ofNullable(inject.value())
+                                                            .filter(not(String::isEmpty))
+                                                            .orElseGet(prop::getName),
+                                                    Optional.ofNullable((Class) inject.type())
+                                                            .filter(not(cls -> cls.equals(Component.class)))
+                                                            .orElseGet(() -> prop.getType().getTargetClass()),
+                                                    !prop.isAnnotationPresent(Nullable.class) && (inject.required()
+                                                            || prop.isAnnotationPresent(NotNull.class)),
+                                                    (DataStructure<? extends Component>.Property<?>) prop))),
+                            Annotations.findAnnotations(Requires.class, type)
+                                    .flatMap(requires -> Arrays.stream(requires.getAnnotation().value()))
+                                    .map(cls -> new Dependency("", cls, true, null)))
+                    .collect(Collectors.toUnmodifiableSet());
+        });
     }
 
     @Nullable Component getParent();
@@ -92,10 +113,10 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         return Stream.concat(
                 streamChildren(type),
                 isSubComponent()
-                        ? Stream.of(getParent())
+                ? Stream.of(getParent())
                         .filter(Objects::nonNull)
                         .flatMap(comp -> comp.components(type))
-                        : empty());
+                : empty());
     }
 
     default <T extends Component> Wrap<T> component(@Nullable Class<? super T> type) {
@@ -105,6 +126,8 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     default Set<Dependency> dependencies() {
         return dependencies(getClass());
     }
+
+    State getCurrentState();
 
     default UncheckedCloseable execute(ScheduledExecutorService scheduler, Duration tickRate) {
         var task = scheduler.scheduleAtFixedRate(() -> {
@@ -120,6 +143,24 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         return closeable;
     }
 
+    @Override
+    @PostLoad
+    @PostConstruct
+    void initialize();
+
+    @Override
+    @PostUpdate
+    void tick();
+
+    @Override
+    @PreRemove
+    @PreDestroy
+    void terminate();
+
+    default boolean testState(State state) {
+        return Bitmask.isFlagSet(getCurrentState().mask, state);
+    }
+
     default void start() {
         initialize();
     }
@@ -128,40 +169,11 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         terminate();
     }
 
-    default boolean testState(State state) {
-        return Bitmask.isFlagSet(getCurrentState().mask, state);
-    }
+    //static List<Class<? extends Component>> includes()
 
     @Override
     default void closeSelf() throws Exception {
         terminate();
-    }
-
-    //static List<Class<? extends Component>> includes()
-
-    static Set<Dependency> dependencies(Class<? extends Component> type) {
-        return Cache.get("dependencies of " + type.getCanonicalName(), () -> {
-            var struct = DataStructure.of(type);
-            //noinspection unchecked,rawtypes            suck my dick, compiler
-            return Stream.concat(
-                            struct.getProperties().stream()
-                                    .flatMap(prop -> prop.streamAnnotations(Inject.class)
-                                            .map(Annotations.Result::getAnnotation)
-                                            .map(inject -> new Dependency(
-                                                    Optional.ofNullable(inject.value())
-                                                            .filter(not(String::isEmpty))
-                                                            .orElseGet(prop::getName),
-                                                    Optional.ofNullable((Class)inject.type())
-                                                            .filter(not(cls -> cls.equals(Component.class)))
-                                                            .orElseGet(()->prop.getType().getTargetClass()),
-                                                    !prop.isAnnotationPresent(Nullable.class) && (inject.required()
-                                                            || prop.isAnnotationPresent(NotNull.class)),
-                                                    (DataStructure<? extends Component>.Property<?>) prop))),
-                            Annotations.findAnnotations(Requires.class, type)
-                                    .flatMap(requires -> Arrays.stream(requires.getAnnotation().value()))
-                                    .map(cls -> new Dependency("", cls, true, null)))
-                    .collect(Collectors.toUnmodifiableSet());
-        });
     }
 
     enum State implements Bitmask.Attribute<State> {
@@ -190,8 +202,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
      * declare a module dependency
      */
     @Target(ElementType.TYPE)
-    @Retention(RetentionPolicy.RUNTIME)
-    @interface Requires {
+    @Retention(RetentionPolicy.RUNTIME) @interface Requires {
         Class<? extends Component>[] value();
     }
 
@@ -201,8 +212,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
      * if all are defaults, then name and type from field are used
      */
     @Retention(RetentionPolicy.RUNTIME)
-    @Target({ElementType.FIELD, ElementType.METHOD})
-    @interface Inject {
+    @Target({ ElementType.FIELD, ElementType.METHOD }) @interface Inject {
         /**
          * @return filter by name match, unless length == 0
          */
@@ -220,11 +230,11 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     }
 
     @Value
-    @ToString(of = {"type", "name"})
-    @EqualsAndHashCode(of = {"type", "name"})
+    @ToString(of = { "type", "name" })
+    @EqualsAndHashCode(of = { "type", "name" })
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     class Dependency {
-        String name;
+        String  name;
         Class<?> type;
         boolean required;
         @Ignore
@@ -235,13 +245,13 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     @Getter
     @Ignore
     class Base extends Container.Base implements Component {
-        protected boolean enabled = true;
-        private State currentState = State.PreInit;
-        private State previousState = State.PreInit;
+        protected boolean enabled       = true;
+        private   State   currentState  = State.PreInit;
+        private   State   previousState = State.PreInit;
         private @Setter
         @Nullable Component parent;
         private @Setter
-        @Nullable String name = "%s#%x".formatted(StackTraceUtils.lessSimpleName(getClass()), hashCode());
+        @Nullable String  name          = "%s#%x".formatted(StackTraceUtils.lessSimpleName(getClass()), hashCode());
 
         public Base(Object... children) {
             this((Component) null, children);
@@ -299,17 +309,6 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         }
 
         @Override
-        public final synchronized void lateInitialize() {
-            if (!testState(State.Init) && !pushState(State.LateInit))
-                return;
-            var count = runOnDependencies(Component::lateInitialize);
-            $lateInitialize();
-            runOnChildren(LifeCycle.class, LifeCycle::lateInitialize, it -> test(it, State.Init));
-
-            pushState(State.Active);
-        }
-
-        @Override
         //@PostUpdate
         public final synchronized void tick() {
             if (!testState(State.Active))
@@ -321,18 +320,6 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             } catch (Throwable t) {
                 Log.at(Level.WARNING, "Error in tick for %s".formatted(this), t);
             }
-        }
-
-        @Override
-        public void stop() {
-            terminate();
-        }
-
-        @Override
-        public final synchronized void earlyTerminate() {
-            pushState(State.EarlyTerminate);
-            runOnChildren(LifeCycle.class, LifeCycle::earlyTerminate, it -> test(it, State.Active));
-            $earlyTerminate();
         }
 
         @Override
@@ -355,11 +342,45 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             }
         }
 
+        protected void $tick() {
+        }
+
+        @Override
+        public final synchronized void lateInitialize() {
+            if (!testState(State.Init) && !pushState(State.LateInit))
+                return;
+            var count = runOnDependencies(Component::lateInitialize);
+            $lateInitialize();
+            runOnChildren(LifeCycle.class, LifeCycle::lateInitialize, it -> test(it, State.Init));
+
+            pushState(State.Active);
+        }
+
+        private static <T> boolean test(T it, State state) {
+            return it instanceof Component && ((Component) it).testState(state);
+        }
+
+        @Override
+        public final synchronized void earlyTerminate() {
+            pushState(State.EarlyTerminate);
+            runOnChildren(LifeCycle.class, LifeCycle::earlyTerminate, it -> test(it, State.Active));
+            $earlyTerminate();
+        }
+
+        protected void $earlyTerminate() {
+        }
+
+        protected void $lateInitialize() {
+        }
+
         private void cleanupChildren() {
             final Predicate<Object> isNotComponent = x -> !Component.class.isAssignableFrom(x.getClass());
             final var remove = streamChildren(Object.class).filter(isNotComponent).toArray();
             if (removeChildren(remove) != remove.length)
                 Log.at(Level.WARNING, "Could not remove all children of %s".formatted(this));
+        }
+
+        protected void $terminate() {
         }
 
         private void injectDependencies() {
@@ -369,9 +390,9 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                         var results = components(dep.type).toList();
                         if (results.size() > 1) {
                             final var names = dep.name.isEmpty()
-                                    ? Stream.concat(Stream.of(dep.prop.getName()), dep.prop.getAliases().stream())
-                                    .collect(Collectors.toSet())
-                                    : Set.of(dep.name);
+                                              ? Stream.concat(Stream.of(dep.prop.getName()), dep.prop.getAliases().stream())
+                                                      .collect(Collectors.toSet())
+                                              : Set.of(dep.name);
                             var byName = results.stream()
                                     .filter(it -> names.stream().anyMatch(alias -> equalsIgnoreCase(alias, it.getName())))
                                     .toList();
@@ -406,26 +427,10 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                                 return success;
                             })
                             .ifPresentOrElseThrow(func -> func.invokeSilent(Component.Base.this, e.getValue()),
-                                    () -> new AssertionError("property was not settable")));
+                                                  () -> new AssertionError("property was not settable")));
         }
 
         protected void $initialize() {
-        }
-
-        protected void $lateInitialize() {
-        }
-
-        protected void $tick() {
-        }
-
-        protected void $earlyTerminate() {
-        }
-
-        protected void $terminate() {
-        }
-
-        private static <T> boolean test(T it, State state) {
-            return it instanceof Component && ((Component) it).testState(state);
         }
 
         private boolean pushState(State state) {
@@ -450,16 +455,16 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                     .peek(wrap)
                     .count();
         }
+
+        @Override
+        public void stop() {
+            terminate();
+        }
     }
 
     @Data
     class Sub<Parent extends Component> extends Base {
         protected final Parent parent;
-
-        @Override
-        public final boolean isSubComponent() {
-            return true;
-        }
 
         @Override
         public final @Nullable Parent getParent() {
@@ -469,6 +474,11 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         @Override
         public final Component.Base setParent(@Nullable Component parent) {
             return this; // do nothing, parent is final
+        }
+
+        @Override
+        public final boolean isSubComponent() {
+            return true;
         }
     }
 }

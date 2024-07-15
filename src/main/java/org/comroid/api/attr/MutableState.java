@@ -2,13 +2,6 @@ package org.comroid.api.attr;
 
 public interface MutableState {
     /**
-     * Checks whether this container object is currently allowed to change its value.
-     *
-     * @return whether this container object is currently allowed to change its value
-     */
-    boolean isMutable();
-
-    /**
      * Checks whether this container object is currently prohibited to change its value.
      *
      * @return whether this container object is currently prohibited to change its value.
@@ -18,15 +11,11 @@ public interface MutableState {
     }
 
     /**
-     * Attempts to change the mutability state of this container object.
-     * <p>
-     * If the return value is {@code true}, the new {@code state} could be applied.
-     * Returns {@code false} if otherwise.
+     * Checks whether this container object is currently allowed to change its value.
      *
-     * @param state The new mutability state
-     * @return Whether the new mutability state could be applied
+     * @return whether this container object is currently allowed to change its value
      */
-    boolean setMutable(boolean state);
+    boolean isMutable();
 
     /**
      * Attempts to allow mutation of this container object.
@@ -37,6 +26,18 @@ public interface MutableState {
         if (!setMutable(true))
             throw new UnsupportedOperationException("Could not make " + this + " mutable");
     }
+
+    /**
+     * Attempts to change the mutability state of this container object.
+     * <p>
+     * If the return value is {@code true}, the new {@code state} could be applied.
+     * Returns {@code false} if otherwise.
+     *
+     * @param state The new mutability state
+     *
+     * @return Whether the new mutability state could be applied
+     */
+    boolean setMutable(boolean state);
 
     /**
      * Attempts to disallow mutation of this container object.

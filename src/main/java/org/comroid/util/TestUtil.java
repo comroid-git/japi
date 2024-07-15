@@ -3,7 +3,9 @@ package org.comroid.util;
 import lombok.SneakyThrows;
 import lombok.experimental.UtilityClass;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.StringWriter;
 import java.util.Random;
 
 @UtilityClass
@@ -15,7 +17,7 @@ public class TestUtil {
         var buf = new StringWriter();
         try (FileOutputStream fos = new FileOutputStream(file, false)) {
             while (length-- > 0) {
-                byte c = (byte) (rng.nextInt('A', 'z'+1) % 256);
+                byte c = (byte) (rng.nextInt('A', 'z' + 1) % 256);
                 buf.append((char) c);
                 fos.write(c);
             }

@@ -16,21 +16,34 @@ import org.jetbrains.annotations.ApiStatus.OverrideOnly;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static org.comroid.api.func.util.Streams.append;
-import static org.comroid.api.func.util.Streams.cast;
+import static org.comroid.api.func.util.Streams.*;
 
 public interface Container extends Stoppable, SelfCloseable, Specifiable<Container> {
+    static Container of(Object... children) {
+        return new Base(children);
+    }
+
     Object addChildren(@Nullable Object @NotNull ... children);
 
     int removeChildren(@Nullable Object @NotNull ... children);
 
     void clearChildren();
+
+    default <T> Stream<T> streamChildren(@Nullable Class<? super T> type) {
+        return Stream.concat(getChildren().stream(), streamOwnChildren())
+                .flatMap(Streams.cast(type))
+                .map(Polyfill::uncheckedCast);
+    }
 
     @ApiStatus.Internal
     Set<Object> getChildren();
@@ -39,41 +52,19 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
         return Stream.empty();
     }
 
-    default <T> Stream<T> streamChildren(@Nullable Class<? super T> type) {
-        return Stream.concat(getChildren().stream(), streamOwnChildren())
-                .flatMap(Streams.cast(type))
-                .map(Polyfill::uncheckedCast);
-    }
-
-    static Container of(Object... children) {
-        return new Base(children);
-    }
-
     private static Exception makeException(List<Throwable> errors) {
         return new Exception(String.format("%d unexpected %s occurred",
-                errors.size(),
-                Polyfill.plural(errors, "exception", "+s")),
-                null,
-                true, false) {
+                                           errors.size(),
+                                           Polyfill.plural(errors, "exception", "+s")),
+                             null,
+                             true, false) {
         };
     }
 
     class Base implements Container, Reloadable {
+        @Ignore @Getter(onMethod = @__(@Ignore)) final Set<Object>                              children;
         @Ignore @Getter(onMethod = @__(@Ignore))
-        private final AtomicReference<CompletableFuture<Void>> closed = new AtomicReference<>(new CompletableFuture<>());
-        @Ignore @Getter(onMethod = @__(@Ignore))
-        final Set<Object> children;
-
-        @Ignore
-        public boolean isClosed() {
-            return closed.get().isDone();
-        }
-
-        public boolean setClosed(boolean state) {
-            return Polyfill.updateBoolState(isClosed(), state,
-                    () -> closed.get().complete(null),
-                    () -> closed.set(new CompletableFuture<>()));
-        }
+        private final                                  AtomicReference<CompletableFuture<Void>> closed = new AtomicReference<>(new CompletableFuture<>());
 
         public Base(Object... children) {
             this.children = new HashSet<>(Set.of(children));
@@ -92,7 +83,7 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
 
         @Override
         public int removeChildren(Object @NotNull ... children) {
-            return (int)Stream.of(children)
+            return (int) Stream.of(children)
                     .filter(this.children::remove)
                     .count();
         }
@@ -107,13 +98,6 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
         public void start() {
             runOnChildren(Startable.class, Startable::start, $ -> true);
             setClosed(false);
-        }
-
-        @Override
-        @SneakyThrows
-        public final void close() {
-            runOnChildren(AutoCloseable.class, AutoCloseable::close, $ -> true, this::closeSelf);
-            setClosed(true);
         }
 
         @SafeVarargs
@@ -147,16 +131,34 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
                     (l, r) -> Arrays.stream(r.getSuppressed()).forEachOrdered(l::addSuppressed));
         }
 
+        protected Stream<AutoCloseable> moreMembers() {
+            return Stream.empty();
+        }
+
+        public boolean setClosed(boolean state) {
+            return Polyfill.updateBoolState(isClosed(), state,
+                                            () -> closed.get().complete(null),
+                                            () -> closed.set(new CompletableFuture<>()));
+        }
+
+        @Ignore
+        public boolean isClosed() {
+            return closed.get().isDone();
+        }
+
+        @Override
+        @SneakyThrows
+        public final void close() {
+            runOnChildren(AutoCloseable.class, AutoCloseable::close, $ -> true, this::closeSelf);
+            setClosed(true);
+        }
+
         @Override
         public void closeSelf() throws Exception {
         }
 
         public CompletableFuture<Void> onClose() {
             return closed.get();
-        }
-
-        protected Stream<AutoCloseable> moreMembers() {
-            return Stream.empty();
         }
     }
 
@@ -165,15 +167,15 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
     class Delegate<S extends SelfCloseable> extends Base implements Owned {
         private final @NotNull S owner;
 
+        public Delegate(@NotNull S owner, Object... children) {
+            super(children);
+            this.owner = owner;
+        }
+
         @Override
         public S addChildren(Object @NotNull ... children) {
             super.addChildren(children);
             return owner;
-        }
-
-        public Delegate(@NotNull S owner, Object... children) {
-            super(children);
-            this.owner = owner;
         }
 
         @Override

@@ -51,6 +51,12 @@ public enum OSBasedFileMover implements OSBasedFileProvider {
     private final BiFileProcessor fileMover;
     private final BiFileProcessor directoryMover;
 
+    OSBasedFileMover(OS os, BiFileProcessor fileMover, BiFileProcessor directoryMover) {
+        this.os             = os;
+        this.fileMover      = fileMover;
+        this.directoryMover = directoryMover;
+    }
+
     @Override
     public OS getOperatingSystem() {
         return os;
@@ -59,12 +65,6 @@ public enum OSBasedFileMover implements OSBasedFileProvider {
     @Override
     public FileHandle getBaseDirectory() {
         return new FileHandle(".");
-    }
-
-    OSBasedFileMover(OS os, BiFileProcessor fileMover, BiFileProcessor directoryMover) {
-        this.os = os;
-        this.fileMover = fileMover;
-        this.directoryMover = directoryMover;
     }
 
     public CompletableFuture<FileHandle> moveFile(FileHandle from, FileHandle into) {

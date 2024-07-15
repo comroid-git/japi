@@ -11,7 +11,9 @@ import org.jetbrains.annotations.Nullable;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Queue;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
@@ -29,20 +31,22 @@ public class Ratelimit<T, Acc> {
         return Cache.get(task.getClass(), () -> new Ratelimit<>(cooldown, source, task)).push(value);
     }
 
-    @NotNull Duration cooldown;
-    @NotNull AtomicReference<CompletableFuture<@Nullable T>> source;
-    @NotNull BiFunction<T, Queue<Acc>, CompletableFuture<T>> accumulator;
-    @NotNull Queue<Acc> queue = new LinkedBlockingQueue<>();
+    @NotNull  Duration                                        cooldown;
+    @NotNull  AtomicReference<CompletableFuture<@Nullable T>> source;
+    @NotNull  BiFunction<T, Queue<Acc>, CompletableFuture<T>> accumulator;
+    @NotNull  Queue<Acc>                                      queue = new LinkedBlockingQueue<>();
     @NonFinal
-    @Nullable CompletableFuture<T> result;
+    @Nullable CompletableFuture<T>                            result;
     @NonFinal
     Instant last = Instant.EPOCH;
 
-    public Ratelimit(@NotNull Duration cooldown,
-                     @NotNull AtomicReference<CompletableFuture<@Nullable T>> source,
-                     @NotNull BiFunction<T, Queue<Acc>, CompletableFuture<T>> accumulator) {
+    public Ratelimit(
+            @NotNull Duration cooldown,
+            @NotNull AtomicReference<CompletableFuture<@Nullable T>> source,
+            @NotNull BiFunction<T, Queue<Acc>, CompletableFuture<T>> accumulator
+    ) {
         this.cooldown = cooldown;
-        this.source = source;
+        this.source   = source;
         this.accumulator = accumulator;
     }
 

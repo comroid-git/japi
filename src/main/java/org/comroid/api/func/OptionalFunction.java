@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 @FunctionalInterface
-public interface OptionalFunction<I, O> extends N.Function.$1<I,O> {
+public interface OptionalFunction<I, O> extends N.Function.$1<I, O> {
     @Override
     @Nullable
     default O apply(@Nullable I in) {

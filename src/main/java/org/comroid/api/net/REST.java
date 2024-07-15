@@ -1,15 +1,19 @@
 package org.comroid.api.net;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.Setter;
+import lombok.Singular;
+import lombok.Value;
 import lombok.experimental.NonFinal;
+import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Named;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.MimeType;
-import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.Serializer;
+import org.comroid.api.data.seri.adp.Jackson;
 import org.comroid.api.func.util.Cache;
 import org.comroid.api.info.Constraint;
-import org.comroid.api.data.seri.adp.Jackson;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,7 +33,18 @@ import java.util.stream.IntStream;
 @Data
 @AllArgsConstructor
 public final class REST {
-    public static final REST Default = new REST(
+    public static CompletableFuture<Response> get(String uri) {
+        return request(Method.GET, uri, null).execute();
+    }
+
+    public static CompletableFuture<Response> post(String uri, @Nullable DataNode body) {
+        return request(Method.POST, uri, body).execute();
+    }
+
+    public static Request request(Method method, String uri, @Nullable DataNode body) {
+        return Default.new Request(method, Polyfill.uri(uri), body, Default.serializer);
+    }
+    private Serializer<? extends DataNode> serializer;    public static final REST Default = new REST(
             Jackson.JSON,
             new Cache<>(Duration.ofMinutes(10)),
             new Function<>() {
@@ -38,9 +53,9 @@ public final class REST {
                 @Override
                 public CompletableFuture<Response> apply(Request request) {
                     var pub = List.of(Method.GET, Method.OPTIONS, Method.TRACE).contains(request.method)
-                            || request.body == null
-                            ? HttpRequest.BodyPublishers.noBody()
-                            : HttpRequest.BodyPublishers.ofString(request.body.toString());
+                                      || request.body == null
+                              ? HttpRequest.BodyPublishers.noBody()
+                              : HttpRequest.BodyPublishers.ofString(request.body.toString());
                     var req = HttpRequest.newBuilder()
                             .uri(request.uri)
                             .method(request.method.name(), pub);
@@ -49,24 +64,12 @@ public final class REST {
                     var res = HttpResponse.BodyHandlers.ofString();
                     return client.sendAsync(req.build(), res).thenApply(response -> {
                         var body = response.body().isBlank() || response.statusCode() / 100 != 2
-                                ? DataNode.of(null)
-                                : request.serializer.parse(response.body());
+                                   ? DataNode.of(null)
+                                   : request.serializer.parse(response.body());
                         return Default.new Response(request, response.statusCode(), body, response.headers().map());
                     }).thenCompose(request::handleRedirect);
                 }
             });
-
-    private Serializer<? extends DataNode> serializer;
-    private @Nullable Cache<URI, Response> cache;
-    private Function<Request, CompletableFuture<Response>> executor;
-
-    public static CompletableFuture<Response> get(String uri) {
-        return request(Method.GET, uri, null).execute();
-    }
-
-    public static CompletableFuture<Response> post(String uri, @Nullable DataNode body) {
-        return request(Method.POST, uri, body).execute();
-    }
 
     public static CompletableFuture<Response> put(String uri, @Nullable DataNode body) {
         return request(Method.PUT, uri, body).execute();
@@ -100,17 +103,38 @@ public final class REST {
         return request(method, uri, null);
     }
 
-    public static Request request(Method method, String uri, @Nullable DataNode body) {
-        return Default.new Request(method, Polyfill.uri(uri), body, Default.serializer);
+
+    private @Nullable Cache<URI, Response>                           cache;
+    private           Function<Request, CompletableFuture<Response>> executor;
+    public enum Method implements Named {
+        GET,
+        POST,
+        PUT,
+        DELETE,
+        HEAD,
+        OPTIONS,
+        TRACE,
+        CONNECT,
+        PATCH
     }
 
     @Value
     public class Request implements MimeType.Container {
-        @NotNull Method method;
-        @Setter @NonFinal @NotNull URI uri;
-        @Setter @NonFinal @Nullable DataNode body;
-        @Setter @NonFinal @NotNull Serializer<? extends DataNode> serializer;
-        @Singular Map<String, String> headers = new ConcurrentHashMap<>();
+        @NotNull                    Method                         method;
+        @Singular                   Map<String, String>            headers = new ConcurrentHashMap<>();
+        @Setter @NonFinal @NotNull  URI                            uri;
+        @Setter @NonFinal @Nullable DataNode                       body;
+        @Setter @NonFinal @NotNull  Serializer<? extends DataNode> serializer;
+
+        private Request(
+                @NotNull Method method, @NotNull URI uri, @Nullable DataNode body,
+                @NotNull Serializer<? extends DataNode> serializer
+        ) {
+            this.method     = method;
+            this.uri        = uri;
+            this.body       = body;
+            this.serializer = serializer;
+        }
 
         @Override
         public MimeType getMimeType() {
@@ -120,14 +144,6 @@ public final class REST {
         public Request addHeader(String name, String value) {
             headers.put(name, value);
             return this;
-        }
-
-        private Request(@NotNull Method method, @NotNull URI uri, @Nullable DataNode body,
-                        @NotNull Serializer<? extends DataNode> serializer) {
-            this.method = method;
-            this.uri = uri;
-            this.body = body;
-            this.serializer = serializer;
         }
 
         public CompletableFuture<Response> execute() {
@@ -151,14 +167,14 @@ public final class REST {
 
     @Value
     public class Response {
-        Request request;
-        int responseCode;
+        Request  request;
+        int      responseCode;
         DataNode body;
         Map<String, List<String>> headers;
 
         public Response validate2xxOK() {
-            Constraint.equals(responseCode/100, 2, "responseCode")
-                    .setMessageOverride("Invalid response code; expected code in 200-299 range ("+responseCode+")\n\t\t"+request.toString())
+            Constraint.equals(responseCode / 100, 2, "responseCode")
+                    .setMessageOverride("Invalid response code; expected code in 200-299 range (" + responseCode + ")\n\t\t" + request.toString())
                     .run();
             return this;
         }
@@ -175,18 +191,7 @@ public final class REST {
         private String reqErrMsg() {
             return "Invalid response received: " + responseCode;
         }
-
     }
 
-    public enum Method implements Named {
-        GET,
-        POST,
-        PUT,
-        DELETE,
-        HEAD,
-        OPTIONS,
-        TRACE,
-        CONNECT,
-        PATCH
-    }
+
 }

@@ -6,11 +6,11 @@ import java.util.function.Function;
 
 public interface Serializer<T> extends Function<String, T>, MimeType.Container {
 
-    @Nullable T parse(@Nullable String data);
-
     default T apply(String string) {
         return parse(string);
     }
+
+    @Nullable T parse(@Nullable String data);
 
     T createObjectNode();
 

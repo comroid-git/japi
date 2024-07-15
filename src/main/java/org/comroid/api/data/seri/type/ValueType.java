@@ -17,15 +17,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named, HtmlFormElementDesc, Specifiable<ValueType<R>>, Default.Extension {
-    @Override
-    @Nullable
-    default Object defaultValue() {
-        return ReflectionHelper.fieldWithAnnotation(getTargetClass(), Default.class)
-                .stream().findAny()
-                .map(fld -> ReflectionHelper.forceGetField(null, fld))
-                .orElse(null);
-    }
-
     static <T> ValueType<T> of(final Class<?> type) {
         return StandardValueType.forClass(type)
                 .or(() -> BoundValueType.of(type))
@@ -44,6 +35,8 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named,
     default boolean isNumeric() {
         return Number.class.isAssignableFrom(getTargetClass());
     }
+
+    Class<R> getTargetClass();
 
     default boolean isStandard() {
         return this instanceof StandardValueType<R>;
@@ -65,7 +58,22 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named,
         return this::parse;
     }
 
-    Class<R> getTargetClass();
+    @Contract("null -> null; !null -> _")
+    R parse(String data);
+
+    @Override
+    default @Nullable String[] getHtmlExtraAttributes() {
+        return new String[0];
+    }
+
+    @Override
+    @Nullable
+    default Object defaultValue() {
+        return ReflectionHelper.fieldWithAnnotation(getTargetClass(), Default.class)
+                .stream().findAny()
+                .map(fld -> ReflectionHelper.forceGetField(null, fld))
+                .orElse(null);
+    }
 
     @Override
     default boolean test(Object it) {
@@ -79,12 +87,4 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named,
             return null;
         return toType.parse(value.toString());
     }
-
-    @Override
-    default @Nullable String[] getHtmlExtraAttributes() {
-        return new String[0];
-    }
-
-    @Contract("null -> null; !null -> _")
-    R parse(String data);
 }

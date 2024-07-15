@@ -26,7 +26,7 @@ public class EncryptionUtil {
             @MagicConstant(valuesFromClass = Cipher.class) int mode,
             @Range(from = 16, to = 16) String key
     ) {
-        return cipherCache.computeIfAbsent(id, $->$createCipher(algorithm, transformation, mode, key));
+        return cipherCache.computeIfAbsent(id, $ -> $createCipher(algorithm, transformation, mode, key));
     }
 
     @SneakyThrows

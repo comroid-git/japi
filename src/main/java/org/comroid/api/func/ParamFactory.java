@@ -14,12 +14,12 @@ public interface ParamFactory<P, T> extends Provider.Now<T>, Function<P, T> {
         return create(null);
     }
 
+    T create(@Nullable P parameter);
+
     @Override
     default T apply(P p) {
         return create(p);
     }
-
-    T create(@Nullable P parameter);
 
     int counter();
 

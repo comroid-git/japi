@@ -11,8 +11,8 @@ import java.nio.file.Path;
 @UtilityClass
 @SuppressWarnings("ALL")
 public class BigotryFilter {
-    public static final @Language("RegExp") String Separator = "[/,\\s\r\n]+";
-    public static final String[] Pronouns;
+    public static final @Language("RegExp") String   Separator = "[/,\\s\r\n]+";
+    public static final                     String[] Pronouns;
 
     static {
         try {

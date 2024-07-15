@@ -1,7 +1,7 @@
 package org.comroid.api.func.ext;
 
-import org.comroid.annotations.internal.Annotations;
 import org.comroid.annotations.Convert;
+import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.api.info.Constraint;
 import org.jetbrains.annotations.ApiStatus.Experimental;
@@ -23,17 +23,17 @@ public interface Convertible {
     @SuppressWarnings("unchecked")
     static <R> @NotNull R convert(Object it_, Class<? super R> target) {
         var it = it_ instanceof Supplier && Annotations.ignore(it_.getClass(), Convertible.class).isEmpty()
-                ? ((Supplier<?>) it_).get() : it_;
+                 ? ((Supplier<?>) it_).get() : it_;
         Constraint.notNull(it, "source object")
                 .setHint("check implementation")
                 .run();
         if (target.isInstance(it))
             return (R) target.cast(it);
         return Stream.concat(Stream.of(target.getConstructors()),
-                        Stream.of(it.getClass(), target)
-                                .flatMap(tgt -> Stream.of(tgt.getMethods())
-                                        .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())))
-                                .filter(mtd -> Modifier.isStatic(mtd.getModifiers())))
+                             Stream.of(it.getClass(), target)
+                                     .flatMap(tgt -> Stream.of(tgt.getMethods())
+                                             .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())))
+                                     .filter(mtd -> Modifier.isStatic(mtd.getModifiers())))
                 .filter(exe -> exe.isAnnotationPresent(Convert.class) || exe.getName().equals("upgrade"))
                 .filter(exe -> exe.getParameterCount() == 0
                         || exe.getParameterCount() == 1 && exe.getParameterTypes()[0].isInstance(it))
@@ -52,6 +52,6 @@ public interface Convertible {
                         throw new RuntimeException("Error occurred during Upgrade", t);
                     }
                 })
-                .orElseThrow(() -> new NoSuchElementException("Could not find suitable converter method from "+it+" to " + target));
+                .orElseThrow(() -> new NoSuchElementException("Could not find suitable converter method from " + it + " to " + target));
     }
 }

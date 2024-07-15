@@ -12,10 +12,19 @@ import java.util.regex.Pattern;
 public class DelimitedStringComparator implements Comparator<String> {
     public static final Comparator<String> INTEGER_COMPARATOR = Comparator.comparingInt(Integer::parseInt);
     public static final Pattern INTEGER_PATTERN = Pattern.compile("\\d+");
-    private final Pattern delimiter;
+    private final       Pattern delimiter;
 
     public DelimitedStringComparator(@Language("RegExp") String delimiter) {
         this.delimiter = Pattern.compile(delimiter);
+    }
+
+    @Override
+    public int compare(String it, String other) {
+        return Arrays.stream(delimiter.split(it))
+                .map(StringBox::of)
+                .mapToInt(box -> box.compareTo(other))
+                .findFirst()
+                .orElse(0);
     }
 
     private static int compareString(String left, int lengthL, String right, int lengthR, int index) {
@@ -31,26 +40,18 @@ public class DelimitedStringComparator implements Comparator<String> {
         return rc - lc;
     }
 
-    @Override
-    public int compare(String it, String other) {
-        return Arrays.stream(delimiter.split(it))
-                .map(StringBox::of)
-                .mapToInt(box -> box.compareTo(other))
-                .findFirst()
-                .orElse(0);
-    }
-
     public static final class StringBox implements Comparable<String> {
         private static final Map<String, StringBox> boxCache = new ConcurrentHashMap<>();
-        private final String inside;
+
+        public static Comparable<String> of(String string) {
+            return boxCache.computeIfAbsent(string, StringBox::new);
+        }
 
         private StringBox(String inside) {
             this.inside = inside;
         }
 
-        public static Comparable<String> of(String string) {
-            return boxCache.computeIfAbsent(string, StringBox::new);
-        }
+        private final String inside;
 
         @Override
         public int compareTo(@NotNull String other) {

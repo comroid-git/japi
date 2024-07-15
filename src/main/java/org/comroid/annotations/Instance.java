@@ -15,6 +15,6 @@ import java.lang.annotation.Target;
  */
 @Inherit(Inherit.Type.None)
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.METHOD, ElementType.FIELD, ElementType.CONSTRUCTOR})
+@Target({ ElementType.METHOD, ElementType.FIELD, ElementType.CONSTRUCTOR })
 public @interface Instance {
 }

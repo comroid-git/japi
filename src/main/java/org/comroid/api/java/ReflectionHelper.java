@@ -10,8 +10,26 @@ import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
-import java.lang.reflect.*;
-import java.util.*;
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Queue;
+import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -21,18 +39,23 @@ import static java.lang.reflect.Modifier.*;
 
 @ApiStatus.Experimental
 public final class ReflectionHelper {
-    @ApiStatus.Experimental
-    private static <T> T eval(@Language("java") String expr) {
-        throw new UnsupportedOperationException("Not yet implemented"); // todo
-    }
-
     @SneakyThrows
     public static <T> T call(Object target, String methodName, Object... args) {
         boolean dynamic = !(target instanceof Class);
         var cls = dynamic ? target.getClass() : ((Class<?>) target);
         return Polyfill.uncheckedCast(cls
-                .getMethod(methodName, types(args))
-                .invoke(dynamic ? target : null, args));
+                                              .getMethod(methodName, types(args))
+                                              .invoke(dynamic ? target : null, args));
+    }
+
+    public static Class<?>[] types(Object... args) {
+        final Class<?>[] yields = new Class[args.length];
+
+        for (int i = 0; i < args.length; i++) {
+            yields[i] = args[i].getClass();
+        }
+
+        return yields;
     }
 
     public static <T> T instance(Class<T> type, Object... args) throws RuntimeException, AssertionError {
@@ -77,16 +100,6 @@ public final class ReflectionHelper {
                 });
     }
 
-    public static Class<?>[] types(Object... args) {
-        final Class<?>[] yields = new Class[args.length];
-
-        for (int i = 0; i < args.length; i++) {
-            yields[i] = args[i].getClass();
-        }
-
-        return yields;
-    }
-
     public static <T> Optional<Constructor<T>> findConstructor(Class<T> inClass, Class<?>[] types) {
         final Constructor<?>[] constructors = inClass.getDeclaredConstructors();
 
@@ -110,8 +123,8 @@ public final class ReflectionHelper {
             throw new AssertionError(String.format("Could not access constructor %s", constructor), e);
         } catch (InstantiationException e) {
             throw new AssertionError(String.format("Class %s is abstract",
-                    constructor.getDeclaringClass()
-                            .getName()
+                                                   constructor.getDeclaringClass()
+                                                           .getName()
             ), e);
         }
     }
@@ -120,7 +133,7 @@ public final class ReflectionHelper {
             Class<?> type, Class<? extends Annotation> annotationType
     ) {
         return Arrays.stream(type.getFields())
-                .filter(prop->prop.isAnnotationPresent(annotationType))
+                .filter(prop -> prop.isAnnotationPresent(annotationType))
                 .collect(Collectors.toUnmodifiableSet());
     }
 
@@ -140,17 +153,17 @@ public final class ReflectionHelper {
 
     public static boolean typeCompat(Class<?> expected, Class<?> target) {
         return expected.getName().contains(".")
-                ? expected.equals(target) || expected.isAssignableFrom(target)
-                : switch (expected.getName()) {
-            case "int" -> typeCompat(Integer.class, target);
-            case "double" -> typeCompat(Double.class, target);
-            case "long" -> typeCompat(Long.class, target);
-            case "char" -> typeCompat(Character.class, target);
-            case "boolean" -> typeCompat(Boolean.class, target);
-            case "short" -> typeCompat(Short.class, target);
-            case "float" -> typeCompat(Float.class, target);
-            default -> expected.isAssignableFrom(target);
-        };
+               ? expected.equals(target) || expected.isAssignableFrom(target)
+               : switch (expected.getName()) {
+                   case "int" -> typeCompat(Integer.class, target);
+                   case "double" -> typeCompat(Double.class, target);
+                   case "long" -> typeCompat(Long.class, target);
+                   case "char" -> typeCompat(Character.class, target);
+                   case "boolean" -> typeCompat(Boolean.class, target);
+                   case "short" -> typeCompat(Short.class, target);
+                   case "float" -> typeCompat(Float.class, target);
+                   default -> expected.isAssignableFrom(target);
+               };
     }
 
     public static <T> Set<T> collectStaticFields(
@@ -256,26 +269,6 @@ public final class ReflectionHelper {
         }, Spliterator.DISTINCT);
     }
 
-    private static boolean classExists(String name) {
-        try {
-            Class.forName(name);
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static <T extends Annotation> Optional<T> annotation(
-            Class<?> type, Class<T> annotationType
-    ) {
-        if (type.isAnnotationPresent(annotationType)) {
-            return Optional.ofNullable(type.getAnnotation(annotationType));
-        }
-
-        return Optional.empty();
-    }
-
     public static Stream<Method> externalMethodsAbove(Class<?> above, Class<?> startingFrom) {
         return Arrays.stream(above.getMethods())
                 .filter(mtd -> !mtd.getDeclaringClass().isAssignableFrom(above));
@@ -299,22 +292,22 @@ public final class ReflectionHelper {
                 .orElse(null);
     }
 
-    public static <T> @Nullable T forceGetField(Object from, String fieldName) {
-        try {
-        final Class<?> kls = from.getClass();
-            final Field field = kls.getDeclaredField(fieldName);
-            return forceGetField(from, field);
-        } catch (NoSuchFieldException e) {
-            return null;
-        }
-    }
-
     public static <T> @Nullable T forceGetField(Object from, Field field) {
         try {
             if (!field.canAccess(from))
                 field.setAccessible(true);
             return Polyfill.uncheckedCast(field.get(from));
         } catch (IllegalAccessException e) {
+            return null;
+        }
+    }
+
+    public static <T> @Nullable T forceGetField(Object from, String fieldName) {
+        try {
+            final Class<?> kls   = from.getClass();
+            final Field    field = kls.getDeclaredField(fieldName);
+            return forceGetField(from, field);
+        } catch (NoSuchFieldException e) {
             return null;
         }
     }
@@ -355,9 +348,9 @@ public final class ReflectionHelper {
 
     public static <T> T resolveField(String fieldName, @Nullable Object target) {
         try {
-            int li = fieldName.lastIndexOf('.');
-            Class<?> in = Class.forName(fieldName.substring(0, li));
-            Field field = in.getField(fieldName.substring(li + 1));
+            int      li    = fieldName.lastIndexOf('.');
+            Class<?> in    = Class.forName(fieldName.substring(0, li));
+            Field    field = in.getField(fieldName.substring(li + 1));
             //noinspection unchecked
             return (T) field.get(target);
         } catch (Throwable e) {
@@ -371,5 +364,30 @@ public final class ReflectionHelper {
         else if (context instanceof Member mem) return mem.getDeclaringClass();
         else if (context instanceof Parameter param) return declaringClass(param.getDeclaringExecutable());
         throw new IllegalArgumentException("Unknown context: " + context);
+    }
+
+    @ApiStatus.Experimental
+    private static <T> T eval(@Language("java") String expr) {
+        throw new UnsupportedOperationException("Not yet implemented"); // todo
+    }
+
+    private static boolean classExists(String name) {
+        try {
+            Class.forName(name);
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static <T extends Annotation> Optional<T> annotation(
+            Class<?> type, Class<T> annotationType
+    ) {
+        if (type.isAnnotationPresent(annotationType)) {
+            return Optional.ofNullable(type.getAnnotation(annotationType));
+        }
+
+        return Optional.empty();
     }
 }

@@ -16,8 +16,8 @@ public final class DNSUtil {
 
         try {
             DirContext dirContext = new InitialDirContext(env);
-            Attributes attrs = dirContext.getAttributes(domain, new String[]{"TXT"});
-            Attribute attr = attrs.get("TXT");
+            Attributes attrs = dirContext.getAttributes(domain, new String[]{ "TXT" });
+            Attribute  attr  = attrs.get("TXT");
 
             if (attr != null) {
                 return Optional.ofNullable(attr.get().toString());

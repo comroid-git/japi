@@ -6,10 +6,6 @@ import org.comroid.api.io.FileHandle;
 import java.util.Optional;
 
 public interface OSBasedFileProvider {
-    OS getOperatingSystem();
-
-    FileHandle getBaseDirectory();
-
     static <E extends Enum<E> & OSBasedFileProvider> Optional<E> autoDetect(Class<E> fromEnum) {
         for (E enumConstant : fromEnum.getEnumConstants()) {
             if (enumConstant.getOperatingSystem().equals(OS.current))
@@ -19,6 +15,8 @@ public interface OSBasedFileProvider {
         return Optional.empty();
     }
 
+    OS getOperatingSystem();
+
     static Builder builder() {
         return new Builder();
     }
@@ -27,9 +25,11 @@ public interface OSBasedFileProvider {
         return new FileHandle(getBaseDirectory().getAbsolutePath() + group.getBasePathExtension() + name);
     }
 
+    FileHandle getBaseDirectory();
+
     final class Builder implements org.comroid.api.func.ext.Builder<OSBasedFileProvider> {
         private String windowsBasePath = null;
-        private String macBasePath = null;
+        private String macBasePath  = null;
         private String unixBasePath = null;
         private String solarisBasePath = null;
 
@@ -69,6 +69,26 @@ public interface OSBasedFileProvider {
             return this;
         }
 
+        public Builder setPathForOS(OS os, String path) {
+            switch (os) {
+                case WINDOWS:
+                    return setWindowsBasePath(path);
+                case MAC:
+                    return setMacBasePath(path);
+                case UNIX:
+                    return setUnixBasePath(path);
+                case SOLARIS:
+                    return setSolarisBasePath(path);
+            }
+
+            throw new AssertionError();
+        }
+
+        @Override
+        public OSBasedFileProvider build() {
+            return new Simple(OS.current, getCurrentOSFileHandle());
+        }
+
         private FileHandle getCurrentOSFileHandle() {
             FileHandle handle = null;
 
@@ -89,31 +109,16 @@ public interface OSBasedFileProvider {
 
             return handle;
         }
-
-        public Builder setPathForOS(OS os, String path) {
-            switch (os) {
-                case WINDOWS:
-                    return setWindowsBasePath(path);
-                case MAC:
-                    return setMacBasePath(path);
-                case UNIX:
-                    return setUnixBasePath(path);
-                case SOLARIS:
-                    return setSolarisBasePath(path);
-            }
-
-            throw new AssertionError();
-        }
-
-        @Override
-        public OSBasedFileProvider build() {
-            return new Simple(OS.current, getCurrentOSFileHandle());
-        }
     }
 
     final class Simple implements OSBasedFileProvider {
         private final OS os;
         private final FileHandle baseDir;
+
+        private Simple(OS os, FileHandle baseDir) {
+            this.os      = os;
+            this.baseDir = baseDir;
+        }
 
         @Override
         public OS getOperatingSystem() {
@@ -123,11 +128,6 @@ public interface OSBasedFileProvider {
         @Override
         public FileHandle getBaseDirectory() {
             return baseDir;
-        }
-
-        private Simple(OS os, FileHandle baseDir) {
-            this.os = os;
-            this.baseDir = baseDir;
         }
     }
 }

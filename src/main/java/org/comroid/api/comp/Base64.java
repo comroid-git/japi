@@ -2,8 +2,7 @@ package org.comroid.api.comp;
 
 import java.nio.charset.StandardCharsets;
 
-import static java.util.Base64.getDecoder;
-import static java.util.Base64.getEncoder;
+import static java.util.Base64.*;
 
 public final class Base64 {
     public static String encode(String string) {

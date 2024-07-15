@@ -8,6 +8,14 @@ import java.lang.reflect.AnnotatedElement;
 import java.util.stream.Stream;
 
 public interface Aliased extends AnnotatedTarget.Extension {
+    default String name() {
+        return Stream.concat(names(), Stream.of(this)
+                        .flatMap(Streams.cast(Named.class))
+                        .map(Named::getBestName))
+                .findAny()
+                .orElseGet(this::toString);
+    }
+
     @Deprecated
     default Stream<String> names() {
         return aliases();
@@ -15,14 +23,6 @@ public interface Aliased extends AnnotatedTarget.Extension {
 
     default Stream<String> aliases() {
         return element().stream().flatMap(Aliased::$);
-    }
-
-    default String name() {
-        return Stream.concat(names(), Stream.of(this)
-                        .flatMap(Streams.cast(Named.class))
-                        .map(Named::getBestName))
-                .findAny()
-                .orElseGet(this::toString);
     }
 
     static Stream<String> $(AnnotatedElement element) {

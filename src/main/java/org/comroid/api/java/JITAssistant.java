@@ -1,7 +1,7 @@
 package org.comroid.api.java;
 
-import org.comroid.api.func.util.Invocable;
 import org.comroid.api.Polyfill;
+import org.comroid.api.func.util.Invocable;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.ApiStatus.Internal;
 
@@ -18,47 +18,18 @@ import java.util.stream.Stream;
 public final class JITAssistant {
     public static CompletableFuture<Void> prepare(Class<?>... classes) {
         return CompletableFuture.allOf(Arrays.stream(classes)
-                .map(type -> {
-                    Object instance;
+                                               .map(type -> {
+                                                   Object instance;
 
-                    try {
-                        instance = ReflectionHelper.instance(type);
-                    } catch (Throwable t) {
-                        instance = null;
-                    }
+                                                   try {
+                                                       instance = ReflectionHelper.instance(type);
+                                                   } catch (Throwable t) {
+                                                       instance = null;
+                                                   }
 
-                    return prepareInstance(instance, type);
-                })
-                .toArray(CompletableFuture[]::new));
-    }
-
-    public static CompletableFuture<Void> prepareStatic(Class<?>... classes) {
-        return CompletableFuture.allOf(Arrays.stream(classes)
-                .flatMap(type -> Stream.concat(
-                        Stream.of(type.getFields()),
-                        Stream.of(type.getMethods())
-                                .filter(method -> method.getParameterCount() == 0)))
-                .filter(it -> Modifier.isStatic(it.getModifiers()) && it.isAccessible())
-                .map(it -> buildCallable(it, null))
-                .map(objectCallable -> {
-                    try {
-                        return CompletableFuture.completedFuture(objectCallable.call());
-                    } catch (Throwable t) {
-                        return Polyfill.failedFuture(t);
-                    }
-                })
-                .toArray(CompletableFuture[]::new));
-    }
-
-    @Internal
-    @SuppressWarnings("unchecked")
-    private static <T> Callable<T> buildCallable(AccessibleObject accessible, Object target) {
-        if (accessible instanceof Field)
-            return () -> (T) ((Field) accessible).get(target);
-        if (accessible instanceof Method)
-            return () -> (T) ((Method) accessible).invoke(target);
-
-        throw new IllegalArgumentException(accessible.getClass().getName());
+                                                   return prepareInstance(instance, type);
+                                               })
+                                               .toArray(CompletableFuture[]::new));
     }
 
     public static CompletableFuture<Void> prepareInstance(Object target, Class<?> klaas) {
@@ -74,5 +45,34 @@ public final class JITAssistant {
 
             return null;
         });
+    }
+
+    public static CompletableFuture<Void> prepareStatic(Class<?>... classes) {
+        return CompletableFuture.allOf(Arrays.stream(classes)
+                                               .flatMap(type -> Stream.concat(
+                                                       Stream.of(type.getFields()),
+                                                       Stream.of(type.getMethods())
+                                                               .filter(method -> method.getParameterCount() == 0)))
+                                               .filter(it -> Modifier.isStatic(it.getModifiers()) && it.isAccessible())
+                                               .map(it -> buildCallable(it, null))
+                                               .map(objectCallable -> {
+                                                   try {
+                                                       return CompletableFuture.completedFuture(objectCallable.call());
+                                                   } catch (Throwable t) {
+                                                       return Polyfill.failedFuture(t);
+                                                   }
+                                               })
+                                               .toArray(CompletableFuture[]::new));
+    }
+
+    @Internal
+    @SuppressWarnings("unchecked")
+    private static <T> Callable<T> buildCallable(AccessibleObject accessible, Object target) {
+        if (accessible instanceof Field)
+            return () -> (T) ((Field) accessible).get(target);
+        if (accessible instanceof Method)
+            return () -> (T) ((Method) accessible).invoke(target);
+
+        throw new IllegalArgumentException(accessible.getClass().getName());
     }
 }

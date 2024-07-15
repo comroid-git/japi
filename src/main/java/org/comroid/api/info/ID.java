@@ -13,7 +13,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Modifier;
 import java.util.UUID;
 
-import static org.comroid.api.func.ext.Wrap.empty;
+import static org.comroid.api.func.ext.Wrap.*;
 
 @UtilityClass
 public class ID {

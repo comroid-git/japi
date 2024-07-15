@@ -22,27 +22,27 @@ public class MimeType {
 
     public static final MimeType GRAPHQL = parse("application/graphql");
     public static final MimeType JAVASCRIPT = parse("application/javascript");
-    public static final MimeType JSON = parse("application/json");
-    public static final MimeType MSWORD = parse("application/msword");
-    public static final MimeType PDF = parse("application/pdf");
-    public static final MimeType SQL = parse("application/sql");
+    public static final MimeType JSON    = parse("application/json");
+    public static final MimeType MSWORD  = parse("application/msword");
+    public static final MimeType PDF     = parse("application/pdf");
+    public static final MimeType SQL     = parse("application/sql");
     public static final MimeType URLENCODED = parse("application/x-www-form-urlencoded");
-    public static final MimeType XML = parse("application/xml");
-    public static final MimeType ZIP = parse("application/zip");
-    public static final MimeType ZSTD = parse("application/zstd");
-    public static final MimeType MPEG = parse("audio/mpeg");
-    public static final MimeType OGG = parse("audio/ogg");
-    public static final MimeType APNG = parse("image/apng");
-    public static final MimeType GIF = parse("image/gif");
-    public static final MimeType JPEG = parse("image/jpeg");
-    public static final MimeType PNG = parse("image/png");
-    public static final MimeType SVG = parse("image/svg+xml");
-    public static final MimeType DATA = parse("multipart/form-data");
-    public static final MimeType CSS = parse("text/css");
-    public static final MimeType CSV = parse("text/csv");
-    public static final MimeType HTML = parse("text/html");
-    public static final MimeType PHP = parse("text/php");
-    public static final MimeType PLAIN = parse("text/plain");
+    public static final MimeType XML     = parse("application/xml");
+    public static final MimeType ZIP     = parse("application/zip");
+    public static final MimeType ZSTD    = parse("application/zstd");
+    public static final MimeType MPEG    = parse("audio/mpeg");
+    public static final MimeType OGG     = parse("audio/ogg");
+    public static final MimeType APNG    = parse("image/apng");
+    public static final MimeType GIF     = parse("image/gif");
+    public static final MimeType JPEG    = parse("image/jpeg");
+    public static final MimeType PNG     = parse("image/png");
+    public static final MimeType SVG     = parse("image/svg+xml");
+    public static final MimeType DATA    = parse("multipart/form-data");
+    public static final MimeType CSS     = parse("text/css");
+    public static final MimeType CSV     = parse("text/csv");
+    public static final MimeType HTML    = parse("text/html");
+    public static final MimeType PHP     = parse("text/php");
+    public static final MimeType PLAIN   = parse("text/plain");
 
     @SneakyThrows
     public static MimeType parse(String str) {
@@ -58,23 +58,23 @@ public class MimeType {
                         .map(x -> x.split(";")).orElse(null));
     }
 
+    @NotNull  String type;
+    @Nullable String tree;
+    @NotNull  String subtype;
+    @Nullable String suffix;
+    String @Nullable [] args;
+
     public MimeType(@NotNull String type, @NotNull String subtype) {
         this(type, null, subtype, null, null);
     }
 
     public MimeType(@NotNull String type, @Nullable String tree, @NotNull String subtype, @Nullable String suffix, @Nullable String[] args) {
-        this.type = type;
-        this.tree = tree;
+        this.type   = type;
+        this.tree   = tree;
         this.subtype = subtype;
         this.suffix = suffix;
-        this.args = args;
+        this.args   = args;
     }
-
-    @NotNull String type;
-    @Nullable String tree;
-    @NotNull String subtype;
-    @Nullable String suffix;
-    String @Nullable [] args;
 
     @Override
     public String toString() {
@@ -98,7 +98,7 @@ public class MimeType {
 
         @Ignore @JsonIgnore
         default MimeType[] getMimeTypes() {
-            return new MimeType[]{getMimeType()};
+            return new MimeType[]{ getMimeType() };
         }
     }
 }

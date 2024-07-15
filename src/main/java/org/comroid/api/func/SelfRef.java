@@ -1,6 +1,5 @@
 package org.comroid.api.func;
 
-import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ext.Wrap;
 
 /**

@@ -49,6 +49,18 @@ public enum JSON implements Serializer<JSON.Node> {
         return new Array();
     }
 
+    public interface Node extends DataNode {
+        @Override
+        default MimeType getMimeType() {
+            return MimeType.JSON;
+        }
+
+        @Override
+        default Node json() {
+            return this;
+        }
+    }
+
     public static class Deserializer extends DelegateStream.Input {
         private char c;
 
@@ -58,6 +70,50 @@ public enum JSON implements Serializer<JSON.Node> {
 
         public Deserializer(Reader delegate) {
             super(delegate);
+        }
+
+        private char getOrAdvance() {
+            if (c == 0)
+                advance();
+            return c;
+        }
+
+        private char getOrAdvanceAndTake() {
+            if (c == 0)
+                advance();
+            return take();
+        }
+
+        private char getAndAdvance() {
+            var c = this.c;
+            advance();
+            return c;
+        }
+
+        @SneakyThrows
+        private java.lang.Object readToken() {
+            // first char may have been read to buffer by previous call
+            var c   = getOrAdvanceAndTake();
+            var numeric = Character.isDigit(c) || c == '-';
+            var buf = new StringBuilder();
+            if (numeric)
+                buf.append(c);
+            while (true) {
+                c = advance();
+                if (numeric
+                    ? !Character.isDigit(c)
+                    : c == '"')
+                    break;
+                else if (c == '\\')
+                    buf.append(c = getAndAdvance());
+                buf.append(c);
+            }
+            var str = buf.toString();
+            if (!numeric) {
+                take();
+                return str;
+            }
+            return StandardValueType.findGoodType(str);
         }
 
         @SneakyThrows
@@ -105,53 +161,9 @@ public enum JSON implements Serializer<JSON.Node> {
             return arr;
         }
 
-        @SneakyThrows
-        private java.lang.Object readToken() {
-            // first char may have been read to buffer by previous call
-            var c = getOrAdvanceAndTake();
-            var numeric = Character.isDigit(c) || c == '-';
-            var buf = new StringBuilder();
-            if (numeric)
-                buf.append(c);
-            while (true) {
-                c = advance();
-                if (numeric
-                        ? !Character.isDigit(c)
-                        : c == '"')
-                    break;
-                else if (c == '\\')
-                    buf.append(c = getAndAdvance());
-                buf.append(c);
-            }
-            var str = buf.toString();
-            if (!numeric) {
-                take();
-                return str;
-            }
-            return StandardValueType.findGoodType(str);
-        }
-
-        private char getOrAdvanceAndTake() {
-            if (c == 0)
-                advance();
-            return take();
-        }
-
         private char take() {
             var c = this.c;
             this.c = 0;
-            return c;
-        }
-
-        private char getAndAdvance() {
-            var c = this.c;
-            advance();
-            return c;
-        }
-
-        private char getOrAdvance() {
-            if (c == 0)
-                advance();
             return c;
         }
 
@@ -168,18 +180,6 @@ public enum JSON implements Serializer<JSON.Node> {
 
         private IOException err(char actual, char expected, String where) {
             return new IOException("invalid char '" + actual + "' at " + where + "; expected '" + expected + "'");
-        }
-    }
-
-    public interface Node extends DataNode {
-        @Override
-        default Node json() {
-            return this;
-        }
-
-        @Override
-        default MimeType getMimeType() {
-            return MimeType.JSON;
         }
     }
 
@@ -219,6 +219,13 @@ public enum JSON implements Serializer<JSON.Node> {
 
     @Data
     public static final class Value<T> extends DataNode.Value<T> implements Node {
+        @Convert
+        public static <T> JSON.Value<T> convert(Value<T> from) {
+            if (from instanceof JSON.Value)
+                return (JSON.Value<T>) from;
+            return new JSON.Value<>(from.getValue());
+        }
+
         public Value(@Nullable T value) {
             super(value);
         }
@@ -227,13 +234,6 @@ public enum JSON implements Serializer<JSON.Node> {
         public String toString() {
             // this method is a super-stub because it depends on the functionality of the underlying method
             return super.toString();
-        }
-
-        @Convert
-        public static <T> JSON.Value<T> convert(Value<T> from) {
-            if (from instanceof JSON.Value)
-                return (JSON.Value<T>) from;
-            return new JSON.Value<>(from.getValue());
         }
     }
 }

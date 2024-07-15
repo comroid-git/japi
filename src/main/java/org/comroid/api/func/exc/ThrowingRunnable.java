@@ -13,18 +13,13 @@ public interface ThrowingRunnable<T extends Throwable> {
     ) {
         return rethrowing(runnable, remapper);
     }
-    static Runnable rethrowing(
-            ThrowingRunnable<Throwable> runnable
-    ) {
-        return rethrowing(runnable, RuntimeException::new);
-    }
 
     static <T extends Throwable> Runnable rethrowing(
             ThrowingRunnable<T> throwingRunnable,
             @Nullable Function<T, ? extends RuntimeException> remapper
     ) {
         final Function<T, ? extends RuntimeException> finalRemapper = Polyfill.notnullOr(remapper,
-                (Function<T, ? extends RuntimeException>) RuntimeException::new
+                                                                                         (Function<T, ? extends RuntimeException>) RuntimeException::new
         );
 
         return () -> {
@@ -35,6 +30,12 @@ public interface ThrowingRunnable<T extends Throwable> {
                 throw finalRemapper.apply((T) thr);
             }
         };
+    }
+
+    static Runnable rethrowing(
+            ThrowingRunnable<Throwable> runnable
+    ) {
+        return rethrowing(runnable, RuntimeException::new);
     }
 
     void run() throws T;

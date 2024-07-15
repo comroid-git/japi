@@ -13,7 +13,7 @@ import java.lang.annotation.RetentionPolicy;
 public @interface Inherit {
     Type value() default Type.FromBoth;
 
-    Rule[] rules() default {};
+    Rule[] rules() default { };
 
     @Getter
     @RequiredArgsConstructor

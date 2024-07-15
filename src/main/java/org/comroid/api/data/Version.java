@@ -8,18 +8,41 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static java.lang.Integer.parseInt;
-import static org.comroid.api.Polyfill.regexGroupOrDefault;
+import static java.lang.Integer.*;
+import static org.comroid.api.Polyfill.*;
 
 public final class Version implements Comparable<Version> {
-    public static final Pattern PATTERN = Pattern.compile(
+    public static final Pattern     PATTERN = Pattern.compile(
             "(?<major>\\d+)\\.(?<minor>\\d+)\\.?(?<patch>\\d+)?[.\\-_]?(?<candidate>(s(nap" +
                     "(shot)?)?|a(lpha)?|b(eta)?|(r(elease)?|c?))+)?[.\\-_]?(?<hotfix>\\d+)?");
-    private final int major;
-    private final int minor;
-    private final int patch;
-    private final ReleaseType releaseType;
-    private final int hotfix;
+    private final       int         major;
+    private final       int         minor;
+    private final       int         patch;
+    private final       ReleaseType releaseType;
+    private final       int         hotfix;
+
+    public Version(int major, int minor, int patch, ReleaseType releaseType, int hotfix) {
+        this.major  = major;
+        this.minor  = minor;
+        this.patch  = patch;
+        this.releaseType = releaseType;
+        this.hotfix = hotfix;
+    }
+
+    public Version(String version) {
+        final Matcher matcher = PATTERN.matcher(version.toLowerCase());
+
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Version \"" + version + "\" does not match pattern: " + PATTERN.pattern());
+        }
+
+        this.major = parseInt(regexGroupOrDefault(matcher, "major", null));
+        this.minor = parseInt(regexGroupOrDefault(matcher, "minor", null));
+
+        this.patch  = parseInt(regexGroupOrDefault(matcher, "patch", "0"));
+        this.releaseType = ReleaseType.parse(regexGroupOrDefault(matcher, "candidate", "rc"));
+        this.hotfix = parseInt(regexGroupOrDefault(matcher, "hotfix", "0"));
+    }
 
     public int getMajor() {
         return major;
@@ -39,29 +62,6 @@ public final class Version implements Comparable<Version> {
 
     public int getHotfix() {
         return hotfix;
-    }
-
-    public Version(int major, int minor, int patch, ReleaseType releaseType, int hotfix) {
-        this.major = major;
-        this.minor = minor;
-        this.patch = patch;
-        this.releaseType = releaseType;
-        this.hotfix = hotfix;
-    }
-
-    public Version(String version) {
-        final Matcher matcher = PATTERN.matcher(version.toLowerCase());
-
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException("Version \"" + version + "\" does not match pattern: " + PATTERN.pattern());
-        }
-
-        this.major = parseInt(regexGroupOrDefault(matcher, "major", null));
-        this.minor = parseInt(regexGroupOrDefault(matcher, "minor", null));
-
-        this.patch = parseInt(regexGroupOrDefault(matcher, "patch", "0"));
-        this.releaseType = ReleaseType.parse(regexGroupOrDefault(matcher, "candidate", "rc"));
-        this.hotfix = parseInt(regexGroupOrDefault(matcher, "hotfix", "0"));
     }
 
     @Override

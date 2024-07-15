@@ -1,15 +1,13 @@
 package org.comroid.api.io;
 
-import org.comroid.api.tree.UncheckedCloseable;
 import org.comroid.api.Disposable;
+import org.comroid.api.tree.UncheckedCloseable;
 
 import java.io.IOException;
 import java.util.UUID;
 
 public interface FileProcessor extends Disposable, UncheckedCloseable {
     FileHandle getFile();
-
-    int storeData() throws IOException;
 
     int reloadData() throws IOException;
 
@@ -24,9 +22,9 @@ public interface FileProcessor extends Disposable, UncheckedCloseable {
         }
     }
 
-    interface Underlying extends FileProcessor {
-        FileProcessor getUnderlyingFileProcessor();
+    int storeData() throws IOException;
 
+    interface Underlying extends FileProcessor {
         @Override
         default FileHandle getFile() {
             return getUnderlyingFileProcessor().getFile();
@@ -41,6 +39,8 @@ public interface FileProcessor extends Disposable, UncheckedCloseable {
         default int storeData() throws IOException {
             return getUnderlyingFileProcessor().storeData();
         }
+
+        FileProcessor getUnderlyingFileProcessor();
 
         @Override
         default int reloadData() throws IOException {

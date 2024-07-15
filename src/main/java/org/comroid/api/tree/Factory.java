@@ -4,6 +4,9 @@ import org.comroid.api.func.ParamFactory;
 import org.jetbrains.annotations.Nullable;
 
 public interface Factory<T> extends ParamFactory<Object, T> {
+    abstract class Abstract<T> extends ParamFactory.Abstract<Object, T> implements Factory<T> {
+    }
+
     int counter();
 
     @Override
@@ -12,7 +15,4 @@ public interface Factory<T> extends ParamFactory<Object, T> {
     }
 
     T create();
-
-    abstract class Abstract<T> extends ParamFactory.Abstract<Object, T> implements Factory<T> {
-    }
 }

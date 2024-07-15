@@ -13,9 +13,23 @@ import org.jetbrains.annotations.Nullable;
 
 import java.awt.*;
 import java.lang.ref.WeakReference;
-import java.net.*;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.UnknownHostException;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -29,14 +43,22 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static java.util.Objects.isNull;
+import static java.util.Objects.*;
 
 @Experimental
 @UtilityClass
 public final class Polyfill {
     @Deprecated
-    public static final String UUID_PATTERN = RegExpUtil.UUID4.pattern();
+    public static final  String                                                 UUID_PATTERN       = RegExpUtil.UUID4.pattern();
     private static final CompletableFuture<?> infiniteFuture = new CompletableFuture<>();
+    private static final Pattern                                                DURATION_PATTERN   = Pattern.compile(
+            "((?<amount>\\d)+(?<unit>[yMwdhms][oi]?n?))");
+    private static final Map<@Doc("secondsFactor") Long, @Doc("suffix") String> durationStringBase = Map.of(
+            60L, "min", // minutes
+            3600L, "h", // hours
+            86400L, "d", // days
+            604800L, "w" // weeks
+    );
 
     public static <T> T supplyOnce(Provider<T> provider, Function<T, T> writer, Supplier<T> accessor) {
         final T accessed = accessor.get();
@@ -79,12 +101,16 @@ public final class Polyfill {
         return exceptionLogger(logger, level, level, message);
     }
 
-    public static <R, T extends Throwable> Function<T, R> exceptionLogger(final Logger logger, final Level messageLevel, final Level exceptionLevel, final String message) {
+    public static <R, T extends Throwable> Function<T, R> exceptionLogger(
+            final Logger logger, final Level messageLevel, final Level exceptionLevel, final String message
+    ) {
         return exceptionLogger(logger, messageLevel, exceptionLevel, message, null);
     }
 
     @lombok.Builder(builderMethodName = "exceptionLoggerBuilder")
-    public static <R, T extends Throwable> Function<T, R> exceptionLogger(final Logger logger, final Level messageLevel, final Level exceptionLevel, final String message, @Nullable final Supplier<R> fallback) {
+    public static <R, T extends Throwable> Function<T, R> exceptionLogger(
+            final Logger logger, final Level messageLevel, final Level exceptionLevel, final String message, @Nullable final Supplier<R> fallback
+    ) {
         return throwable -> {
             logger.log(messageLevel, message);
             logger.log(exceptionLevel, StackTraceUtils.toString(throwable));
@@ -141,19 +167,6 @@ public final class Polyfill {
         }
     }
 
-    public static <T> T notnullOr(@Nullable T value, @NotNull T def) {
-        if (isNull(value)) {
-            return Objects.requireNonNull(def, "Default value cannot be null");
-        }
-        return value;
-    }
-
-    @Contract("_ -> param1")
-    public static <R> R uncheckedCast(Object instance) {
-        //noinspection unchecked
-        return (R) instance;
-    }
-
     public static <T, R> Function<T, R> failingFunction(Supplier<? extends RuntimeException> exceptionSupplier) {
         return new Function<T, R>() {
             private final Supplier<? extends RuntimeException> supplier = exceptionSupplier;
@@ -174,6 +187,13 @@ public final class Polyfill {
                 throw new AssertionError(msg);
             }
         };
+    }
+
+    public static <T> T notnullOr(@Nullable T value, @NotNull T def) {
+        if (isNull(value)) {
+            return Objects.requireNonNull(def, "Default value cannot be null");
+        }
+        return value;
     }
 
     public static Object selfawareObject() {
@@ -213,6 +233,12 @@ public final class Polyfill {
 
     public static <T> CompletableFuture<T> infiniteFuture() {
         return uncheckedCast(infiniteFuture);
+    }
+
+    @Contract("_ -> param1")
+    public static <R> R uncheckedCast(Object instance) {
+        //noinspection unchecked
+        return (R) instance;
     }
 
     public static String[] splitStringForLength(String data, int maxLength) {
@@ -274,8 +300,6 @@ public final class Polyfill {
                 .collect(Collectors.toMap(entry -> entry[0], entry -> entry[1]));
     }
 
-    private static final Pattern DURATION_PATTERN = Pattern.compile("((?<amount>\\d)+(?<unit>[yMwdhms][oi]?n?))");
-
     @SafeVarargs
     public static <T> Stream<T> stream(Stream<? extends T>... streams) {
         if (streams.length == 0)
@@ -291,8 +315,8 @@ public final class Polyfill {
         return StreamSupport.stream(new Spliterators.AbstractSpliterator<>(Long.MAX_VALUE, Spliterator.CONCURRENT) {
             @Override
             public boolean tryAdvance(Consumer<? super Collection<T>> action) {
-                final var ls = new ArrayList<T>();
-                var cont = true;
+                final var ls   = new ArrayList<T>();
+                var       cont = true;
                 while (ls.size() < maxSize && (cont = split.tryAdvance(ls::add)))
                     action.accept(ls);
                 return cont;
@@ -307,12 +331,6 @@ public final class Polyfill {
             falling.run();
         return current != newState;
     }
-    private static final Map<@Doc("secondsFactor") Long, @Doc("suffix") String> durationStringBase = Map.of(
-            60L, "min", // minutes
-            3600L, "h", // hours
-            86400L, "d", // days
-            604800L, "w" // weeks
-    );
 
     public static String plural(Collection<?> list, String singular, String plural) {
         if (list.size() == 1)
@@ -345,7 +363,7 @@ public final class Polyfill {
     public static String durationString(Duration d) {
         long seconds = d.getSeconds();
         long absSeconds = Math.abs(seconds);
-        var sb = new StringBuilder();
+        var  sb      = new StringBuilder();
         for (var e : durationStringBase.entrySet().stream()
                 .sorted(Comparator.<Map.Entry<Long, String>>comparingLong(Map.Entry::getKey).reversed())
                 .toList()) {
@@ -362,7 +380,7 @@ public final class Polyfill {
     }
 
     public static String ordinal(int n) {
-        String[] suffixes = new String[]{"th", "st", "nd", "rd", "th", "th", "th", "th", "th", "th"};
+        String[] suffixes = new String[]{ "th", "st", "nd", "rd", "th", "th", "th", "th", "th", "th" };
         return switch (n % 100) {
             case 11, 12, 13 -> n + "th";
             default -> n + suffixes[n % 10];

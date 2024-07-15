@@ -9,10 +9,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 public final class JNILoader {
-    private JNILoader() throws UnsupportedOperationException {
-        throw new UnsupportedOperationException();
-    }
-
     public static void loadLibrary(String name) {
         loadLibrary(name + "-32", name + "-64");
     }
@@ -55,7 +51,11 @@ public final class JNILoader {
             System.load(fileOut.toString());
         } catch (Exception e) {
             throw new RuntimeException("Error loading library into file: "
-                    + (fileOut == null ? "null" : fileOut.getAbsolutePath()), e);
+                                               + (fileOut == null ? "null" : fileOut.getAbsolutePath()), e);
         }
+    }
+
+    private JNILoader() throws UnsupportedOperationException {
+        throw new UnsupportedOperationException();
     }
 }

@@ -11,6 +11,5 @@ public @interface Localize {
     String value() default "";
 
     @Retention(RetentionPolicy.RUNTIME)
-    @Inherit(Inherit.Type.None)
-    @interface Imperative {}
+    @Inherit(Inherit.Type.None) @interface Imperative {}
 }

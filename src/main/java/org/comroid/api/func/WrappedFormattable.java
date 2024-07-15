@@ -10,6 +10,13 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public interface WrappedFormattable extends Formattable {
+    @Override
+    default void formatTo(Formatter formatter, int flags, int width, int precision) {
+        wrapFormatter(formatter, flags, width, precision, Bitmask.isFlagSet(flags, FormattableFlags.ALTERNATE)
+                                                          ? getAlternateName()
+                                                          : getPrimaryName());
+    }
+
     String getPrimaryName();
 
     String getAlternateName();
@@ -46,12 +53,5 @@ public interface WrappedFormattable extends Formattable {
         } catch (IOException e) {
             throw new RuntimeException("Unable to append to formatter", e);
         }
-    }
-
-    @Override
-    default void formatTo(Formatter formatter, int flags, int width, int precision) {
-        wrapFormatter(formatter, flags, width, precision, Bitmask.isFlagSet(flags, FormattableFlags.ALTERNATE)
-                ? getAlternateName()
-                : getPrimaryName());
     }
 }

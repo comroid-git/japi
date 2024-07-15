@@ -27,15 +27,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
-import static java.util.Collections.unmodifiableMap;
-import static org.comroid.api.Polyfill.uncheckedCast;
+import static java.util.Collections.*;
+import static org.comroid.api.Polyfill.*;
 
 @Log
 @Value
 public class Rabbit {
     private static final ConnectionFactory factory = new ConnectionFactory();
     private static final Map<URI, Rabbit> $cache = new ConcurrentHashMap<>();
-    public static final Map<URI, Rabbit> CACHE = unmodifiableMap($cache);
+    public static final  Map<URI, Rabbit> CACHE  = unmodifiableMap($cache);
 
     public static Wrap<Rabbit> of(@Nullable String uri) {
         if (uri == null) return Wrap.empty();
@@ -43,10 +43,6 @@ public class Rabbit {
         return SoftDepend.type("com.rabbitmq.client.Connection")
                 .map($ -> $cache.computeIfAbsent(uri0, Rabbit::new));
     }
-
-    URI uri;
-    @NonFinal Connection connection;
-    Map<String, Exchange> exchanges = new ConcurrentHashMap<>();
 
     private Rabbit(URI uri) {
         this.uri = uri;
@@ -65,13 +61,17 @@ public class Rabbit {
         return factory.newConnection();
     }
 
-    public Exchange exchange(String exchange) {
-        return exchanges.computeIfAbsent(exchange, Exchange::new);
-    }
+    URI                   uri;
+    Map<String, Exchange> exchanges = new ConcurrentHashMap<>();
+    @NonFinal Connection connection;
 
     @lombok.Builder(builderMethodName = "bind", buildMethodName = "create", builderClassName = "Binder")
     public <T extends DataNode> Exchange.Route<T> bind(String exchange, String routingKey, Class<? extends T> type) {
         return exchange(exchange).route(routingKey, type);
+    }
+
+    public Exchange exchange(String exchange) {
+        return exchanges.computeIfAbsent(exchange, Exchange::new);
     }
 
     @Value
@@ -139,6 +139,15 @@ public class Rabbit {
                 return channel;
             }
 
+            private void handleRabbitData(String $, Delivery content) {
+                final var body = new String(content.getBody());
+                var data = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
+                        .map(ThrowingFunction.logging(log, $$ -> new ObjectMapper().readValue(body, ctor.getTarget())))
+                        .or(() -> ctor.createInstance(JSON.Parser.parse(body)))
+                        .assertion();
+                publish(data);
+            }
+
             @SneakyThrows
             public void send(T data) {
                 try {
@@ -150,15 +159,6 @@ public class Rabbit {
                 } catch (Throwable t) {
                     log.log(Level.FINE, "Could not send data to rabbit", t);
                 }
-            }
-
-            private void handleRabbitData(String $, Delivery content) {
-                final var body = new String(content.getBody());
-                var data = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
-                        .map(ThrowingFunction.logging(log, $$ -> new ObjectMapper().readValue(body, ctor.getTarget())))
-                        .or(() -> ctor.createInstance(JSON.Parser.parse(body)))
-                        .assertion();
-                publish(data);
             }
 
             public Rabbit rabbit() {

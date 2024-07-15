@@ -26,6 +26,22 @@ public class EnumValueType<T extends Enum<? super T>> extends BoundValueType<T> 
     }
 
     @Override
+    public String getHtmlTagName() {
+        return HtmlSelectDesc.super.getHtmlTagName();
+    }
+
+    @Override
+    public Map<String, String> getHtmlSelectOptions() {
+        return stream().map(Enum::name)
+                .collect(Collectors.toMap(Function.identity(), Function.identity()));
+    }
+
+    @Override
+    public Stream<? extends T> stream() {
+        return Stream.of(targetClass.getEnumConstants());
+    }
+
+    @Override
     public @Nullable Object defaultValue() {
         return Optional.ofNullable(super.defaultValue())
                 .orElseGet(() -> targetClass.getEnumConstants()[0]);
@@ -41,21 +57,5 @@ public class EnumValueType<T extends Enum<? super T>> extends BoundValueType<T> 
                         .flatMap(fld -> Stream.ofNullable(ReflectionHelper.<T>forceGetField(null, fld)))
                         .findAny())
                 .orElse(null);
-    }
-
-    @Override
-    public Stream<? extends T> stream() {
-        return Stream.of(targetClass.getEnumConstants());
-    }
-
-    @Override
-    public String getHtmlTagName() {
-        return HtmlSelectDesc.super.getHtmlTagName();
-    }
-
-    @Override
-    public Map<String, String> getHtmlSelectOptions() {
-        return stream().map(Enum::name)
-                .collect(Collectors.toMap(Function.identity(), Function.identity()));
     }
 }

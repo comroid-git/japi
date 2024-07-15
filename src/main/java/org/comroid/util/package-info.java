@@ -1,1 +1,2 @@
-@Deprecated package org.comroid.util;
+@Deprecated
+package org.comroid.util;

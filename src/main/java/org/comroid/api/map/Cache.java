@@ -31,21 +31,15 @@ import static org.comroid.api.Polyfill.*;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
-    Map<K, Reference<V>> map = new ConcurrentHashMap<>();
+    Map<K, Reference<V>>    map = new ConcurrentHashMap<>();
     ReferenceQueue<@Nullable V> queue = new ReferenceQueue<>();
     Function<@NotNull V, K> keyFunction;
     @Nullable
     @lombok.Builder.Default
-    BiConsumer<K, @Nullable V> deleteCallback = null;
+    BiConsumer<K, @Nullable V>                     deleteCallback = null;
     @lombok.Builder.Default
-    BiFunction<V, ReferenceQueue<V>, Reference<V>> referenceCtor = WeakReference::new;
+    BiFunction<V, ReferenceQueue<V>, Reference<V>> referenceCtor  = WeakReference::new;
     Function<K, Optional<V>> refresh;
-
-    @Override
-    public boolean containsKey(Object key0) {
-        K key = uncheckedCast(key0);
-        return map.get(key).get() != null;
-    }
 
     @Override
     public int size() {
@@ -56,8 +50,14 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
     }
 
     @Override
-    public @Nullable V get(Object key0) {
+    public boolean containsKey(Object key0) {
         K key = uncheckedCast(key0);
+        return map.get(key).get() != null;
+    }
+
+    @Override
+    public @Nullable V get(Object key0) {
+        K   key = uncheckedCast(key0);
         var ref = map.get(key);
         var value = ref.get();
         if (value == null) {
@@ -72,27 +72,9 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
         return value;
     }
 
-    public V push(V value) {
-        var key = keyFunction.apply(value);
-        var ref = map.get(key);
-        var prev = ref.get();
-        if (prev != null)
-            ref.enqueue();
-        return prev;
-    }
-
     @Override
     public @Nullable V put(K key, V value) {
         return super.put(key, value);
-    }
-
-    @NotNull
-    @Override
-    public Set<Entry<K, @NotNull V>> entrySet() {
-        return map.entrySet().stream()
-                .map(Streams.Multi.mapB(Reference::get))
-                .flatMap(Streams.Multi.filterB(Objects::nonNull))
-                .collect(Collectors.toUnmodifiableSet());
     }
 
     @Override
@@ -134,5 +116,23 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
         ).toArray();
         for (Object key : keys)
             deleteCallback.accept(uncheckedCast(key), remove(key));
+    }
+
+    @NotNull
+    @Override
+    public Set<Entry<K, @NotNull V>> entrySet() {
+        return map.entrySet().stream()
+                .map(Streams.Multi.mapB(Reference::get))
+                .flatMap(Streams.Multi.filterB(Objects::nonNull))
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    public V push(V value) {
+        var key  = keyFunction.apply(value);
+        var ref  = map.get(key);
+        var prev = ref.get();
+        if (prev != null)
+            ref.enqueue();
+        return prev;
     }
 }

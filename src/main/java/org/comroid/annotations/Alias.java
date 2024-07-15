@@ -8,5 +8,5 @@ import java.lang.annotation.RetentionPolicy;
 @Retention(RetentionPolicy.RUNTIME)
 @Inherit(Inherit.Type.FromSupertype)
 public @interface Alias {
-    String[] value() default {};
+    String[] value() default { };
 }

@@ -5,11 +5,26 @@ import java.util.function.BiPredicate;
 
 @Deprecated
 public class AssertionException extends RuntimeException {
-    public AssertionException() {
+    public static <X, Y> boolean expect(X expected, Y actual) throws AssertionException {
+        return expect(expected, actual, "");
     }
 
-    public AssertionException(String message) {
-        super(message);
+    public static <X, Y> boolean expect(X expected, Y actual, String detail) throws AssertionException {
+        return expect(expected, actual, Objects::equals, detail);
+    }
+
+    public static <X, Y> boolean expect(X expected, Y actual, BiPredicate<X, Y> condition, String detail) throws AssertionException {
+        if (!condition.test(expected, actual))
+            throw new AssertionException(expected, actual, detail);
+
+        return true;
+    }
+
+    public static <X, Y> boolean expect(X expected, Y actual, BiPredicate<X, Y> condition) throws AssertionException {
+        return expect(expected, actual, condition, "");
+    }
+
+    public AssertionException() {
     }
 
     public AssertionException(Throwable cause) {
@@ -24,22 +39,7 @@ public class AssertionException extends RuntimeException {
         this(String.format("Invalid data: expected %s%s, found %s", detail.isEmpty() ? "" : (detail + " == "), expected, actual));
     }
 
-    public static <X, Y> boolean expect(X expected, Y actual) throws AssertionException {
-        return expect(expected, actual, "");
-    }
-
-    public static <X, Y> boolean expect(X expected, Y actual, String detail) throws AssertionException {
-        return expect(expected, actual, Objects::equals, detail);
-    }
-
-    public static <X, Y> boolean expect(X expected, Y actual, BiPredicate<X, Y> condition) throws AssertionException {
-        return expect(expected, actual, condition, "");
-    }
-
-    public static <X, Y> boolean expect(X expected, Y actual, BiPredicate<X, Y> condition, String detail) throws AssertionException {
-        if (!condition.test(expected, actual))
-            throw new AssertionException(expected, actual, detail);
-
-        return true;
+    public AssertionException(String message) {
+        super(message);
     }
 }

@@ -13,23 +13,110 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Spliterator;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static java.util.stream.IntStream.range;
-import static org.comroid.api.func.util.Streams.intString;
+import static java.util.stream.IntStream.*;
+import static org.comroid.api.func.util.Streams.*;
 
 @Log
 @UtilityClass
 public class Constraint {
+    public API anyOf(Object actual, String nameof, Object... expected) {
+        return new API(() -> Arrays.asList(expected).contains(actual))
+                .setConstraint("anyOf")
+                .setTypeof(actual.getClass())
+                .setNameof(nameof)
+                .setActual(actual)
+                .setShouldBe("any of " + expected.getClass().getSimpleName())
+                .setExpected(expected);
+    }
+
+    public API equals(Object actual, Object expected, String nameof) {
+        return new API(() -> Objects.equals(actual, expected))
+                .setConstraint("equals")
+                .setTypeof(actual.getClass())
+                .setNameof(nameof)
+                .setActual(actual)
+                .setShouldBe("equal to " + expected.getClass().getSimpleName())
+                .setExpected(expected);
+    }
+
+    @Contract("false, _ -> fail")
+    public API decide(boolean pass, String nameof) {
+        return decide(pass)
+                .setConstraint("check")
+                .setNameof(nameof)
+                .setShouldBe("is")
+                .setExpected("true");
+    }
+
+    @Contract("false -> fail")
+    private API decide(boolean pass) {
+        return pass ? pass() : fail();
+    }
+
+    @Contract("-> new")
+    public API pass() {
+        return new API(() -> true);
+    }
+
+    @Contract("-> fail")
+    public API fail() {
+        return new API(() -> false);
+    }
+
+    @Contract("null, _ -> new; _, _ -> fail")
+    public API isNull(Object it, String nameof) {
+        return new API(() -> it == null)
+                .setConstraint("isNull")
+                .setNameof(nameof)
+                .setShouldBe("is");
+    }
+
+    @Contract("null, _ -> fail")
+    public API notNull(Object it, String nameof) {
+        return new API(() -> it != null)
+                .setConstraint("notNull")
+                .setNameof(nameof)
+                .setShouldBe("not");
+    }
+
+    public API combine(API... apis) {
+        Length.min(1, apis, "apis").run();
+        if (apis.length == 1) return apis[0];
+        var base = apis[0];
+        for (var i = 1; i < apis.length; i++) {
+            if (API.DefaultHandler.equals(base.handler) && !API.DefaultHandler.equals(apis[i].handler))
+                base.handler = apis[i].handler;
+            if (API.DefaultConstraint.equals(base.constraint) && !API.DefaultConstraint.equals(apis[i].constraint))
+                base.constraint = apis[i].constraint;
+            if (API.DefaultTypeof.equals(base.typeof) && !API.DefaultTypeof.equals(apis[i].typeof))
+                base.typeof = apis[i].typeof;
+            if (API.DefaultNameof.equals(base.nameof) && !API.DefaultNameof.equals(apis[i].nameof))
+                base.nameof = apis[i].nameof;
+            if (API.DefaultActual.equals(base.actual) && !API.DefaultActual.equals(apis[i].actual))
+                base.actual = apis[i].actual;
+            if (API.DefaultShouldBe.equals(base.shouldBe) && !API.DefaultShouldBe.equals(apis[i].shouldBe))
+                base.shouldBe = apis[i].shouldBe;
+            if (API.DefaultExpected.equals(base.expected) && !API.DefaultExpected.equals(apis[i].expected))
+                base.expected = apis[i].expected;
+        }
+        return base;
+    }
+
     @UtilityClass
     public class Type {
         public API anyOf(Object it, String nameof, Class<?>... types) {
             final var tt = it instanceof Class<?>;
             return decide(Arrays.stream(types)
-                    .anyMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
+                                  .anyMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
                     .setConstraint("Type comparison")
                     .setTypeof(it.getClass())
                     .setNameof(nameof)
@@ -40,7 +127,7 @@ public class Constraint {
         public API noneOf(Object it, String nameof, Class<?>... types) {
             final var tt = it instanceof Class<?>;
             return decide(Arrays.stream(types)
-                    .noneMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
+                                  .noneMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
                     .setConstraint("Type comparison")
                     .setTypeof(it.getClass())
                     .setNameof(nameof)
@@ -53,7 +140,7 @@ public class Constraint {
     public class Range {
         public API inside(double xIncl, double yIncl, double actual, String nameof) {
             return combine(Length.min(xIncl, actual, nameof + " range lower end"),
-                    Length.max(yIncl, actual, nameof + " range upper end"))
+                           Length.max(yIncl, actual, nameof + " range upper end"))
                     .setNameof("range (%f..%f)".formatted(xIncl, yIncl));
         }
     }
@@ -99,120 +186,52 @@ public class Constraint {
         }
     }
 
-    public API anyOf(Object actual, String nameof, Object... expected) {
-        return new API(() -> Arrays.asList(expected).contains(actual))
-                .setConstraint("anyOf")
-                .setTypeof(actual.getClass())
-                .setNameof(nameof)
-                .setActual(actual)
-                .setShouldBe("any of " + expected.getClass().getSimpleName())
-                .setExpected(expected);
-    }
+    @Data
+    @StandardException
+    public final class UnmetError extends IllegalArgumentException {
+        private boolean resolved = false;
 
-    public API equals(Object actual, Object expected, String nameof) {
-        return new API(() -> Objects.equals(actual, expected))
-                .setConstraint("equals")
-                .setTypeof(actual.getClass())
-                .setNameof(nameof)
-                .setActual(actual)
-                .setShouldBe("equal to " + expected.getClass().getSimpleName())
-                .setExpected(expected);
-    }
-
-    @Contract("false, _ -> fail")
-    public API decide(boolean pass, String nameof) {
-        return decide(pass)
-                .setConstraint("check")
-                .setNameof(nameof)
-                .setShouldBe("is")
-                .setExpected("true");
-    }
-
-    @Contract("null, _ -> new; _, _ -> fail")
-    public API isNull(Object it, String nameof) {
-        return new API(() -> it == null)
-                .setConstraint("isNull")
-                .setNameof(nameof)
-                .setShouldBe("is");
-    }
-
-    @Contract("null, _ -> fail")
-    public API notNull(Object it, String nameof) {
-        return new API(() -> it != null)
-                .setConstraint("notNull")
-                .setNameof(nameof)
-                .setShouldBe("not");
-    }
-
-    @Contract("false -> fail")
-    private API decide(boolean pass) {
-        return pass ? pass() : fail();
-    }
-
-    public API combine(API... apis) {
-        Length.min(1, apis, "apis").run();
-        if (apis.length == 1) return apis[0];
-        var base = apis[0];
-        for (var i = 1; i < apis.length; i++) {
-            if (API.DefaultHandler.equals(base.handler) && !API.DefaultHandler.equals(apis[i].handler))
-                base.handler = apis[i].handler;
-            if (API.DefaultConstraint.equals(base.constraint) && !API.DefaultConstraint.equals(apis[i].constraint))
-                base.constraint = apis[i].constraint;
-            if (API.DefaultTypeof.equals(base.typeof) && !API.DefaultTypeof.equals(apis[i].typeof))
-                base.typeof = apis[i].typeof;
-            if (API.DefaultNameof.equals(base.nameof) && !API.DefaultNameof.equals(apis[i].nameof))
-                base.nameof = apis[i].nameof;
-            if (API.DefaultActual.equals(base.actual) && !API.DefaultActual.equals(apis[i].actual))
-                base.actual = apis[i].actual;
-            if (API.DefaultShouldBe.equals(base.shouldBe) && !API.DefaultShouldBe.equals(apis[i].shouldBe))
-                base.shouldBe = apis[i].shouldBe;
-            if (API.DefaultExpected.equals(base.expected) && !API.DefaultExpected.equals(apis[i].expected))
-                base.expected = apis[i].expected;
+        public void cancel() {
+            resolved = true;
         }
-        return base;
-    }
 
-    @Contract("-> new")
-    public API pass() {
-        return new API(() -> true);
-    }
-
-    @Contract("-> fail")
-    public API fail() {
-        return new API(() -> false);
+        @Override
+        public String toString() {
+            return getMessage();
+        }
     }
 
     @Data
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static final class API {
-        public static final Function<UnmetError, @Nullable Object> ThrowingHandler = e -> {
+        public static final Function<UnmetError, @Nullable Object> ThrowingHandler     = e -> {
             throw e;
         };
-        public static final Function<UnmetError, @Nullable Object> LoggingHandler = e -> {
+        public static final Function<UnmetError, @Nullable Object> LoggingHandler      = e -> {
             log.warning(StackTraceUtils.toString(e));
             return null;
         };
-        public static Function<UnmetError, @Nullable Object> DefaultHandler = ThrowingHandler;
-        public static String DefaultConstraint = "<unnamed>";
-        public static Class<?> DefaultTypeof = Void.class;
-        public static String DefaultNameof = "<unnamed>";
-        public static String DefaultCallLocation = intString(range(0, " in call to ".length()).map($ -> '\b'));
-        public static Object DefaultActual = "\b";
-        public static String DefaultShouldBe = intString(range(0, "; should be ".length()).map($ -> '\b'));
-        public static Object DefaultExpected = "\b";
-        public static String DefaultHint = "\b";
+        public static       Function<UnmetError, @Nullable Object> DefaultHandler      = ThrowingHandler;
+        public static       String                                 DefaultConstraint   = "<unnamed>";
+        public static       Class<?>                               DefaultTypeof       = Void.class;
+        public static       String                                 DefaultNameof       = "<unnamed>";
+        public static       String                                 DefaultCallLocation = intString(range(0, " in call to ".length()).map($ -> '\b'));
+        public static       Object                                 DefaultActual       = "\b";
+        public static       String                                 DefaultShouldBe     = intString(range(0, "; should be ".length()).map($ -> '\b'));
+        public static       Object                                 DefaultExpected     = "\b";
+        public static       String                                 DefaultHint         = "\b";
 
-        @NotNull BooleanSupplier test;
-        @NotNull Function<UnmetError, @Nullable Object> handler = DefaultHandler;
-        @NotNull String constraint = DefaultConstraint;
-        @NotNull Class<?> typeof = DefaultTypeof;
-        @NotNull String nameof = DefaultNameof;
-        @NotNull String callLocation = DefaultCallLocation;
-        @NotNull Object actual = DefaultActual;
-        @NotNull String shouldBe = DefaultShouldBe;
-        @NotNull Object expected = DefaultExpected;
-        @NotNull String hint = DefaultHint;
-        @Nullable String messageOverride = null;
+        @NotNull  BooleanSupplier                        test;
+        @NotNull  Function<UnmetError, @Nullable Object> handler         = DefaultHandler;
+        @NotNull  String                                 constraint      = DefaultConstraint;
+        @NotNull  Class<?>                               typeof          = DefaultTypeof;
+        @NotNull  String                                 nameof          = DefaultNameof;
+        @NotNull  String                                 callLocation    = DefaultCallLocation;
+        @NotNull  Object                                 actual          = DefaultActual;
+        @NotNull  String                                 shouldBe        = DefaultShouldBe;
+        @NotNull  Object                                 expected        = DefaultExpected;
+        @NotNull  String                                 hint            = DefaultHint;
+        @Nullable String                                 messageOverride = null;
 
         @Contract(mutates = "this")
         public API invert() {
@@ -220,6 +239,14 @@ public class Constraint {
             test = () -> !wrap.getAsBoolean();
             shouldBe = DefaultShouldBe + "; should not be ";
             return this;
+        }
+
+        public void run() {
+            handle().get();
+        }
+
+        public Wrap<Object> handle() {
+            return handle(Object::new, $ -> null);
         }
 
         public <T> Wrap<T> handle(@NotNull Supplier<T> success, @Nullable Function<UnmetError, @Nullable T> failure) {
@@ -241,19 +268,6 @@ public class Constraint {
             };
         }
 
-        public Wrap<Object> handle() {
-            return handle(Object::new, $ -> null);
-        }
-
-        public void run() {
-            handle().get();
-        }
-
-        @Override
-        public String toString() {
-            return err(constraint, typeof.getSimpleName(), nameof, callLocation, actual, shouldBe, expected, hint);
-        }
-
         private String err(
                 String constraint,
                 String typeof,
@@ -269,20 +283,10 @@ public class Constraint {
             return "Unmet %s constraint for argument %s %s in call to %s;\n%s should be %s %s\n%s"
                     .formatted(constraint, typeof, nameof, callLocation, actual, shouldBeVerb, expected, hint);
         }
-    }
-
-    @Data
-    @StandardException
-    public final class UnmetError extends IllegalArgumentException {
-        private boolean resolved = false;
-
-        public void cancel() {
-            resolved = true;
-        }
 
         @Override
         public String toString() {
-            return getMessage();
+            return err(constraint, typeof.getSimpleName(), nameof, callLocation, actual, shouldBe, expected, hint);
         }
     }
 }

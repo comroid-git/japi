@@ -17,13 +17,19 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 
-import static org.comroid.api.Polyfill.uncheckedCast;
-import static org.comroid.api.java.StackTraceUtils.callerClass;
+import static org.comroid.api.Polyfill.*;
+import static org.comroid.api.java.StackTraceUtils.*;
 
 /**
  * Structure that allows passing many system-wide values using a single parameter,
@@ -45,17 +51,6 @@ import static org.comroid.api.java.StackTraceUtils.callerClass;
 @Experimental
 @MustExtend(Context.Base.class)
 public interface Context extends Named, Convertible, LoggerCarrier {
-    @Internal
-    default @Nullable Context getParentContext() {
-        return null;
-    }
-
-    @Internal
-    @NonExtendable
-    default boolean isRoot() {
-        return getParentContext() == null;
-    }
-
     static Context root() {
         return Base.ROOT;
     }
@@ -67,33 +62,9 @@ public interface Context extends Named, Convertible, LoggerCarrier {
     static <T> Wrap<T> wrap(Class<T> type) {
         return root().getFromContext(type);
     }
-    static <T> Stream<? extends T> stream(Class<T> type) {return root().streamContextMembers(true, type);}
 
-    @NonExtendable
-    default <T> Wrap<T> getFromContext(final Class<T> type, boolean includeChildren) {
-        return () -> streamContextMembers(includeChildren, type)
-                .filter(type::isInstance)
-                .findFirst()
-                .map(type::cast)
-                .orElse(null);
-    }
-
-    default Stream<Object> streamContextMembers(boolean includeChildren) {
-        return uncheckedCast(streamContextMembers(includeChildren, Object.class));
-    }
-
-    default <T> Stream<? extends T> streamContextMembers(boolean includeChildren, Class<T> type) {
-        return root().streamContextMembers(includeChildren, type);
-    }
-
-    default <T> Serializer<T> findSerializer(@Nullable CharSequence mimetype) {
-        return streamContextMembers(true)
-                .filter(Serializer.class::isInstance)
-                .map(Serializer.class::cast)
-                .filter(seri -> mimetype == null || seri.getMimeType().equals(mimetype.toString()))
-                .findFirst()
-                .map(Polyfill::<Serializer<T>>uncheckedCast)
-                .orElseThrow(() -> new NoSuchElementException(String.format("No Serializer with Mime Type %s was found in %s", mimetype, this)));
+    static <T> Stream<? extends T> stream(Class<T> type) {
+        return root().streamContextMembers(true, type);
     }
 
     /**
@@ -159,8 +130,51 @@ public interface Context extends Named, Convertible, LoggerCarrier {
         return "Context<" + subStr + ">";
     }
 
-    @Deprecated(forRemoval = true) static <T> @Nullable T getFromRoot(Class<T> type) {return get(type);}
-    @Deprecated(forRemoval = true) static <T> T getFromRoot(Class<T> type, Supplier<? extends T> elseGet) {return wrap(type).orElseGet(elseGet);}
+    @Deprecated(forRemoval = true) static <T> @Nullable T getFromRoot(Class<T> type) {
+        return get(type);
+    }
+
+    @Deprecated(forRemoval = true) static <T> T getFromRoot(Class<T> type, Supplier<? extends T> elseGet) {
+        return wrap(type).orElseGet(elseGet);
+    }
+
+    @Internal
+    @NonExtendable
+    default boolean isRoot() {
+        return getParentContext() == null;
+    }
+
+    @Internal
+    default @Nullable Context getParentContext() {
+        return null;
+    }
+
+    @NonExtendable
+    default <T> Wrap<T> getFromContext(final Class<T> type, boolean includeChildren) {
+        return () -> streamContextMembers(includeChildren, type)
+                .filter(type::isInstance)
+                .findFirst()
+                .map(type::cast)
+                .orElse(null);
+    }
+
+    default Stream<Object> streamContextMembers(boolean includeChildren) {
+        return uncheckedCast(streamContextMembers(includeChildren, Object.class));
+    }
+
+    default <T> Stream<? extends T> streamContextMembers(boolean includeChildren, Class<T> type) {
+        return root().streamContextMembers(includeChildren, type);
+    }
+
+    default <T> Serializer<T> findSerializer(@Nullable CharSequence mimetype) {
+        return streamContextMembers(true)
+                .filter(Serializer.class::isInstance)
+                .map(Serializer.class::cast)
+                .filter(seri -> mimetype == null || seri.getMimeType().equals(mimetype.toString()))
+                .findFirst()
+                .map(Polyfill::<Serializer<T>>uncheckedCast)
+                .orElseThrow(() -> new NoSuchElementException(String.format("No Serializer with Mime Type %s was found in %s", mimetype, this)));
+    }
 
     @Deprecated(forRemoval = true)
     default Stream<Object> streamContextMembers() {
@@ -248,12 +262,12 @@ public interface Context extends Named, Convertible, LoggerCarrier {
     @Experimental
     @Deprecated(forRemoval = true) // idek what this was used for lol
     interface Member<T> extends Context {
-        T getFromContext();
-
         @Override
         default String getName() {
             return wrapContextStr(getFromContext().getClass().getSimpleName());
         }
+
+        T getFromContext();
 
         @Override
         default Stream<Object> streamContextMembers(boolean includeChildren) {
@@ -282,8 +296,8 @@ public interface Context extends Named, Convertible, LoggerCarrier {
                     int c = 0;
                     Object[] values = new Object[props.size()];
                     for (Map.Entry<Object, Object> entry : props.entrySet()) {
-                        final int fc = c;
-                        Class<?> targetClass = Class.forName(String.valueOf(entry.getValue()));
+                        final int fc          = c;
+                        Class<?>  targetClass = Class.forName(String.valueOf(entry.getValue()));
                         createInstance(targetClass).ifPresent(it -> values[fc] = it);
                         c++;
                     }
@@ -299,18 +313,8 @@ public interface Context extends Named, Convertible, LoggerCarrier {
 
         protected final Set<Context> children;
         private final Set<Object> myMembers;
-        private final Context parent;
-        private final String name;
-
-        @Override
-        public final @Nullable Context getParentContext() {
-            return parent;
-        }
-
-        @Override
-        public String getName() {
-            return wrapContextStr(name);
-        }
+        private final Context     parent;
+        private final String      name;
 
         protected Base(Object... initialMembers) {
             this(ROOT, initialMembers);
@@ -320,29 +324,25 @@ public interface Context extends Named, Convertible, LoggerCarrier {
             this(parent, callerClass(1).getSimpleName(), initialMembers);
         }
 
-        protected Base(String name, Object... initialMembers) {
-            this(ROOT, name, initialMembers);
-        }
-
         protected Base(Context parent, String name, Object... initialMembers) {
             this.myMembers = new HashSet<>();
             this.children = new HashSet<>();
-            this.parent = name.equals("ROOT") && callerClass(1).equals(Context.Base.class)
-                    ? parent
-                    : Objects.requireNonNull(parent);
-            this.name = name;
+            this.parent   = name.equals("ROOT") && callerClass(1).equals(Context.Base.class)
+                            ? parent
+                            : Objects.requireNonNull(parent);
+            this.name     = name;
             if (!isRoot())
                 parent.addToContext(this);
             addToContext(initialMembers);
         }
 
-        private static Wrap<?> createInstance(Class<?> targetClass) {
-            return ReflectionHelper.obtainInstance(targetClass);
+        protected Base(String name, Object... initialMembers) {
+            this(ROOT, name, initialMembers);
         }
 
         @Override
-        public String toString() {
-            return getName();
+        public final @Nullable Context getParentContext() {
+            return parent;
         }
 
         @SneakyThrows
@@ -357,14 +357,14 @@ public interface Context extends Named, Convertible, LoggerCarrier {
             Stream<Object> stream2 = Stream.concat(
                     myMembers.stream(),
                     includeChildren
-                            ? children.stream().flatMap(sub -> sub.streamContextMembers(includeChildren))
-                            : Stream.empty()
+                    ? children.stream().flatMap(sub -> sub.streamContextMembers(includeChildren))
+                    : Stream.empty()
             );
 
             // stream beans if we are in a spring environment
             // needs to call 'new org.springframework.context.support.StaticApplicationContext().getBeansOfType(type)'
-            Stream<Object> stream3 = Wrap.ofSupplier(ThrowingSupplier.fallback(()->Class
-                    .forName("org.springframework.context.support.StaticApplicationContext")))
+            Stream<Object> stream3 = Wrap.ofSupplier(ThrowingSupplier.fallback(() -> Class
+                            .forName("org.springframework.context.support.StaticApplicationContext")))
                     .stream()
                     .map(ReflectionHelper::obtainInstance)
                     .flatMap(Wrap::stream)
@@ -378,6 +378,20 @@ public interface Context extends Named, Convertible, LoggerCarrier {
                     .filter(type::isInstance)
                     .map(type::cast)
                     .distinct();
+        }
+
+        @Override
+        public String toString() {
+            return getName();
+        }
+
+        @Override
+        public String getName() {
+            return wrapContextStr(name);
+        }
+
+        private static Wrap<?> createInstance(Class<?> targetClass) {
+            return ReflectionHelper.obtainInstance(targetClass);
         }
     }
 }

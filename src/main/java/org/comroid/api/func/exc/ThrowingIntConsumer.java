@@ -5,8 +5,6 @@ import lombok.SneakyThrows;
 import java.util.function.IntConsumer;
 
 public interface ThrowingIntConsumer<T extends Throwable> {
-    void accept(int value) throws T;
-
     static IntConsumer sneaky(final ThrowingIntConsumer<?> consumer) {
         return x -> handleSneaky(consumer, x);
     }
@@ -15,4 +13,6 @@ public interface ThrowingIntConsumer<T extends Throwable> {
     private static void handleSneaky(ThrowingIntConsumer<?> consumer, int x) {
         consumer.accept(x);
     }
+
+    void accept(int value) throws T;
 }

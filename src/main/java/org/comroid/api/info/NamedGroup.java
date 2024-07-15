@@ -19,15 +19,15 @@ public interface NamedGroup extends Named, LongAttribute {
         private static final class Of extends Base implements NamedGroup {
             private final long value;
 
-            @Override
-            public @NotNull Long getValue() {
-                return value;
-            }
-
             private Of(String name, long value) {
                 super(name);
 
                 this.value = value;
+            }
+
+            @Override
+            public @NotNull Long getValue() {
+                return value;
             }
         }
     }

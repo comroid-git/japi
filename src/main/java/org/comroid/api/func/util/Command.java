@@ -1,6 +1,13 @@
 package org.comroid.api.func.util;
 
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.Singular;
+import lombok.ToString;
+import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.experimental.SuperBuilder;
@@ -31,7 +38,12 @@ import org.comroid.annotations.Doc;
 import org.comroid.annotations.Instance;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.Polyfill;
-import org.comroid.api.attr.*;
+import org.comroid.api.attr.Aliased;
+import org.comroid.api.attr.Described;
+import org.comroid.api.attr.IntegerAttribute;
+import org.comroid.api.attr.LongAttribute;
+import org.comroid.api.attr.Named;
+import org.comroid.api.attr.StringAttribute;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.type.ArrayValueType;
 import org.comroid.api.data.seri.type.BoundValueType;
@@ -63,7 +75,17 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
@@ -71,17 +93,17 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.util.Collections.unmodifiableList;
-import static java.util.function.Function.identity;
-import static java.util.function.Predicate.not;
+import static java.util.Collections.*;
+import static java.util.function.Function.*;
+import static java.util.function.Predicate.*;
 import static java.util.stream.Stream.of;
 import static java.util.stream.Stream.*;
-import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.get;
+import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.*;
 import static org.comroid.api.func.util.Streams.*;
 
 @SuppressWarnings("unused")
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.METHOD, ElementType.TYPE})
+@Target({ ElementType.METHOD, ElementType.TYPE })
 public @interface Command {
     String EmptyAttribute = "@@@";
 
@@ -95,33 +117,32 @@ public @interface Command {
 
     boolean ephemeral() default false;
 
-    @Target(ElementType.PARAMETER)
-    @Retention(RetentionPolicy.RUNTIME)
-    @interface Arg {
-        String value() default EmptyAttribute;
-
-        int index() default -1;
-
-        String[] autoFill() default {};
-
-        Class<? extends AutoFillProvider>[] autoFillProvider() default {};
-
-        boolean required() default true;
-
-        StringMode stringMode() default StringMode.NORMAL;
-    }
-
     enum Capability {
         NAMED_ARGS;
 
         @FunctionalInterface
         public interface Provider {
-            Set<Capability> getCapabilities();
-
             default boolean hasCapability(Capability capability) {
                 return getCapabilities().stream().anyMatch(capability::equals);
             }
+
+            Set<Capability> getCapabilities();
         }
+    }
+
+    @Target(ElementType.PARAMETER)
+    @Retention(RetentionPolicy.RUNTIME) @interface Arg {
+        String value() default EmptyAttribute;
+
+        int index() default -1;
+
+        String[] autoFill() default { };
+
+        Class<? extends AutoFillProvider>[] autoFillProvider() default { };
+
+        boolean required() default true;
+
+        StringMode stringMode() default StringMode.NORMAL;
     }
 
     @FunctionalInterface
@@ -140,9 +161,9 @@ public @interface Command {
                         .flatMap(Streams.cast(UUID.class))
                         .findAny().orElseThrow();
                 return key instanceof Integer level
-                        ? adapter.checkOpLevel(userId, level)
-                        : adapter.checkPermission(userId, key.toString(), false)
-                        .toBooleanOrElse(false);
+                       ? adapter.checkOpLevel(userId, level)
+                       : adapter.checkPermission(userId, key.toString(), false)
+                               .toBooleanOrElse(false);
             };
         }
 
@@ -150,17 +171,17 @@ public @interface Command {
             return new Error("You dont have permission to do this " + (detail == null ? "\b" : detail));
         }
 
-        default Optional<Object> getPermissionKey(Usage usage) {
-            return Optional.of(usage.getNode().getAttribute().permission())
-                    .filter(Predicate.<String>not(Command.EmptyAttribute::equals)
-                            .and(not(String::isBlank)))
-                    .map(StandardValueType::findGoodType);
-        }
-
         default boolean userHasPermission(Usage usage) {
             return getPermissionKey(usage)
                     .filter(key -> userHasPermission(usage, key))
                     .isPresent();
+        }
+
+        default Optional<Object> getPermissionKey(Usage usage) {
+            return Optional.of(usage.getNode().getAttribute().permission())
+                    .filter(Predicate.<String>not(Command.EmptyAttribute::equals)
+                                    .and(not(String::isBlank)))
+                    .map(StandardValueType::findGoodType);
         }
 
         boolean userHasPermission(Usage usage, Object key);
@@ -170,7 +191,7 @@ public @interface Command {
                 return checkOpLevel(playerId, 1);
             }
 
-            boolean checkOpLevel(UUID playerId, @MagicConstant(intValues = {0, 1, 2, 3, 4}) int minimum);
+            boolean checkOpLevel(UUID playerId, @MagicConstant(intValues = { 0, 1, 2, 3, 4 }) int minimum);
 
             TriState checkPermission(UUID playerId, String key, boolean explicit);
         }
@@ -227,6 +248,10 @@ public @interface Command {
 
     @FunctionalInterface
     interface Handler {
+        default Capitalization getDesiredKeyCapitalization() {
+            return Capitalization.lower_case;
+        }
+
         void handleResponse(Usage command, @NotNull Object response, Object... args);
 
         default String handleThrowable(Throwable throwable) {
@@ -234,15 +259,15 @@ public @interface Command {
                 throwable = throwable.getCause();
             var msg = "%s: %s".formatted(
                     throwable instanceof Error
-                            ? throwable.getClass().getSimpleName()
-                            : StackTraceUtils.lessSimpleName(throwable.getClass()),
+                    ? throwable.getClass().getSimpleName()
+                    : StackTraceUtils.lessSimpleName(throwable.getClass()),
                     throwable.getMessage() == null
-                            ? throwable.getCause() == null
-                            ? "Internal Error"
-                            : throwable.getCause() instanceof Error
-                            ? throwable.getCause().getMessage()
-                            : throwable.getCause().getClass().getSimpleName() + ": " + throwable.getCause().getMessage()
-                            : throwable.getMessage());
+                    ? throwable.getCause() == null
+                      ? "Internal Error"
+                      : throwable.getCause() instanceof Error
+                        ? throwable.getCause().getMessage()
+                        : throwable.getCause().getClass().getSimpleName() + ": " + throwable.getCause().getMessage()
+                    : throwable.getMessage());
             if (throwable instanceof Error)
                 return msg;
             var buf = new StringWriter();
@@ -255,16 +280,12 @@ public @interface Command {
                     break;
                 cause = c;
             } while (cause instanceof InvocationTargetException
-                     || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
+                    || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
             StackTraceUtils.wrap(cause, out, true);
             var str = buf.toString();
             if (str.length() > 1950)
                 str = str.substring(0, 1950);
             return str;
-        }
-
-        default Capitalization getDesiredKeyCapitalization() {
-            return Capitalization.lower_case;
         }
 
         interface Minecraft extends Handler {
@@ -289,13 +310,13 @@ public @interface Command {
         @Singular("context")
         Set<Object> context;
         @NotNull
-        Handler source;
+        Handler     source;
         @lombok.Builder.Default
         Node.Callable baseNode = null;
         @NonFinal
         Node.Callable node;
         @NonFinal
-        int callIndex;
+        int         callIndex;
 
         public void advanceFull() {
             // reset if necessary
@@ -322,7 +343,7 @@ public @interface Command {
 
     @Value
     @NonFinal
-    @ToString(of = {"id"})
+    @ToString(of = { "id" })
     class Manager extends Container.Base implements Info, PermissionChecker {
         public static final Handler DefaultHandler = (command, x, args) -> System.out.println(x);
         UUID id = UUID.randomUUID();
@@ -395,9 +416,14 @@ public @interface Command {
             streamChildren(Adapter.class).forEach(Adapter::initialize);
         }
 
-        @Override
-        public final Stream<Object> expandContext(Object... baseContext) {
-            return streamChildren(ContextProvider.class).flatMap(multiply(provider -> provider.expandContext(baseContext)));
+        public final Stream<AutoFillOption> autoComplete(
+                Handler source,
+                @Doc("Do not include currentValue") String[] fullCommand,
+                String argName,
+                @Nullable String currentValue
+        ) {
+            var usage = createUsageBase(source, fullCommand);
+            return autoComplete(usage, argName, currentValue);
         }
 
         protected final Usage createUsageBase(Handler source, String[] fullCommand, Object... baseArgs) {
@@ -410,34 +436,15 @@ public @interface Command {
                     .manager(this)
                     .fullCommand(fullCommand)
                     .context(expandContext(concat(Stream.of(this, source), Arrays.stream(baseArgs)).toArray())
-                            .collect(Collectors.toSet()))
+                                     .collect(Collectors.toSet()))
                     .baseNode(baseNode)
                     .node(baseNode)
                     .build();
         }
 
         @Override
-        public final boolean userHasPermission(Usage usage, Object key) {
-            return streamChildren(PermissionChecker.class)
-                    .findFirst()
-                    .filter(pc -> pc.userHasPermission(usage))
-                    .isPresent();
-        }
-
-        private void verifyPermission(Usage usage) {
-            var opt = getPermissionKey(usage);
-            if (opt.isEmpty()) return;
-            var key = opt.get();
-            if (!userHasPermission(usage, key))
-                throw PermissionChecker.insufficientPermissions("(missing permission: '%s')".formatted(key));
-        }
-
-        public final Stream<AutoFillOption> autoComplete(Handler source,
-                                                         @Doc("Do not include currentValue") String[] fullCommand,
-                                                         String argName,
-                                                         @Nullable String currentValue) {
-            var usage = createUsageBase(source, fullCommand);
-            return autoComplete(usage, argName, currentValue);
+        public final Stream<Object> expandContext(Object... baseContext) {
+            return streamChildren(ContextProvider.class).flatMap(multiply(provider -> provider.expandContext(baseContext)));
         }
 
         public final Stream<AutoFillOption> autoComplete(Usage usage, String argName, @Nullable String currentValue) {
@@ -447,9 +454,9 @@ public @interface Command {
 
                 return (usage.node instanceof Node.Call call
                         ? call.nodes()
-                        .skip(usage.callIndex + usage.fullCommand.length - 2)
-                        .limit(1)
-                        .flatMap(param -> param.autoFill(usage, argName, currentValue))
+                                .skip(usage.callIndex + usage.fullCommand.length - 2)
+                                .limit(1)
+                                .flatMap(param -> param.autoFill(usage, argName, currentValue))
                         : usage.node.nodes().map(Node::getName))
                         .map(String::trim)
                         .distinct()
@@ -467,10 +474,28 @@ public @interface Command {
             }
         }
 
-        public final @Nullable Object execute(Handler source,
-                                              String[] fullCommand,
-                                              @Nullable Map<String, Object> namedArgs,
-                                              Object... extraArgs) {
+        private void verifyPermission(Usage usage) {
+            var opt = getPermissionKey(usage);
+            if (opt.isEmpty()) return;
+            var key = opt.get();
+            if (!userHasPermission(usage, key))
+                throw PermissionChecker.insufficientPermissions("(missing permission: '%s')".formatted(key));
+        }
+
+        @Override
+        public final boolean userHasPermission(Usage usage, Object key) {
+            return streamChildren(PermissionChecker.class)
+                    .findFirst()
+                    .filter(pc -> pc.userHasPermission(usage))
+                    .isPresent();
+        }
+
+        public final @Nullable Object execute(
+                Handler source,
+                String[] fullCommand,
+                @Nullable Map<String, Object> namedArgs,
+                Object... extraArgs
+        ) {
             var usage = createUsageBase(source, fullCommand, extraArgs);
             return execute(usage, namedArgs);
         }
@@ -492,13 +517,13 @@ public @interface Command {
                 // sort arguments
                 if (usage.callIndex < 0 || usage.callIndex >= usage.fullCommand.length)
                     throw new Error("No such command: " + String.join(" ", usage.fullCommand));
-                var parameterTypes = call.callable.parameterTypesOrdered();
-                Object[] useArgs = new Object[parameterTypes.length];
-                var useNamedArgs = hasCapability(Capability.NAMED_ARGS);
-                var argIndex = usage.callIndex + 1;
+                var      parameterTypes = call.callable.parameterTypesOrdered();
+                Object[] useArgs        = new Object[parameterTypes.length];
+                var      useNamedArgs   = hasCapability(Capability.NAMED_ARGS);
+                var      argIndex       = usage.callIndex + 1;
                 for (int i = 0; i < useArgs.length; i++) {
-                    final int i0 = i;
-                    var parameterType = parameterTypes[i];
+                    final int i0            = i;
+                    var       parameterType = parameterTypes[i];
                     var parameter = Stream.of(call.callable.accessor())
                             .flatMap(cast(Method.class))
                             .map(mtd -> mtd.getParameters()[i0])
@@ -575,16 +600,6 @@ public @interface Command {
             return streamChildren(Adapter.class).findAny();
         }
 
-        @Override
-        public boolean equals(Object obj) {
-            return obj instanceof Manager && obj.hashCode() == hashCode();
-        }
-
-        @Override
-        public final int hashCode() {
-            return id.hashCode();
-        }
-
         private void registerGroups(@Nullable Object target, Collection<? super Node.Group> nodes, Class<?> source) {
             for (var groupNodeSource : source.getClasses()) {
                 if (!groupNodeSource.isAnnotationPresent(Command.class))
@@ -594,37 +609,17 @@ public @interface Command {
             }
         }
 
-        private void registerCalls(@Nullable Object target, Collection<? super Node.Call> nodes, Class<?> source) {
-            for (var callNodeSource : source.getMethods()) {
-                if (!callNodeSource.isAnnotationPresent(Command.class))
-                    continue;
-                var node = createCallNode(target, callNodeSource);
-                nodes.add(node);
-            }
-        }
-
-        private void registerParameters(Collection<? super Node.Parameter> nodes, Method source) {
-            var index = 0;
-            for (var paramNodeSource : source.getParameters()) {
-                if (!paramNodeSource.isAnnotationPresent(Arg.class))
-                    continue;
-                var node = createParameterNode(index, source, paramNodeSource);
-                nodes.add(node);
-                index += 1;
-            }
-        }
-
         private Node.Parameter createParameterNode(int index, Method origin, Parameter source) {
             var attribute = Annotations.findAnnotations(Arg.class, source)
                     .findFirst().orElseThrow().getAnnotation();
             // construct parameter node
             var builder = Node.Parameter.builder()
                     .name(Optional.ofNullable(attribute.value())
-                            .filter(not(EmptyAttribute::equals))
-                            .or(() -> Optional.ofNullable(source.getName())
-                                    .filter(name -> !name.matches("arg\\d+")))
-                            .or(() -> Aliased.$(source).findFirst())
-                            .orElse(String.valueOf(index)))
+                                  .filter(not(EmptyAttribute::equals))
+                                  .or(() -> Optional.ofNullable(source.getName())
+                                          .filter(name -> !name.matches("arg\\d+")))
+                                  .or(() -> Aliased.$(source).findFirst())
+                                  .orElse(String.valueOf(index)))
                     .attribute(attribute)
                     .param(source)
                     .required(attribute.required())
@@ -647,30 +642,37 @@ public @interface Command {
             return builder.build();
         }
 
-        public static abstract class Adapter implements Info, Handler {
-            @Override
-            public void initialize() {
-            }
-
-            @Override
-            public Stream<Object> expandContext(Object... context) {
-                return Stream.of(context);
-            }
-
-            protected String[] strings(String label, String[] args) {
-                var strings = new String[args.length + 1];
-                strings[0] = label;
-                System.arraycopy(args, 0, strings, 1, args.length);
-                return strings;
+        private void registerCalls(@Nullable Object target, Collection<? super Node.Call> nodes, Class<?> source) {
+            for (var callNodeSource : source.getMethods()) {
+                if (!callNodeSource.isAnnotationPresent(Command.class))
+                    continue;
+                var node = createCallNode(target, callNodeSource);
+                nodes.add(node);
             }
         }
+
+        private void registerParameters(Collection<? super Node.Parameter> nodes, Method source) {
+            var index = 0;
+            for (var paramNodeSource : source.getParameters()) {
+                if (!paramNodeSource.isAnnotationPresent(Arg.class))
+                    continue;
+                var node = createParameterNode(index, source, paramNodeSource);
+                nodes.add(node);
+                index += 1;
+            }
+        }        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof Manager && obj.hashCode() == hashCode();
+        }
+
+
 
         @Value
         @RequiredArgsConstructor
         public class Adapter$JDA extends Adapter {
-            Set<Capability> capabilities = Set.of(Capability.NAMED_ARGS);
-            JDA jda;
-            Event.Bus<GenericEvent> bus = new Event.Bus<>();
+            Set<Capability>         capabilities = Set.of(Capability.NAMED_ARGS);
+            JDA                     jda;
+            Event.Bus<GenericEvent> bus          = new Event.Bus<>();
             @Nullable
             @NonFinal
             @Setter
@@ -694,22 +696,22 @@ public @interface Command {
                 });
                 bus.flatMap(SlashCommandInteractionEvent.class).listen()
                         .subscribeData(event -> execute(Adapter$JDA.this,
-                                event.getCommandString().split(" "),
-                                Map.of(),
-                                event.getName(),
-                                event,
-                                event.getUser(),
-                                event.getGuild(),
-                                event.getChannel()));
+                                                        event.getCommandString().split(" "),
+                                                        Map.of(),
+                                                        event.getName(),
+                                                        event,
+                                                        event.getUser(),
+                                                        event.getGuild(),
+                                                        event.getChannel()));
                 bus.flatMap(CommandAutoCompleteInteractionEvent.class).listen()
                         .subscribeData(event -> {
                             var option = event.getFocusedOption();
                             event.replyChoices(autoComplete(Adapter$JDA.this,
-                                            event.getCommandString().split(" "),
-                                            option.getName(),
-                                            option.getValue())
-                                            .map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key, e.description))
-                                            .toList())
+                                                            event.getCommandString().split(" "),
+                                                            option.getName(),
+                                                            option.getValue())
+                                                       .map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key, e.description))
+                                                       .toList())
                                     .queue();
                         });
 
@@ -905,14 +907,14 @@ public @interface Command {
                     }
                 };
 
-                ValueType<?> valueType;
-                OptionType optionType;
-
                 public static Wrap<IOptionAdapter> of(final Class<?> type) {
                     return Wrap.of(Arrays.stream(values())
-                            .filter(adp -> adp.valueType.getTargetClass().isAssignableFrom(type))
-                            .findAny());
+                                           .filter(adp -> adp.valueType.getTargetClass().isAssignableFrom(type))
+                                           .findAny());
                 }
+
+                ValueType<?> valueType;
+                OptionType   optionType;
 
                 protected <T> Wrap<T> attribute(Object obj) {
                     return Wrap.empty();
@@ -964,19 +966,12 @@ public @interface Command {
             }
 
             @Override
-            public Stream<Object> expandContext(Object... context) {
-                return super.expandContext(context).flatMap(expand(it -> {
-                    if (it instanceof Player player)
-                        return Stream.of(player.getUniqueId());
-                    return empty();
-                }));
-            }
-
-            @Override
-            public List<String> onTabComplete(@NotNull CommandSender sender,
-                                              @NotNull org.bukkit.command.Command command,
-                                              @NotNull String alias,
-                                              @NotNull String[] args) {
+            public List<String> onTabComplete(
+                    @NotNull CommandSender sender,
+                    @NotNull org.bukkit.command.Command command,
+                    @NotNull String alias,
+                    @NotNull String[] args
+            ) {
                 if (alias.contains(":"))
                     alias = alias.substring(alias.indexOf(':') + 1);
                 var strings = strings(alias, args);
@@ -987,10 +982,21 @@ public @interface Command {
             }
 
             @Override
-            public boolean onCommand(@NotNull CommandSender sender,
-                                     @NotNull org.bukkit.command.Command command,
-                                     @NotNull String label,
-                                     @NotNull String[] args) {
+            public Stream<Object> expandContext(Object... context) {
+                return super.expandContext(context).flatMap(expand(it -> {
+                    if (it instanceof Player player)
+                        return Stream.of(player.getUniqueId());
+                    return empty();
+                }));
+            }
+
+            @Override
+            public boolean onCommand(
+                    @NotNull CommandSender sender,
+                    @NotNull org.bukkit.command.Command command,
+                    @NotNull String label,
+                    @NotNull String[] args
+            ) {
                 if (label.contains(":"))
                     label = label.substring(label.indexOf(':') + 1);
                 var strings = strings(label, args);
@@ -1013,6 +1019,33 @@ public @interface Command {
                 else sender.sendMessage(String.valueOf(response));
             }
         }
+
+        @Override
+        public final int hashCode() {
+            return id.hashCode();
+        }
+
+        public static abstract class Adapter implements Info, Handler {
+            @Override
+            public void initialize() {
+            }
+
+            @Override
+            public Stream<Object> expandContext(Object... context) {
+                return Stream.of(context);
+            }
+
+            protected String[] strings(String label, String[] args) {
+                var strings = new String[args.length + 1];
+                strings[0] = label;
+                System.arraycopy(args, 0, strings, 1, args.length);
+                return strings;
+            }
+        }
+
+
+
+
     }
 
     @Data
@@ -1034,20 +1067,20 @@ public @interface Command {
             @NotNull
             Command attribute;
 
-            public abstract Stream<? extends Node> nodes();
-
             public @NotNull String getName() {
                 return EmptyAttribute.equals(attribute.value())
-                        ? Optional.of(super.getName())
-                        .or(() -> Optional.ofNullable(getAlternateName()))
-                        .orElseThrow(() -> new NullPointerException("No name defined for command " + this))
-                        : attribute.value();
+                       ? Optional.of(super.getName())
+                               .or(() -> Optional.ofNullable(getAlternateName()))
+                               .orElseThrow(() -> new NullPointerException("No name defined for command " + this))
+                       : attribute.value();
             }
 
             @Override
             public String getAlternateName() {
                 return null; // stub to prevent recursion loop
             }
+
+            public abstract Stream<? extends Node> nodes();
         }
 
         @Value
@@ -1055,14 +1088,14 @@ public @interface Command {
         public static class Group extends Callable {
             @NotNull
             @AnnotatedTarget
-            Class<?> source;
+            Class<?>   source;
             @Singular
             List<Group> groups;
             @Singular
             List<Call> calls;
             @Nullable
             @lombok.Builder.Default
-            Call defaultCall = null;
+            Call       defaultCall = null;
 
             @Override
             public Stream<Callable> nodes() {
@@ -1081,9 +1114,9 @@ public @interface Command {
         @SuperBuilder
         public static class Call extends Callable {
             @Nullable
-            Object target;
+            Object       target;
             @NotNull
-            Method method;
+            Method       method;
             @NotNull
             Invocable<?> callable;
             @Singular
@@ -1142,16 +1175,8 @@ public @interface Command {
             this(message, null);
         }
 
-        public Error(Object response) {
-            this(response, null);
-        }
-
         public Error(String message, @Nullable Throwable cause) {
             this(message, cause, null);
-        }
-
-        public Error(Object response, @Nullable Throwable cause) {
-            this(null, cause, response);
         }
 
         public Error(@Nullable String message, @Nullable Throwable cause, @Nullable Object response) {
@@ -1163,6 +1188,14 @@ public @interface Command {
             super(message, cause);
             this.response = response;
             this.command = command;
+        }
+
+        public Error(Object response) {
+            this(response, null);
+        }
+
+        public Error(Object response, @Nullable Throwable cause) {
+            this(null, cause, response);
         }
     }
 }

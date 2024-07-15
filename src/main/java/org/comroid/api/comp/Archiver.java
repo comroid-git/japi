@@ -1,8 +1,11 @@
 package org.comroid.api.comp;
 
-import lombok.*;
-import org.comroid.api.func.util.DelegateStream;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Singular;
+import lombok.SneakyThrows;
 import org.comroid.api.attr.Named;
+import org.comroid.api.func.util.DelegateStream;
 import org.comroid.api.func.util.OnDemand;
 import org.comroid.api.info.Log;
 import org.comroid.util.PathUtil;
@@ -13,7 +16,13 @@ import org.jetbrains.annotations.Nullable;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.stream.Stream;
@@ -71,10 +80,10 @@ public enum Archiver implements Named {
                     throw new UnsupportedOperationException("bsdtar is a fucking piece of shit");
                 }
 
-
                 private static Stream<Map.Entry<String, File>> walkDirectory(File directory) {
                     return walkDirectory(directory, directory);
                 }
+
                 private static Stream<Map.Entry<String, File>> walkDirectory(File directory, File rootDirectory) {
                     File[] files = directory.listFiles();
                     if (files == null)
@@ -111,7 +120,7 @@ public enum Archiver implements Named {
 
             @SneakyThrows
             private static Variant detect(File exec) {
-                var execute = Runtime.getRuntime().exec(new String[]{exec.getAbsolutePath(), "--version"});
+                var execute = Runtime.getRuntime().exec(new String[]{ exec.getAbsolutePath(), "--version" });
                 try (var execOutput = new BufferedReader(new InputStreamReader(execute.getInputStream()))) {
                     var info = execOutput.readLine();
                     for (var variant : values())
@@ -134,7 +143,7 @@ public enum Archiver implements Named {
     }
 
     public final CompletableFuture<File> execPath = new CompletableFuture<>();
-    public final String fileExtension;
+    public final String  fileExtension;
     public final boolean readOnly;
 
     Archiver(String exec, String fileExtension, boolean readOnly) {
@@ -175,7 +184,7 @@ public enum Archiver implements Named {
         //var output = String.join(" ", cmd);
         var io = DelegateStream.IO.execute(cmd.toArray(String[]::new));
         //if (Debug.isDebug())
-            io.redirectToSystem();
+        io.redirectToSystem();
         return io.onClose().thenApply($ -> new File(outputPath));
     }
 
