@@ -112,8 +112,8 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
 
     @SneakyThrows
     static void tryTransfer(InputStream in, OutputStream out) {
-        try (var _in = in; var _out = out) {
-            _in.transferTo(_out);
+        try (var is = in; var os = out) {
+            is.transferTo(os);
         }
     }
 

@@ -44,8 +44,8 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
     Function<K, Optional<V>> refresh;
 
     @Override
-    public boolean containsKey(Object _key) {
-        K key = uncheckedCast(_key);
+    public boolean containsKey(Object key0) {
+        K key = uncheckedCast(key0);
         return map.get(key).get() != null;
     }
 
@@ -58,8 +58,8 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
     }
 
     @Override
-    public @Nullable V get(Object _key) {
-        K key = uncheckedCast(_key);
+    public @Nullable V get(Object key0) {
+        K key = uncheckedCast(key0);
         var ref = map.get(key);
         var value = ref.get();
         if (value == null) {

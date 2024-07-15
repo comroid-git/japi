@@ -39,9 +39,9 @@ public class Rabbit {
 
     public static Wrap<Rabbit> of(@Nullable String uri) {
         if (uri == null) return Wrap.empty();
-        final var _uri = Polyfill.uri(uri);
+        final var uri0 = Polyfill.uri(uri);
         return SoftDepend.type("com.rabbitmq.client.Connection")
-                .map($ -> $cache.computeIfAbsent(_uri, Rabbit::new));
+                .map($ -> $cache.computeIfAbsent(uri0, Rabbit::new));
     }
 
     URI uri;

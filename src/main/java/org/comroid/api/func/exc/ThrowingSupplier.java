@@ -53,12 +53,12 @@ public interface ThrowingSupplier<T, E extends Throwable> {
         return wrap(null);
     }
 
-    default Supplier<T> wrap(final @Nullable Function<E, ? extends RuntimeException> _remapper) {
+    default Supplier<T> wrap(final @Nullable Function<E, ? extends RuntimeException> $remapper) {
         return () -> {
             try {
                 return get();
             } catch (Throwable e) {
-                var remapper = _remapper;
+                var remapper = $remapper;
                 if (remapper == null)
                     remapper = RuntimeException::new;
                 throw remapper.apply(Polyfill.uncheckedCast(e));
