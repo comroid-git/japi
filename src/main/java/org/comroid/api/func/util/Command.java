@@ -12,7 +12,6 @@ import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.experimental.SuperBuilder;
-import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
@@ -286,16 +285,16 @@ public @interface Command {
                             .map(TriState::byBoolean);
                 }
             },
-            Fabric(32, SoftDepend.type("me.lucko.fabric.api.permissions.v0.Permissions"), MinecraftModEnvironment.Fabric) {
-                @Override
-                public Optional<TriState> getPermissionState(Usage usage, UUID userId, String key) {
-                    return Optional.of(switch (Permissions.getPermissionValue(userId, key).join()) {
-                        case FALSE -> TriState.FALSE;
-                        case DEFAULT -> TriState.NOT_SET;
-                        case TRUE -> TriState.TRUE;
-                    });
-                }
-            },
+//            Fabric(32, SoftDepend.type("me.lucko.fabric.api.permissions.v0.Permissions"), MinecraftModEnvironment.Fabric) {
+//                @Override
+//                public Optional<TriState> getPermissionState(Usage usage, UUID userId, String key) {
+//                    return Optional.of(switch (Permissions.getPermissionValue(userId, key).join()) {
+//                        case FALSE -> TriState.FALSE;
+//                        case DEFAULT -> TriState.NOT_SET;
+//                        case TRUE -> TriState.TRUE;
+//                    });
+//                }
+//            },
             LuckPerms(128, SoftDepend.type("net.luckperms.api.LuckPerms"), MinecraftModEnvironment.values()) {
                 @Override
                 public Optional<TriState> getPermissionState(Usage usage, UUID playerId, String key) {
