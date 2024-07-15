@@ -1,18 +1,26 @@
 package org.comroid.api.func.util;
 
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Data;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.Singular;
+import lombok.ToString;
+import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.experimental.SuperBuilder;
-import lombok.experimental.UtilityClass;
+import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.IMentionable;
 import net.dv8tion.jda.api.entities.IPermissionHolder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.attribute.IPermissionContainer;
-import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.channel.unions.GuildChannelUnion;
 import net.dv8tion.jda.api.events.GenericEvent;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
@@ -24,7 +32,6 @@ import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.util.TriState;
-import net.luckperms.api.LuckPerms;
 import net.luckperms.api.node.NodeEqualityPredicate;
 import net.luckperms.api.node.NodeType;
 import net.luckperms.api.node.types.PermissionNode;
@@ -40,18 +47,25 @@ import org.comroid.annotations.Doc;
 import org.comroid.annotations.Instance;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.Polyfill;
-import org.comroid.api.attr.*;
+import org.comroid.api.attr.Aliased;
+import org.comroid.api.attr.Described;
+import org.comroid.api.attr.IntegerAttribute;
+import org.comroid.api.attr.LongAttribute;
+import org.comroid.api.attr.Named;
+import org.comroid.api.attr.StringAttribute;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.type.ArrayValueType;
 import org.comroid.api.data.seri.type.BoundValueType;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.data.seri.type.ValueType;
+import org.comroid.api.env.MinecraftModEnvironment;
 import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.info.Log;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.ReflectionHelper;
+import org.comroid.api.java.SoftDepend;
 import org.comroid.api.java.StackTraceUtils;
 import org.comroid.api.text.Capitalization;
 import org.comroid.api.text.StringMode;
@@ -71,7 +85,18 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.logging.Level;
@@ -81,13 +106,7 @@ import java.util.stream.Stream;
 import static java.util.Collections.unmodifiableList;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
-import static java.util.stream.Stream.concat;
-import static java.util.stream.Stream.empty;
-import static java.util.stream.Stream.of;
 import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.get;
-import static org.comroid.api.func.util.Streams.cast;
-import static org.comroid.api.func.util.Streams.expand;
-import static org.comroid.api.func.util.Streams.multiply;
 
 @SuppressWarnings("unused")
 @Retention(RetentionPolicy.RUNTIME)
@@ -105,6 +124,19 @@ public @interface Command {
 
     boolean ephemeral() default false;
 
+    enum Capability {
+        NAMED_ARGS;
+
+        @FunctionalInterface
+        public interface Provider {
+            Set<Capability> getCapabilities();
+
+            default boolean hasCapability(Capability capability) {
+                return getCapabilities().stream().anyMatch(capability::equals);
+            }
+        }
+    }
+
     @Target(ElementType.PARAMETER)
     @Retention(RetentionPolicy.RUNTIME)
     @interface Arg {
@@ -119,19 +151,6 @@ public @interface Command {
         boolean required() default true;
 
         StringMode stringMode() default StringMode.NORMAL;
-    }
-
-    enum Capability {
-        NAMED_ARGS;
-
-        @FunctionalInterface
-        public interface Provider {
-            Set<Capability> getCapabilities();
-
-            default boolean hasCapability(Capability capability) {
-                return getCapabilities().stream().anyMatch(capability::equals);
-            }
-        }
     }
 
     @FunctionalInterface
@@ -181,7 +200,7 @@ public @interface Command {
             return Capitalization.lower_case;
         }
 
-        interface Minecraft<Player> extends Handler, Permission.Context.Minecraft<Player> {
+        interface Minecraft extends Handler {
             @Override
             default String handleThrowable(Throwable throwable) {
                 return "§c" + Handler.super.handleThrowable(throwable);
@@ -203,11 +222,11 @@ public @interface Command {
                 if (!currentValue.isEmpty()) {
                     var last = chars[chars.length - 1];
                     if (Character.isDigit(last))
-                        return of("m", "h", "d", "w", "mo", "y")
+                        return Stream.of("m", "h", "d", "w", "mo", "y")
                                 .distinct()
                                 .map(suffix -> currentValue + suffix);
                 }
-                return of("5m", "6h", "3d", "2w", "1y");
+                return Stream.of("5m", "6h", "3d", "2w", "1y");
             }
         }
 
@@ -221,7 +240,7 @@ public @interface Command {
 
             @Override
             public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
-                return of(options);
+                return Stream.of(options);
             }
         }
 
@@ -238,33 +257,63 @@ public @interface Command {
         }
     }
 
-    @UtilityClass
-    class Permission {
-        public interface Carrier<PK> { // usage, player ...
-            TriState getPermissionState(PK key);
+    interface PermissionChecker<ID, PK> {
+        default TriState getPermissionState(ID userId, PK key) {
+            return getPermissionState(null, userId, key)
+                    .orElse(TriState.NOT_SET); // todo
         }
 
-        public interface Context<SC, ID, PK> { // adapter, plugin ...
-            TriState getPermissionState(Usage usage, SC scope, ID userId, PK key);
+        Optional<TriState> getPermissionState(Usage usage, ID userId, PK key);
 
-            interface Minecraft<Player> extends Permission.Context<Player, UUID, String> {
+        @Getter
+        @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+        enum Minecraft implements PermissionChecker<UUID, String>, Named {
+            Bukkit(-16, SoftDepend.type("org.bukkit.Bukkit"), MinecraftModEnvironment.Bukkit) {
                 @Override
-                default TriState getPermissionState(Usage usage, Player player, UUID playerId, String key) {
-                    return usage.getContext().stream()
-                            .flatMap(cast(LuckPerms.class))
+                public Optional<TriState> getPermissionState(Usage usage, UUID userId, String key) {
+                    return usage.context(CommandSender.class)
+                            .map(sender -> sender.hasPermission(key)
+                                    ? TriState.TRUE : sender.isPermissionSet(key)
+                                    ? TriState.FALSE : TriState.NOT_SET);
+                }
+            },
+            Vault(64, SoftDepend.type("net.milkbowl.vault.permission.Permission"), MinecraftModEnvironment.Bukkit) {
+                @Override
+                public Optional<TriState> getPermissionState(Usage usage, UUID userId, String key) {
+                    return usage.context(CommandSender.class)
+                            .flatMap(sender -> usage.context(net.milkbowl.vault.permission.Permission.class)
+                                    .map(vault -> vault.has(sender, key)))
+                            .map(TriState::byBoolean);
+                }
+            },
+            Fabric(32, SoftDepend.type("me.lucko.fabric.api.permissions.v0.Permissions"), MinecraftModEnvironment.Fabric) {
+                @Override
+                public Optional<TriState> getPermissionState(Usage usage, UUID userId, String key) {
+                    return Optional.of(switch (Permissions.getPermissionValue(userId, key).join()) {
+                        case FALSE -> TriState.FALSE;
+                        case DEFAULT -> TriState.NOT_SET;
+                        case TRUE -> TriState.TRUE;
+                    });
+                }
+            },
+            LuckPerms(128, SoftDepend.type("net.luckperms.api.LuckPerms"), MinecraftModEnvironment.values()) {
+                @Override
+                public Optional<TriState> getPermissionState(Usage usage, UUID playerId, String key) {
+                    return usage.context(net.luckperms.api.LuckPerms.class).stream()
                             .flatMap(lp -> {
                                 var users = lp.getUserManager();
                                 var user = Optional.ofNullable(users.getUser(playerId))
                                         .orElseGet(users.loadUser(playerId)::join);
+                                //noinspection RedundantTypeArguments
                                 return lp.getContextManager()
                                         .getContext(user).stream()
                                         .map(QueryOptions::contextual)
-                                        .flatMap(query -> Stream.concat(
-                                                        of(lp.getGroupManager().getGroup(user.getPrimaryGroup())),
+                                        .<PermissionNode>flatMap(query -> Stream.concat(
+                                                        Stream.of(lp.getGroupManager().getGroup(user.getPrimaryGroup())),
                                                         user.getInheritedGroups(query).stream())
                                                 .filter(Objects::nonNull)
                                                 .sorted(Comparator.comparingInt(g -> -g.getWeight().orElse(0)))
-                                                .flatMap(expand(g -> g.getInheritedGroups(query).stream()))
+                                                .flatMap(Streams.expand(g -> g.getInheritedGroups(query).stream()))
                                                 .flatMap(g -> g.resolveInheritedNodes(NodeType.PERMISSION, query).stream()));
                             })
                             .filter(not(net.luckperms.api.node.Node::isNegated))
@@ -278,9 +327,33 @@ public @interface Command {
                                 return node.equals(PermissionNode.builder(key).build(), NodeEqualityPredicate.ONLY_KEY);
                             })
                             .map(TriState::byBoolean)
-                            .findAny().orElse(TriState.NOT_SET);
+                            .findFirst();
                 }
+            };
+
+            public static final @Instance PermissionChecker<UUID, String> AUTO = Minecraft::auto;
+            int priority;
+            Wrap<?> dependency;
+            MinecraftModEnvironment[] environment;
+
+            Minecraft(int priority, Wrap<?> dependency, MinecraftModEnvironment... environment) {
+                this.priority = priority;
+                this.dependency = dependency;
+                this.environment = environment;
             }
+
+            public static Optional<TriState> auto(Usage usage, UUID userId, String key) {
+                return Arrays.stream(values())
+                        .sorted(Comparator.comparingInt(Minecraft::getPriority).reversed())
+                        .filter(mc -> Arrays.stream(mc.environment).anyMatch(MinecraftModEnvironment.current::contains))
+                        .filter(mc -> mc.dependency.isNonNull())
+                        .flatMap(mc -> mc.getPermissionState(usage, userId, key).stream())
+                        .filter(not(TriState.NOT_SET::equals))
+                        .findFirst();
+            }
+
+            @Override
+            public abstract Optional<TriState> getPermissionState(Usage usage, UUID userId, String key);
         }
     }
 
@@ -291,7 +364,7 @@ public @interface Command {
     }
 
     @Value
-    @lombok.Builder
+    @Builder
     class Usage {
         Manager manager;
         String[] fullCommand;
@@ -319,13 +392,17 @@ public @interface Command {
                 var text = fullCommand[i];
                 var result = node.nodes()
                         .filter(it -> it.names().anyMatch(text::equals))
-                        .flatMap(cast(Node.Callable.class))
+                        .flatMap(Streams.cast(Node.Callable.class))
                         .findAny();
                 if (result.isEmpty())
                     break;
                 node = result.get();
                 callIndex = i;
             }
+        }
+
+        public <T> Optional<T> context(Class<T> type) {
+            return context.stream().flatMap(Streams.cast(type)).findAny();
         }
     }
 
@@ -406,19 +483,19 @@ public @interface Command {
 
         @Override
         public final Stream<Object> expandContext(Object... baseContext) {
-            return streamChildren(ContextProvider.class).flatMap(multiply(provider -> provider.expandContext(baseContext)));
+            return streamChildren(ContextProvider.class).flatMap(Streams.multiply(provider -> provider.expandContext(baseContext)));
         }
 
         protected final Usage createUsageBase(Handler source, String[] fullCommand, Object... baseArgs) {
             var baseNode = baseNodes.stream() // find base node to initiate advancing to execution node
                     .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
-                    .flatMap(cast(Node.Callable.class))
+                    .flatMap(Streams.cast(Node.Callable.class))
                     .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand)));
             return Usage.builder()
                     .source(source)
                     .manager(this)
                     .fullCommand(fullCommand)
-                    .context(expandContext(concat(Stream.of(this, source), Arrays.stream(baseArgs)).toArray())
+                    .context(expandContext(Stream.concat(Stream.of(this, source), Arrays.stream(baseArgs)).toArray())
                             .collect(Collectors.toSet()))
                     .baseNode(baseNode)
                     .node(baseNode)
@@ -493,7 +570,7 @@ public @interface Command {
                     final int i0 = i;
                     var parameterType = parameterTypes[i];
                     var parameter = Stream.of(call.callable.accessor())
-                            .flatMap(cast(Method.class))
+                            .flatMap(Streams.cast(Method.class))
                             .map(mtd -> mtd.getParameters()[i0])
                             .findAny();
                     var attribute = parameter
@@ -527,7 +604,7 @@ public @interface Command {
                         final var finalParamNode = paramNode;
                         useArgs[i] = Optional.ofNullable(namedArgs.get(paramNode.getName()))
                                 .or(() -> usage.context.stream()
-                                        .flatMap(cast(finalParamNode.param.getType()))
+                                        .flatMap(Streams.cast(finalParamNode.param.getType()))
                                         .findAny())
                                 .or(() -> Optional.ofNullable(finalParamNode.defaultValue())
                                         .map(Polyfill::uncheckedCast))
@@ -632,7 +709,7 @@ public @interface Command {
             // init custom autofill providers
             for (var providerType : attribute.autoFillProvider()) {
                 var provider = ReflectionHelper.instanceField(providerType).stream()
-                        .flatMap(cast(AutoFillProvider.class))
+                        .flatMap(Streams.cast(AutoFillProvider.class))
                         .findAny()
                         .orElseGet(() -> Activator.get(providerType).createInstance(DataNode.Value.NULL));
                 builder.autoFillProvider(provider);
@@ -660,7 +737,7 @@ public @interface Command {
 
         @Value
         @RequiredArgsConstructor
-        public class Adapter$JDA extends Adapter implements Permission.Context<IPermissionContainer, IPermissionHolder, net.dv8tion.jda.api.Permission> {
+        public class Adapter$JDA extends Adapter implements PermissionChecker<IPermissionHolder, Permission> {
             Set<Capability> capabilities = Set.of(Capability.NAMED_ARGS);
             JDA jda;
             Event.Bus<GenericEvent> bus = new Event.Bus<>();
@@ -739,11 +816,11 @@ public @interface Command {
             @Override
             public void handleResponse(Usage cmd, @NotNull Object response, Object... args) {
                 final var e = Stream.of(args)
-                        .flatMap(cast(SlashCommandInteractionEvent.class))
+                        .flatMap(Streams.cast(SlashCommandInteractionEvent.class))
                         .findAny()
                         .orElseThrow();
                 final var user = Stream.of(args)
-                        .flatMap(cast(User.class))
+                        .flatMap(Streams.cast(User.class))
                         .findAny()
                         .orElseThrow();
                 if (response instanceof CompletableFuture)
@@ -772,56 +849,23 @@ public @interface Command {
             }
 
             @Override
-            public TriState getPermissionState(Usage usage,
-                                               IPermissionContainer context,
-                                               IPermissionHolder target,
-                                               net.dv8tion.jda.api.Permission permission) {
-                return Optional.ofNullable(context.getPermissionOverride(target))
-                        .map(override -> {
-                            if (override.getDenied().contains(permission))
-                                return TriState.FALSE;
-                            if (override.getAllowed().contains(permission))
-                                return TriState.TRUE;
-                            return TriState.NOT_SET;
-                        }).or(() -> Stream.of(context)
-                                .flatMap(cast(GuildChannel.class))
-                                .findAny()
-                                .map(target::getPermissions)
-                                .orElseGet(target::getPermissions)
-                                .stream()
+            public Optional<TriState> getPermissionState(Usage usage,
+                                                         IPermissionHolder target,
+                                                         Permission permission) {
+                return usage.context(IPermissionContainer.class)
+                        .flatMap(context -> Optional.ofNullable(context.getPermissionOverride(target))
+                                .map(override -> {
+                                    if (override.getDenied().contains(permission))
+                                        return TriState.FALSE;
+                                    if (override.getAllowed().contains(permission))
+                                        return TriState.TRUE;
+                                    return TriState.NOT_SET;
+                                }))
+                        .or(() -> target.getPermissions().stream()
                                 .map(permission::equals)
                                 .map(TriState::byBoolean)
-                                .findAny())
-                        .orElse(TriState.NOT_SET);
+                                .findAny());
             }
-
-            /*
-            @Override
-            protected Map<String, Object> expandArgs(Delegate cmd, List<String> args, Object[] extraArgs) {
-                var event = Stream.of(extraArgs)
-                        .flatMap(cast(SlashCommandInteractionEvent.class))
-                        .findAny().orElseThrow();
-                var map = new HashMap<String, Object>();
-                event.getOptions().stream()
-                        .flatMap(option -> {
-                            var arg = cmd.args.stream()
-                                    .filter(it -> lower_hyphen_case.convert(it.name).equals(option.getName()))
-                                    .findAny()
-                                    .orElse(null);
-                            if (arg == null)
-                                return Stream.empty();
-                            final var isEnumArg = arg.param.getType().isEnum();
-                            return OptionAdapter.of(arg.param.getType())
-                                    .or(() -> isEnumArg && LongAttribute.class.isAssignableFrom(arg.param.getType()) ? OptionAdapter.Long.new Enum<>(arg.param.getType()) : null)
-                                    .or(() -> isEnumArg && IntegerAttribute.class.isAssignableFrom(arg.param.getType()) ? OptionAdapter.Int.new Enum<>(arg.param.getType()) : null)
-                                    .or(() -> isEnumArg ? OptionAdapter.String.new Enum<>(arg.param.getType()) : null)
-                                    .map(adp -> new AbstractMap.SimpleImmutableEntry<>(arg.name, adp.getFrom(option)))
-                                    .stream();
-                        })
-                        .forEach(e->map.put(e.getKey(),e.getValue()));
-                return map;
-            }
-            */
 
             @Getter
             @RequiredArgsConstructor
@@ -972,7 +1016,7 @@ public @interface Command {
         @Value
         @NonFinal
         @RequiredArgsConstructor
-        public class Adapter$Spigot extends Adapter implements Handler.Minecraft<CommandSender>, TabCompleter, CommandExecutor {
+        public class Adapter$Spigot extends Adapter implements Handler.Minecraft, TabCompleter, CommandExecutor {
             Set<Capability> capabilities = Set.of();
             JavaPlugin plugin;
 
@@ -982,10 +1026,10 @@ public @interface Command {
 
             @Override
             public Stream<Object> expandContext(Object... context) {
-                return super.expandContext(context).flatMap(expand(it -> {
+                return super.expandContext(context).flatMap(Streams.expand(it -> {
                     if (it instanceof Player player)
                         return Stream.of(player.getUniqueId());
-                    return empty();
+                    return Stream.empty();
                 }));
             }
 
@@ -1023,7 +1067,7 @@ public @interface Command {
                     return;
                 }
                 var sender = Arrays.stream(args)
-                        .flatMap(cast(CommandSender.class))
+                        .flatMap(Streams.cast(CommandSender.class))
                         .findAny().orElseThrow();
                 if (response instanceof Component component)
                     sender.spigot().sendMessage(get().serialize(component));
@@ -1041,7 +1085,7 @@ public @interface Command {
 
         @Override
         public Stream<String> aliases() {
-            return Stream.concat(Aliased.super.aliases(), of(getName()));
+            return Stream.concat(Aliased.super.aliases(), Stream.of(getName()));
         }
 
         @Data

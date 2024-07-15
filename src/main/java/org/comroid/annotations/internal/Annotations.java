@@ -7,7 +7,14 @@ import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
-import org.comroid.annotations.*;
+import org.comroid.annotations.Alias;
+import org.comroid.annotations.Category;
+import org.comroid.annotations.Convert;
+import org.comroid.annotations.Default;
+import org.comroid.annotations.Description;
+import org.comroid.annotations.Ignore;
+import org.comroid.annotations.Readonly;
+import org.comroid.annotations.Related;
 import org.comroid.api.Polyfill;
 import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.data.seri.type.StandardValueType;
@@ -24,8 +31,14 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Repeatable;
-import java.lang.reflect.*;
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -39,7 +52,8 @@ import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;
 import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
-import static org.comroid.api.func.util.Streams.*;
+import static org.comroid.api.func.util.Streams.append;
+import static org.comroid.api.func.util.Streams.cast;
 
 @SuppressWarnings({"DuplicatedCode","BooleanMethodIsAlwaysInverted"})
 @Log
@@ -69,7 +83,7 @@ public class Annotations {
 
     public Stream<Result<Description>> description(@NotNull AnnotatedElement of) {
         return findAnnotations(Description.class, of)
-                .sorted(comparatorAdapter(Result::getAnnotation, Description.COMPARATOR));
+                .sorted(Comparator.comparing(Result::getAnnotation, Description.COMPARATOR));
     }
 
     public String descriptionText(@NotNull AnnotatedElement of) {
