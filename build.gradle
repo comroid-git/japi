@@ -86,12 +86,12 @@ task javadocJar(type: Jar) {
 compileJava.options.encoding = 'UTF-8'
 
 repositories {
+    maven { url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
+    maven { url 'https://maven.fabricmc.net' }
+    maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
     mavenLocal()
-    mavenCentral()
     maven { url 'https://www.jitpack.io' }
     mavenCentral()
-    maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
-    maven { url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
 }
 
 dependencies {
@@ -110,10 +110,15 @@ dependencies {
 
     compileOnly 'net.dv8tion:JDA:5.+'
 
-    compileOnly 'org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT'
     compileOnly 'net.kyori:adventure-api:4.11.+'
     compileOnly 'net.kyori:adventure-platform-bungeecord:4.3.3'
+
+    compileOnly 'org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT'
+    compileOnly 'com.github.MilkBowl:VaultAPI:1.7'
     compileOnly "net.luckperms:api:5.4"
+
+    compileOnly 'net.fabricmc.fabric-api:fabric-api-base:0.4.31+1802ada577'
+    compileOnly 'me.lucko:fabric-permissions-api:0.3.1'
 
     // lombok
     api 'org.projectlombok:lombok:1.18.30'
