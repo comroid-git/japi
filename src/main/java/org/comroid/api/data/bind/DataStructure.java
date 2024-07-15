@@ -1,27 +1,50 @@
 package org.comroid.api.data.bind;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
+import lombok.Value;
 import lombok.experimental.FieldDefaults;
-import org.comroid.annotations.*;
+import org.comroid.annotations.Alias;
+import org.comroid.annotations.AnnotatedTarget;
+import org.comroid.annotations.Category;
+import org.comroid.annotations.Ignore;
+import org.comroid.annotations.Order;
 import org.comroid.annotations.internal.Annotations;
-import org.comroid.api.attr.Named;
 import org.comroid.api.Polyfill;
+import org.comroid.api.attr.Named;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.ValuePointer;
+import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.func.util.Invocable;
 import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Constraint;
-import org.comroid.api.func.util.Invocable;
-import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
 import org.comroid.api.text.Capitalization;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.*;
-import java.util.*;
+import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntPredicate;
 import java.util.logging.Level;
@@ -29,8 +52,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.comroid.annotations.internal.Annotations.*;
-import static org.comroid.api.Polyfill.uncheckedCast;
-import static org.comroid.api.java.ReflectionHelper.declaringClass;
+import static org.comroid.api.Polyfill.*;
+import static org.comroid.api.java.ReflectionHelper.*;
 import static org.comroid.api.text.Capitalization.*;
 
 @Value
@@ -81,7 +104,7 @@ public class DataStructure<T> implements Named {
                     = new AbstractMap.SimpleImmutableEntry<>(adapterListEntry.getKey(), Collections.unmodifiableList(list));
             toSort.add(apply);
         }
-        toSort.sort(Streams.comparatorAdapter(Map.Entry::getKey, Category.COMPARATOR));
+        toSort.sort(Map.Entry.comparingByKey(Category.COMPARATOR));
         return Collections.unmodifiableList(toSort);
     }
 
