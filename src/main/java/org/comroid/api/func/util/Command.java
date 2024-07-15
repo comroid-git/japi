@@ -131,7 +131,8 @@ public @interface Command {
     }
 
     @Target(ElementType.PARAMETER)
-    @Retention(RetentionPolicy.RUNTIME) @interface Arg {
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Arg {
         String value() default EmptyAttribute;
 
         int index() default -1;
@@ -180,7 +181,7 @@ public @interface Command {
         default Optional<Object> getPermissionKey(Usage usage) {
             return Optional.of(usage.getNode().getAttribute().permission())
                     .filter(Predicate.<String>not(Command.EmptyAttribute::equals)
-                                    .and(not(String::isBlank)))
+                            .and(not(String::isBlank)))
                     .map(StandardValueType::findGoodType);
         }
 
@@ -436,7 +437,7 @@ public @interface Command {
                     .manager(this)
                     .fullCommand(fullCommand)
                     .context(expandContext(concat(Stream.of(this, source), Arrays.stream(baseArgs)).toArray())
-                                     .collect(Collectors.toSet()))
+                            .collect(Collectors.toSet()))
                     .baseNode(baseNode)
                     .node(baseNode)
                     .build();
@@ -615,11 +616,11 @@ public @interface Command {
             // construct parameter node
             var builder = Node.Parameter.builder()
                     .name(Optional.ofNullable(attribute.value())
-                                  .filter(not(EmptyAttribute::equals))
-                                  .or(() -> Optional.ofNullable(source.getName())
-                                          .filter(name -> !name.matches("arg\\d+")))
-                                  .or(() -> Aliased.$(source).findFirst())
-                                  .orElse(String.valueOf(index)))
+                            .filter(not(EmptyAttribute::equals))
+                            .or(() -> Optional.ofNullable(source.getName())
+                                    .filter(name -> !name.matches("arg\\d+")))
+                            .or(() -> Aliased.$(source).findFirst())
+                            .orElse(String.valueOf(index)))
                     .attribute(attribute)
                     .param(source)
                     .required(attribute.required())
@@ -660,12 +661,7 @@ public @interface Command {
                 nodes.add(node);
                 index += 1;
             }
-        }        @Override
-        public boolean equals(Object obj) {
-            return obj instanceof Manager && obj.hashCode() == hashCode();
         }
-
-
 
         @Value
         @RequiredArgsConstructor
@@ -696,22 +692,22 @@ public @interface Command {
                 });
                 bus.flatMap(SlashCommandInteractionEvent.class).listen()
                         .subscribeData(event -> execute(Adapter$JDA.this,
-                                                        event.getCommandString().split(" "),
-                                                        Map.of(),
-                                                        event.getName(),
-                                                        event,
-                                                        event.getUser(),
-                                                        event.getGuild(),
-                                                        event.getChannel()));
+                                event.getCommandString().split(" "),
+                                Map.of(),
+                                event.getName(),
+                                event,
+                                event.getUser(),
+                                event.getGuild(),
+                                event.getChannel()));
                 bus.flatMap(CommandAutoCompleteInteractionEvent.class).listen()
                         .subscribeData(event -> {
                             var option = event.getFocusedOption();
                             event.replyChoices(autoComplete(Adapter$JDA.this,
-                                                            event.getCommandString().split(" "),
-                                                            option.getName(),
-                                                            option.getValue())
-                                                       .map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key, e.description))
-                                                       .toList())
+                                            event.getCommandString().split(" "),
+                                            option.getName(),
+                                            option.getValue())
+                                            .map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key, e.description))
+                                            .toList())
                                     .queue();
                         });
 
@@ -909,8 +905,8 @@ public @interface Command {
 
                 public static Wrap<IOptionAdapter> of(final Class<?> type) {
                     return Wrap.of(Arrays.stream(values())
-                                           .filter(adp -> adp.valueType.getTargetClass().isAssignableFrom(type))
-                                           .findAny());
+                            .filter(adp -> adp.valueType.getTargetClass().isAssignableFrom(type))
+                            .findAny());
                 }
 
                 ValueType<?> valueType;
@@ -1020,11 +1016,6 @@ public @interface Command {
             }
         }
 
-        @Override
-        public final int hashCode() {
-            return id.hashCode();
-        }
-
         public static abstract class Adapter implements Info, Handler {
             @Override
             public void initialize() {
@@ -1043,9 +1034,15 @@ public @interface Command {
             }
         }
 
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof Manager && obj.hashCode() == hashCode();
+        }
 
-
-
+        @Override
+        public final int hashCode() {
+            return id.hashCode();
+        }
     }
 
     @Data
