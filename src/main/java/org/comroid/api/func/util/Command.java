@@ -4,11 +4,15 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.experimental.SuperBuilder;
+import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.IMentionable;
+import net.dv8tion.jda.api.entities.IPermissionHolder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.channel.attribute.IPermissionContainer;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.channel.unions.GuildChannelUnion;
 import net.dv8tion.jda.api.events.GenericEvent;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
@@ -20,6 +24,11 @@ import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.util.TriState;
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.node.NodeEqualityPredicate;
+import net.luckperms.api.node.NodeType;
+import net.luckperms.api.node.types.PermissionNode;
+import net.luckperms.api.query.QueryOptions;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -49,7 +58,6 @@ import org.comroid.api.text.StringMode;
 import org.comroid.api.tree.Container;
 import org.comroid.api.tree.Initializable;
 import org.intellij.lang.annotations.Language;
-import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,7 +74,6 @@ import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -130,49 +137,52 @@ public @interface Command {
     }
 
     @FunctionalInterface
-    interface PermissionChecker {
-        PermissionChecker ALLOW_ALL = (usage, key) -> true;
-        PermissionChecker DENY_ALL = (usage, key) -> false;
+    interface Handler {
+        void handleResponse(Usage command, @NotNull Object response, Object... args);
 
-        static PermissionChecker minecraft(Adapter adapter) {
-            return (usage, key) -> {
-                var userId = usage.getContext().stream()
-                        .flatMap(Streams.cast(UUID.class))
-                        .findAny().orElseThrow();
-                return key instanceof Integer level
-                        ? adapter.checkOpLevel(userId, level)
-                        : adapter.checkPermission(userId, key.toString(), false)
-                        .toBooleanOrElse(false);
-            };
+        default String handleThrowable(Throwable throwable) {
+            while (throwable instanceof InvocationTargetException itex)
+                throwable = throwable.getCause();
+            var msg = "%s: %s".formatted(
+                    throwable instanceof Error
+                            ? throwable.getClass().getSimpleName()
+                            : StackTraceUtils.lessSimpleName(throwable.getClass()),
+                    throwable.getMessage() == null
+                            ? throwable.getCause() == null
+                            ? "Internal Error"
+                            : throwable.getCause() instanceof Error
+                            ? throwable.getCause().getMessage()
+                            : throwable.getCause().getClass().getSimpleName() + ": " + throwable.getCause().getMessage()
+                            : throwable.getMessage());
+            if (throwable instanceof Error)
+                return msg;
+            var buf = new StringWriter();
+            var out = new PrintStream(new DelegateStream.Output(buf));
+            out.println(msg);
+            Throwable cause = throwable;
+            do {
+                var c = cause.getCause();
+                if (c == null)
+                    break;
+                cause = c;
+            } while (cause instanceof InvocationTargetException
+                     || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
+            StackTraceUtils.wrap(cause, out, true);
+            var str = buf.toString();
+            if (str.length() > 1950)
+                str = str.substring(0, 1950);
+            return str;
         }
 
-        static Error insufficientPermissions(@Nullable String detail) {
-            return new Error("You dont have permission to do this " + (detail == null ? "\b" : detail));
+        default Capitalization getDesiredKeyCapitalization() {
+            return Capitalization.lower_case;
         }
 
-        default Optional<Object> getPermissionKey(Usage usage) {
-            return Optional.of(usage.getNode().getAttribute().permission())
-                    .filter(Predicate.<String>not(Command.EmptyAttribute::equals)
-                            .and(not(String::isBlank)))
-                    .map(StandardValueType::findGoodType);
-        }
-
-        default boolean userHasPermission(Usage usage) {
-            return getPermissionKey(usage)
-                    .filter(key -> userHasPermission(usage, key))
-                    .isPresent();
-        }
-
-        boolean userHasPermission(Usage usage, Object key);
-
-        interface Adapter {
-            default boolean checkOpLevel(UUID playerId) {
-                return checkOpLevel(playerId, 1);
+        interface Minecraft<Player> extends Handler, Permission.Context.Minecraft<Player> {
+            @Override
+            default String handleThrowable(Throwable throwable) {
+                return "§c" + Handler.super.handleThrowable(throwable);
             }
-
-            boolean checkOpLevel(UUID playerId, @MagicConstant(intValues = {0, 1, 2, 3, 4}) int minimum);
-
-            TriState checkPermission(UUID playerId, String key, boolean explicit);
         }
     }
 
@@ -225,52 +235,48 @@ public @interface Command {
         }
     }
 
-    @FunctionalInterface
-    interface Handler {
-        void handleResponse(Usage command, @NotNull Object response, Object... args);
-
-        default String handleThrowable(Throwable throwable) {
-            while (throwable instanceof InvocationTargetException itex)
-                throwable = throwable.getCause();
-            var msg = "%s: %s".formatted(
-                    throwable instanceof Error
-                            ? throwable.getClass().getSimpleName()
-                            : StackTraceUtils.lessSimpleName(throwable.getClass()),
-                    throwable.getMessage() == null
-                            ? throwable.getCause() == null
-                            ? "Internal Error"
-                            : throwable.getCause() instanceof Error
-                            ? throwable.getCause().getMessage()
-                            : throwable.getCause().getClass().getSimpleName() + ": " + throwable.getCause().getMessage()
-                            : throwable.getMessage());
-            if (throwable instanceof Error)
-                return msg;
-            var buf = new StringWriter();
-            var out = new PrintStream(new DelegateStream.Output(buf));
-            out.println(msg);
-            Throwable cause = throwable;
-            do {
-                var c = cause.getCause();
-                if (c == null)
-                    break;
-                cause = c;
-            } while (cause instanceof InvocationTargetException
-                     || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
-            StackTraceUtils.wrap(cause, out, true);
-            var str = buf.toString();
-            if (str.length() > 1950)
-                str = str.substring(0, 1950);
-            return str;
+    @UtilityClass
+    class Permission {
+        public interface Carrier<PK> { // usage, player ...
+            TriState getPermissionState(PK key);
         }
 
-        default Capitalization getDesiredKeyCapitalization() {
-            return Capitalization.lower_case;
-        }
+        public interface Context<SC, ID, PK> { // adapter, plugin ...
+            TriState getPermissionState(Usage usage, SC scope, ID userId, PK key);
 
-        interface Minecraft extends Handler {
-            @Override
-            default String handleThrowable(Throwable throwable) {
-                return "§c" + Handler.super.handleThrowable(throwable);
+            interface Minecraft<Player> extends Permission.Context<Player, UUID, String> {
+                @Override
+                default TriState getPermissionState(Usage usage, Player player, UUID playerId, String key) {
+                    return usage.getContext().stream()
+                            .flatMap(cast(LuckPerms.class))
+                            .flatMap(lp -> {
+                                var users = lp.getUserManager();
+                                var user = Optional.ofNullable(users.getUser(playerId))
+                                        .orElseGet(users.loadUser(playerId)::join);
+                                return lp.getContextManager()
+                                        .getContext(user).stream()
+                                        .map(QueryOptions::contextual)
+                                        .flatMap(query -> Stream.concat(
+                                                        of(lp.getGroupManager().getGroup(user.getPrimaryGroup())),
+                                                        user.getInheritedGroups(query).stream())
+                                                .filter(Objects::nonNull)
+                                                .sorted(Comparator.comparingInt(g -> -g.getWeight().orElse(0)))
+                                                .flatMap(expand(g -> g.getInheritedGroups(query).stream()))
+                                                .flatMap(g -> g.resolveInheritedNodes(NodeType.PERMISSION, query).stream()));
+                            })
+                            .filter(not(net.luckperms.api.node.Node::isNegated))
+                            .filter(not(net.luckperms.api.node.Node::hasExpired))
+                            .map(node -> {
+                                var str = node.getPermission();
+                                if (!node.isWildcard()) {
+                                    str = str.replaceAll("\\*", "");
+                                    return key.startsWith(str) && str.length() == key.lastIndexOf('.');
+                                }
+                                return node.equals(PermissionNode.builder(key).build(), NodeEqualityPredicate.ONLY_KEY);
+                            })
+                            .map(TriState::byBoolean)
+                            .findAny().orElse(TriState.NOT_SET);
+                }
             }
         }
     }
@@ -323,7 +329,7 @@ public @interface Command {
     @Value
     @NonFinal
     @ToString(of = {"id"})
-    class Manager extends Container.Base implements Info, PermissionChecker {
+    class Manager extends Container.Base implements Info {
         public static final Handler DefaultHandler = (command, x, args) -> System.out.println(x);
         UUID id = UUID.randomUUID();
         Set<Node> baseNodes = new HashSet<>();
@@ -416,22 +422,6 @@ public @interface Command {
                     .build();
         }
 
-        @Override
-        public final boolean userHasPermission(Usage usage, Object key) {
-            return streamChildren(PermissionChecker.class)
-                    .findFirst()
-                    .filter(pc -> pc.userHasPermission(usage))
-                    .isPresent();
-        }
-
-        private void verifyPermission(Usage usage) {
-            var opt = getPermissionKey(usage);
-            if (opt.isEmpty()) return;
-            var key = opt.get();
-            if (!userHasPermission(usage, key))
-                throw PermissionChecker.insufficientPermissions("(missing permission: '%s')".formatted(key));
-        }
-
         public final Stream<AutoFillOption> autoComplete(Handler source,
                                                          @Doc("Do not include currentValue") String[] fullCommand,
                                                          String argName,
@@ -443,7 +433,7 @@ public @interface Command {
         public final Stream<AutoFillOption> autoComplete(Usage usage, String argName, @Nullable String currentValue) {
             try {
                 usage.advanceFull();
-                verifyPermission(usage);
+                //todo verifyPermission(usage);
 
                 return (usage.node instanceof Node.Call call
                         ? call.nodes()
@@ -479,7 +469,7 @@ public @interface Command {
             Object result = null, response;
             try {
                 usage.advanceFull();
-                verifyPermission(usage);
+                //todo verifyPermission(usage);
 
                 Node.Call call;
                 if (usage.node instanceof Node.Group group) {
@@ -667,7 +657,7 @@ public @interface Command {
 
         @Value
         @RequiredArgsConstructor
-        public class Adapter$JDA extends Adapter {
+        public class Adapter$JDA extends Adapter implements Permission.Context<IPermissionContainer, IPermissionHolder, net.dv8tion.jda.api.Permission> {
             Set<Capability> capabilities = Set.of(Capability.NAMED_ARGS);
             JDA jda;
             Event.Bus<GenericEvent> bus = new Event.Bus<>();
@@ -776,6 +766,30 @@ public @interface Command {
                     } else req = e.reply(String.valueOf(response));
                     req.setEphemeral(cmd.node.attribute.ephemeral()).submit();
                 }
+            }
+
+            @Override
+            public TriState getPermissionState(Usage usage,
+                                               IPermissionContainer context,
+                                               IPermissionHolder target,
+                                               net.dv8tion.jda.api.Permission permission) {
+                return Optional.ofNullable(context.getPermissionOverride(target))
+                        .map(override -> {
+                            if (override.getDenied().contains(permission))
+                                return TriState.FALSE;
+                            if (override.getAllowed().contains(permission))
+                                return TriState.TRUE;
+                            return TriState.NOT_SET;
+                        }).or(() -> Stream.of(context)
+                                .flatMap(cast(GuildChannel.class))
+                                .findAny()
+                                .map(target::getPermissions)
+                                .orElseGet(target::getPermissions)
+                                .stream()
+                                .map(permission::equals)
+                                .map(TriState::byBoolean)
+                                .findAny())
+                        .orElse(TriState.NOT_SET);
             }
 
             /*
@@ -955,7 +969,7 @@ public @interface Command {
         @Value
         @NonFinal
         @RequiredArgsConstructor
-        public class Adapter$Spigot extends Adapter implements Handler.Minecraft, TabCompleter, CommandExecutor {
+        public class Adapter$Spigot extends Adapter implements Handler.Minecraft<CommandSender>, TabCompleter, CommandExecutor {
             Set<Capability> capabilities = Set.of();
             JavaPlugin plugin;
 

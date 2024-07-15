@@ -113,6 +113,7 @@ dependencies {
     compileOnly 'org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT'
     compileOnly 'net.kyori:adventure-api:4.11.+'
     compileOnly 'net.kyori:adventure-platform-bungeecord:4.3.3'
+    compileOnly "net.luckperms:api:5.4"
 
     // lombok
     api 'org.projectlombok:lombok:1.18.30'
