@@ -8,10 +8,8 @@ import org.comroid.api.func.util.Streams;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
-import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.util.AbstractMap;
 import java.util.Map;
@@ -21,6 +19,7 @@ import java.util.Set;
 import java.util.Spliterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -35,11 +34,13 @@ import static org.comroid.api.func.util.Streams.Multi.mapB;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
     Map<K, Reference<V>> map = new ConcurrentHashMap<>();
-    ReferenceQueue<V> queue = new ReferenceQueue<>();
+    ReferenceQueue<@Nullable V> queue = new ReferenceQueue<>();
     Function<@NotNull V, K> keyFunction;
-    BiConsumer<K, @Nullable V> deleteCallback;
+    @Nullable
     @lombok.Builder.Default
-    Mode<V, Reference<V>> mode = Mode.weak(queue);
+    BiConsumer<K, @Nullable V> deleteCallback = null;
+    @lombok.Builder.Default
+    BiFunction<V, ReferenceQueue<V>, Reference<V>> referenceCtor = WeakReference::new;
     Function<K, Optional<V>> refresh;
 
     @Override
@@ -67,7 +68,7 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
                     .orElse(null));
         }
         if (value != null) {
-            ref = mode.referenceCtor.apply(value);
+            ref = referenceCtor.apply(value, queue);
             map.put(key, ref);
         }
         return value;
@@ -135,23 +136,5 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
         ).toArray();
         for (Object key : keys)
             deleteCallback.accept(uncheckedCast(key), remove(key));
-    }
-
-    @AllArgsConstructor(access = AccessLevel.PRIVATE)
-    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    public static final class Mode<V, R extends Reference<V>> {
-        Function<V, Reference<V>> referenceCtor;
-
-        public static <V> Mode<V, Reference<V>> soft(ReferenceQueue<V> queue) {
-            return new Mode<>(referent -> new SoftReference<>(referent, queue));
-        }
-
-        public static <V> Mode<V, Reference<V>> weak(ReferenceQueue<V> queue) {
-            return new Mode<>(referent -> new WeakReference<>(referent, queue));
-        }
-
-        public static <V> Mode<V, Reference<V>> phantom(ReferenceQueue<V> queue) {
-            return new Mode<>(referent -> new PhantomReference<>(referent, queue));
-        }
     }
 }
