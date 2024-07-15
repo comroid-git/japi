@@ -25,9 +25,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.comroid.api.Polyfill.uncheckedCast;
-import static org.comroid.api.func.util.Streams.Multi.filterB;
-import static org.comroid.api.func.util.Streams.Multi.mapB;
+import static org.comroid.api.Polyfill.*;
 
 @Builder
 @AllArgsConstructor
@@ -92,8 +90,8 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
     @Override
     public Set<Entry<K, @NotNull V>> entrySet() {
         return map.entrySet().stream()
-                .map(mapB(Reference::get))
-                .flatMap(filterB(Objects::nonNull))
+                .map(Streams.Multi.mapB(Reference::get))
+                .flatMap(Streams.Multi.filterB(Objects::nonNull))
                 .collect(Collectors.toUnmodifiableSet());
     }
 
@@ -101,8 +99,8 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
     public void clear() {
         var keys = Stream.concat(
                 map.entrySet().stream()
-                        .map(mapB(Reference::get))
-                        .flatMap(filterB(Objects::isNull))
+                        .map(Streams.Multi.mapB(Reference::get))
+                        .flatMap(Streams.Multi.filterB(Objects::isNull))
                         .map(Entry::getKey),
                 Streams.of(new Spliterator<Reference<? extends V>>() {
                             Reference<? extends V> ref;
