@@ -26,6 +26,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Repeatable;
 import java.lang.reflect.*;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -41,16 +42,16 @@ import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
 import static org.comroid.api.func.util.Streams.*;
 
-@SuppressWarnings({"DuplicatedCode","BooleanMethodIsAlwaysInverted"})
 @Log
 @UtilityClass
 @ApiStatus.Internal
+@SuppressWarnings({"DuplicatedCode","BooleanMethodIsAlwaysInverted"})
 public class Annotations {
     public static final Class<?>[] SystemFilters = new Class<?>[]{Object.class, Class.class, Annotation.class};
 
     @ApiStatus.Experimental
     @Convert(identifyVia = "annotationType")
-    public Constraint.API expect(AnnotatedElement context) {
+    public static Constraint.API expect(AnnotatedElement context) {
         return Constraint.fail();
     }
 
@@ -60,31 +61,31 @@ public class Annotations {
                 .findAny().isPresent();
     }
 
-    public Set<String> aliases(@NotNull AnnotatedElement of) {
+    public static Set<String> aliases(@NotNull AnnotatedElement of) {
         return findAnnotations(Alias.class, of)
                 .filter(alias -> alias.context.getClass().equals(of.getClass()))
                 .flatMap(it -> stream(it.annotation.value()))
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    public Stream<Result<Description>> description(@NotNull AnnotatedElement of) {
+    public static Stream<Result<Description>> description(@NotNull AnnotatedElement of) {
         return findAnnotations(Description.class, of)
-                .sorted(comparatorAdapter(Result::getAnnotation, Description.COMPARATOR));
+                .sorted(Comparator.comparing(Result::getAnnotation, Description.COMPARATOR));
     }
 
-    public String descriptionText(@NotNull AnnotatedElement of) {
+    public static String descriptionText(@NotNull AnnotatedElement of) {
         return toString(description(of)
                 .map(Result::getAnnotation)
                 .toArray(Description[]::new));
     }
 
-    public Wrap<Category.Adapter> category(@NotNull AnnotatedElement of) {
+    public static Wrap<Category.Adapter> category(@NotNull AnnotatedElement of) {
         return Wrap.ofStream(findAnnotations(Category.class, of))
                 .map(Result::getAnnotation)
                 .map(Category.Adapter::wrap);
     }
 
-    public <R> @Nullable R defaultValue(@NotNull AnnotatedElement of) {
+    public static <R> @Nullable R defaultValue(@NotNull AnnotatedElement of) {
         var expr = findAnnotations(Default.class, of)
                 .map(Result::getAnnotation)
                 .map(Default::value)
@@ -92,7 +93,7 @@ public class Annotations {
         try {
             final var silent = new Object() {
                 @SneakyThrows
-                public void throwIfExcPresent(SnippetEvent e) {
+                public static void throwIfExcPresent(SnippetEvent e) {
                     var exc = e.exception();
                     if (exc != null)
                         throw exc;
@@ -101,7 +102,7 @@ public class Annotations {
             try (final var jShell = JShell.create()) {
                 return expr.stream()
                         .flatMap(code -> jShell.eval(code).stream())
-                        .peek(silent::throwIfExcPresent)
+                        .peek(e -> silent.throwIfExcPresent(e))
                         .map(SnippetEvent::value)
                         .filter(Objects::nonNull)
                         .findAny()
@@ -135,11 +136,11 @@ public class Annotations {
                 .flatMap(cast(type));
     }
 
-    public Optional<? extends AnnotatedElement> ignore(@NotNull AnnotatedElement it) {
+    public static Optional<? extends AnnotatedElement> ignore(@NotNull AnnotatedElement it) {
         return ignore(it, null);
     }
 
-    public Optional<? extends AnnotatedElement> ignore(@NotNull AnnotatedElement it, @Nullable Class<?> context) {
+    public static Optional<? extends AnnotatedElement> ignore(@NotNull AnnotatedElement it, @Nullable Class<?> context) {
         var yield = findAnnotations(Ignore.class, it).findFirst();
         if (yield.isEmpty())
             return Optional.empty();
@@ -150,14 +151,14 @@ public class Annotations {
         return stream(types).filter(context::equals).findAny();
     }
 
-    public Stream<? extends Class<?>> related(@NotNull Class<?> it) {
+    public static Stream<? extends Class<?>> related(@NotNull Class<?> it) {
         return findAnnotations(Related.class, it)
                 .map(Result::getAnnotation)
                 .map(Related::value)
                 .flatMap(Stream::of);
     }
 
-    public boolean ignoreInherit(AnnotatedElement target, Class<? extends Annotation> goal) {
+    public static boolean ignoreInherit(AnnotatedElement target, Class<? extends Annotation> goal) {
         if (!(target instanceof Class) && !(target instanceof Member))
             return true;
         Constraint.Type.noneOf(goal, "goal", Ignore.Inherit.class).run();
@@ -171,7 +172,7 @@ public class Annotations {
                 });
     }
 
-    public <A extends Annotation> Stream<Result<A>> findAnnotations(final Class<A> type, final AnnotatedElement target) {
+    public static <A extends Annotation> Stream<Result<A>> findAnnotations(final Class<A> type, final AnnotatedElement target) {
         //Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
 
         // @Ignore should inherit upwards indefinitely on anything but types; unless specified otherwise with @Ignore.Ancestors
@@ -269,7 +270,7 @@ public class Annotations {
     }
 
     @SuppressWarnings("ConstantValue") // false positive
-    public Wrap<AnnotatedElement> findAncestor(AnnotatedElement target, Class<? extends Annotation> goal) {
+    public static Wrap<AnnotatedElement> findAncestor(AnnotatedElement target, Class<? extends Annotation> goal) {
         if (!(target instanceof Class) && !(target instanceof Member))
             return Wrap.empty();
 
@@ -321,7 +322,7 @@ public class Annotations {
                 .collect(Collectors.joining("\n\n"));
     }
 
-    public <T extends Member & AnnotatedElement> String toString(Expect expect, T member) {
+    public static <T extends Member & AnnotatedElement> String toString(Expect expect, T member) {
         return "%s.%s does not return %s for Annotations.%s()".formatted(
                 member.getDeclaringClass().getSimpleName(), member.getName(), expect.value(), expect.onTarget());
     }
