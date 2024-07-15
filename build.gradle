@@ -117,7 +117,7 @@ dependencies {
     compileOnly 'com.github.MilkBowl:VaultAPI:1.7'
     compileOnly "net.luckperms:api:5.4"
 
-    compileOnly 'net.fabricmc.fabric-api:fabric-api-base:0.4.31+1802ada577'
+    compileOnly('net.fabricmc.fabric-api:fabric-api-base:0.4.31+1802ada577') { transitive = false }
     compileOnly 'me.lucko:fabric-permissions-api:0.3.1'
 
     // lombok
