@@ -5,10 +5,8 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.experimental.SuperBuilder;
 import lombok.experimental.UtilityClass;
-import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.IMentionable;
 import net.dv8tion.jda.api.entities.IPermissionHolder;
 import net.dv8tion.jda.api.entities.Message;
@@ -48,7 +46,6 @@ import org.comroid.api.data.seri.type.ArrayValueType;
 import org.comroid.api.data.seri.type.BoundValueType;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.data.seri.type.ValueType;
-import org.comroid.api.env.MinecraftModEnvironment;
 import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Constraint;
@@ -84,11 +81,13 @@ import java.util.stream.Stream;
 import static java.util.Collections.unmodifiableList;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
+import static java.util.stream.Stream.concat;
+import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
-import static java.util.stream.Stream.*;
 import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.get;
-import static org.comroid.api.func.util.Streams.*;
-import static org.comroid.api.java.SoftDepend.type;
+import static org.comroid.api.func.util.Streams.cast;
+import static org.comroid.api.func.util.Streams.expand;
+import static org.comroid.api.func.util.Streams.multiply;
 
 @SuppressWarnings("unused")
 @Retention(RetentionPolicy.RUNTIME)
