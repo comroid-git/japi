@@ -1,22 +1,35 @@
 package org.comroid.api.func.util;
 
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.Singular;
+import lombok.SneakyThrows;
+import lombok.Synchronized;
+import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import org.comroid.annotations.Convert;
-import org.comroid.api.*;
+import org.comroid.api.BackgroundTask;
+import org.comroid.api.Polyfill;
 import org.comroid.api.attr.IntegerAttribute;
 import org.comroid.api.attr.Named;
 import org.comroid.api.func.N;
 import org.comroid.api.func.Provider;
-import org.comroid.api.func.exc.*;
+import org.comroid.api.func.exc.ThrowingConsumer;
+import org.comroid.api.func.exc.ThrowingIntConsumer;
+import org.comroid.api.func.exc.ThrowingIntSupplier;
+import org.comroid.api.func.exc.ThrowingRunnable;
+import org.comroid.api.func.exc.ThrowingToIntFunction;
 import org.comroid.api.func.ext.Convertible;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Log;
+import org.comroid.api.java.StackTraceUtils;
 import org.comroid.api.tree.Container;
 import org.comroid.api.tree.SelfCloseable;
 import org.comroid.api.tree.UncheckedCloseable;
-import org.comroid.api.java.StackTraceUtils;
 import org.comroid.util.StreamUtil;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.ApiStatus;
@@ -26,17 +39,43 @@ import org.jetbrains.annotations.Nullable;
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintStream;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.net.Socket;
 import java.net.http.HttpRequest;
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.IntFunction;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -44,13 +83,14 @@ import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-import static org.comroid.api.func.ext.Wrap.*;
 import static org.comroid.api.func.exc.ThrowingFunction.sneaky;
+import static org.comroid.api.func.ext.Wrap.empty;
+import static org.comroid.api.func.ext.Wrap.ofSupplier;
 import static org.comroid.api.java.StackTraceUtils.caller;
 import static org.comroid.api.java.StackTraceUtils.lessSimpleName;
 
 @ApiStatus.Experimental
-public interface DelegateStream extends Container, Closeable, Named, Convertible {
+public interface DelegateStream extends Container, SelfCloseable, Named, Convertible {
     AutoCloseable getDelegate();
 
     @MagicConstant(flagsFromClass = Capability.class)
@@ -553,6 +593,13 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
         @Override
         @SneakyThrows
+        public void close() {
+            super.close();
+            closeSelf();
+        }
+
+        @Override
+        @SneakyThrows
         public void closeSelf() {
             if (delegate != null)
                 delegate.close();
@@ -911,6 +958,13 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
 
         @Override
         @SneakyThrows
+        public void close() {
+            super.close();
+            closeSelf();
+        }
+
+        @Override
+        @SneakyThrows
         public void closeSelf() {
             if (delegate != null)
                 delegate.close();
@@ -1032,7 +1086,7 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
     @lombok.extern.java.Log
     @Getter
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    class IO implements DelegateStream, N.Consumer.$3<@Nullable Consumer<InputStream>, @Nullable Consumer<OutputStream>, @Nullable Consumer<OutputStream>> {
+    class IO extends Container.Base implements DelegateStream, N.Consumer.$3<@Nullable Consumer<InputStream>, @Nullable Consumer<OutputStream>, @Nullable Consumer<OutputStream>> {
         public static final String EventKey_Input = "stdin";
         public static final String EventKey_Output = "stdout";
         public static final String EventKey_Error = "stderr";
@@ -1077,14 +1131,12 @@ public interface DelegateStream extends Container, Closeable, Named, Convertible
             if (error != null) cap.add(Capability.Error);
             var io = new IO(cap.toArray(Capability[]::new));
             final Executor executor;
-            io.addChildren(executor = Executors.newFixedThreadPool(cap.size()));
+            io.addChildren((executor = Executors.newFixedThreadPool(cap.size())));
             if (output != null) io.addChildren(DelegateStream.redirect(output,io.output, executor));
             if (error != null) io.addChildren(DelegateStream.redirect(error,io.error, executor));
             return io;
         }
 
-        @lombok.experimental.Delegate(excludes = SelfCloseable.class)
-        Container.Delegate<IO> container = new Delegate<>(this);
         long initialCapabilities;
         @NonFinal
         @Setter

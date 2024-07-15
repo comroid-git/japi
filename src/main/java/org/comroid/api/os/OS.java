@@ -1,9 +1,9 @@
 package org.comroid.api.os;
 
 import lombok.SneakyThrows;
+import org.comroid.api.attr.Named;
 import org.comroid.api.func.util.DelegateStream;
 import org.comroid.api.func.util.Event;
-import org.comroid.api.attr.Named;
 import org.comroid.api.info.Log;
 import org.jetbrains.annotations.NotNull;
 
@@ -96,8 +96,8 @@ public enum OS implements Named {
                 .thenApply(str -> str.replaceAll("[\n ]", ""))
                 .thenApply(Long::parseLong);
         var exec = DelegateStream.IO.execute("ps", "-o", "rss=", "-p", String.valueOf(pid))
-                .redirectToEventBus(bus)
-                .addChildren(bus);
+                .redirectToEventBus(bus);
+        exec.addChildren(bus);
         future.thenRun(exec::close);
         return future;
     }
