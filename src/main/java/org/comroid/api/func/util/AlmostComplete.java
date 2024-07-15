@@ -4,7 +4,6 @@ import lombok.Data;
 import lombok.extern.java.Log;
 import org.comroid.api.func.exc.ThrowingConsumer;
 import org.comroid.api.func.exc.ThrowingSupplier;
-import org.comroid.api.info.Constraint;
 import org.comroid.api.java.StackTraceUtils;
 import org.comroid.exception.RethrownException;
 import org.jetbrains.annotations.NotNull;
@@ -40,9 +39,6 @@ public class AlmostComplete<T> extends Almost<T, T> {
         } catch (Throwable t) {
             if (exceptionHandler != null)
                 it = exceptionHandler.apply(t);
-
-            // counter cannot be >2 because 3 = success
-            Constraint.Range.inside(0, 2, c, "stage counter").run();
 
             var stage = switch (c) {
                 case 0 -> "initialization";
