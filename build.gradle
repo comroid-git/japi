@@ -39,10 +39,6 @@ apply from: 'gradle/vars.gradle'
 sourceCompatibility = 17
 targetCompatibility = 17
 
-jar {
-    dependsOn test
-}
-
 configurations {
     compileClasspath {
         resolutionStrategy.activateDependencyLocking()

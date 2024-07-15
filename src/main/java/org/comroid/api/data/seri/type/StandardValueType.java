@@ -23,30 +23,26 @@ import java.util.function.Supplier;
 @ToString(of = "name")
 @EqualsAndHashCode(of = "targetClass")
 public class StandardValueType<R> implements ValueType<R>, HtmlInputDesc {
-    public static final  StandardValueType<Boolean>   BOOLEAN   = new StandardValueType<>(Boolean.class, boolean.class, "boolean", () -> false,
-                                                                                          Boolean::parseBoolean, "checkbox");
-    public static final  StandardValueType<Byte>      BYTE      = new StandardValueType<>(Byte.class, byte.class, "byte", () -> (byte) 0, Byte::parseByte,
-                                                                                          "number", "min='" + Byte.MIN_VALUE + "'",
-                                                                                          "max='" + Byte.MAX_VALUE + "'");
-    public static final  StandardValueType<Character> CHARACTER = new StandardValueType<>(Character.class, char.class, "char", () -> '\u0000',
-                                                                                          str -> str.toCharArray()[0], "text", "pattern='\\w'");
-    public static final  StandardValueType<Double>    DOUBLE    = new StandardValueType<>(Double.class, double.class, "double", () -> 0d, Double::parseDouble,
-                                                                                          "number", "min='" + Double.MIN_VALUE + "'",
-                                                                                          "max='" + Double.MAX_VALUE + "'");
-    public static final  StandardValueType<Float>     FLOAT     = new StandardValueType<>(Float.class, float.class, "float", () -> 0f, Float::parseFloat,
-                                                                                          "number", "min='" + Float.MIN_VALUE + "'",
-                                                                                          "max='" + Float.MAX_VALUE + "'");
+    private static final Set<StandardValueType<?>>    $cache    = new HashSet<>();
+    public static final  Set<StandardValueType<?>>    cache     = Collections.unmodifiableSet($cache);
+    public static final  StandardValueType<Boolean>   BOOLEAN   = new StandardValueType<>(Boolean.class, boolean.class, "boolean", () -> false, Boolean::parseBoolean, "checkbox");
+    public static final  StandardValueType<Byte>      BYTE      = new StandardValueType<>(Byte.class, byte.class, "byte", () -> (byte) 0, Byte::parseByte, "number",
+            "min='" + Byte.MIN_VALUE + "'", "max='" + Byte.MAX_VALUE + "'");
+    public static final  StandardValueType<Character> CHARACTER = new StandardValueType<>(Character.class, char.class, "char", () -> '\u0000', str -> str.toCharArray()[0], "text",
+            "pattern='\\w'");
+    public static final  StandardValueType<Double>    DOUBLE    = new StandardValueType<>(Double.class, double.class, "double", () -> 0d, Double::parseDouble, "number",
+            "min='" + Double.MIN_VALUE + "'", "max='" + Double.MAX_VALUE + "'");
+    public static final  StandardValueType<Float>     FLOAT     = new StandardValueType<>(Float.class, float.class, "float", () -> 0f, Float::parseFloat, "number",
+            "min='" + Float.MIN_VALUE + "'", "max='" + Float.MAX_VALUE + "'");
     public static final  StandardValueType<Integer>   INTEGER   = new StandardValueType<>(Integer.class, int.class, "int", () -> 0, Integer::parseInt, "number",
-                                                                                          "min='" + Integer.MIN_VALUE + "'", "max='" + Integer.MAX_VALUE + "'");
-    public static final  StandardValueType<Long>      LONG      = new StandardValueType<>(Long.class, long.class, "long", () -> 0L, Long::parseLong, "number",
-                                                                                          "min='" + Long.MIN_VALUE + "'", "max='" + Long.MAX_VALUE + "'");
-    public static final  StandardValueType<Short>     SHORT     = new StandardValueType<>(Short.class, short.class, "short", () -> (short) 0, Short::parseShort,
-                                                                                          "number", "min='" + Short.MIN_VALUE + "'",
-                                                                                          "max='" + Short.MAX_VALUE + "'");
+            "min='" + Integer.MIN_VALUE + "'", "max='" + Integer.MAX_VALUE + "'");
+    public static final  StandardValueType<Long>      LONG      = new StandardValueType<>(Long.class, long.class, "long", () -> 0L, Long::parseLong, "number", "min='" + Long.MIN_VALUE + "'",
+            "max='" + Long.MAX_VALUE + "'");
+    public static final  StandardValueType<Short>     SHORT     = new StandardValueType<>(Short.class, short.class, "short", () -> (short) 0, Short::parseShort, "number",
+            "min='" + Short.MIN_VALUE + "'", "max='" + Short.MAX_VALUE + "'");
     public static final  StandardValueType<String>    STRING    = new StandardValueType<>(String.class, "String", () -> "", Function.identity(), "text");
-    public static final  StandardValueType<UUID>      UUID      = new StandardValueType<>(UUID.class, "UUID", java.util.UUID::randomUUID,
-                                                                                          java.util.UUID::fromString, "text",
-                                                                                          "pattern='" + RegExpUtil.UUID4_PATTERN + "'");
+    public static final  StandardValueType<UUID>      UUID      = new StandardValueType<>(UUID.class, "UUID", java.util.UUID::randomUUID, java.util.UUID::fromString, "text",
+            "pattern='" + RegExpUtil.UUID4_PATTERN + "'");
     public static final  StandardValueType<Void>      VOID      = new StandardValueType<>(void.class, "Void", () -> null, it -> null, "hidden");
     /**
      * @deprecated use {@link BoundValueType}
@@ -57,11 +53,7 @@ public class StandardValueType<R> implements ValueType<R>, HtmlInputDesc {
      * @deprecated use {@link ArrayValueType}
      */
     @Deprecated(forRemoval = true)
-    public static final  StandardValueType<Object[]>  ARRAY     = new StandardValueType<>(Object[].class, "Array", () -> new Object[0],
-                                                                                          it -> new Object[]{ it },
-                                                                                          "hidden");
-    private static final Set<StandardValueType<?>>    $cache    = new HashSet<>();
-    public static final  Set<StandardValueType<?>>    cache     = Collections.unmodifiableSet($cache);
+    public static final  StandardValueType<Object[]>  ARRAY     = new StandardValueType<>(Object[].class, "Array", () -> new Object[0], it -> new Object[]{ it }, "hidden");
 
     @Experimental
     public static Object findGoodType(String parse) {
@@ -93,8 +85,8 @@ public class StandardValueType<R> implements ValueType<R>, HtmlInputDesc {
 
     public static Wrap<ValueType<?>> forClass(Class<?> cls) {
         return Wrap.of(cache.stream()
-                               .filter(it -> it.getTargetClass().isAssignableFrom(cls) || (cls.isPrimitive() && it.getName().equals(cls.getSimpleName())))
-                               .findAny());
+                .filter(it -> it.getTargetClass().isAssignableFrom(cls) || (cls.isPrimitive() && it.getName().equals(cls.getSimpleName())))
+                .findAny());
     }
 
     Supplier<R> defaultValue;
