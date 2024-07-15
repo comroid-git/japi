@@ -86,4 +86,13 @@ public class SoftDepend {
             return empty();
         }
     }
+
+    public Wrap<Package> pkg(final @Language(value = "Java", prefix = "package ", suffix = ";") String name) {
+        if (nonexistentTypes.contains(name))
+            return empty();
+        if (typeCache.containsKey(name))
+            return of(typeCache.get(name)).castRef();
+        var pkg = SoftDepend.class.getClassLoader().getDefinedPackage(name);
+        return of(pkg).castRef();
+    }
 }
