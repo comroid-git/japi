@@ -34,11 +34,8 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
     Map<K, Reference<V>>    map = new ConcurrentHashMap<>();
     ReferenceQueue<@Nullable V> queue = new ReferenceQueue<>();
     Function<@NotNull V, K> keyFunction;
-    @Nullable
-    @lombok.Builder.Default
-    BiConsumer<K, @Nullable V>                     deleteCallback = null;
-    @lombok.Builder.Default
-    BiFunction<V, ReferenceQueue<V>, Reference<V>> referenceCtor  = WeakReference::new;
+    @Nullable @lombok.Builder.Default BiConsumer<K, @Nullable V>                     deleteCallback = null;
+    @lombok.Builder.Default           BiFunction<V, ReferenceQueue<V>, Reference<V>> referenceCtor  = WeakReference::new;
     Function<K, Optional<V>> refresh;
 
     @Override
@@ -114,8 +111,11 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
                         .filter(Objects::nonNull)
                         .map(keyFunction)
         ).toArray();
-        for (Object key : keys)
-            deleteCallback.accept(uncheckedCast(key), remove(key));
+        for (Object key : keys) {
+            var val = remove(key);
+            if (deleteCallback != null)
+                deleteCallback.accept(uncheckedCast(key), val);
+        }
     }
 
     @NotNull
