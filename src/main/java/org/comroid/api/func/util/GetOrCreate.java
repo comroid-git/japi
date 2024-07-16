@@ -34,28 +34,35 @@ public class GetOrCreate<T, B> extends Almost<T, B> {
         try {
             if (get != null && (result = get.get()) != null)
                 return updateOriginal == null ? result : updateOriginal.apply(result);
+            c++; // 1 - passed original
+
             builder = create.get();
-            c++; // 1 - passed origin
+            c++; // 2 - passed origin
+
             if (modifier != null)
                 modifier.accept(builder);
-            c++; // 2 - passed modifier
+            c++; // 3 - passed modifier
+
             result = build.apply(builder);
-            c++; // 3 - passed finalize
+            c++; // 4 - passed finalize
         } catch (Throwable t) {
-            if (exceptionHandler == null)
-                throw new RuntimeException("No exception handler found; cannot recover", t);
-            result = exceptionHandler.apply(t);
-
-            // counter cannot be >2 because 3 = success
-            Constraint.Range.inside(0, 2, c, "stage counter").run();
-
             var stage = switch (c) {
-                case 0 -> "initialization";
-                case 1 -> "modification";
-                case 2 -> "finalizing";
+                case 0 -> "trying to obtain original";
+                case 1 -> "initializing created value";
+                case 2 -> "modifying created value";
+                case 3 -> "finalizing created value";
                 default -> throw new IllegalStateException("Unexpected value: " + c);
             };
-            log.fine("Recovered from an exception that occurred during " + stage);
+            var msg = " from an exception that occurred when " + stage;
+
+            if (exceptionHandler == null)
+                throw new RuntimeException("No exception handler found; cannot recover" + msg, t);
+            result = exceptionHandler.apply(t);
+
+            // counter cannot be >3 because 4 = success
+            Constraint.Range.inside(0, 3, c, "stage counter").run();
+
+            log.fine("Recovered" + msg);
             log.finer(StackTraceUtils.toString(t));
         }
         if (result != null)
