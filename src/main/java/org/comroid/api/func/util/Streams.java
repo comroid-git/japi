@@ -209,6 +209,17 @@ public class Streams {
         }, ls -> ls.isEmpty() ? otherwise.get() : ls.stream());
     }
 
+    public static <T> Collector<T, List<T>, Stream<T>> or(Supplier<Stream<T>> supplier) {
+        return Collector.of(ArrayList::new, Collection::add, (l, r) -> {
+            l.addAll(r);
+            return l;
+        }, ls -> {
+            if (ls.isEmpty())
+                return supplier.get();
+            return ls.stream();
+        });
+    }
+
     @Deprecated(forRemoval = true)
     public static <T, C> Comparator<T> comparatorAdapter(final @NotNull Function<T, C> mapper, final @NotNull Comparator<C> comparator) {
         return (a, b) -> comparator.compare(mapper.apply(a), mapper.apply(b));
