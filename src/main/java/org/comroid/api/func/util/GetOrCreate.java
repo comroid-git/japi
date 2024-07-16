@@ -9,6 +9,8 @@ import org.comroid.api.java.StackTraceUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -19,7 +21,8 @@ public class GetOrCreate<T, B> extends Almost<T, B> {
     private final @Nullable ThrowingSupplier<@Nullable T, Throwable>             get;
     private final @NotNull  ThrowingSupplier<@NotNull B, Throwable>              create;
     private final @NotNull  ThrowingFunction<@NotNull B, @Nullable T, Throwable> build;
-    private final @NotNull  Consumer<@Nullable T>                                finalize;
+    private final @NotNull Function<@Nullable T, @Nullable T> finalize;
+    private final          List<Consumer<T>>                  completionCallbacks = new ArrayList<>();
     private @Nullable       Function<T, T>                                       updateOriginal;
     private @Nullable       Function<Throwable, @NotNull T>                      exceptionHandler;
 
@@ -56,7 +59,15 @@ public class GetOrCreate<T, B> extends Almost<T, B> {
             log.finer(StackTraceUtils.toString(t));
         }
         if (result != null)
-            finalize.accept(result);
+            result = finalize.apply(result);
+        if (result != null)
+            for (Consumer<T> callback : completionCallbacks)
+                callback.accept(result);
         return Objects.requireNonNull(result);
+    }
+
+    public GetOrCreate<T, B> addCompletionCallback(Consumer<T> callback) {
+        completionCallbacks.add(callback);
+        return this;
     }
 }
