@@ -107,7 +107,7 @@ public class DataStructure<T> implements Named {
                             && (member.getName().startsWith("get") && member.getName().length() > 3)
                             && mtd.getParameterCount() == 0
                             && !struct.getDeclaredProperties().containsKey(Capitalization.Current.getProperties()
-                                                                                   .convert(member.getName().substring(3)));
+                            .convert(member.getName().substring(3)));
                 else return false;
             }
 
@@ -143,20 +143,20 @@ public class DataStructure<T> implements Named {
                     getter = Invocable.ofMethodCall(mtd);
 
                     setter = Wrap.ofOptional(Arrays.stream(target.getMethods())
-                                                     .filter(this::filterSystem)
-                                                     .filter(this::filterIgnored)
-                                                     .filter(this::filterAbove)
-                                                     .filter(this::filterPropertyModifiers)
-                                                     .filter(candidate -> {
-                                                         var setterName = candidate.getName();
-                                                         return setterName.startsWith("set")
-                                                                 && setterName.length() > 3
-                                                                 && setterName.equals("set" + UpperCamelCase.convert(name[0]))
-                                                                 && checkAccess(candidate)
-                                                                 && candidate.getParameterCount() == 1
-                                                                 && ValueType.of(candidate.getParameterTypes()[0]).equals(type);
-                                                     })
-                                                     .findAny())
+                                    .filter(this::filterSystem)
+                                    .filter(this::filterIgnored)
+                                    .filter(this::filterAbove)
+                                    .filter(this::filterPropertyModifiers)
+                                    .filter(candidate -> {
+                                        var setterName = candidate.getName();
+                                        return setterName.startsWith("set")
+                                                && setterName.length() > 3
+                                                && setterName.equals("set" + UpperCamelCase.convert(name[0]))
+                                                && checkAccess(candidate)
+                                                && candidate.getParameterCount() == 1
+                                                && ValueType.of(candidate.getParameterTypes()[0]).equals(type);
+                                    })
+                                    .findAny())
                             .peek(parts::add)
                             .ifPresentMap(Invocable::ofMethodCall);
 
@@ -168,7 +168,7 @@ public class DataStructure<T> implements Named {
                 var partsArray = parts.toArray(AnnotatedElement[]::new);
                 DataStructure<T>.Property<P> prop = uncheckedCast(
                         struct.new Property<>(name[0], member, target, type, defaultValue, setter == null || parts.stream().anyMatch(Annotations::readonly),
-                                              getter, setter));
+                                getter, setter));
                 setAnnotations(prop, partsArray);
                 setMetadata(prop, partsArray);
                 return prop;
@@ -343,8 +343,8 @@ public class DataStructure<T> implements Named {
 
     public <V> Wrap<Property<V>> getProperty(String name) {
         return Wrap.ofStream(getProperties().stream()
-                                     .filter(prop -> Stream.concat(Stream.of(prop.name), prop.aliases.stream())
-                                             .anyMatch(alias -> alias.equals(name))))
+                        .filter(prop -> Stream.concat(Stream.of(prop.name), prop.aliases.stream())
+                                .anyMatch(alias -> alias.equals(name))))
                 .castRef();
     }
 
@@ -469,13 +469,13 @@ public class DataStructure<T> implements Named {
         }
 
         @Override
-        public ValueType<?> getHeldType() {
-            return type;
+        public String toString() {
+            return super.toString() + " (" + (getter != null ? "get" : "") + (setter != null ? " set" : "") + ')';
         }
 
         @Override
-        public String toString() {
-            return super.toString() + " (" + (getter != null ? "get" : "") + (setter != null ? " set" : "") + ')';
+        public ValueType<?> getHeldType() {
+            return type;
         }
 
         public @Nullable V setFor(Object target, V value) {

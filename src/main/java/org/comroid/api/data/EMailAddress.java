@@ -57,8 +57,7 @@ public final class EMailAddress implements CharSequence, WrappedFormattable {
     }
 
     public boolean equals(Object o) {
-        if (o instanceof EMailAddress) {
-            EMailAddress other = (EMailAddress) o;
+        if (o instanceof EMailAddress other) {
             return other.string.equals(string);
         } else return false;
     }

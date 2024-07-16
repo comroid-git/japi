@@ -58,13 +58,13 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named,
         return this::parse;
     }
 
-    @Contract("null -> null; !null -> _")
-    R parse(String data);
-
     @Override
     default @Nullable String[] getHtmlExtraAttributes() {
         return new String[0];
     }
+
+    @Contract("null -> null; !null -> _")
+    R parse(String data);
 
     @Override
     @Nullable

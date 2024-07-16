@@ -91,12 +91,14 @@ public class MimeType {
 
     @Ignore
     public interface Container {
-        @Ignore @JsonIgnore
+        @Ignore
+        @JsonIgnore
         default MimeType getMimeType() {
             return getMimeTypes()[0];
         }
 
-        @Ignore @JsonIgnore
+        @Ignore
+        @JsonIgnore
         default MimeType[] getMimeTypes() {
             return new MimeType[]{ getMimeType() };
         }

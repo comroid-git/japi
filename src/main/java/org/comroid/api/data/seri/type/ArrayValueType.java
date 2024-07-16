@@ -28,13 +28,13 @@ public class ArrayValueType<T> implements ValueType<T>, HtmlReadonlyStringInputD
     Class<T> targetClass;
 
     @Override
-    public T parse(String data) {
-        throw new AbstractMethodError("Cannot blindly parse " + targetClass.getCanonicalName());
+    public @Nullable String[] getHtmlExtraAttributes() {
+        return HtmlReadonlyStringInputDesc.super.getHtmlExtraAttributes();
     }
 
     @Override
-    public @Nullable String[] getHtmlExtraAttributes() {
-        return HtmlReadonlyStringInputDesc.super.getHtmlExtraAttributes();
+    public T parse(String data) {
+        throw new AbstractMethodError("Cannot blindly parse " + targetClass.getCanonicalName());
     }
 
     @Override

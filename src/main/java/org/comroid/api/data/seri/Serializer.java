@@ -10,7 +10,8 @@ public interface Serializer<T> extends Function<String, T>, MimeType.Container {
         return parse(string);
     }
 
-    @Nullable T parse(@Nullable String data);
+    @Nullable
+    T parse(@Nullable String data);
 
     T createObjectNode();
 

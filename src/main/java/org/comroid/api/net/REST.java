@@ -44,6 +44,14 @@ public final class REST {
     public static Request request(Method method, String uri, @Nullable DataNode body) {
         return Default.new Request(method, Polyfill.uri(uri), body, Default.serializer);
     }
+
+    public static CompletableFuture<Response> put(String uri, @Nullable DataNode body) {
+        return request(Method.PUT, uri, body).execute();
+    }
+
+    public static CompletableFuture<Response> delete(String uri, @Nullable DataNode body) {
+        return request(Method.DELETE, uri, body).execute();
+    }
     private Serializer<? extends DataNode> serializer;    public static final REST Default = new REST(
             Jackson.JSON,
             new Cache<>(Duration.ofMinutes(10)),
@@ -70,14 +78,6 @@ public final class REST {
                     }).thenCompose(request::handleRedirect);
                 }
             });
-
-    public static CompletableFuture<Response> put(String uri, @Nullable DataNode body) {
-        return request(Method.PUT, uri, body).execute();
-    }
-
-    public static CompletableFuture<Response> delete(String uri, @Nullable DataNode body) {
-        return request(Method.DELETE, uri, body).execute();
-    }
 
     public static CompletableFuture<Response> head(String uri, @Nullable DataNode body) {
         return request(Method.HEAD, uri, body).execute();

@@ -33,19 +33,47 @@ public interface Vector {
     N4     UnitZ  = new N4(0, 0, 1, 0);
     N4     UnitW  = new N4(0, 0, 0, 1);
 
-    default DoubleStream stream() {
-        return Arrays.stream(toArray());
+    static Vector units(int n, double length) {
+        var arr = new double[n];
+        Arrays.fill(arr, length);
+        return of(arr);
+    }
+
+    static Vector of(double... dim) {
+        switch (dim.length) {
+            case 2:
+                return new N2(dim[0], dim[1]);
+            case 3:
+                return new N3(dim[0], dim[1], dim[2]);
+            case 4:
+                return new N4(dim[0], dim[1], dim[2], dim[3]);
+        }
+        throw outOfBounds(dim.length);
     }
 
     double getX();
 
-    default Vector map(DoubleUnaryOperator op) {
-        return ctor(DoubleStream.of(toArray()).map(op).toArray());
-    }
-
     Vector setX(double value);
 
     double getY();
+
+    Vector setY(double value);
+
+    double getZ();
+
+    Vector setZ(double value);
+
+    double getW();
+
+    Vector setW(double value);
+
+    default DoubleStream stream() {
+        return Arrays.stream(toArray());
+    }
+
+    default Vector map(DoubleUnaryOperator op) {
+        return ctor(DoubleStream.of(toArray()).map(op).toArray());
+    }
 
     default double get(int dim) {
         if (dim < n()) switch (dim) {
@@ -60,8 +88,6 @@ public interface Vector {
         }
         throw outOfBounds(dim + 1);
     }
-
-    Vector setY(double value);
 
     @Contract(mutates = "this")
     default void $(BiFunction<Vector, Vector, Vector> mod, Vector other) {
@@ -79,14 +105,6 @@ public interface Vector {
     }
 
     double[] toArray();
-
-    double getZ();
-
-    Vector setZ(double value);
-
-    double getW();
-
-    Vector setW(double value);
 
     default int n() {
         return 0;
@@ -129,28 +147,6 @@ public interface Vector {
 
     default Vector addi(double other) {
         return addi(units(n(), other));
-    }
-
-    static Vector units(int n, double length) {
-        var arr = new double[n];
-        Arrays.fill(arr, length);
-        return of(arr);
-    }
-
-    static Vector of(double... dim) {
-        switch (dim.length) {
-            case 2:
-                return new N2(dim[0], dim[1]);
-            case 3:
-                return new N3(dim[0], dim[1], dim[2]);
-            case 4:
-                return new N4(dim[0], dim[1], dim[2], dim[3]);
-        }
-        throw outOfBounds(dim.length);
-    }
-
-    private static UnsupportedOperationException outOfBounds(int n) {
-        return new UnsupportedOperationException("Unsupported Vector dimension: " + n);
     }
 
     default Vector addi(Vector other) {
@@ -208,6 +204,10 @@ public interface Vector {
         return sqrt(sum);
     }
 
+    private static UnsupportedOperationException outOfBounds(int n) {
+        return new UnsupportedOperationException("Unsupported Vector dimension: " + n);
+    }
+
     @Data
     @NoArgsConstructor
     @FieldDefaults(level = AccessLevel.PROTECTED)
@@ -219,6 +219,11 @@ public interface Vector {
         public N2(double x, double y) {
             this.x = x;
             this.y = y;
+        }
+
+        @Override
+        public double[] toArray() {
+            return new double[]{ x, y };
         }
 
         @Override
@@ -244,11 +249,6 @@ public interface Vector {
         @Override
         public int n() {
             return 2;
-        }
-
-        @Override
-        public double[] toArray() {
-            return new double[]{ x, y };
         }
 
         @Override
