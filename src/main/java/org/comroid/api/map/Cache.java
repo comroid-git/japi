@@ -133,7 +133,7 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
 
     public V push(V value) {
         var key  = keyFunction.apply(value);
-        var ref  = map.get(key);
+        var ref = map.put(key, referenceCtor.apply(value, queue));
         V   prev = null;
         if (ref != null) {
             prev = ref.get();
