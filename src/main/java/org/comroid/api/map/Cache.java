@@ -52,19 +52,22 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
         return map.get(key).get() != null;
     }
 
-    @Override
-    public @Nullable V get(Object key0) {
-        K   key   = uncheckedCast(key0);
+    public Optional<V> wrap(K key) {
         var ref   = map.get(key);
-        V   value = null;
+        V value = null;
         if (ref != null) {
             value = ref.get();
             ref.enqueue();
         }
-        if (value == null)
-            value = compute(key, (k, v) -> refresh.apply(k).orElse(null));
+        return Optional.ofNullable(value);
+    }
+
+    @Override
+    public @Nullable V get(Object key0) {
+        K key   = uncheckedCast(key0);
+        V value = wrap(key).orElse(null);
         if (value != null) {
-            ref = referenceCtor.apply(value, queue);
+            var ref = referenceCtor.apply(value, queue);
             map.put(key, ref);
         }
         return value;
