@@ -36,7 +36,6 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
     Function<@NotNull V, K> keyFunction;
     @Nullable @lombok.Builder.Default BiConsumer<K, @Nullable V>                     deleteCallback = null;
     @lombok.Builder.Default           BiFunction<V, ReferenceQueue<V>, Reference<V>> referenceCtor  = WeakReference::new;
-    Function<K, Optional<V>> refresh;
 
     @Override
     public int size() {
@@ -80,6 +79,7 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
 
     @Override
     public void clear() {
+        // collect keys based on whether their value was GCd
         var keys = Stream.concat(
                 map.entrySet().stream()
                         .map(Streams.Multi.mapB(Reference::get))
