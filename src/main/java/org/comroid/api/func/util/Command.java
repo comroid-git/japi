@@ -11,6 +11,7 @@ import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.experimental.SuperBuilder;
+import lombok.extern.log4j.Log4j2;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.IMentionable;
@@ -27,6 +28,7 @@ import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.util.TriState;
+import org.apache.logging.log4j.Level;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -52,7 +54,6 @@ import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.info.Constraint;
-import org.comroid.api.info.Log;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.StackTraceUtils;
@@ -89,7 +90,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
-import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -99,6 +99,7 @@ import static java.util.function.Predicate.*;
 import static java.util.stream.Stream.of;
 import static java.util.stream.Stream.*;
 import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.*;
+import static org.comroid.api.func.util.Debug.*;
 import static org.comroid.api.func.util.Streams.*;
 
 @SuppressWarnings("unused")
@@ -316,8 +317,8 @@ public @interface Command {
         Node.Callable baseNode = null;
         @NonFinal
         Node.Callable node;
-        @NonFinal
-        int         callIndex;
+        @NonFinal @lombok.Builder.Default
+        int callIndex = 0;
 
         public void advanceFull() {
             // reset if necessary
@@ -343,6 +344,7 @@ public @interface Command {
     }
 
     @Value
+    @Log4j2
     @NonFinal
     @ToString(of = { "id" })
     class Manager extends Container.Base implements Info, PermissionChecker {
@@ -468,7 +470,7 @@ public @interface Command {
                         })
                         .map(str -> new AutoFillOption(str, str));
             } catch (Throwable e) {
-                Log.at(Level.WARNING, "An error ocurred during command execution", e);
+                log.log(isDebug() ? Level.WARN : Level.DEBUG, "An error ocurred during command autocompletion", e);
                 return Stream.of(usage.source.handleThrowable(e))
                         .map(String::valueOf)
                         .map(str -> new AutoFillOption(str, ""));
@@ -589,7 +591,7 @@ public @interface Command {
             } catch (Error err) {
                 response = err.response == null ? usage.source.handleThrowable(err) : err.response;
             } catch (Throwable e) {
-                Log.at(Level.FINE, "An error ocurred during command execution", e);
+                log.log(isDebug() ? Level.ERROR : Level.DEBUG, "An error ocurred during command execution", e);
                 response = usage.source.handleThrowable(e);
             }
             if (response != null)
