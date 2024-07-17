@@ -15,10 +15,12 @@ import lombok.extern.java.Log;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Named;
 import org.comroid.api.attr.UUIDContainer;
+import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.func.N;
 import org.comroid.api.func.Provider;
 import org.comroid.api.func.ext.Context;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.tree.Container;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -29,10 +31,13 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Objects;
@@ -52,6 +57,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 import static org.comroid.api.Polyfill.*;
 import static org.comroid.api.java.StackTraceUtils.*;
@@ -94,13 +100,18 @@ public class Event<T> implements Wrap<T> {
         return this::getKey;
     }
 
-    @Target(ElementType.METHOD)
     @Retention(RetentionPolicy.RUNTIME)
+    @Target({ ElementType.METHOD, ElementType.FIELD })
     public @interface Subscriber {
         String EmptyName   = "@@@";
         long   DefaultFlag = 0xffffffffffffffffL;
 
         String value() default EmptyName;
+
+        /**
+         * @return parse type to use when attaching to a java.util.Collection field
+         */
+        Class<? extends DataNode> type() default DataNode.class;
 
         long flag() default DefaultFlag;
 
@@ -255,21 +266,26 @@ public class Event<T> implements Wrap<T> {
             addChildren(target);
 
             //final var autoTypes = List.of(Event.class, String.class, Long.class, Instant.class);
-            var subscribers = new HashSet<SubscriberImpl>();
-            for (var method : type.getMethods()) {
-                if ((target != null && !Modifier.isStatic(method.getModifiers()) && !method.canAccess(target)) || !method.isAnnotationPresent(Subscriber.class))
-                    continue;
-                var subscriber = method.getAnnotation(Subscriber.class);
-                /*
-                var unsatisfied = Arrays.stream(method.getParameterTypes())
-                        .filter(Predicate.not(autoTypes::contains)).toArray();
-                if (unsatisfied.length > 0) {
-                    log.fine(String.format("Invalid subscriber %s, unsupported method parameter: %s", method, Arrays.toString(unsatisfied)));
-                    continue;
-                }
-                 */
-                subscribers.add(new SubscriberImpl(method, Invocable.ofMethodCall(target, method), subscriber));
-            }
+            var subscribers = Stream.concat(Arrays.stream(type.getMethods()), Arrays.stream(type.getFields()))
+                    .filter(it -> it.isAnnotationPresent(Subscriber.class))
+                    .filter(it -> Modifier.isStatic(it.getModifiers()) || target != null)
+                    .filter(it -> it.canAccess(target))
+                    .flatMap(it -> {
+                        var attribute = it.getAnnotation(Subscriber.class);
+
+                        Invocable<?> delegate;
+                        if (it instanceof Method method)
+                            delegate = Invocable.ofMethodCall(target, method);
+                        else if (it instanceof Field field) {
+                            Collection<DataNode> dest = ReflectionHelper.forceGetField(target, field);
+                            delegate = Invocable.ofConsumer(attribute.type(), dest::add);
+                        } else throw new AssertionError();
+
+                        var key = Optional.of(attribute.value())
+                                .filter(Predicate.not(Subscriber.EmptyName::equals))
+                                .orElseGet(it::getName);
+                        return Stream.of(new SubscriberImpl(key, attribute.flag(), attribute.mode(), delegate));
+                    }).toList();
 
             if (subscribers.isEmpty())
                 return null;
@@ -457,23 +473,21 @@ public class Event<T> implements Wrap<T> {
 
         @Value
         private class SubscriberImpl implements Predicate<Event<T>>, BiConsumer<@Nullable Object, Event<T>> {
-            Method     method;
+            String              key;
+            long                flag;
+            Subscriber.FlagMode mode;
             Invocable<?> delegate;
-            Subscriber subscriber;
 
             @Override
             public boolean test(Event<T> event) {
-                var key = Optional.of(subscriber.value())
-                        .filter(Predicate.not(Subscriber.EmptyName::equals))
-                        .orElseGet(method::getName);
                 return Wrap.of(event.flag).or(() -> 0xffff_ffff_ffff_ffffL).testIfPresent(this::testFlag)
                         && (Objects.equals(key, event.key) || ("null".equals(key)
                         && (Objects.isNull(event.key) || Subscriber.EmptyName.equals(event.key))));
             }
 
             public boolean testFlag(long x) {
-                var y = subscriber.flag();
-                switch (subscriber.mode()) {
+                var y = flag;
+                switch (mode) {
                     case Numeric:
                         return x == y;
                     case BitwiseOr:
@@ -481,7 +495,7 @@ public class Event<T> implements Wrap<T> {
                     case BitwiseNot:
                         return (x & ~y) != 0;
                 }
-                throw new IllegalStateException("Unexpected value: " + subscriber.mode());
+                throw new IllegalStateException("Unexpected value: " + mode);
             }
 
             @Override
@@ -494,11 +508,11 @@ public class Event<T> implements Wrap<T> {
         @EqualsAndHashCode(callSuper = true)
         private class SubscriberListener extends Listener<T> {
             @Nullable Object target;
-            HashSet<SubscriberImpl> subscribers;
+            Collection<SubscriberImpl> subscribers;
 
             public SubscriberListener(
                     @Nullable Object target,
-                    HashSet<SubscriberImpl> subscribers
+                    Collection<SubscriberImpl> subscribers
             ) {
                 super(null, Bus.this, $ -> true, $ -> {});
                 this.target = target;

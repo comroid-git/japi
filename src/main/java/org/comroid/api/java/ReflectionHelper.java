@@ -296,7 +296,7 @@ public final class ReflectionHelper {
         try {
             if (!field.canAccess(from))
                 field.setAccessible(true);
-            return Polyfill.uncheckedCast(field.get(from));
+            return Polyfill.uncheckedCast(field.get(isStatic(field.getModifiers()) ? null : from));
         } catch (IllegalAccessException e) {
             return null;
         }
