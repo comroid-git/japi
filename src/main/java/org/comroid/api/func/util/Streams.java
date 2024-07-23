@@ -41,10 +41,11 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static java.util.Collections.*;
-import static java.util.function.Function.*;
-import static java.util.stream.Stream.*;
-import static org.comroid.api.func.N.Consumer.*;
+import static java.util.Collections.unmodifiableList;
+import static java.util.function.Function.identity;
+import static java.util.stream.Stream.concat;
+import static java.util.stream.Stream.empty;
+import static org.comroid.api.func.N.Consumer.nop;
 
 @UtilityClass
 public class Streams {
@@ -223,6 +224,13 @@ public class Streams {
     @Deprecated(forRemoval = true)
     public static <T, C> Comparator<T> comparatorAdapter(final @NotNull Function<T, C> mapper, final @NotNull Comparator<C> comparator) {
         return (a, b) -> comparator.compare(mapper.apply(a), mapper.apply(b));
+    }
+
+    public static <T> Predicate<T> peek(Consumer<T> action) {
+        return it -> {
+            action.accept(it);
+            return true;
+        };
     }
 
     public enum Strategy {
