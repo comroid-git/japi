@@ -12,6 +12,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static org.comroid.api.func.util.Debug.log;
+
 @Log
 @Data
 public class AlmostComplete<T> extends Almost<T, T> {
@@ -48,7 +50,7 @@ public class AlmostComplete<T> extends Almost<T, T> {
             };
             if (it == null)
                 throw new RethrownException(t);
-            log.fine("Recovered from an exception that occurred during " + stage);
+            log(log, "Recovered from an exception that occurred during " + stage, t);
             log.finer(StackTraceUtils.toString(t));
         }
         return it;

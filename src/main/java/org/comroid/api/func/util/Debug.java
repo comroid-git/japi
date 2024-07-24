@@ -16,8 +16,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import static java.util.stream.IntStream.*;
-import static org.comroid.api.java.StackTraceUtils.*;
+import static java.util.stream.IntStream.range;
+import static org.comroid.api.java.StackTraceUtils.lessSimpleName;
 
 @UtilityClass
 @lombok.extern.java.Log
@@ -69,6 +69,16 @@ public final class Debug {
 
     public static String createObjectDump(Object it) {
         return "Dump: " + it + "\n" + createObjectDump(DataNode.of(it), 0);
+    }
+
+    public static void log(Logger log, String message) {log(log, message, null);}
+
+    public static void log(Logger log, String message, @Nullable Throwable t) {log(log, message, Level.FINE, Level.WARNING, t);}
+
+    public static void log(Logger log, String message, Level normalLevel, Level debugLevel) {log(log, message, normalLevel, debugLevel, null);}
+
+    public static void log(Logger log, String message, Level normalLevel, Level debugLevel, @Nullable Throwable t) {
+        log.log(isDebug() ? debugLevel : normalLevel, message, t);
     }
 
     private static String pad(int r, int c) {
