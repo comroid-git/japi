@@ -1,6 +1,7 @@
 package org.comroid.api.func.util;
 
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -93,14 +94,18 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.util.Collections.*;
-import static java.util.function.Function.*;
-import static java.util.function.Predicate.*;
+import static java.util.Collections.unmodifiableList;
+import static java.util.function.Function.identity;
+import static java.util.function.Predicate.not;
+import static java.util.stream.Stream.concat;
+import static java.util.stream.Stream.empty;
 import static java.util.stream.Stream.of;
-import static java.util.stream.Stream.*;
-import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.*;
-import static org.comroid.api.func.util.Debug.*;
-import static org.comroid.api.func.util.Streams.*;
+import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.get;
+import static org.comroid.api.func.util.Debug.isDebug;
+import static org.comroid.api.func.util.Streams.append;
+import static org.comroid.api.func.util.Streams.cast;
+import static org.comroid.api.func.util.Streams.expand;
+import static org.comroid.api.func.util.Streams.multiply;
 
 @SuppressWarnings("unused")
 @Retention(RetentionPolicy.RUNTIME)
@@ -123,11 +128,11 @@ public @interface Command {
 
         @FunctionalInterface
         public interface Provider {
+            Set<Capability> getCapabilities();
+
             default boolean hasCapability(Capability capability) {
                 return getCapabilities().stream().anyMatch(capability::equals);
             }
-
-            Set<Capability> getCapabilities();
         }
     }
 
@@ -160,7 +165,7 @@ public @interface Command {
         static PermissionChecker minecraft(Adapter adapter) {
             return (usage, key) -> {
                 var userId = usage.getContext().stream()
-                        .flatMap(Streams.cast(UUID.class))
+                        .flatMap(cast(UUID.class))
                         .findAny().orElseThrow();
                 return key instanceof Integer level
                        ? adapter.checkOpLevel(userId, level)
@@ -193,7 +198,9 @@ public @interface Command {
                 return checkOpLevel(playerId, 1);
             }
 
-            boolean checkOpLevel(UUID playerId, @MagicConstant(intValues = { 0, 1, 2, 3, 4 }) int minimum);
+            boolean checkOpLevel(UUID playerId, @MagicConstant(intValues = { 1, 2, 3, 4 }) int minimum);
+
+            default TriState checkPermission(UUID playerId, String key) {return checkPermission(playerId, key, false);}
 
             TriState checkPermission(UUID playerId, String key, boolean explicit);
         }
@@ -282,7 +289,7 @@ public @interface Command {
                     break;
                 cause = c;
             } while (cause instanceof InvocationTargetException
-                    || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
+                     || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
             StackTraceUtils.wrap(cause, out, true);
             var str = buf.toString();
             if (str.length() > 1950)
@@ -305,20 +312,20 @@ public @interface Command {
     }
 
     @Value
-    @lombok.Builder
+    @Builder
     class Usage {
         Manager manager;
         String[] fullCommand;
         @Singular("context")
-        Set<Object> context;
+        Set<Object>   context;
         @NotNull
-        Handler     source;
+        Handler       source;
         @lombok.Builder.Default
-        Node.Callable baseNode = null;
+        Node.Callable baseNode  = null;
         @NonFinal
         Node.Callable node;
         @NonFinal @lombok.Builder.Default
-        int callIndex = 0;
+        int           callIndex = 0;
 
         public void advanceFull() {
             // reset if necessary
@@ -663,6 +670,16 @@ public @interface Command {
                 nodes.add(node);
                 index += 1;
             }
+        }
+
+        @Override
+        public final int hashCode() {
+            return id.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof Manager && obj.hashCode() == hashCode();
         }
 
         @Value
@@ -1035,16 +1052,6 @@ public @interface Command {
                 return strings;
             }
         }
-
-        @Override
-        public boolean equals(Object obj) {
-            return obj instanceof Manager && obj.hashCode() == hashCode();
-        }
-
-        @Override
-        public final int hashCode() {
-            return id.hashCode();
-        }
     }
 
     @Data
@@ -1056,7 +1063,7 @@ public @interface Command {
 
         @Override
         public Stream<String> aliases() {
-            return Stream.concat(Aliased.super.aliases(), of(getName()));
+            return concat(Aliased.super.aliases(), of(getName()));
         }
 
         @Data
@@ -1098,8 +1105,8 @@ public @interface Command {
 
             @Override
             public Stream<Callable> nodes() {
-                var stream = Stream.concat(groups.stream(), calls.stream());
-                if (defaultCall != null) stream = stream.collect(Streams.append(defaultCall));
+                var stream = concat(groups.stream(), calls.stream());
+                if (defaultCall != null) stream = stream.collect(append(defaultCall));
                 return stream;
             }
 
