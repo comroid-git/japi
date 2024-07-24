@@ -1,20 +1,16 @@
 package org.comroid.util;
 
 import lombok.experimental.UtilityClass;
-import org.comroid.api.io.FileHandle;
 import org.intellij.lang.annotations.Language;
-
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.nio.file.Path;
 
 @UtilityClass
 @SuppressWarnings("ALL")
 public class BigotryFilter {
     public static final @Language("RegExp") String   Separator = "[/,\\s\r\n]+";
-    public static final                     String[] Pronouns;
+    public static final String[] Pronouns = new String[]{ "they", "them" };
 
     static {
+        /*
         try {
             var file = new FileHandle(Path.of(System.getProperty("user.home"), "pronouns.txt").toFile());
             file.mkdirs();
@@ -28,6 +24,7 @@ public class BigotryFilter {
         } catch (Throwable t) {
             throw new RuntimeException("Could not obtain user pronouns", t);
         }
+         */
     }
 
     public static void init() {}
