@@ -4,6 +4,7 @@ import lombok.experimental.UtilityClass;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.func.comp.StringBasedComparator;
 import org.comroid.api.info.Log;
+import org.comroid.api.java.StackTraceUtils;
 import org.comroid.util.BigotryFilter;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,7 +36,7 @@ public final class Debug {
 
     public static boolean isDebug() {
         return Cache.get("Debug.isDebug()",
-                         () -> Arrays.stream(IS_DEBUG_CHECKS).allMatch(BooleanSupplier::getAsBoolean));
+                () -> Arrays.stream(IS_DEBUG_CHECKS).allMatch(BooleanSupplier::getAsBoolean));
     }
 
     public static boolean isDebugEnv() {
@@ -81,9 +82,23 @@ public final class Debug {
         log.log(isDebug() ? debugLevel : normalLevel, message, t);
     }
 
+    public static void log(org.slf4j.Logger log, String message) {log(log, message, null);}
+
+    public static void log(org.slf4j.Logger log, String message, @Nullable Throwable t) {
+        log(log, message, org.slf4j.event.Level.DEBUG, org.slf4j.event.Level.WARN, t);
+    }
+
+    public static void log(org.slf4j.Logger log, String message, org.slf4j.event.Level normalLevel, org.slf4j.event.Level debugLevel) {
+        log(log, message, normalLevel, debugLevel, null);
+    }
+
+    public static void log(org.slf4j.Logger log, String message, org.slf4j.event.Level normalLevel, org.slf4j.event.Level debugLevel, @Nullable Throwable t) {
+        log.atLevel(isDebug() ? debugLevel : normalLevel).log(message + (t == null ? "" : '\n' + StackTraceUtils.toString(t)));
+    }
+
     private static String pad(int r, int c) {
         return range(0, r).mapToObj($ -> "|\t")
-                .collect(Collectors.joining()) + "|-> ";
+                       .collect(Collectors.joining()) + "|-> ";
     }
 
     private static String createObjectDump(DataNode data, int rec) {
@@ -102,7 +117,7 @@ public final class Debug {
                 // append name, then values
                 for (var entry : obj.entrySet().stream()
                         .sorted(Comparator.<Map.Entry<String, DataNode>>comparingInt(x -> x.getValue().size())
-                                        .thenComparing(new StringBasedComparator<>(Map.Entry::getKey))).toList())
+                                .thenComparing(new StringBasedComparator<>(Map.Entry::getKey))).toList())
                     result.append(pad(rec, c++)).append(entry.getKey()).append(": ")
                             .append(createObjectDump(entry.getValue(), rec + 1)).append('\n');
             } else if (data instanceof DataNode.Array arr) {
