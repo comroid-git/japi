@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 
 @Slf4j
 public abstract class Almost<T, B> implements Wrap<T> {
-    public final T get() {
+    public T get() {
         try {
             return complete(null);
         } catch (Throwable t) {

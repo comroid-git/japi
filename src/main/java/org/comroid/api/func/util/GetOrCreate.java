@@ -27,6 +27,11 @@ public class GetOrCreate<T, B> extends Almost<T, B> {
     private @Nullable       Function<Throwable, @NotNull T>                      exceptionHandler;
 
     @Override
+    public @NotNull T get() {
+        return Objects.requireNonNull(super.get());
+    }
+
+    @Override
     public @NotNull T complete(@Nullable Consumer<B> modifier) {
         int c = 0;
         B builder;
