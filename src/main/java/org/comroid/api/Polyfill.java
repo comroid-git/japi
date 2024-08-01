@@ -15,6 +15,7 @@ import java.awt.*;
 import java.lang.ref.WeakReference;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
+import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -43,7 +44,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static java.util.Objects.*;
+import static java.util.Objects.isNull;
 
 @Experimental
 @UtilityClass
@@ -385,5 +386,9 @@ public final class Polyfill {
             case 11, 12, 13 -> n + "th";
             default -> n + suffixes[n % 10];
         };
+    }
+
+    public static String ip2string(InetAddress ip) {
+        return ip.toString().substring(1);
     }
 }
