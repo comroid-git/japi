@@ -72,11 +72,19 @@ public final class Debug {
         return "Dump: " + it + "\n" + createObjectDump(DataNode.of(it), 0);
     }
 
+    public static void log(String message) {log(log, message);}
+
     public static void log(Logger log, String message) {log(log, message, null);}
+
+    public static void log(String message, @Nullable Throwable t) {log(log, message, t);}
 
     public static void log(Logger log, String message, @Nullable Throwable t) {log(log, message, Level.FINE, Level.WARNING, t);}
 
+    public static void log(String message, Level normalLevel, Level debugLevel) {log(log, message, normalLevel, debugLevel);}
+
     public static void log(Logger log, String message, Level normalLevel, Level debugLevel) {log(log, message, normalLevel, debugLevel, null);}
+
+    public static void log(String message, Level normalLevel, Level debugLevel, @Nullable Throwable t) {log(log, message, normalLevel, debugLevel, t);}
 
     public static void log(Logger log, String message, Level normalLevel, Level debugLevel, @Nullable Throwable t) {
         log.log(isDebug() ? debugLevel : normalLevel, message, t);
