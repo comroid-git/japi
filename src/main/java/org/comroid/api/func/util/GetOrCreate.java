@@ -4,7 +4,6 @@ import lombok.Data;
 import lombok.extern.java.Log;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.func.exc.ThrowingSupplier;
-import org.comroid.api.info.Constraint;
 import org.comroid.api.java.StackTraceUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -31,11 +30,16 @@ public class GetOrCreate<T, B> extends Almost<T, B> {
         return Objects.requireNonNull(super.get());
     }
 
+    public GetOrCreate<T, B> addCompletionCallback(Consumer<T> callback) {
+        completionCallbacks.add(callback);
+        return this;
+    }
+
     @Override
-    public @NotNull T complete(@Nullable Consumer<B> modifier) {
+    public @NotNull T complete(@Nullable Consumer<B> modifier, @Nullable Consumer<T> finalizer) {
         int c = 0;
         B builder;
-        T result;
+        T result = null;
         try {
             if (get != null && (result = get.get()) != null)
                 return updateOriginal == null ? result : updateOriginal.apply(result);
@@ -49,25 +53,16 @@ public class GetOrCreate<T, B> extends Almost<T, B> {
             c++; // 3 - passed modifier
 
             result = build.apply(builder);
-            c++; // 4 - passed finalize
+            c++; // 4 - passed builder
+
+            if (finalizer != null)
+                finalizer.accept(result);
+            c++; // 5 - passed finalize
         } catch (Throwable t) {
-            var stage = switch (c) {
-                case 0 -> "trying to obtain original";
-                case 1 -> "initializing created value";
-                case 2 -> "modifying created value";
-                case 3 -> "finalizing created value";
-                default -> throw new IllegalStateException("Unexpected value: " + c);
-            };
-            var msg = " from an exception that occurred when " + stage;
+            if (exceptionHandler != null)
+                result = exceptionHandler.apply(t);
 
-            if (exceptionHandler == null)
-                throw new RuntimeException("No exception handler found; cannot recover" + msg, t);
-            result = exceptionHandler.apply(t);
-
-            // counter cannot be >3 because 4 = success
-            Constraint.Range.inside(0, 3, c, "stage counter").run();
-
-            log.fine("Recovered" + msg);
+            log.fine("Recovered" + msg(t, c));
             log.finer(StackTraceUtils.toString(t));
         }
         if (result != null)
@@ -78,8 +73,20 @@ public class GetOrCreate<T, B> extends Almost<T, B> {
         return Objects.requireNonNull(result);
     }
 
-    public GetOrCreate<T, B> addCompletionCallback(Consumer<T> callback) {
-        completionCallbacks.add(callback);
-        return this;
+    @NotNull
+    private String msg(Throwable t, int c) {
+        var stage = switch (c) {
+            case 0 -> "trying to obtain original";
+            case 1 -> "initializing created value";
+            case 2 -> "modifying created value";
+            case 3 -> "building new value";
+            case 4 -> "finalizing created value";
+            default -> throw new IllegalStateException("Unexpected value: " + c);
+        };
+        var msg = " from an exception that occurred when " + stage;
+
+        if (exceptionHandler == null)
+            throw new RuntimeException("No exception handler found; cannot recover" + msg, t);
+        return msg;
     }
 }

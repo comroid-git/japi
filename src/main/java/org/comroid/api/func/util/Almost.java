@@ -19,5 +19,8 @@ public abstract class Almost<T, B> implements Wrap<T> {
     }
 
     @NotNull
-    public abstract T complete(@Nullable Consumer<B> modifier);
+    public T complete(@Nullable Consumer<B> modifier) {return complete(modifier, null);}
+
+    @NotNull
+    public abstract T complete(@Nullable Consumer<B> modifier, @Nullable Consumer<T> finalizer);
 }
