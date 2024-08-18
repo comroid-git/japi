@@ -82,19 +82,6 @@ public interface TextDecoration extends StringAttribute, Function<CharSequence, 
                 .collect(Collectors.toUnmodifiableMap(Pair::getFirst, Pair::getSecond));
     }
 
-    private static <T> Optional<T> findField(Class<T> type, Class<? extends Annotation> annotation) {
-        if (type == null || annotation == null)
-            return Optional.empty();
-        return Arrays.stream(type.getFields())
-                .filter(fld -> type.isAssignableFrom(fld.getType()))
-                .filter(fld -> fld.isAnnotationPresent(annotation)
-                        || fld.getName().equalsIgnoreCase(annotation.getName()))
-                .filter(fld -> Modifier.isStatic(fld.getModifiers()))
-                .map(ThrowingFunction.rethrowing(fld -> fld.get(null)))
-                .map(type::cast)
-                .findAny();
-    }
-
     CharSequence getPrefix();
 
     CharSequence getSuffix();
@@ -117,26 +104,45 @@ public interface TextDecoration extends StringAttribute, Function<CharSequence, 
     }
 
     @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME) @interface Italic {
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Italic {
     }
 
     @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME) @interface Bold {
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Bold {
     }
 
     @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME) @interface Underline {
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Underline {
     }
 
     @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME) @interface Strikethrough {
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Strikethrough {
     }
 
     @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME) @interface Quote {
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Quote {
     }
 
     @Target(ElementType.FIELD)
-    @Retention(RetentionPolicy.RUNTIME) @interface Verbatim {
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Verbatim {
+    }
+
+    private static <T> Optional<T> findField(Class<T> type, Class<? extends Annotation> annotation) {
+        if (type == null || annotation == null)
+            return Optional.empty();
+        return Arrays.stream(type.getFields())
+                .filter(fld -> type.isAssignableFrom(fld.getType()))
+                .filter(fld -> fld.isAnnotationPresent(annotation)
+                               || fld.getName().equalsIgnoreCase(annotation.getName()))
+                .filter(fld -> Modifier.isStatic(fld.getModifiers()))
+                .map(ThrowingFunction.rethrowing(fld -> fld.get(null)))
+                .map(type::cast)
+                .findAny();
     }
 }

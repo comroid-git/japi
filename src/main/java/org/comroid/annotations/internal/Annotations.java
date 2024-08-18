@@ -85,8 +85,8 @@ public class Annotations {
 
     public static String descriptionText(@NotNull AnnotatedElement of) {
         return toString(description(of)
-                                .map(Result::getAnnotation)
-                                .toArray(Description[]::new));
+                .map(Result::getAnnotation)
+                .toArray(Description[]::new));
     }
 
     public static Wrap<Category.Adapter> category(@NotNull AnnotatedElement of) {
@@ -137,12 +137,12 @@ public class Annotations {
                 .filter(fld -> {
                     final int mod = fld.getModifiers();
                     return isStatic(mod) && isPublic(mod)
-                            && fld.getType().isAssignableFrom(type);
+                           && fld.getType().isAssignableFrom(type);
                 })
                 .map(fld -> Invocable.ofFieldGet(fld).invokeRethrow())
                 // do we really need to go through supertypes recursively?
                 .collect(append(of(type.getSuperclass())
-                                        .flatMap(Annotations::constants)))
+                        .flatMap(Annotations::constants)))
                 .flatMap(cast(type));
     }
 

@@ -85,14 +85,14 @@ public enum McFormatCode implements TextDecoration, Named {
         return code;
     }
 
+    @Override
+    public CharSequence getSuffix() {
+        return Reset.getPrefix();
+    }
+
     public Tellraw.Component.Builder text(String text) {
         return Tellraw.Component.builder()
                 .text(text)
                 .format(this);
-    }
-
-    @Override
-    public CharSequence getSuffix() {
-        return Reset.getPrefix();
     }
 }

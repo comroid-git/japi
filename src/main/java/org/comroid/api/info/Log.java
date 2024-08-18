@@ -24,17 +24,13 @@ public final class Log {
         return get(cls.getCanonicalName());
     }
 
-    private static Logger getForCaller(int skip) {
-        return get(StackTraceUtils.callerClass(skip + 1));
-    }
-
     @SneakyThrows
     public static void sOutMP(Level level, Object... parameter) {
         final var e = new Throwable().getStackTrace()[1];
         get(Class.forName(e.getClassName())).log(level, "%s.%s(%s)".formatted(e.getClassName(), e.getMethodName(),
-                                                                              Arrays.stream(parameter)
-                                                                                      .map(String::valueOf)
-                                                                                      .collect(Collectors.joining(", "))));
+                Arrays.stream(parameter)
+                        .map(String::valueOf)
+                        .collect(Collectors.joining(", "))));
     }
 
     public static void at(Level level, String message, Throwable t) {
@@ -43,5 +39,9 @@ public final class Log {
 
     public static void at(Level level, String message) {
         getForCaller(1).log(level, message);
+    }
+
+    private static Logger getForCaller(int skip) {
+        return get(StackTraceUtils.callerClass(skip + 1));
     }
 }

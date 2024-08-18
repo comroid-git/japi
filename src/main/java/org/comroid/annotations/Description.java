@@ -21,7 +21,8 @@ public @interface Description {
     enum Mode implements IntegerAttribute {Usage, Lines, Steps}
 
     @Retention(RetentionPolicy.RUNTIME)
-    @Inherit(Inherit.Type.FromSupertype) @interface Config {
+    @Inherit(Inherit.Type.FromSupertype)
+    @interface Config {
         Description[] value();
     }
 }

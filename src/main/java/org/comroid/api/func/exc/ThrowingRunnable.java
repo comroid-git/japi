@@ -19,7 +19,7 @@ public interface ThrowingRunnable<T extends Throwable> {
             @Nullable Function<T, ? extends RuntimeException> remapper
     ) {
         final Function<T, ? extends RuntimeException> finalRemapper = Polyfill.notnullOr(remapper,
-                                                                                         (Function<T, ? extends RuntimeException>) RuntimeException::new
+                (Function<T, ? extends RuntimeException>) RuntimeException::new
         );
 
         return () -> {

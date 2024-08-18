@@ -51,16 +51,6 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
         return map.get(key).get() != null;
     }
 
-    public Optional<V> wrap(K key) {
-        var ref   = map.get(key);
-        V value = null;
-        if (ref != null) {
-            value = ref.get();
-            ref.enqueue();
-        }
-        return Optional.ofNullable(value);
-    }
-
     @Override
     public @Nullable V get(Object key0) {
         K key   = uncheckedCast(key0);
@@ -129,6 +119,16 @@ public class Cache<K, V> extends AbstractMap<K, @Nullable V> {
                 .map(Streams.Multi.mapB(Reference::get))
                 .flatMap(Streams.Multi.filterB(Objects::nonNull))
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    public Optional<V> wrap(K key) {
+        var ref   = map.get(key);
+        V   value = null;
+        if (ref != null) {
+            value = ref.get();
+            ref.enqueue();
+        }
+        return Optional.ofNullable(value);
     }
 
     public V push(V value) {

@@ -22,8 +22,6 @@ public interface ThrowingFunction<I, O, T extends Throwable> {
         };
     }
 
-    O apply(I i) throws T;
-
     static <I, O> Function<I, O> rethrowing(
             ThrowingFunction<I, O, Throwable> function
     ) {
@@ -69,4 +67,6 @@ public interface ThrowingFunction<I, O, T extends Throwable> {
             return fallback == null ? null : fallback.get();
         };
     }
+
+    O apply(I i) throws T;
 }

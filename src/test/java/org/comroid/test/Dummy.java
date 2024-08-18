@@ -16,7 +16,8 @@ public class Dummy {
         return null;
     }
 
-    public @Ignore static class SomethingElse {}
+    public @Ignore
+    static class SomethingElse {}
 
     @ToString
     @Alias(AliasFruit)

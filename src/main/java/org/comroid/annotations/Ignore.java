@@ -24,7 +24,8 @@ public @interface Ignore {
      * Useful for explicitly including Ignored members
      */
     @org.comroid.annotations.internal.Inherit(org.comroid.annotations.internal.Inherit.Type.FromParent)
-    @Retention(RetentionPolicy.RUNTIME) @interface Inherit {
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Inherit {
         /**
          * @return on which annotation processing to ignore the ancestors
          */

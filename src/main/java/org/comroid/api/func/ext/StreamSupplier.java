@@ -23,15 +23,15 @@ public interface StreamSupplier<T> {
         return Stream::empty;
     }
 
-    default StreamSupplier<T> append(final StreamSupplier<? extends T> other) {
-        return concat(this, other);
-    }
-
     static <T> StreamSupplier<T> concat(final StreamSupplier<? extends T> first, final StreamSupplier<? extends T> second) {
         Objects.requireNonNull(first, "First Supplier");
         Objects.requireNonNull(second, "Second Supplier");
 
         return () -> Stream.concat(first.stream(), second.stream());
+    }
+
+    default StreamSupplier<T> append(final StreamSupplier<? extends T> other) {
+        return concat(this, other);
     }
 
     Stream<? extends T> stream();

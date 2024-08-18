@@ -9,10 +9,10 @@ public interface ThrowingIntConsumer<T extends Throwable> {
         return x -> handleSneaky(consumer, x);
     }
 
+    void accept(int value) throws T;
+
     @SneakyThrows
     private static void handleSneaky(ThrowingIntConsumer<?> consumer, int x) {
         consumer.accept(x);
     }
-
-    void accept(int value) throws T;
 }

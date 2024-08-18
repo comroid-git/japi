@@ -44,13 +44,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static java.util.Objects.isNull;
+import static java.util.Objects.*;
 
 @Experimental
 @UtilityClass
 public final class Polyfill {
-    @Deprecated
-    public static final  String                                                 UUID_PATTERN       = RegExpUtil.UUID4.pattern();
     private static final CompletableFuture<?> infiniteFuture = new CompletableFuture<>();
     private static final Pattern                                                DURATION_PATTERN   = Pattern.compile(
             "((?<amount>\\d)+(?<unit>[yMwdhms][oi]?n?))");
@@ -60,6 +58,8 @@ public final class Polyfill {
             86400L, "d", // days
             604800L, "w" // weeks
     );
+    @Deprecated
+    public static final  String               UUID_PATTERN   = RegExpUtil.UUID4.pattern();
 
     public static <T> T supplyOnce(Provider<T> provider, Function<T, T> writer, Supplier<T> accessor) {
         final T accessed = accessor.get();
@@ -258,9 +258,9 @@ public final class Polyfill {
 
     public static String hexString(Color color) {
         return '#'
-                + Integer.toHexString(color.getRed())
-                + Integer.toHexString(color.getGreen())
-                + Integer.toHexString(color.getBlue());
+               + Integer.toHexString(color.getRed())
+               + Integer.toHexString(color.getGreen())
+               + Integer.toHexString(color.getBlue());
     }
 
     public static Inet4Address parseIPv4(String ipv4) {

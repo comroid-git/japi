@@ -16,14 +16,14 @@ public class UtilApi {
                 .thenApply(sneaky(InetAddress::getByName));
     }
 
+    public CompletableFuture<String> md5(URL url) {
+        return req("https://api.comroid.org/md5?url=" + url)
+                .thenApply(rsp -> rsp.getBody().asString());
+    }
+
     private CompletableFuture<REST.Response> req(String url) {
         return REST.request(REST.Method.GET, url)
                 .execute()
                 .thenApply(REST.Response::validate2xxOK);
-    }
-
-    public CompletableFuture<String> md5(URL url) {
-        return req("https://api.comroid.org/md5?url=" + url)
-                .thenApply(rsp -> rsp.getBody().asString());
     }
 }

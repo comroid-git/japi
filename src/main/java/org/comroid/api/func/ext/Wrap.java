@@ -111,20 +111,20 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         return false;
     }
 
-    default @NotNull Optional<T> wrap() {
-        try {
-            return Optional.ofNullable(get());
-        } catch (NullPointerException ignored) {
-            return Optional.empty();
-        }
-    }
-
     @Override
     default boolean isNull() {
         try {
             return get() == null;
         } catch (NullPointerException ignored) {
             return true;
+        }
+    }
+
+    default @NotNull Optional<T> wrap() {
+        try {
+            return Optional.ofNullable(get());
+        } catch (NullPointerException ignored) {
+            return Optional.empty();
         }
     }
 

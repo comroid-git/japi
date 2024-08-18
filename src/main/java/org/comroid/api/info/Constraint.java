@@ -57,11 +57,6 @@ public class Constraint {
                 .setExpected("true");
     }
 
-    @Contract("false -> fail")
-    private API decide(boolean pass) {
-        return pass ? pass() : fail();
-    }
-
     @Contract("-> new")
     public API pass() {
         return new API(() -> true);
@@ -111,12 +106,17 @@ public class Constraint {
         return base;
     }
 
+    @Contract("false -> fail")
+    private API decide(boolean pass) {
+        return pass ? pass() : fail();
+    }
+
     @UtilityClass
     public class Type {
         public API anyOf(Object it, String nameof, Class<?>... types) {
             final var tt = it instanceof Class<?>;
             return decide(Arrays.stream(types)
-                                  .anyMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
+                    .anyMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
                     .setConstraint("Type comparison")
                     .setTypeof(it.getClass())
                     .setNameof(nameof)
@@ -127,7 +127,7 @@ public class Constraint {
         public API noneOf(Object it, String nameof, Class<?>... types) {
             final var tt = it instanceof Class<?>;
             return decide(Arrays.stream(types)
-                                  .noneMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
+                    .noneMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
                     .setConstraint("Type comparison")
                     .setTypeof(it.getClass())
                     .setNameof(nameof)
@@ -140,7 +140,7 @@ public class Constraint {
     public class Range {
         public API inside(double xIncl, double yIncl, double actual, String nameof) {
             return combine(Length.min(xIncl, actual, nameof + " range lower end"),
-                           Length.max(yIncl, actual, nameof + " range upper end"))
+                    Length.max(yIncl, actual, nameof + " range upper end"))
                     .setNameof("range (%f..%f)".formatted(xIncl, yIncl));
         }
     }

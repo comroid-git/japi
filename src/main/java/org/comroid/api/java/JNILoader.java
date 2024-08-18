@@ -51,7 +51,7 @@ public final class JNILoader {
             System.load(fileOut.toString());
         } catch (Exception e) {
             throw new RuntimeException("Error loading library into file: "
-                                               + (fileOut == null ? "null" : fileOut.getAbsolutePath()), e);
+                                       + (fileOut == null ? "null" : fileOut.getAbsolutePath()), e);
         }
     }
 

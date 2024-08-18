@@ -15,17 +15,17 @@ public interface OSBasedFileProvider {
         return Optional.empty();
     }
 
-    OS getOperatingSystem();
-
     static Builder builder() {
         return new Builder();
     }
 
+    OS getOperatingSystem();
+
+    FileHandle getBaseDirectory();
+
     default FileHandle getFile(FileGroup group, String name) {
         return new FileHandle(getBaseDirectory().getAbsolutePath() + group.getBasePathExtension() + name);
     }
-
-    FileHandle getBaseDirectory();
 
     final class Builder implements org.comroid.api.func.ext.Builder<OSBasedFileProvider> {
         private String windowsBasePath = null;
@@ -69,26 +69,6 @@ public interface OSBasedFileProvider {
             return this;
         }
 
-        public Builder setPathForOS(OS os, String path) {
-            switch (os) {
-                case WINDOWS:
-                    return setWindowsBasePath(path);
-                case MAC:
-                    return setMacBasePath(path);
-                case UNIX:
-                    return setUnixBasePath(path);
-                case SOLARIS:
-                    return setSolarisBasePath(path);
-            }
-
-            throw new AssertionError();
-        }
-
-        @Override
-        public OSBasedFileProvider build() {
-            return new Simple(OS.current, getCurrentOSFileHandle());
-        }
-
         private FileHandle getCurrentOSFileHandle() {
             FileHandle handle = null;
 
@@ -108,6 +88,26 @@ public interface OSBasedFileProvider {
             }
 
             return handle;
+        }
+
+        public Builder setPathForOS(OS os, String path) {
+            switch (os) {
+                case WINDOWS:
+                    return setWindowsBasePath(path);
+                case MAC:
+                    return setMacBasePath(path);
+                case UNIX:
+                    return setUnixBasePath(path);
+                case SOLARIS:
+                    return setSolarisBasePath(path);
+            }
+
+            throw new AssertionError();
+        }
+
+        @Override
+        public OSBasedFileProvider build() {
+            return new Simple(OS.current, getCurrentOSFileHandle());
         }
     }
 

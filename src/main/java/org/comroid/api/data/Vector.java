@@ -222,11 +222,6 @@ public interface Vector {
         }
 
         @Override
-        public double[] toArray() {
-            return new double[]{ x, y };
-        }
-
-        @Override
         public double getZ() {
             return 0;
         }
@@ -244,6 +239,11 @@ public interface Vector {
         @Override
         public Vector setW(double value) {
             throw Vector.outOfBounds(IndexW);
+        }
+
+        @Override
+        public double[] toArray() {
+            return new double[]{ x, y };
         }
 
         @Override
@@ -288,13 +288,13 @@ public interface Vector {
         }
 
         @Override
-        public int n() {
-            return 3;
+        public double[] toArray() {
+            return new double[]{ x, y, z };
         }
 
         @Override
-        public double[] toArray() {
-            return new double[]{ x, y, z };
+        public int n() {
+            return 3;
         }
 
         @Override

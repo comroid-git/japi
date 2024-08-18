@@ -94,18 +94,14 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.util.Collections.unmodifiableList;
-import static java.util.function.Function.identity;
-import static java.util.function.Predicate.not;
-import static java.util.stream.Stream.concat;
-import static java.util.stream.Stream.empty;
+import static java.util.Collections.*;
+import static java.util.function.Function.*;
+import static java.util.function.Predicate.*;
 import static java.util.stream.Stream.of;
-import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.get;
-import static org.comroid.api.func.util.Debug.isDebug;
-import static org.comroid.api.func.util.Streams.append;
-import static org.comroid.api.func.util.Streams.cast;
-import static org.comroid.api.func.util.Streams.expand;
-import static org.comroid.api.func.util.Streams.multiply;
+import static java.util.stream.Stream.*;
+import static net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.*;
+import static org.comroid.api.func.util.Debug.*;
+import static org.comroid.api.func.util.Streams.*;
 
 @SuppressWarnings("unused")
 @Retention(RetentionPolicy.RUNTIME)

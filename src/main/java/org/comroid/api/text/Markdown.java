@@ -39,6 +39,11 @@ public enum Markdown implements TextDecoration {
         return getPrefix().toString();
     }
 
+    @Override
+    public String getAlternateName() {
+        return name();
+    }
+
     @NotNull
     @Override
     public CharSequence getPrefix() {
@@ -51,10 +56,5 @@ public enum Markdown implements TextDecoration {
     @Override
     public CharSequence getSuffix() {
         return wrap == null ? suffix : wrap;
-    }
-
-    @Override
-    public String getAlternateName() {
-        return name();
     }
 }

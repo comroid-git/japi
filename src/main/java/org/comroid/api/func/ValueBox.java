@@ -12,12 +12,12 @@ public interface ValueBox<T> extends ValuePointer<T>, Wrap<T> {
         return into(StandardValueType::typeOf);
     }
 
+    @Ignore
+    T getValue();
+
     @Override
     @Nullable
     default T get() {
         return getValue();
     }
-
-    @Ignore
-    T getValue();
 }

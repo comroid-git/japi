@@ -30,16 +30,11 @@ public class GetOrCreate<T, B> extends Almost<T, B> {
         return Objects.requireNonNull(super.get());
     }
 
-    public GetOrCreate<T, B> addCompletionCallback(Consumer<T> callback) {
-        completionCallbacks.add(callback);
-        return this;
-    }
-
     @Override
     public @NotNull T complete(@Nullable Consumer<B> modifier, @Nullable Consumer<T> finalizer) {
-        int c = 0;
-        B builder;
-        T result = null;
+        int c      = 0;
+        B   builder;
+        T   result = null;
         try {
             if (get != null && (result = get.get()) != null)
                 return updateOriginal == null ? result : updateOriginal.apply(result);
@@ -71,6 +66,11 @@ public class GetOrCreate<T, B> extends Almost<T, B> {
             for (Consumer<T> callback : completionCallbacks)
                 callback.accept(result);
         return Objects.requireNonNull(result);
+    }
+
+    public GetOrCreate<T, B> addCompletionCallback(Consumer<T> callback) {
+        completionCallbacks.add(callback);
+        return this;
     }
 
     @NotNull

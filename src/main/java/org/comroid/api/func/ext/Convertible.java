@@ -15,11 +15,6 @@ import java.util.stream.Stream;
 @Experimental
 public interface Convertible {
     @Experimental
-    default <R> @NotNull R convert(Class<? super R> target) {
-        return convert(this, target);
-    }
-
-    @Experimental
     @SuppressWarnings("unchecked")
     static <R> @NotNull R convert(Object it_, Class<? super R> target) {
         var it = it_ instanceof Supplier && Annotations.ignore(it_.getClass(), Convertible.class).isEmpty()
@@ -30,13 +25,13 @@ public interface Convertible {
         if (target.isInstance(it))
             return (R) target.cast(it);
         return Stream.concat(Stream.of(target.getConstructors()),
-                             Stream.of(it.getClass(), target)
-                                     .flatMap(tgt -> Stream.of(tgt.getMethods())
-                                             .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())))
-                                     .filter(mtd -> Modifier.isStatic(mtd.getModifiers())))
+                        Stream.of(it.getClass(), target)
+                                .flatMap(tgt -> Stream.of(tgt.getMethods())
+                                        .filter(mtd -> target.isAssignableFrom(mtd.getReturnType())))
+                                .filter(mtd -> Modifier.isStatic(mtd.getModifiers())))
                 .filter(exe -> exe.isAnnotationPresent(Convert.class) || exe.getName().equals("upgrade"))
                 .filter(exe -> exe.getParameterCount() == 0
-                        || exe.getParameterCount() == 1 && exe.getParameterTypes()[0].isInstance(it))
+                               || exe.getParameterCount() == 1 && exe.getParameterTypes()[0].isInstance(it))
                 .findAny()
                 .map(Invocable::ofExecutable)
                 .map(task -> {
@@ -53,5 +48,10 @@ public interface Convertible {
                     }
                 })
                 .orElseThrow(() -> new NoSuchElementException("Could not find suitable converter method from " + it + " to " + target));
+    }
+
+    @Experimental
+    default <R> @NotNull R convert(Class<? super R> target) {
+        return convert(this, target);
     }
 }

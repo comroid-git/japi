@@ -94,13 +94,13 @@ public @interface Category {
         }
 
         @Override
-        public boolean equals(Object o) {
-            return o instanceof Category c && hashCode() == c.value().hashCode();
+        public int hashCode() {
+            return getName().hashCode();
         }
 
         @Override
-        public int hashCode() {
-            return getName().hashCode();
+        public boolean equals(Object o) {
+            return o instanceof Category c && hashCode() == c.value().hashCode();
         }
     }
 }

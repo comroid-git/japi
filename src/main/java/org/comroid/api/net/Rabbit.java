@@ -44,6 +44,9 @@ public class Rabbit {
                 .map($ -> $cache.computeIfAbsent(uri0, Rabbit::new));
     }
 
+    URI                   uri;
+    Map<String, Exchange> exchanges = new ConcurrentHashMap<>();
+    @NonFinal Connection connection;
     private Rabbit(URI uri) {
         this.uri = uri;
         this.connection = touch();
@@ -60,10 +63,6 @@ public class Rabbit {
         factory.setUri(uri);
         return factory.newConnection();
     }
-
-    URI                   uri;
-    Map<String, Exchange> exchanges = new ConcurrentHashMap<>();
-    @NonFinal Connection connection;
 
     @lombok.Builder(builderMethodName = "bind", buildMethodName = "create", builderClassName = "Binder")
     public <T extends DataNode> Exchange.Route<T> bind(String exchange, String routingKey, Class<? extends T> type) {

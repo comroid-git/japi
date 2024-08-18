@@ -18,13 +18,13 @@ public interface PropertyHolder extends PropertiesHolder, UUIDContainer {
         return this.<UUID>computeProperty("uuid", ($, id) -> id == null ? UUID.randomUUID() : id).assertion();
     }
 
+    default Map<String, Object> getPropertyCache() {
+        return Support.getCache(this);
+    }
+
     @Override
     default <T> Wrap<T> computeProperty(String name, N.Function.$2<String, @Nullable T, @Nullable T> func) {
         return Wrap.ofSupplier(() -> uncheckedCast(getPropertyCache().compute(name, uncheckedCast(func))));
-    }
-
-    default Map<String, Object> getPropertyCache() {
-        return Support.getCache(this);
     }
 
     @Override
@@ -37,7 +37,8 @@ public interface PropertyHolder extends PropertiesHolder, UUIDContainer {
         return getPropertyCache().put(name, value) != value;
     }
 
-    @Internal final class Support {
+    @Internal
+    final class Support {
         private static final Map<UUID, Map<String, Object>> cache = new ConcurrentHashMap<>();
 
         private static Map<String, Object> getCache(PropertyHolder holder) {

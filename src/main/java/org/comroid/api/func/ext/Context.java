@@ -130,11 +130,13 @@ public interface Context extends Named, Convertible, LoggerCarrier {
         return "Context<" + subStr + ">";
     }
 
-    @Deprecated(forRemoval = true) static <T> @Nullable T getFromRoot(Class<T> type) {
+    @Deprecated(forRemoval = true)
+    static <T> @Nullable T getFromRoot(Class<T> type) {
         return get(type);
     }
 
-    @Deprecated(forRemoval = true) static <T> T getFromRoot(Class<T> type, Supplier<? extends T> elseGet) {
+    @Deprecated(forRemoval = true)
+    static <T> T getFromRoot(Class<T> type, Supplier<? extends T> elseGet) {
         return wrap(type).orElseGet(elseGet);
     }
 
@@ -232,7 +234,8 @@ public interface Context extends Named, Convertible, LoggerCarrier {
         return uncheckedCast(getFromContext(memberType, includeChildren).assertion(String.format("<%s => %s>", this, message)));
     }
 
-    @Deprecated(forRemoval = true) interface Underlying extends Context {
+    @Deprecated(forRemoval = true)
+    interface Underlying extends Context {
         default Context getUnderlyingContextualProvider() {
             return root();
         }
@@ -381,13 +384,13 @@ public interface Context extends Named, Convertible, LoggerCarrier {
         }
 
         @Override
-        public String toString() {
-            return getName();
+        public String getName() {
+            return wrapContextStr(name);
         }
 
         @Override
-        public String getName() {
-            return wrapContextStr(name);
+        public String toString() {
+            return getName();
         }
 
         private static Wrap<?> createInstance(Class<?> targetClass) {

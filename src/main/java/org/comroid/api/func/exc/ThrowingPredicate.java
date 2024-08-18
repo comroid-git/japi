@@ -26,11 +26,11 @@ public interface ThrowingPredicate<R, T extends Throwable> {
         };
     }
 
-    boolean test(R it) throws T;
-
     static <R> Predicate<R> rethrowing(
             ThrowingPredicate<R, Throwable> predicate
     ) {
         return rethrowing(predicate, RuntimeException::new);
     }
+
+    boolean test(R it) throws T;
 }

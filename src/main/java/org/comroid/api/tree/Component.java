@@ -64,10 +64,6 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             .description("A required dependency is missing")
             .build();
 
-    default boolean isActive() {
-        return getCurrentState() == State.Active;
-    }
-
     static Set<Dependency> dependencies(Class<? extends Component> type) {
         return Cache.get("dependencies of " + type.getCanonicalName(), () -> {
             var struct = DataStructure.of(type);
@@ -84,13 +80,17 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                                                             .filter(not(cls -> cls.equals(Component.class)))
                                                             .orElseGet(() -> prop.getType().getTargetClass()),
                                                     !prop.isAnnotationPresent(Nullable.class) && (inject.required()
-                                                            || prop.isAnnotationPresent(NotNull.class)),
+                                                                                                  || prop.isAnnotationPresent(NotNull.class)),
                                                     (DataStructure<? extends Component>.Property<?>) prop))),
                             Annotations.findAnnotations(Requires.class, type)
                                     .flatMap(requires -> Arrays.stream(requires.getAnnotation().value()))
                                     .map(cls -> new Dependency("", cls, true, null)))
                     .collect(Collectors.toUnmodifiableSet());
         });
+    }
+
+    default boolean isActive() {
+        return getCurrentState() == State.Active;
     }
 
     @Nullable Component getParent();
@@ -109,6 +109,8 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                 .orElseGet(this::getName);
     }
 
+    State getCurrentState();
+
     default <T extends Component> Stream<T> components(@Nullable Class<? super T> type) {
         return Stream.concat(
                 streamChildren(type),
@@ -126,8 +128,6 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     default Set<Dependency> dependencies() {
         return dependencies(getClass());
     }
-
-    State getCurrentState();
 
     default UncheckedCloseable execute(ScheduledExecutorService scheduler, Duration tickRate) {
         var task = scheduler.scheduleAtFixedRate(() -> {
@@ -202,7 +202,8 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
      * declare a module dependency
      */
     @Target(ElementType.TYPE)
-    @Retention(RetentionPolicy.RUNTIME) @interface Requires {
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Requires {
         Class<? extends Component>[] value();
     }
 
@@ -212,7 +213,8 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
      * if all are defaults, then name and type from field are used
      */
     @Retention(RetentionPolicy.RUNTIME)
-    @Target({ ElementType.FIELD, ElementType.METHOD }) @interface Inject {
+    @Target({ ElementType.FIELD, ElementType.METHOD })
+    @interface Inject {
         /**
          * @return filter by name match, unless length == 0
          */
@@ -356,10 +358,6 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             pushState(State.Active);
         }
 
-        private static <T> boolean test(T it, State state) {
-            return it instanceof Component && ((Component) it).testState(state);
-        }
-
         @Override
         public final synchronized void earlyTerminate() {
             pushState(State.EarlyTerminate);
@@ -427,7 +425,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
                                 return success;
                             })
                             .ifPresentOrElseThrow(func -> func.invokeSilent(Component.Base.this, e.getValue()),
-                                                  () -> new AssertionError("property was not settable")));
+                                    () -> new AssertionError("property was not settable")));
         }
 
         protected void $initialize() {
@@ -459,6 +457,10 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         @Override
         public void stop() {
             terminate();
+        }
+
+        private static <T> boolean test(T it, State state) {
+            return it instanceof Component && ((Component) it).testState(state);
         }
     }
 

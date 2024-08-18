@@ -48,11 +48,11 @@ public class Activator<T> {
                     for (int i = 0; i < args.length; i++) {
                         var param = ctor.getArgs().get(i);
                         args[i] = Wrap.ofOptional(Annotations.aliases(param).stream()
-                                                          .collect(Streams.append(param.getName()))
-                                                          .filter(Predicate.not(String::isBlank))
-                                                          .filter(obj::containsKey)
-                                                          .findAny()
-                                                          .map(obj::get))
+                                        .collect(Streams.append(param.getName()))
+                                        .filter(Predicate.not(String::isBlank))
+                                        .filter(obj::containsKey)
+                                        .findAny()
+                                        .map(obj::get))
                                 .flatMap(it -> it.as(ValueType.of(param.getType())))
                                 .orElseThrow();
                     }

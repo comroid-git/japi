@@ -52,6 +52,14 @@ public final class REST {
     public static CompletableFuture<Response> delete(String uri, @Nullable DataNode body) {
         return request(Method.DELETE, uri, body).execute();
     }
+
+    public static CompletableFuture<Response> head(String uri, @Nullable DataNode body) {
+        return request(Method.HEAD, uri, body).execute();
+    }
+
+    public static CompletableFuture<Response> options(String uri) {
+        return request(Method.OPTIONS, uri, null).execute();
+    }
     private Serializer<? extends DataNode> serializer;    public static final REST Default = new REST(
             Jackson.JSON,
             new Cache<>(Duration.ofMinutes(10)),
@@ -61,7 +69,7 @@ public final class REST {
                 @Override
                 public CompletableFuture<Response> apply(Request request) {
                     var pub = List.of(Method.GET, Method.OPTIONS, Method.TRACE).contains(request.method)
-                                      || request.body == null
+                              || request.body == null
                               ? HttpRequest.BodyPublishers.noBody()
                               : HttpRequest.BodyPublishers.ofString(request.body.toString());
                     var req = HttpRequest.newBuilder()
@@ -78,14 +86,6 @@ public final class REST {
                     }).thenCompose(request::handleRedirect);
                 }
             });
-
-    public static CompletableFuture<Response> head(String uri, @Nullable DataNode body) {
-        return request(Method.HEAD, uri, body).execute();
-    }
-
-    public static CompletableFuture<Response> options(String uri) {
-        return request(Method.OPTIONS, uri, null).execute();
-    }
 
     public static CompletableFuture<Response> trace(String uri) {
         return request(Method.TRACE, uri, null).execute();

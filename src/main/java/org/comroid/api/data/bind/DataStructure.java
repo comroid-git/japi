@@ -104,9 +104,9 @@ public class DataStructure<T> implements Named {
                     return checkAccess(fld) && !struct.getDeclaredProperties().containsKey(member.getName());
                 else if (member instanceof Method mtd)
                     return checkAccess(mtd)
-                            && (member.getName().startsWith("get") && member.getName().length() > 3)
-                            && mtd.getParameterCount() == 0
-                            && !struct.getDeclaredProperties().containsKey(Capitalization.Current.getProperties()
+                           && (member.getName().startsWith("get") && member.getName().length() > 3)
+                           && mtd.getParameterCount() == 0
+                           && !struct.getDeclaredProperties().containsKey(Capitalization.Current.getProperties()
                             .convert(member.getName().substring(3)));
                 else return false;
             }
@@ -150,11 +150,11 @@ public class DataStructure<T> implements Named {
                                     .filter(candidate -> {
                                         var setterName = candidate.getName();
                                         return setterName.startsWith("set")
-                                                && setterName.length() > 3
-                                                && setterName.equals("set" + UpperCamelCase.convert(name[0]))
-                                                && checkAccess(candidate)
-                                                && candidate.getParameterCount() == 1
-                                                && ValueType.of(candidate.getParameterTypes()[0]).equals(type);
+                                               && setterName.length() > 3
+                                               && setterName.equals("set" + UpperCamelCase.convert(name[0]))
+                                               && checkAccess(candidate)
+                                               && candidate.getParameterCount() == 1
+                                               && ValueType.of(candidate.getParameterTypes()[0]).equals(type);
                                     })
                                     .findAny())
                             .peek(parts::add)
@@ -224,7 +224,7 @@ public class DataStructure<T> implements Named {
 
             <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterConstructorMembers(R member) {
                 var base = (member instanceof Method || member instanceof java.lang.reflect.Constructor<?>)
-                        && !member.getName().startsWith("set") && checkAccess(member);
+                           && !member.getName().startsWith("set") && checkAccess(member);
                 if (member instanceof Method mtd)
                     return base && mtd.getReturnType().equals(target);
                 return base;

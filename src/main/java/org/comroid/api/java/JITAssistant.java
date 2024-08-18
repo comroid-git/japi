@@ -18,18 +18,18 @@ import java.util.stream.Stream;
 public final class JITAssistant {
     public static CompletableFuture<Void> prepare(Class<?>... classes) {
         return CompletableFuture.allOf(Arrays.stream(classes)
-                                               .map(type -> {
-                                                   Object instance;
+                .map(type -> {
+                    Object instance;
 
-                                                   try {
-                                                       instance = ReflectionHelper.instance(type);
-                                                   } catch (Throwable t) {
-                                                       instance = null;
-                                                   }
+                    try {
+                        instance = ReflectionHelper.instance(type);
+                    } catch (Throwable t) {
+                        instance = null;
+                    }
 
-                                                   return prepareInstance(instance, type);
-                                               })
-                                               .toArray(CompletableFuture[]::new));
+                    return prepareInstance(instance, type);
+                })
+                .toArray(CompletableFuture[]::new));
     }
 
     public static CompletableFuture<Void> prepareInstance(Object target, Class<?> klaas) {
@@ -49,20 +49,20 @@ public final class JITAssistant {
 
     public static CompletableFuture<Void> prepareStatic(Class<?>... classes) {
         return CompletableFuture.allOf(Arrays.stream(classes)
-                                               .flatMap(type -> Stream.concat(
-                                                       Stream.of(type.getFields()),
-                                                       Stream.of(type.getMethods())
-                                                               .filter(method -> method.getParameterCount() == 0)))
-                                               .filter(it -> Modifier.isStatic(it.getModifiers()) && it.isAccessible())
-                                               .map(it -> buildCallable(it, null))
-                                               .map(objectCallable -> {
-                                                   try {
-                                                       return CompletableFuture.completedFuture(objectCallable.call());
-                                                   } catch (Throwable t) {
-                                                       return Polyfill.failedFuture(t);
-                                                   }
-                                               })
-                                               .toArray(CompletableFuture[]::new));
+                .flatMap(type -> Stream.concat(
+                        Stream.of(type.getFields()),
+                        Stream.of(type.getMethods())
+                                .filter(method -> method.getParameterCount() == 0)))
+                .filter(it -> Modifier.isStatic(it.getModifiers()) && it.isAccessible())
+                .map(it -> buildCallable(it, null))
+                .map(objectCallable -> {
+                    try {
+                        return CompletableFuture.completedFuture(objectCallable.call());
+                    } catch (Throwable t) {
+                        return Polyfill.failedFuture(t);
+                    }
+                })
+                .toArray(CompletableFuture[]::new));
     }
 
     @Internal

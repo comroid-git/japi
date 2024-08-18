@@ -47,11 +47,11 @@ public class DelimitedStringComparator implements Comparator<String> {
             return boxCache.computeIfAbsent(string, StringBox::new);
         }
 
+        private final String inside;
+
         private StringBox(String inside) {
             this.inside = inside;
         }
-
-        private final String inside;
 
         @Override
         public int compareTo(@NotNull String other) {

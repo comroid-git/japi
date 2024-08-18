@@ -41,11 +41,10 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static java.util.Collections.unmodifiableList;
-import static java.util.function.Function.identity;
-import static java.util.stream.Stream.concat;
-import static java.util.stream.Stream.empty;
-import static org.comroid.api.func.N.Consumer.nop;
+import static java.util.Collections.*;
+import static java.util.function.Function.*;
+import static java.util.stream.Stream.*;
+import static org.comroid.api.func.N.Consumer.*;
 
 @UtilityClass
 public class Streams {
@@ -164,9 +163,9 @@ public class Streams {
                 out -> {
                     Set<T> ls = new HashSet<>(), buf1 = out, buf2 = ls;
                     while (buf1.stream()
-                            .flatMap(by)
-                            .filter(buf2::add)
-                            .count() > 0) {
+                                   .flatMap(by)
+                                   .filter(buf2::add)
+                                   .count() > 0) {
                         var buf0 = buf1;
                         buf1 = buf2;
                         buf2 = buf0;
