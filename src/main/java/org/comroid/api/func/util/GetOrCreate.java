@@ -18,10 +18,10 @@ import java.util.function.Function;
 @Data
 public class GetOrCreate<T, B> extends Almost<T, B> {
     private final @Nullable ThrowingSupplier<@Nullable T, Throwable>             get;
-    private final @NotNull  ThrowingSupplier<@NotNull B, Throwable>              create;
     private final @NotNull  ThrowingFunction<@NotNull B, @Nullable T, Throwable> build;
-    private final @NotNull Function<@Nullable T, @Nullable T> finalize;
-    private final          List<Consumer<T>>                  completionCallbacks = new ArrayList<>();
+    private final @NotNull Function<@Nullable T, @Nullable T>      finalize;
+    private final          List<Consumer<T>>                       completionCallbacks = new ArrayList<>();
+    private @NotNull       ThrowingSupplier<@NotNull B, Throwable> create;
     private @Nullable       Function<T, T>                                       updateOriginal;
     private @Nullable       Function<Throwable, @NotNull T>                      exceptionHandler;
 
