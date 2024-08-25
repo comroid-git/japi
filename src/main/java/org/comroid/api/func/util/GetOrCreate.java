@@ -17,13 +17,25 @@ import java.util.function.Function;
 @Log
 @Data
 public class GetOrCreate<T, B> extends Almost<T, B> {
-    private final @Nullable ThrowingSupplier<@Nullable T, Throwable>             get;
-    private final @NotNull  ThrowingFunction<@NotNull B, @Nullable T, Throwable> build;
-    private final @NotNull Function<@Nullable T, @Nullable T>      finalize;
-    private final          List<Consumer<T>>                       completionCallbacks = new ArrayList<>();
-    private @NotNull       ThrowingSupplier<@NotNull B, Throwable> create;
-    private @Nullable       Function<T, T>                                       updateOriginal;
-    private @Nullable       Function<Throwable, @NotNull T>                      exceptionHandler;
+    private final @NotNull ThrowingFunction<@NotNull B, @Nullable T, Throwable> build;
+    private final @NotNull Function<@Nullable T, @Nullable T>                   finalize;
+    private final          List<Consumer<T>>                                    completionCallbacks = new ArrayList<>();
+    private @Nullable      ThrowingSupplier<@Nullable T, Throwable>             get;
+    private @NotNull       ThrowingSupplier<@NotNull B, Throwable>              create;
+    private @Nullable      Function<T, T>                                       updateOriginal;
+    private @Nullable      Function<Throwable, @NotNull T>                      exceptionHandler;
+
+    public GetOrCreate(
+            @Nullable ThrowingSupplier<@Nullable T, Throwable> get,
+            @NotNull ThrowingSupplier<@NotNull B, Throwable> create,
+            @NotNull ThrowingFunction<@NotNull B, @Nullable T, Throwable> build,
+            @NotNull Function<@Nullable T, @Nullable T> finalize
+    ) {
+        this.get      = get;
+        this.create   = create;
+        this.build    = build;
+        this.finalize = finalize;
+    }
 
     @Override
     public @NotNull T get() {
