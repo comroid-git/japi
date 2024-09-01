@@ -456,7 +456,7 @@ public @interface Command {
         public final Stream<AutoFillOption> autoComplete(Usage usage, String argName, @Nullable String currentValue) {
             try {
                 usage.advanceFull();
-                verifyPermission(usage);
+                //todo verifyPermission(usage);
 
                 return (usage.node instanceof Node.Call call
                         ? call.nodes()
@@ -491,9 +491,7 @@ public @interface Command {
         @Override
         public final boolean userHasPermission(Usage usage, Object key) {
             return streamChildren(PermissionChecker.class)
-                    .findFirst()
-                    .filter(pc -> pc.userHasPermission(usage))
-                    .isPresent();
+                    .anyMatch(pc -> pc.userHasPermission(usage, key));
         }
 
         public final @Nullable Object execute(
