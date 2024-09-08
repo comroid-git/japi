@@ -8,17 +8,19 @@ public interface ByteConverter<T> {
     T fromBytes(byte[] bytes);
 
     static <T> ByteConverter<T> jackson(Class<T> type) {
-        return new ByteConverter<T>() {
+        return new ByteConverter<>() {
+            private final ObjectMapper mapper = new ObjectMapper();
+
             @Override
             @SneakyThrows
             public byte[] toBytes(T it) {
-                return new ObjectMapper().writeValueAsBytes(it);
+                return mapper.writeValueAsBytes(it);
             }
 
             @Override
             @SneakyThrows
             public T fromBytes(byte[] bytes) {
-                return new ObjectMapper().readValue(bytes, type);
+                return mapper.readValue(bytes, type);
             }
         };
     }

@@ -15,6 +15,7 @@ import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.adp.JSON;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.Event;
 import org.comroid.api.java.SoftDepend;
 import org.jetbrains.annotations.Nullable;
@@ -153,7 +154,7 @@ public class Rabbit {
                             .assertion();
                     touch().basicPublish(exchange, routingKey, null, body);
                 } catch (Throwable t) {
-                    log.log(Level.FINE, "Could not send data to rabbit", t);
+                    Debug.log(log, "Could not send data to rabbit", t);
                 }
             }
 
