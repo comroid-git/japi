@@ -9,13 +9,13 @@ import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.NonFinal;
 import lombok.extern.java.Log;
+import org.comroid.api.ByteConverter;
 import org.comroid.api.Polyfill;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.adp.JSON;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Event;
-import org.comroid.api.java.Activator;
 import org.comroid.api.java.SoftDepend;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,8 +65,8 @@ public class Rabbit {
     }
 
     @lombok.Builder(builderMethodName = "bind", buildMethodName = "create", builderClassName = "Binder")
-    public <T extends DataNode> Exchange.Route<T> bind(String exchange, String routingKey, Class<? extends T> type) {
-        return exchange(exchange).route(routingKey, type);
+    public <T> Exchange.Route<T> bind(String exchange, String routingKey, ByteConverter<T> converter) {
+        return exchange(exchange).route(routingKey, converter);
     }
 
     public Exchange exchange(String exchange) {
@@ -100,8 +100,8 @@ public class Rabbit {
             return channel;
         }
 
-        public <T extends DataNode> Route<T> route(String routingKey, Class<? extends T> type) {
-            return uncheckedCast(routes.computeIfAbsent(routingKey, (k) -> new Route<>(routingKey, type)));
+        public <T> Route<T> route(String routingKey, ByteConverter<T> converter) {
+            return uncheckedCast(routes.computeIfAbsent(routingKey, (k) -> new Route<>(routingKey, converter)));
         }
 
         public Rabbit rabbit() {
@@ -109,14 +109,14 @@ public class Rabbit {
         }
 
         @Value
-        public class Route<T extends DataNode> extends Event.Bus<T> {
-            String routingKey;
-            Activator<T> ctor;
+        public class Route<T> extends Event.Bus<T> {
+            String           routingKey;
+            ByteConverter<T> converter;
             @NonFinal String tag;
 
-            private Route(String routingKey, Class<T> type) {
+            private Route(String routingKey, ByteConverter<T> converter) {
                 this.routingKey = routingKey;
-                this.ctor = Activator.get(type);
+                this.converter  = converter;
 
                 new Timer("Route Watchdog").schedule(new TimerTask() {
                     @Override
@@ -139,10 +139,8 @@ public class Rabbit {
             }
 
             private void handleRabbitData(String $, Delivery content) {
-                final var body = new String(content.getBody());
                 var data = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
-                        .map(ThrowingFunction.logging(log, $$ -> new ObjectMapper().readValue(body, ctor.getTarget())))
-                        .or(() -> ctor.createInstance(JSON.Parser.parse(body)))
+                        .map($$ -> converter.fromBytes(content.getBody()))
                         .assertion();
                 publish(data);
             }
@@ -151,10 +149,9 @@ public class Rabbit {
             public void send(T data) {
                 try {
                     var body = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
-                            .map(ThrowingFunction.logging(log, $$ -> new ObjectMapper().writeValueAsString(data)))
-                            .or(data::toSerializedString)
+                            .map($ -> converter.toBytes(data))
                             .assertion();
-                    touch().basicPublish(exchange, routingKey, null, body.getBytes());
+                    touch().basicPublish(exchange, routingKey, null, body);
                 } catch (Throwable t) {
                     log.log(Level.FINE, "Could not send data to rabbit", t);
                 }
