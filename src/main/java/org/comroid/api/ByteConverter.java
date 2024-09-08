@@ -1,7 +1,11 @@
 package org.comroid.api;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.SneakyThrows;
+import org.comroid.api.func.util.Debug;
+import org.comroid.api.info.Log;
+
+import java.io.IOException;
 
 public interface ByteConverter<T> {
     byte[] toBytes(T it);
@@ -12,15 +16,23 @@ public interface ByteConverter<T> {
             private final ObjectMapper mapper = new ObjectMapper();
 
             @Override
-            @SneakyThrows
             public byte[] toBytes(T it) {
-                return mapper.writeValueAsBytes(it);
+                try {
+                    return mapper.writeValueAsBytes(it);
+                } catch (JsonProcessingException e) {
+                    Debug.log(Log.get(), "Could not serialize " + type.getCanonicalName(), e);
+                    return new byte[0];
+                }
             }
 
             @Override
-            @SneakyThrows
             public T fromBytes(byte[] bytes) {
-                return mapper.readValue(bytes, type);
+                try {
+                    return mapper.readValue(bytes, type);
+                } catch (IOException e) {
+                    Debug.log(Log.get(), "Could not deserialize " + type.getCanonicalName(), e);
+                    return null;
+                }
             }
         };
     }
