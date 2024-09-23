@@ -117,7 +117,12 @@ public @interface Command {
     @Language(value = "Groovy", prefix = "Object x =", suffix = ";")
     String permission() default EmptyAttribute;
 
+    @Deprecated
     boolean ephemeral() default false;
+
+    PrivacyLevel privacy() default PrivacyLevel.EPHEMERAL;
+
+    enum PrivacyLevel { PUBLIC, PRIVATE, EPHEMERAL }
 
     enum Capability {
         NAMED_ARGS;
