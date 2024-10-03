@@ -2,6 +2,7 @@ package org.comroid.api;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.comroid.api.func.util.Debug;
 import org.comroid.api.info.Log;
 
@@ -13,7 +14,9 @@ public interface ByteConverter<T> {
 
     static <T> ByteConverter<T> jackson(Class<T> type) {
         return new ByteConverter<>() {
-            private final ObjectMapper mapper = new ObjectMapper();
+            private final ObjectMapper mapper = new ObjectMapper(){{
+                registerModule(new JavaTimeModule());
+            }};
 
             @Override
             public byte[] toBytes(T it) {
