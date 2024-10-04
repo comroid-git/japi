@@ -149,9 +149,7 @@ public class Rabbit {
             @SneakyThrows
             public void send(T data) {
                 try {
-                    var body = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
-                            .map($ -> converter.toBytes(data))
-                            .assertion();
+                    var body = converter.toBytes(data);
                     touch().basicPublish(exchange, routingKey, null, body);
                 } catch (Throwable t) {
                     Debug.log(log, "Could not send data to rabbit", t);
