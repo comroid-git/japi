@@ -29,8 +29,6 @@ public interface ThrowingSupplier<T, E extends Throwable> {
         };
     }
 
-    T get() throws E;
-
     static <R> Wrap<R> rethrowing(
             ThrowingSupplier<R, Throwable> supplier
     ) {
@@ -51,6 +49,8 @@ public interface ThrowingSupplier<T, E extends Throwable> {
             }
         };
     }
+
+    T get() throws E;
 
     default Supplier<T> wrap() {
         return wrap(null);

@@ -23,22 +23,22 @@ public class AnnotationTest {
     @Test
     public void test() throws NoSuchMethodException {
         Assertions.assertFalse(of(Obj1.class, Obj2.class, Obj3.class, Obj4.class)
-                                       .flatMap(expandFlat($ -> of("getX", "getY", "getZ")))
-                                       .map(crossA2B(ThrowingBiFunction.rethrowing(Class::getMethod)))
-                                       .map(crossB2A(mtd -> mtd.getAnnotation(Expects.class)))
-                                       .flatMap(flatMapA(Stream::ofNullable))
-                                       .flatMap(flatMapA(expect -> Arrays.stream(expect.value())))
-                                       .flatMap(filterA(expect -> !expect.onTarget().equals("ignore-why")))
-                                       .flatMap(merge((expect, method) -> {
-                                           var result = ignore(method).isPresent();
-                                           if (String.valueOf(result).equals(expect.value()))
-                                               return of(true);
-                                           Log.at(Level.WARNING, Annotations.toString(expect, method));
-                                           return of(false);
-                                       }))
-                                       .toList()
-                                       .contains(false),
-                               "Some expectations weren't met");
+                        .flatMap(expandFlat($ -> of("getX", "getY", "getZ")))
+                        .map(crossA2B(ThrowingBiFunction.rethrowing(Class::getMethod)))
+                        .map(crossB2A(mtd -> mtd.getAnnotation(Expects.class)))
+                        .flatMap(flatMapA(Stream::ofNullable))
+                        .flatMap(flatMapA(expect -> Arrays.stream(expect.value())))
+                        .flatMap(filterA(expect -> !expect.onTarget().equals("ignore-why")))
+                        .flatMap(merge((expect, method) -> {
+                            var result = ignore(method).isPresent();
+                            if (String.valueOf(result).equals(expect.value()))
+                                return of(true);
+                            Log.at(Level.WARNING, Annotations.toString(expect, method));
+                            return of(false);
+                        }))
+                        .toList()
+                        .contains(false),
+                "Some expectations weren't met");
         ;
     }
 

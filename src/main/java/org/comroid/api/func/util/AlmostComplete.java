@@ -12,7 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static org.comroid.api.func.util.Debug.log;
+import static org.comroid.api.func.util.Debug.*;
 
 @Log
 @Data

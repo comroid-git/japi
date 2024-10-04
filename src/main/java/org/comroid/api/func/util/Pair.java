@@ -11,16 +11,16 @@ public class Pair<A, B> {
         this.second = new AtomicReference<>(second);
     }
 
-    @Override
-    public String toString() {
-        return String.format("Pair{first=%s, second=%s}", getFirst(), getSecond());
-    }
-
     public A getFirst() {
         return first.get();
     }
 
     public B getSecond() {
         return second.get();
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Pair{first=%s, second=%s}", getFirst(), getSecond());
     }
 }

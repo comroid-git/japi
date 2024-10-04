@@ -14,7 +14,7 @@ import static org.comroid.api.Polyfill.*;
 public final class Version implements Comparable<Version> {
     public static final Pattern     PATTERN = Pattern.compile(
             "(?<major>\\d+)\\.(?<minor>\\d+)\\.?(?<patch>\\d+)?[.\\-_]?(?<candidate>(s(nap" +
-                    "(shot)?)?|a(lpha)?|b(eta)?|(r(elease)?|c?))+)?[.\\-_]?(?<hotfix>\\d+)?");
+            "(shot)?)?|a(lpha)?|b(eta)?|(r(elease)?|c?))+)?[.\\-_]?(?<hotfix>\\d+)?");
     private final       int         major;
     private final       int         minor;
     private final       int         patch;

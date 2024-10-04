@@ -40,10 +40,6 @@ public final class ReaderUtil {
         return w;
     }
 
-    private ReaderUtil() {
-        throw new UnsupportedOperationException();
-    }
-
     public static Reader combine(Object... parts) {
         return combine(null, parts);
     }
@@ -112,6 +108,18 @@ public final class ReaderUtil {
         }
     }
 
+    public static Readable ofArray(byte[] bytes) {
+        return () -> new InputStreamReader(new ByteArrayInputStream(bytes));
+    }
+
+    public static Reader combine(@Nullable Character delimiter, Reader... readers) {
+        return new CombinedReader(delimiter, readers);
+    }
+
+    private ReaderUtil() {
+        throw new UnsupportedOperationException();
+    }
+
     @Internal
     private static void runTest(String first, String second, char[] buf) throws IOException {
         Reader reader  = combine(';', new StringReader(first), new StringReader(second));
@@ -120,14 +128,6 @@ public final class ReaderUtil {
 
         System.out.printf("read = %d / %d%n", read, buf.length);
         System.out.printf("content = %s%n", content);
-    }
-
-    public static Readable ofArray(byte[] bytes) {
-        return () -> new InputStreamReader(new ByteArrayInputStream(bytes));
-    }
-
-    public static Reader combine(@Nullable Character delimiter, Reader... readers) {
-        return new CombinedReader(delimiter, readers);
     }
 
     private static class PeekingReader extends Reader {

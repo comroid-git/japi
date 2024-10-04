@@ -44,8 +44,8 @@ public final class ReflectionHelper {
         boolean dynamic = !(target instanceof Class);
         var cls = dynamic ? target.getClass() : ((Class<?>) target);
         return Polyfill.uncheckedCast(cls
-                                              .getMethod(methodName, types(args))
-                                              .invoke(dynamic ? target : null, args));
+                .getMethod(methodName, types(args))
+                .invoke(dynamic ? target : null, args));
     }
 
     public static Class<?>[] types(Object... args) {
@@ -88,7 +88,7 @@ public final class ReflectionHelper {
         return fieldWithAnnotation(type, Instance.class).stream()
                 .filter(field -> typeCompat(type, field.getType()))
                 .filter(field -> isStatic(field.getModifiers()) && isFinal(field.getModifiers()) &&
-                        isPublic(field.getModifiers()))
+                                 isPublic(field.getModifiers()))
                 .findAny()
                 .map(field -> {
                     try {
@@ -123,8 +123,8 @@ public final class ReflectionHelper {
             throw new AssertionError(String.format("Could not access constructor %s", constructor), e);
         } catch (InstantiationException e) {
             throw new AssertionError(String.format("Class %s is abstract",
-                                                   constructor.getDeclaringClass()
-                                                           .getName()
+                    constructor.getDeclaringClass()
+                            .getName()
             ), e);
         }
     }
@@ -181,8 +181,8 @@ public final class ReflectionHelper {
             }
 
             if (isStatic(field.getModifiers())
-                    && fieldType.isAssignableFrom(field.getType())
-                    && (withAnnotation == null || field.isAnnotationPresent(withAnnotation))) {
+                && fieldType.isAssignableFrom(field.getType())
+                && (withAnnotation == null || field.isAnnotationPresent(withAnnotation))) {
                 try {
                     values.add(fieldType.cast(field.get(null)));
                 } catch (IllegalAccessException e) {
@@ -237,36 +237,6 @@ public final class ReflectionHelper {
             default:
                 throw new UnsupportedOperationException("Please contact the developer");
         }
-    }
-
-    private static Spliterator<Class<?>> recursiveClassGenerator(Class<?> from) {
-        return Spliterators.spliteratorUnknownSize(new Iterator<Class<?>>() {
-            private final Queue<Class<?>> queue = new LinkedBlockingQueue<>();
-
-            {
-                queue.add(from);
-            }
-
-            @Override
-            public boolean hasNext() {
-                return !queue.isEmpty();
-            }
-
-            @Override
-            public Class<?> next() {
-                if (hasNext()) {
-                    Class<?> poll = queue.poll();
-                    assert poll != null;
-
-                    Optional.ofNullable(poll.getSuperclass())
-                            .ifPresent(queue::add);
-                    queue.addAll(Arrays.asList(poll.getInterfaces()));
-                    return poll;
-                } else {
-                    throw new IndexOutOfBoundsException("No more classes available!");
-                }
-            }
-        }, Spliterator.DISTINCT);
     }
 
     public static Stream<Method> externalMethodsAbove(Class<?> above, Class<?> startingFrom) {
@@ -364,6 +334,36 @@ public final class ReflectionHelper {
         else if (context instanceof Member mem) return mem.getDeclaringClass();
         else if (context instanceof Parameter param) return declaringClass(param.getDeclaringExecutable());
         throw new IllegalArgumentException("Unknown context: " + context);
+    }
+
+    private static Spliterator<Class<?>> recursiveClassGenerator(Class<?> from) {
+        return Spliterators.spliteratorUnknownSize(new Iterator<Class<?>>() {
+            private final Queue<Class<?>> queue = new LinkedBlockingQueue<>();
+
+            {
+                queue.add(from);
+            }
+
+            @Override
+            public boolean hasNext() {
+                return !queue.isEmpty();
+            }
+
+            @Override
+            public Class<?> next() {
+                if (hasNext()) {
+                    Class<?> poll = queue.poll();
+                    assert poll != null;
+
+                    Optional.ofNullable(poll.getSuperclass())
+                            .ifPresent(queue::add);
+                    queue.addAll(Arrays.asList(poll.getInterfaces()));
+                    return poll;
+                } else {
+                    throw new IndexOutOfBoundsException("No more classes available!");
+                }
+            }
+        }, Spliterator.DISTINCT);
     }
 
     @ApiStatus.Experimental

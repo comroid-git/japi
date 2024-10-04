@@ -258,6 +258,19 @@ public class Event<T> implements Wrap<T> {
             register(this);
         }
 
+        private Bus(@Nullable Event.Bus<? extends T> upstream) {
+            this("Event.Bus @ " + caller(1), upstream);
+        }
+
+        private <P> Bus(@Nullable Event.Bus<P> upstream, @Nullable Function<@NotNull Event<P>, @Nullable Event<T>> function) {
+            this("Event.Bus @ " + caller(1), upstream, function);
+        }
+
+        @Contract(value = "_ -> this", mutates = "this")
+        public Event.Bus<T> setUpstream(@NotNull Event.Bus<? extends T> parent) {
+            return setUpstream(parent, Function.identity());
+        }
+
         public @Nullable Listener<T> register(Object target) {
             return registerTargetListener(target.getClass(), target);
         }
@@ -294,19 +307,6 @@ public class Event<T> implements Wrap<T> {
                 listeners.add(listener);
             }
             return listener;
-        }
-
-        private Bus(@Nullable Event.Bus<? extends T> upstream) {
-            this("Event.Bus @ " + caller(1), upstream);
-        }
-
-        private <P> Bus(@Nullable Event.Bus<P> upstream, @Nullable Function<@NotNull Event<P>, @Nullable Event<T>> function) {
-            this("Event.Bus @ " + caller(1), upstream, function);
-        }
-
-        @Contract(value = "_ -> this", mutates = "this")
-        public Event.Bus<T> setUpstream(@NotNull Event.Bus<? extends T> parent) {
-            return setUpstream(parent, Function.identity());
         }
 
         @Contract(value = "_, _ -> this", mutates = "this")
@@ -481,8 +481,8 @@ public class Event<T> implements Wrap<T> {
             @Override
             public boolean test(Event<T> event) {
                 return Wrap.of(event.flag).or(() -> 0xffff_ffff_ffff_ffffL).testIfPresent(this::testFlag)
-                        && (Objects.equals(key, event.key) || ("null".equals(key)
-                        && (Objects.isNull(event.key) || Subscriber.EmptyName.equals(event.key))));
+                       && (Objects.equals(key, event.key) || ("null".equals(key)
+                                                              && (Objects.isNull(event.key) || Subscriber.EmptyName.equals(event.key))));
             }
 
             public boolean testFlag(long x) {

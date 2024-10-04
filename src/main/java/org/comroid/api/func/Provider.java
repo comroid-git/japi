@@ -66,7 +66,8 @@ public interface Provider<T> extends Supplier<CompletableFuture<T>> {
         }
     }
 
-    @Internal final class Support {
+    @Internal
+    final class Support {
         private static final class Constant<T> implements Provider.Now<T> {
             private static final Map<Object, Constant<Object>> cache = new ConcurrentHashMap<>();
             private final T value;

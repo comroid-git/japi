@@ -29,19 +29,6 @@ public class EncryptionUtil {
         return cipherCache.computeIfAbsent(id, $ -> $createCipher(algorithm, transformation, mode, key));
     }
 
-    @SneakyThrows
-    private Cipher $createCipher(
-            Algorithm algorithm,
-            Transformation transformation,
-            @MagicConstant(valuesFromClass = Cipher.class) int mode,
-            @Range(from = 16, to = 16) String key
-    ) {
-        var secret = new SecretKeySpec(key.getBytes(), algorithm.getName());
-        var cipher = Cipher.getInstance(transformation.getName());
-        cipher.init(mode, secret);
-        return cipher;
-    }
-
     public enum Algorithm implements Named {
         AES, DES, DESede, RSA, Blowfish, RC4, RC5, RC6, IDEA, Twofish;
     }
@@ -73,5 +60,18 @@ public class EncryptionUtil {
         Transformation(String name) {
             this.name = name;
         }
+    }
+
+    @SneakyThrows
+    private Cipher $createCipher(
+            Algorithm algorithm,
+            Transformation transformation,
+            @MagicConstant(valuesFromClass = Cipher.class) int mode,
+            @Range(from = 16, to = 16) String key
+    ) {
+        var secret = new SecretKeySpec(key.getBytes(), algorithm.getName());
+        var cipher = Cipher.getInstance(transformation.getName());
+        cipher.init(mode, secret);
+        return cipher;
     }
 }

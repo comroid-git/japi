@@ -165,7 +165,7 @@ public interface Invocable<T> extends Named {
                     .orElseThrow(() -> new NoSuchElementException("No suitable constructor could be found in " + type));
         } else {
             return ofConstructor(ReflectionHelper.findConstructor(type, params)
-                                         .orElseThrow(() -> new NoSuchElementException("No suitable constructor found in " + type)));
+                    .orElseThrow(() -> new NoSuchElementException("No suitable constructor found in " + type)));
         }
     }
 
@@ -280,7 +280,7 @@ public interface Invocable<T> extends Named {
             if (simulate)
                 return null;
             throw new IllegalArgumentException(String.format("unable to arrange arguments: %s - %s",
-                                                             getName(), Arrays.toString(args)), iaEx);
+                    getName(), Arrays.toString(args)), iaEx);
         }
         return arranged;
     }
@@ -381,11 +381,6 @@ public interface Invocable<T> extends Named {
             };
         }
 
-        @Override
-        default @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
-            return invoke(mapArgs(args));
-        }
-
         static Map<Class<?>, Object> mapArgs(Object... args) {
             final long distinct = Stream.of(args)
                     .map(Object::getClass)
@@ -404,10 +399,16 @@ public interface Invocable<T> extends Named {
             return yield;
         }
 
+        @Override
+        default @Nullable T invoke(@Nullable Object target, Object... args) throws InvocationTargetException, IllegalAccessException, InstantiationException {
+            return invoke(mapArgs(args));
+        }
+
         @Nullable T invoke(Map<Class<?>, Object> args) throws InvocationTargetException, IllegalAccessException, InstantiationException;
 
         @Target(ElementType.PARAMETER)
-        @Retention(RetentionPolicy.RUNTIME) @interface Null {
+        @Retention(RetentionPolicy.RUNTIME)
+        @interface Null {
         }
     }
 
@@ -438,7 +439,8 @@ public interface Invocable<T> extends Named {
         }
     }
 
-    @Internal final class Support {
+    @Internal
+    final class Support {
         private static final Invocable<?> Empty = constant(null);
 
         private static final class OfProvider<T> implements Invocable<T> {
@@ -565,7 +567,7 @@ public interface Invocable<T> extends Named {
                         .findAny()
                         .map(it -> (T) it)
                         .orElseThrow(() -> new NoSuchElementException(String.format("No parameter with type %s given",
-                                                                                    type.getName()
+                                type.getName()
                         )));
             }
 
@@ -624,8 +626,8 @@ public interface Invocable<T> extends Named {
                     return null;
                 } else {
                     throw new IllegalArgumentException(String.format("Invalid Type: %s",
-                                                                     args[0].getClass()
-                                                                             .getName()
+                            args[0].getClass()
+                                    .getName()
                     ));
                 }
             }

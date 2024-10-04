@@ -10,17 +10,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public interface WrappedFormattable extends Formattable {
-    @Override
-    default void formatTo(Formatter formatter, int flags, int width, int precision) {
-        wrapFormatter(formatter, flags, width, precision, Bitmask.isFlagSet(flags, FormattableFlags.ALTERNATE)
-                                                          ? getAlternateName()
-                                                          : getPrimaryName());
-    }
-
-    String getPrimaryName();
-
-    String getAlternateName();
-
     static void wrapFormatter(Formatter formatter, int flags, int width, int precision, String base) {
         if (precision != -1 && precision > base.length() && width < precision) {
             int precisionLeft = base.length() - precision;
@@ -31,8 +20,8 @@ public interface WrappedFormattable extends Formattable {
                         .collect(Collectors.joining());
             } else {
                 base = IntStream.range(0, precisionLeft)
-                        .mapToObj(x -> " ")
-                        .collect(Collectors.joining()) + base;
+                               .mapToObj(x -> " ")
+                               .collect(Collectors.joining()) + base;
             }
         }
 
@@ -53,5 +42,16 @@ public interface WrappedFormattable extends Formattable {
         } catch (IOException e) {
             throw new RuntimeException("Unable to append to formatter", e);
         }
+    }
+
+    String getPrimaryName();
+
+    String getAlternateName();
+
+    @Override
+    default void formatTo(Formatter formatter, int flags, int width, int precision) {
+        wrapFormatter(formatter, flags, width, precision, Bitmask.isFlagSet(flags, FormattableFlags.ALTERNATE)
+                                                          ? getAlternateName()
+                                                          : getPrimaryName());
     }
 }

@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 
 @Slf4j
 public abstract class Almost<T, B> implements Wrap<T> {
-    public final T get() {
+    public T get() {
         try {
             return complete(null);
         } catch (Throwable t) {
@@ -19,5 +19,14 @@ public abstract class Almost<T, B> implements Wrap<T> {
     }
 
     @NotNull
-    public abstract T complete(@Nullable Consumer<B> modifier);
+    public T complete(@Nullable Consumer<B> modifier) {return complete(modifier, null);}
+
+    @NotNull
+    public T complete(@Nullable Consumer<B> modifier, @Nullable Consumer<T> finalizer) {
+        var value = complete(modifier);
+        if (finalizer != null)
+            // todo on GetOrCreate, should be done before saving etc
+            finalizer.accept(value);
+        return value;
+    }
 }

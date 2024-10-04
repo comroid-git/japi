@@ -32,8 +32,8 @@ import java.util.stream.Stream;
 
 @UtilityClass
 public final class Bitmask {
-    public static final long EMPTY = 0x0;
     private static final Map<Class<?>, AtomicLong> LAST_FLAG = new ConcurrentHashMap<>();
+    public static final long EMPTY = 0x0;
 
     public static long combine(Bitmask.Attribute<?>... values) {
         long yield = EMPTY;
@@ -100,16 +100,16 @@ public final class Bitmask {
     public static Collector<Long, AtomicLong, Long> collector() {
         return new Collector<>() {
             private static final java.util.Set<Characteristics> characteristics
-                                                                         = Collections.singleton(Characteristics.IDENTITY_FINISH);
-            private final        Supplier<AtomicLong>           supplier
-                                                                         = () -> new AtomicLong(0);
-            private final        BiConsumer<AtomicLong, Long>   accumulator
-                                                                         = (atom, x) -> atom.accumulateAndGet(x, Bitmask::combine);
-            private final        BinaryOperator<AtomicLong>     combiner = (x, y) -> {
+                    = Collections.singleton(Characteristics.IDENTITY_FINISH);
+            private final Supplier<AtomicLong> supplier
+                    = () -> new AtomicLong(0);
+            private final BiConsumer<AtomicLong, Long> accumulator
+                    = (atom, x) -> atom.accumulateAndGet(x, Bitmask::combine);
+            private final BinaryOperator<AtomicLong> combiner = (x, y) -> {
                 x.accumulateAndGet(y.get(), Bitmask::combine);
                 return x;
             };
-            private final        Function<AtomicLong, Long>     finisher = AtomicLong::get;
+            private final Function<AtomicLong, Long> finisher = AtomicLong::get;
 
             @Override
             public Supplier<AtomicLong> supplier() {
@@ -196,14 +196,17 @@ public final class Bitmask {
         }
 
         /**
-         * Checks whether this attribute is set within an long mask.
+         * Creates an long value containing all provided Bitmask attributes.
          *
-         * @param inMask The mask to check.
+         * @param values All values to combine
          *
-         * @return Whether this attribute is contained in the mask
+         * @return The result long value
          */
-        default boolean isFlagSet(long inMask) {
-            return Bitmask.isFlagSet(inMask, getValue());
+        static long toMask(Bitmask.Attribute<?>[] values) {
+            long x = 0;
+            for (Bitmask.Attribute<?> each : values)
+                x = each.apply(x, true);
+            return x;
         }
 
         /**
@@ -219,17 +222,14 @@ public final class Bitmask {
         }
 
         /**
-         * Creates an long value containing all provided Bitmask attributes.
+         * Checks whether this attribute is set within an long mask.
          *
-         * @param values All values to combine
+         * @param inMask The mask to check.
          *
-         * @return The result long value
+         * @return Whether this attribute is contained in the mask
          */
-        static long toMask(Bitmask.Attribute<?>[] values) {
-            long x = 0;
-            for (Bitmask.Attribute<?> each : values)
-                x = each.apply(x, true);
-            return x;
+        default boolean isFlagSet(long inMask) {
+            return Bitmask.isFlagSet(inMask, getValue());
         }
 
         /**
@@ -267,11 +267,13 @@ public final class Bitmask {
         }
     }
 
-    @Value @NonFinal
+    @Value
+    @NonFinal
     public static class Set<T extends Attribute<T>> extends HashSet<@NotNull Long> implements Bitmask.Attribute<T> {
         private static final Set<?> EMPTY = new Set<>();
 
-        @Instance @Default
+        @Instance
+        @Default
         public static <T extends Attribute<T>> Set<T> empty() {
             return Polyfill.uncheckedCast(EMPTY);
         }
@@ -290,6 +292,21 @@ public final class Bitmask {
             if (it instanceof Attribute<?> attr)
                 return check(attr.getAsLong(), task);
             return false;
+        }
+
+        /**
+         * expands a combination of bitwise flags to singular bit flags
+         * output for {@code 7} will be {@code [1, 2, 4]}
+         *
+         * @param flags combination of bit flags
+         *
+         * @return a stream of all bit flags on their own
+         */
+        public static LongStream expand(final long flags) {
+            return LongStream.range(0, 64)
+                    .map(i -> 1L << i)
+                    .map(m -> flags & m)
+                    .filter(x -> x != 0);
         }
 
         public Set() {
@@ -320,23 +337,19 @@ public final class Bitmask {
             this(java.util.List.of(values));
         }
 
+        @Override
+        public @NotNull Long getValue() {
+            // using sum() is possible because add() only stores single bit flags
+            return longStream().sum();
+        }
+
         public boolean add(T it) {
             return add(it.getValue());
         }
 
-        /**
-         * expands a combination of bitwise flags to singular bit flags
-         * output for {@code 7} will be {@code [1, 2, 4]}
-         *
-         * @param flags combination of bit flags
-         *
-         * @return a stream of all bit flags on their own
-         */
-        public static LongStream expand(final long flags) {
-            return LongStream.range(0, 64)
-                    .map(i -> 1L << i)
-                    .map(m -> flags & m)
-                    .filter(x -> x != 0);
+        @Override
+        public boolean contains(Object it) {
+            return check(it, stream -> stream.allMatch(super::contains));
         }
 
         /**
@@ -346,11 +359,6 @@ public final class Bitmask {
         public boolean add(@NotNull Long value) {
             // add each bitwise component separately
             return expand(value).anyMatch(super::add);
-        }
-
-        @Override
-        public boolean contains(Object it) {
-            return check(it, stream -> stream.allMatch(super::contains));
         }
 
         /**
@@ -372,12 +380,6 @@ public final class Bitmask {
             final var mask = getValue();
             return Annotations.constants(type)
                     .filter(it -> it.isFlagSet(mask));
-        }
-
-        @Override
-        public @NotNull Long getValue() {
-            // using sum() is possible because add() only stores single bit flags
-            return longStream().sum();
         }
 
         public LongStream longStream() {

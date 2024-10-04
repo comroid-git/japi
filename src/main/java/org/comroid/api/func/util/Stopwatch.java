@@ -19,11 +19,6 @@ public final class Stopwatch {
         return get(key).start();
     }
 
-    public Stopwatch start() {
-        start = now();
-        return this;
-    }
-
     public static Stopwatch get(Object key) {
         return cache.computeIfAbsent(key, Stopwatch::new);
     }
@@ -31,11 +26,15 @@ public final class Stopwatch {
     public static Duration stop(Object key) {
         return get(key).stop();
     }
+    private final Object  key;
+    private       Instant start;
+
+    public Stopwatch start() {
+        start = now();
+        return this;
+    }
 
     public Duration stop() {
         return Duration.between(start, now());
     }
-
-    private final Object  key;
-    private       Instant start;
 }

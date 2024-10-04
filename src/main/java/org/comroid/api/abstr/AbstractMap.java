@@ -10,18 +10,13 @@ import java.util.stream.Collectors;
 
 public interface AbstractMap<K, V> extends Map<K, V> {
     @Override
-    default boolean isEmpty() {
-        return size() == 0;
-    }
-
-    @Override
     default int size() {
         return entrySet().size();
     }
 
     @Override
-    default void putAll(@NotNull Map<? extends K, ? extends V> m) {
-        m.forEach(this::put);
+    default boolean isEmpty() {
+        return size() == 0;
     }
 
     @Override
@@ -34,14 +29,19 @@ public interface AbstractMap<K, V> extends Map<K, V> {
         return values().stream().anyMatch(value::equals);
     }
 
+    @Override
+    default void putAll(@NotNull Map<? extends K, ? extends V> m) {
+        m.forEach(this::put);
+    }
+
     @NotNull
     @Override
     default Set<K> keySet() {
         //noinspection SimplifyStreamApiCallChains
         return Collections.unmodifiableSet(entrySet()
-                                                   .stream()
-                                                   .map(Entry::getKey)
-                                                   .collect(Collectors.toSet()));
+                .stream()
+                .map(Entry::getKey)
+                .collect(Collectors.toSet()));
     }
 
     @NotNull
@@ -49,8 +49,8 @@ public interface AbstractMap<K, V> extends Map<K, V> {
     default List<V> values() {
         //noinspection SimplifyStreamApiCallChains
         return Collections.unmodifiableList(entrySet()
-                                                    .stream()
-                                                    .map(Entry::getValue)
-                                                    .collect(Collectors.toList()));
+                .stream()
+                .map(Entry::getValue)
+                .collect(Collectors.toList()));
     }
 }

@@ -120,13 +120,6 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
                 .activate();
     }
 
-    @SneakyThrows
-    private static void infiniteTransfer(InputStream in, OutputStream out) {
-        //noinspection InfiniteLoopStatement
-        while (true)
-            in.transferTo(out);
-    }
-
     static Input wrap(final InputStream stream) {
         return wrap(stream, Log.get());
     }
@@ -291,6 +284,13 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
         public boolean canContinue(int b) {
             return !(this == OnNewLine && b == '\n');
         }
+    }
+
+    @SneakyThrows
+    private static void infiniteTransfer(InputStream in, OutputStream out) {
+        //noinspection InfiniteLoopStatement
+        while (true)
+            in.transferTo(out);
     }
 
     private static UnsupportedOperationException unsupported(DelegateStream stream, Capability capability) {
@@ -463,6 +463,16 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             this.read = handler;
         }
 
+        @Override
+        public long getCapabilities() {
+            return Capability.Input.getAsLong();
+        }
+
+        @Override
+        public Wrap<InputStream> input() {
+            return Capability.Input.isFlagSet(getCapabilities()) ? Wrap.of(toInputStream()) : Wrap.empty();
+        }
+
         //region Stream OPs
         @ApiStatus.Experimental
         public Input peek(final Consumer<@NotNull String> action) {
@@ -476,6 +486,7 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
         public Input filter(final Predicate<@NotNull String> action) {
             return map(str -> action.test(str) ? str : null);
         }
+        //endregion
 
         @ApiStatus.Experimental
         public Input map(final Function<@NotNull String, @Nullable String> action) {
@@ -487,13 +498,12 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             Input in = this;
             if (!(in.delegate instanceof EndlDelimitedAdapter))
                 in = new PipelineAdapter<>(new EndlDelimitedAdapter(in), action.andThen(x -> x
-                                                                                                .filter(Objects::nonNull)
-                                                                                        //        .map(y->y+'\n')
+                                .filter(Objects::nonNull)
+                        //        .map(y->y+'\n')
                 ));
             else Polyfill.<PipelineAdapter<String>>uncheckedCast(in).actions.add(action);
             return in;
         }
-        //endregion
 
         @ApiStatus.Experimental
         public BackgroundTask<Input> subscribe(final Consumer<@NotNull String> action) {
@@ -522,6 +532,7 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
         public Input mapSegment(final Function<byte @NotNull [], byte @Nullable []> action) throws IllegalStateException {
             return flatMapSegment(action.andThen(Stream::of));
         }
+        //endregion
 
         @ApiStatus.Experimental
         public Input flatMapSegment(final Function<byte @NotNull [], Stream<byte @Nullable []>> action) throws IllegalStateException {
@@ -539,7 +550,6 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
                 return Stream.empty();
             });
         }
-        //endregion
 
         @ApiStatus.Experimental
         public Input segment(int length) {
@@ -585,9 +595,26 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             closeSelf();
         }
 
+        @Override
+        @SneakyThrows
+        public void closeSelf() {
+            if (delegate != null)
+                delegate.close();
+        }
+
+        @Override
+        public String toString() {
+            return getName();
+        }
+
         private class EndlDelimitedAdapter extends DelimitedInputAdapter<String, StringReader, StringWriter> {
             private EndlDelimitedAdapter(InputStream delegate) {
                 super(delegate);
+            }
+
+            @Override
+            protected StringReader newReadBuffer(@Nullable String content) {
+                return new StringReader(content == null ? "" : content);
             }
 
             @Override
@@ -601,29 +628,9 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             }
 
             @Override
-            protected StringReader newReadBuffer(@Nullable String content) {
-                return new StringReader(content == null ? "" : content);
-            }
-
-            @Override
             protected String deconstructCache(StringWriter buffer) {
                 return buffer.toString();
             }
-        }        @Override
-        public long getCapabilities() {
-            return Capability.Input.getAsLong();
-        }
-
-        @Override
-        @SneakyThrows
-        public void closeSelf() {
-            if (delegate != null)
-                delegate.close();
-        }
-
-        @Override
-        public String toString() {
-            return getName();
         }
 
         private abstract static class DelimitedInputAdapter<T, BUF extends Reader, LOC extends Writer> extends Input {
@@ -643,6 +650,13 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
                 if ((r = buffer.read()) == -1)
                     nextBuffer();
                 return r;
+            }
+
+            @Override
+            @SneakyThrows
+            public void closeSelf() {
+                super.closeSelf();
+                buffer.close();
             }
 
             @SneakyThrows
@@ -667,16 +681,6 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             }
 
             protected abstract T deconstructCache(LOC buffer);
-
-            @Override
-            @SneakyThrows
-            public void closeSelf() {
-                super.closeSelf();
-                buffer.close();
-            }
-        }        @Override
-        public Wrap<InputStream> input() {
-            return Capability.Input.isFlagSet(getCapabilities()) ? Wrap.of(toInputStream()) : Wrap.empty();
         }
 
         private static class SegmentAdapter extends DelimitedInputAdapter<byte[], ReaderAdapter<ByteArrayInputStream>, WriterAdapter<ByteArrayOutputStream>> {
@@ -685,6 +689,11 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             private SegmentAdapter(InputStream delegate, int length) {
                 super(delegate);
                 this.length = length;
+            }
+
+            @Override
+            protected ReaderAdapter<ByteArrayInputStream> newReadBuffer(byte @Nullable [] content) {
+                return new ReaderAdapter<>(new ByteArrayInputStream(content == null ? new byte[0] : content));
             }
 
             @Override
@@ -698,19 +707,10 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             }
 
             @Override
-            protected ReaderAdapter<ByteArrayInputStream> newReadBuffer(byte @Nullable [] content) {
-                return new ReaderAdapter<>(new ByteArrayInputStream(content == null ? new byte[0] : content));
-            }
-
-            @Override
             protected byte[] deconstructCache(WriterAdapter<ByteArrayOutputStream> buffer) {
                 return buffer.delegate.toByteArray();
             }
         }
-
-
-
-
 
         private static class PipelineAdapter<T> extends Input {
             List<Function<T, Stream<T>>> actions;
@@ -846,12 +846,6 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             this.name  = "Segmented OutputStream @ " + caller(1);
         }
 
-        @SneakyThrows
-        public void accept(byte[] data) {
-            write(data);
-            flush();
-        }
-
         @Override
         public long getCapabilities() {
             return Capability.Output.getAsLong();
@@ -860,6 +854,12 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
         @Override
         public Wrap<OutputStream> output() {
             return Wrap.of(this);
+        }
+
+        @SneakyThrows
+        public void accept(byte[] data) {
+            write(data);
+            flush();
         }
 
         //region Stream OPs
@@ -887,8 +887,8 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             Output out = this;
             if (!(out.delegate instanceof StringPipelineAdapter))
                 out = new Output(new StringPipelineAdapter(this, action.andThen(x -> x
-                                                                                        .filter(Objects::nonNull)
-                                                                                //        .map(y->y+'\n')
+                                .filter(Objects::nonNull)
+                        //        .map(y->y+'\n')
                 )));
             else ((StringPipelineAdapter) out.delegate).actions.add(action);
             return out;
@@ -1091,7 +1091,7 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
         public static final String EventKey_Output = "stdout";
         public static final String EventKey_Error = "stderr";
         public static final IO     NULL           = new IO(new ByteArrayInputStream(new byte[0]), StreamUtil.voidOutputStream(),
-                                                           StreamUtil.voidOutputStream());
+                StreamUtil.voidOutputStream());
         public static final IO     SYSTEM         = new IO(System.in, System.out, System.err).setDoNotCloseCapabilities(7);
 
         @SneakyThrows
@@ -1142,6 +1142,14 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             throw new RuntimeException("unreachable");
         }
 
+        public static IO log(Logger log) {
+            return new IO(null, new Output(log::info), new Output(log::severe));
+        }
+
+        public static IO log(org.slf4j.Logger log) {
+            return new IO(null, new Output(log::info), new Output(log::error));
+        }
+
         long initialCapabilities;
         Deque<IO> redirects;
         @Getter
@@ -1170,9 +1178,11 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
         @NonFinal
         @Setter
         OutputMode errorMode = OutputMode.All;
+
         public IO() {
             this(Capability.values());
         }
+
         public IO(Capability... capabilities) {
             // default constructor
             this(null, null, null, capabilities);
@@ -1211,20 +1221,48 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             };
         }
 
-        private <R> @Nullable R obtainStream(R basis, final Capability capability, final Supplier<R> fallback) {
-            return Optional.ofNullable(basis)
-                    .or(() -> Bitmask.isFlagSet(this.initialCapabilities, capability)
-                              ? Optional.ofNullable(fallback.get())
-                              : Optional.empty())
-                    .orElse(null);
-        }
-
         public boolean isNull() {
             return NULL.equals(this);
         }
 
         public String getAlternateName() {
             return toInfoString(1);
+        }
+
+        public boolean isSystem() {
+            return SYSTEM.equals(this);
+        }
+
+        public boolean isRedirect() {
+            return initialCapabilities != 0;
+        }
+
+        @Override
+        public long getCapabilities() {
+            return Bitmask.arrange(input != null, output != null, error != null);
+        }
+
+        @Override
+        public Wrap<OutputStream> output() {
+            return ofSupplier(() -> output);
+        }
+
+        @Override
+        public Wrap<OutputStream> error() {
+            return ofSupplier(() -> error);
+        }
+
+        @Override
+        public Wrap<InputStream> input() {
+            return ofSupplier(() -> input);
+        }
+
+        private <R> @Nullable R obtainStream(R basis, final Capability capability, final Supplier<R> fallback) {
+            return Optional.ofNullable(basis)
+                    .or(() -> Bitmask.isFlagSet(this.initialCapabilities, capability)
+                              ? Optional.ofNullable(fallback.get())
+                              : Optional.empty())
+                    .orElse(null);
         }
 
         public IO redirectToNull() {
@@ -1241,14 +1279,6 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             redirects.push(redirect);
             redirect.parent = this;
             return this;
-        }
-
-        public boolean isSystem() {
-            return SYSTEM.equals(this);
-        }
-
-        public boolean isRedirect() {
-            return initialCapabilities != 0;
         }
 
         public void detach() {
@@ -1268,16 +1298,8 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             return redirect(log(log));
         }
 
-        public static IO log(Logger log) {
-            return new IO(null, new Output(log::info), new Output(log::severe));
-        }
-
         public IO redirectToLogger(org.slf4j.Logger log) {
             return redirect(log(log));
-        }
-
-        public static IO log(org.slf4j.Logger log) {
-            return new IO(null, new Output(log::info), new Output(log::error));
         }
 
         public IO redirectToSystem() {
@@ -1329,50 +1351,10 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             this.name   = "Rewired " + name;
             this.input  = mapStream(Input.class, RedirectInput.class, input(), Input::new, in, RedirectInput::new, RedirectInput::new);
             this.output = mapStream(Output.class, RedirectOutput.class, output(), Output::new, out, s -> new RedirectOutput(s, Capability.Output),
-                                    () -> new RedirectOutput(Capability.Output));
+                    () -> new RedirectOutput(Capability.Output));
             this.error  = mapStream(Output.class, RedirectOutput.class, error(), Output::new, err, s -> new RedirectOutput(s, Capability.Error),
-                                    () -> new RedirectOutput(Capability.Error));
+                    () -> new RedirectOutput(Capability.Error));
             return this;
-        }
-
-        private static <Base, Adapter extends DelegateStream, Result extends DelegateStream> @Nullable Result mapStream(
-                final Class<Adapter> typeA,
-                final Class<Result> typeR,
-                final @NotNull Wrap<@Nullable Base> supp,
-                final @NotNull Function<@NotNull Base, ? extends Adapter> prep,
-                final @Nullable Function<@NotNull Adapter, ? extends Base> func,
-                final @NotNull Function<@NotNull Base, @NotNull Result> wrap,
-                final @NotNull Wrap<Result> def
-        ) {
-            // ((supp -> cast+prep -> func) / supp) -> cast/wrap/def
-            return Optional.ofNullable(func)
-                    // supp -> cast+prep -> func
-                    .flatMap(fx -> supp.wrap()
-                            // cast+prep
-                            .flatMap(x -> Optional.of(x)
-                                    // cast
-                                    .filter(typeA::isInstance)
-                                    .map(typeA::cast)
-                                    // prep
-                                    .or(() -> Optional.of(x).map(prep)))
-                            // func
-                            .map(fx))
-                    .map(Polyfill::<Base>uncheckedCast)
-                    // supp
-                    .or(supp::wrap)
-                    // cast+wrap
-                    .flatMap(x -> Optional.of(x)
-                            // cast
-                            .filter(typeR::isInstance)
-                            .map(typeR::cast)
-                            // wrap
-                            .or(() -> Optional.of(x).map(wrap)))
-                    // default if necessary
-                    .or(() -> def.wrap().filter($ -> func != null))
-                    // adjust name
-                    .map(x -> x.setName("Rewired " + x.getName()))
-                    .map(Polyfill::<Result>uncheckedCast)
-                    .orElse(null);
         }
 
         public IO useEncryption(final @NotNull IntFunction<Cipher> cipherFactory) {
@@ -1426,28 +1408,6 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             return Bitmask.isFlagSet(getCapabilities(), capability);
         }
 
-        @Override
-        public long getCapabilities() {
-            return Bitmask.arrange(input != null, output != null, error != null);
-        }
-
-        @Override
-        public Wrap<OutputStream> output() {
-            return ofSupplier(() -> output);
-        }
-
-        @Override
-        public Wrap<OutputStream> error() {
-            return ofSupplier(() -> error);
-        }
-
-        @Override
-        public Wrap<InputStream> input() {
-            return ofSupplier(() -> input);
-        }
-
-        // todo: accept(Object) with autoconfiguration for any object
-
         private String toInfoString(int indent) {
             var sb = new StringBuilder(getName());
 
@@ -1488,6 +1448,8 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
 
             return sb.toString();
         }
+
+        // todo: accept(Object) with autoconfiguration for any object
 
         public void accept(
                 @Nullable Consumer<InputStream> in,
@@ -1659,6 +1621,46 @@ public interface DelegateStream extends Container, SelfCloseable, Named, Convert
             public String getName() {
                 return "RedirectOutput of " + super.getName();
             }
+        }
+
+        private static <Base, Adapter extends DelegateStream, Result extends DelegateStream> @Nullable Result mapStream(
+                final Class<Adapter> typeA,
+                final Class<Result> typeR,
+                final @NotNull Wrap<@Nullable Base> supp,
+                final @NotNull Function<@NotNull Base, ? extends Adapter> prep,
+                final @Nullable Function<@NotNull Adapter, ? extends Base> func,
+                final @NotNull Function<@NotNull Base, @NotNull Result> wrap,
+                final @NotNull Wrap<Result> def
+        ) {
+            // ((supp -> cast+prep -> func) / supp) -> cast/wrap/def
+            return Optional.ofNullable(func)
+                    // supp -> cast+prep -> func
+                    .flatMap(fx -> supp.wrap()
+                            // cast+prep
+                            .flatMap(x -> Optional.of(x)
+                                    // cast
+                                    .filter(typeA::isInstance)
+                                    .map(typeA::cast)
+                                    // prep
+                                    .or(() -> Optional.of(x).map(prep)))
+                            // func
+                            .map(fx))
+                    .map(Polyfill::<Base>uncheckedCast)
+                    // supp
+                    .or(supp::wrap)
+                    // cast+wrap
+                    .flatMap(x -> Optional.of(x)
+                            // cast
+                            .filter(typeR::isInstance)
+                            .map(typeR::cast)
+                            // wrap
+                            .or(() -> Optional.of(x).map(wrap)))
+                    // default if necessary
+                    .or(() -> def.wrap().filter($ -> func != null))
+                    // adjust name
+                    .map(x -> x.setName("Rewired " + x.getName()))
+                    .map(Polyfill::<Result>uncheckedCast)
+                    .orElse(null);
         }
     }
 }

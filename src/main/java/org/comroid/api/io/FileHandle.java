@@ -60,6 +60,11 @@ public final class FileHandle extends File implements Named, ContentParser {
         return getName();
     }
 
+    @Override
+    public final String getAlternateName() {
+        return getShortName();
+    }
+
     @NotNull
     @Override
     public final String getName() {
@@ -86,11 +91,6 @@ public final class FileHandle extends File implements Named, ContentParser {
     @Override
     public String toString() {
         return getAbsolutePath();
-    }
-
-    @Override
-    public final String getAlternateName() {
-        return getShortName();
     }
 
     @NotNull

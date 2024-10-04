@@ -82,14 +82,14 @@ public interface N {
             }
 
             @Override
-            @NotNull
-            default <O> $3<X, Y, Z, O> andThen(final @NotNull java.util.function.Function<? super R, ? extends O> after) {
-                return (x, y, z) -> after.apply(apply(x, y, z));
+            default R apply(X x, Y y) {
+                return apply(x, y, getDefaultZ());
             }
 
             @Override
-            default R apply(X x, Y y) {
-                return apply(x, y, getDefaultZ());
+            @NotNull
+            default <O> $3<X, Y, Z, O> andThen(final @NotNull java.util.function.Function<? super R, ? extends O> after) {
+                return (x, y, z) -> after.apply(apply(x, y, z));
             }
 
             R apply(X x, Y y, Z z);
@@ -101,11 +101,6 @@ public interface N {
 
         @FunctionalInterface
         interface $4<X, Y, Z, W, R> extends $3<X, Y, Z, R>, dim.I4<X, Y, Z, W>, dim.O1<R> {
-            @Override
-            default R apply(X x, Y y, Z z) {
-                return apply(x, y, z, getDefaultW());
-            }
-
             R apply(X x, Y y, Z z, W w);
 
             @NotNull
@@ -118,6 +113,11 @@ public interface N {
             @NotNull
             default <O> $4<X, Y, Z, W, O> andThen(final @NotNull java.util.function.Function<? super R, ? extends O> after) {
                 return (x, y, z, w) -> after.apply(apply(x, y, z, w));
+            }
+
+            @Override
+            default R apply(X x, Y y, Z z) {
+                return apply(x, y, z, getDefaultW());
             }
         }
     }
@@ -203,14 +203,6 @@ public interface N {
 
         @FunctionalInterface
         interface $4<X, Y, Z, W> extends $3<X, Y, Z>, dim.I4<X, Y, Z, W>, dim.O0 {
-            @NotNull
-            default $4<X, Y, Z, W> andThen(final @NotNull java.util.function.Consumer<? super X> after) {
-                return (x, y, z, w) -> {
-                    accept(x, y, z, w);
-                    after.accept(x);
-                };
-            }
-
             @Override
             @NotNull
             default $4<X, Y, Z, W> andThen(final @NotNull BiConsumer<? super X, ? super Y> after) {
@@ -223,6 +215,14 @@ public interface N {
             @Override
             default void accept(X x, Y y, Z z) {
                 accept(x, y, z, getDefaultW());
+            }
+
+            @NotNull
+            default $4<X, Y, Z, W> andThen(final @NotNull java.util.function.Consumer<? super X> after) {
+                return (x, y, z, w) -> {
+                    accept(x, y, z, w);
+                    after.accept(x);
+                };
             }
 
             void accept(X x, Y y, Z z, W w);

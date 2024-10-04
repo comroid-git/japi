@@ -56,6 +56,17 @@ public enum OS implements Named {
         isSolaris = current == SOLARIS;
     }
 
+    public @NotNull
+    static OS findByName(String osName) {
+        for (OS value : values()) {
+            final String osLow = osName.toLowerCase();
+            if (value.validators.stream().anyMatch(osLow::contains))
+                return value;
+        }
+
+        throw new NoSuchElementException("Unknown OS: " + osName);
+    }
+
     private final String libExtension;
     private final List<String> validators;
 
@@ -117,17 +128,6 @@ public enum OS implements Named {
 
         String osName = System.getProperty("os.name");
         return findByName(osName);
-    }
-
-    public @NotNull
-    static OS findByName(String osName) {
-        for (OS value : values()) {
-            final String osLow = osName.toLowerCase();
-            if (value.validators.stream().anyMatch(osLow::contains))
-                return value;
-        }
-
-        throw new NoSuchElementException("Unknown OS: " + osName);
     }
 
     public record Host(String ip, String name) {

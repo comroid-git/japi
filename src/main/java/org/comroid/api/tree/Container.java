@@ -33,6 +33,9 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
         return new Base(children);
     }
 
+    @ApiStatus.Internal
+    Set<Object> getChildren();
+
     Object addChildren(@Nullable Object @NotNull ... children);
 
     int removeChildren(@Nullable Object @NotNull ... children);
@@ -45,19 +48,16 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
                 .map(Polyfill::uncheckedCast);
     }
 
-    @ApiStatus.Internal
-    Set<Object> getChildren();
-
     default Stream<Object> streamOwnChildren() {
         return Stream.empty();
     }
 
     private static Exception makeException(List<Throwable> errors) {
         return new Exception(String.format("%d unexpected %s occurred",
-                                           errors.size(),
-                                           Polyfill.plural(errors, "exception", "+s")),
-                             null,
-                             true, false) {
+                errors.size(),
+                Polyfill.plural(errors, "exception", "+s")),
+                null,
+                true, false) {
         };
     }
 
@@ -68,6 +68,11 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
 
         public Base(Object... children) {
             this.children = new HashSet<>(Set.of(children));
+        }
+
+        @Ignore
+        public boolean isClosed() {
+            return closed.get().isDone();
         }
 
         public <T> T addChild(@Nullable T it) {
@@ -137,13 +142,8 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
 
         public boolean setClosed(boolean state) {
             return Polyfill.updateBoolState(isClosed(), state,
-                                            () -> closed.get().complete(null),
-                                            () -> closed.set(new CompletableFuture<>()));
-        }
-
-        @Ignore
-        public boolean isClosed() {
-            return closed.get().isDone();
+                    () -> closed.get().complete(null),
+                    () -> closed.set(new CompletableFuture<>()));
         }
 
         @Override

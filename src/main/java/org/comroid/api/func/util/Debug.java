@@ -17,8 +17,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import static java.util.stream.IntStream.range;
-import static org.comroid.api.java.StackTraceUtils.lessSimpleName;
+import static java.util.stream.IntStream.*;
+import static org.comroid.api.java.StackTraceUtils.*;
 
 @UtilityClass
 @lombok.extern.java.Log

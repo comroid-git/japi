@@ -23,7 +23,7 @@ public interface ThrowingConsumer<I, T extends Throwable> {
             @Nullable Function<T, ? extends RuntimeException> remapper
     ) {
         final Function<T, ? extends RuntimeException> finalRemapper = Polyfill.notnullOr(remapper,
-                                                                                         (Function<T, ? extends RuntimeException>) RuntimeException::new
+                (Function<T, ? extends RuntimeException>) RuntimeException::new
         );
 
         return in -> {
@@ -46,8 +46,6 @@ public interface ThrowingConsumer<I, T extends Throwable> {
         };
     }
 
-    void accept(I input) throws T;
-
     static <I> Consumer<I> rethrowing(
             ThrowingConsumer<I, Throwable> consumer
     ) {
@@ -59,6 +57,8 @@ public interface ThrowingConsumer<I, T extends Throwable> {
             throw t;
         };
     }
+
+    void accept(I input) throws T;
 
     default Consumer<I> log(Logger log) {
         return log(log, null);

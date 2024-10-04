@@ -61,12 +61,12 @@ public enum Capitalization implements Named, Comparator<String> {
 
     public static Wrap<Capitalization> of(final String string) {
         return Wrap.ofOptional(Arrays.stream(values())
-                                       // score with each capitalization
-                                       .map(cap -> new AbstractMap.SimpleImmutableEntry<>(cap.score(string), cap))
-                                       .peek(e -> log.finer("%s \t-\t %s \t-\t %s".formatted(string, e.getValue(), e.getKey())))
-                                       // return the one with the highest score
-                                       .max(Comparator.comparingInt(Map.Entry::getKey))
-                                       .map(Map.Entry::getValue));
+                // score with each capitalization
+                .map(cap -> new AbstractMap.SimpleImmutableEntry<>(cap.score(string), cap))
+                .peek(e -> log.finer("%s \t-\t %s \t-\t %s".formatted(string, e.getValue(), e.getKey())))
+                // return the one with the highest score
+                .max(Comparator.comparingInt(Map.Entry::getKey))
+                .map(Map.Entry::getValue));
     }
 
     State firstChar;
@@ -190,8 +190,8 @@ public enum Capitalization implements Named, Comparator<String> {
 
         static State find(int c) {
             return Wrap.ofOptional(Stream.of(Lower, Upper)
-                                           .filter(it -> it.test(c))
-                                           .findAny())
+                            .filter(it -> it.test(c))
+                            .findAny())
                     .orElse(Any);
         }
     }
