@@ -37,7 +37,7 @@ public class EnumValueType<T extends Enum<? super T>> extends BoundValueType<T> 
     }
 
     @Override
-    public Stream<? extends T> stream() {
+    public Stream<T> stream() {
         return Stream.of(targetClass.getEnumConstants());
     }
 

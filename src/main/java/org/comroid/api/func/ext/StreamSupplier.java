@@ -34,5 +34,5 @@ public interface StreamSupplier<T> {
         return concat(this, other);
     }
 
-    Stream<? extends T> stream();
+    Stream<T> stream();
 }
