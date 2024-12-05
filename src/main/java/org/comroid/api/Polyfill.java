@@ -51,7 +51,7 @@ import static java.util.Objects.*;
 public final class Polyfill {
     private static final CompletableFuture<?> infiniteFuture = new CompletableFuture<>();
     private static final Pattern                                                DURATION_PATTERN   = Pattern.compile(
-            "((?<amount>\\d)+(?<unit>[yMwdhms][oi]?n?))");
+            "((?<amount>\\d+)(?<unit>[yMwdhms][oi]?n?))");
     private static final Map<@Doc("secondsFactor") Long, @Doc("suffix") String> durationStringBase = Map.of(
             60L, "min", // minutes
             3600L, "h", // hours
