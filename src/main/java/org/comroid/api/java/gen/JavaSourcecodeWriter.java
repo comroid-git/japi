@@ -127,7 +127,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             @NotNull Class<?> returnType,
             @NotNull @Language(value = "Java", prefix = "class $ {void ", suffix = "() {}}") String name,
             @Singular(ignoreNullCollections = true) List<Class<? extends Throwable>> throwsTypes,
-            @Singular(ignoreNullCollections = true) List<Map.Entry<Class<?>, String>> parameters
+            @Singular(ignoreNullCollections = true) List<Parameter> parameters
     ) throws IOException {
         if (name.isBlank())
             throw new IllegalArgumentException("Package name cannot be empty");
@@ -141,7 +141,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             writeWhitespaced(name);
         }
         write('(');
-        writeTokenList("", parameters, e -> "%s %s".formatted(e.getKey(), e.getValue()), ",");
+        writeTokenList("", parameters, Parameter::toString, ",");
         write(')');
         writeTokenList("throws", throwsTypes, this::getImportedOrCanonicalClassName, ",");
         beginBlock(METHOD, name);
@@ -337,6 +337,28 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             if (terminator == null) return;
             if (indentTerminator) writeIndent(indentLevel);
             write(terminator);
+        }
+    }
+
+    @Value
+    public static class Parameter {
+        Class<?> type;
+        String   name;
+        boolean  varargs;
+
+        public Parameter(Class<?> type, String name) {this(type, name, false);}
+
+        public Parameter(Class<?> type, String name, boolean varargs) {
+            if (varargs && !type.isArray())
+                throw new IllegalArgumentException("VarArgs parameter must be array type '%s[]'".formatted(type.getSimpleName()));
+            this.type    = type;
+            this.name    = name;
+            this.varargs = varargs;
+        }
+
+        @Override
+        public String toString() {
+            return "%s%s %s".formatted(type.getCanonicalName(), varargs ? "..." : "", name);
         }
     }
 }
