@@ -51,6 +51,8 @@ public class JavaSourcecodeWriter extends WriterDelegate {
 
     @SuppressWarnings("resource")
     public JavaSourcecodeWriter writeImport(Class<?> @NotNull ... types) throws IOException {
+        if (indentLevel > 0)
+            throw new IllegalStateException("Imports must be written before class definition");
         if (types.length == 0)
             return this;
         Class<?> type;
