@@ -2,8 +2,6 @@ package org.comroid.api.java.gen;
 
 import lombok.Builder;
 import lombok.Singular;
-import lombok.Value;
-import lombok.experimental.NonFinal;
 import org.comroid.api.io.WriterDelegate;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -21,16 +19,26 @@ import java.util.stream.IntStream;
 
 import static java.lang.reflect.Modifier.*;
 
-@Value
 @SuppressWarnings("unused")
 public class JavaSourcecodeWriter extends WriterDelegate {
-    Stack<IndentedString> terminators = new Stack<>();
-    @NonFinal int     indentLevel = 0;
-    @NonFinal boolean whitespaced = false;
-    @NonFinal boolean newline     = false;
+    private final Stack<IndentedString> terminators = new Stack<>();
+    private       int                   length      = 0;
+    private       int                   indentLevel = 0;
+    private       boolean               whitespaced = false;
+    private       boolean               newline     = false;
 
     public JavaSourcecodeWriter(Writer delegate) {
         super(delegate);
+    }
+
+    public JavaSourcecodeWriter writePackage(@NotNull String name) throws IOException {
+        if (length != 0)
+            throw new IllegalStateException("Package declaration must be written at index 0");
+        write("package");
+        writeWhitespaced(name);
+        write(';');
+        lf();
+        return this;
     }
 
     @Builder(builderClassName = "BeginAnnotation", builderMethodName = "beginAnnotation", buildMethodName = "and")
@@ -144,6 +152,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
 
     @Override
     public void write(char @NotNull [] buf, int off, int len) throws IOException {
+        length += len;
         super.write(buf, off, len);
         if (buf.length > 0) {
             var last = off + len;
