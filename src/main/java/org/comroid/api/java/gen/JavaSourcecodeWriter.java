@@ -2,17 +2,19 @@ package org.comroid.api.java.gen;
 
 import lombok.Builder;
 import lombok.Singular;
+import org.comroid.api.func.util.Bitmask;
 import org.comroid.api.io.WriterDelegate;
+import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Stack;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -66,7 +68,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
 
     @Builder(builderClassName = "BeginClass", builderMethodName = "beginClass", buildMethodName = "and")
     public JavaSourcecodeWriter writeClass(
-            @Nullable @Singular(ignoreNullCollections = true) Set<@NotNull Integer> modifiers,
+            @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             @NotNull String name,
             @Nullable Class<?> extendsType,
             @Singular(ignoreNullCollections = true) List<Class<?>> implementsTypes
@@ -88,7 +90,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
 
     @Builder(builderClassName = "BeginMethod", builderMethodName = "beginMethod", buildMethodName = "and")
     public JavaSourcecodeWriter writeMethod(
-            @Nullable @Singular(ignoreNullCollections = true) Set<@NotNull Integer> modifiers,
+            @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             @NotNull Class<?> returnType,
             @NotNull String name,
             @Singular(ignoreNullCollections = true) List<Class<? extends Throwable>> throwsTypes,
@@ -116,7 +118,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
 
     @Builder(builderClassName = "BeginField", builderMethodName = "beginField", buildMethodName = "and")
     public JavaSourcecodeWriter writeField(
-            @Singular(ignoreNullCollections = true) Set<@NotNull Integer> modifiers,
+            @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             @NotNull Class<?> type,
             @NotNull String name
     ) throws IOException {
@@ -178,13 +180,14 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         super.close();
     }
 
-    public void writeModifiers(Set<@NotNull Integer> modifiers) throws IOException {
+    public void writeModifiers(@Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers) throws IOException {
+        if (modifiers == null) modifiers = 0;
         for (var entry : Map.<@NotNull Integer, String>of(
                 PUBLIC, "public",
                 PROTECTED, "protected",
                 PRIVATE, "private"
         ).entrySet())
-            if (modifiers.contains(entry.getKey())) {
+            if (Bitmask.isFlagSet(modifiers, entry.getKey())) {
                 writeWhitespaced(entry.getValue());
                 break;
             }
@@ -196,7 +199,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
                 TRANSIENT, "transient",
                 NATIVE, "native"
         ).entrySet())
-            if (modifiers.contains(entry.getKey()))
+            if (Bitmask.isFlagSet(modifiers, entry.getKey()))
                 writeWhitespaced(entry.getValue());
     }
 
