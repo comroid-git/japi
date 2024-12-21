@@ -2,14 +2,17 @@ package org.comroid.api.java.gen;
 
 import lombok.Builder;
 import lombok.Singular;
+import lombok.Value;
 import org.comroid.api.func.util.Bitmask;
 import org.comroid.api.io.WriterDelegate;
+import org.comroid.api.tree.Terminatable;
 import org.intellij.lang.annotations.Language;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.lang.model.element.ElementKind;
 import java.io.IOException;
 import java.io.Writer;
 import java.lang.annotation.Annotation;
@@ -22,17 +25,19 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static java.lang.reflect.Modifier.*;
+import static javax.lang.model.element.ElementKind.*;
 
-@SuppressWarnings({ "resource", "unused", "UnusedReturnValue" })
+@SuppressWarnings({ "resource", "unused", "UnusedReturnValue", "SameParameterValue" })
 public class JavaSourcecodeWriter extends WriterDelegate {
-    private final Set<Class<?>>         imports     = new HashSet<>();
-    private final Stack<IndentedString> terminators = new Stack<>();
-    private       int                   length      = 0;
-    private       int                   indentLevel = 0;
-    private       boolean               whitespaced = false;
-    private       boolean               newline     = false;
+    private final Set<Class<?>>      imports     = new HashSet<>();
+    private final Stack<CodeContext> contexts    = new Stack<>();
+    private       int                length      = 0;
+    private       int                indentLevel = 0;
+    private       boolean            whitespaced = false;
+    private       boolean            newline     = false;
 
     public JavaSourcecodeWriter(Writer delegate) {
         super(delegate);
@@ -80,9 +85,9 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         if (!attributes.isEmpty()) {
             write('(');
             if (attributes.size() == 1 && attributes.containsKey("value")) {
-                write(attributes.get("value"));
+                writeExpression(attributes.get("value"));
             } else {
-                writeDeclarationList("", attributes.entrySet(), attr -> "%s = %s".formatted(attr.getKey(), attr.getValue()), ",");
+                writeTokenList("", attributes.entrySet(), attr -> "%s = %s".formatted(attr.getKey(), attr.getValue()), ",");
             }
             write(')');
         }
@@ -93,12 +98,16 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     @Builder(builderClassName = "BeginClass", builderMethodName = "beginClass", buildMethodName = "and")
     public JavaSourcecodeWriter writeClassHeader(
             @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
+            @Nullable ElementKind kind,
             @NotNull @Language(value = "Java", prefix = "class ", suffix = " {}") String name,
             @Nullable Class<?> extendsType,
             @Singular(ignoreNullCollections = true) List<Class<?>> implementsTypes
     ) throws IOException {
         if (name.isBlank())
             throw new IllegalArgumentException("Package name cannot be empty");
+        if (kind == null) kind = CLASS;
+        if (Stream.of(CLASS, ElementKind.INTERFACE, ENUM, RECORD, ANNOTATION_TYPE).noneMatch(kind::equals))
+            throw new IllegalArgumentException("Invalid class kind: " + kind.name());
         writeIndent();
         writeModifiers(modifiers);
         writeWhitespaced("class");
@@ -107,8 +116,8 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             writeWhitespaced("extends");
             write(extendsType);
         }
-        writeDeclarationList("implements", implementsTypes, this::getImportedOrCanonicalClassName, ",");
-        beginBlock();
+        writeTokenList("implements", implementsTypes, this::getImportedOrCanonicalClassName, ",");
+        beginBlock(CLASS, name);
         return this;
     }
 
@@ -124,20 +133,31 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             throw new IllegalArgumentException("Package name cannot be empty");
         writeIndent();
         writeModifiers(modifiers);
-        write(returnType);
-        writeWhitespaced(name);
+        ElementKind kind;
+        if (name.endsWith("ctor"))
+            writeWhitespaced(currentContext().elementName);
+        else {
+            write(returnType);
+            writeWhitespaced(name);
+        }
         write('(');
-        writeDeclarationList("", parameters, e -> "%s %s".formatted(e.getKey(), e.getValue()), ",");
+        writeTokenList("", parameters, e -> "%s %s".formatted(e.getKey(), e.getValue()), ",");
         write(')');
-        writeDeclarationList("throws", throwsTypes, this::getImportedOrCanonicalClassName, ",");
-        beginBlock();
+        writeTokenList("throws", throwsTypes, this::getImportedOrCanonicalClassName, ",");
+        beginBlock(METHOD, name);
         return this;
     }
 
-    public JavaSourcecodeWriter beginBlock() throws IOException {
+    public JavaSourcecodeWriter beginBlock(ElementKind kind, String name) throws IOException {
         writeWhitespaced("{");
         lf();
-        terminators.push(new IndentedString("}\n", indentLevel++));
+        contexts.push(CodeContext.builder()
+                .kind(kind)
+                .elementName(name)
+                .indentLevel(++indentLevel)
+                .terminator("}\n")
+                .indentTerminator(true)
+                .build());
         return this;
     }
 
@@ -153,29 +173,40 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         writeModifiers(modifiers);
         write(type);
         writeWhitespaced(name);
+        contexts.push(CodeContext.builder()
+                .kind(FIELD)
+                .elementName(name)
+                .indentLevel(indentLevel)
+                .terminator(";")
+                .build());
         return this;
     }
 
     public JavaSourcecodeWriter writeDeclaration() throws IOException {
         writeWhitespaced("=");
-        terminators.push(new IndentedString(";\n", 0));
         return this;
     }
 
-    public JavaSourcecodeWriter writeExpression(@NotNull @Language(value = "Java", prefix = "var x = ", suffix = ";") String expr) throws IOException {
-        writeWhitespaced(expr);
+    public JavaSourcecodeWriter writeLineTerminator() throws IOException {
+        write(';');
+        lf();
+        return this;
+    }
+
+    public JavaSourcecodeWriter writeExpression(@Nullable @Language(value = "Java", prefix = "var x = ", suffix = ";") String expr) throws IOException {
+        writeWhitespaced(expr == null ? "null" : expr);
         return this;
     }
 
     @Contract("-> this")
     public JavaSourcecodeWriter end() throws IOException {
-        write(terminators.pop());
+        contexts.pop().terminate();
         return this;
     }
 
     @SuppressWarnings("resource")
     public JavaSourcecodeWriter endAll() throws IOException {
-        while (!terminators.isEmpty())
+        while (!contexts.isEmpty())
             end();
         return this;
     }
@@ -216,7 +247,10 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     }
 
     private void write(@NotNull Class<?> type) throws IOException {
-        writeWhitespaced(getImportedOrCanonicalClassName(type));
+        if (type.isArray()) {
+            write(type.getComponentType());
+            write("[]");
+        } else writeWhitespaced(getImportedOrCanonicalClassName(type));
     }
 
     private void writeModifiers(@Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers) throws IOException {
@@ -242,15 +276,16 @@ public class JavaSourcecodeWriter extends WriterDelegate {
                 writeWhitespaced(entry.getValue());
     }
 
-    private <T> void writeDeclarationList(String key, Collection<T> source, Function<T, String> toString, String separator) throws IOException {
+    public <T> JavaSourcecodeWriter writeTokenList(String key, Collection<T> source, Function<T, String> toString, String separator) throws IOException {
         var iter = source.iterator();
         if (!iter.hasNext())
-            return;
+            return this;
         writeWhitespaced(key);
         while (iter.hasNext()) {
             writeWhitespaced(toString.apply(iter.next()));
             if (iter.hasNext()) write(separator);
         }
+        return this;
     }
 
     private void writeWhitespaced(String str) throws IOException {
@@ -284,10 +319,24 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         else return type.getCanonicalName();
     }
 
-    private void write(IndentedString string) throws IOException {
-        writeIndent(string.indentLevel);
-        write(string.string);
+    private CodeContext currentContext() {
+        return contexts.peek();
     }
 
-    private record IndentedString(String string, int indentLevel) {}
+    @Value
+    @Builder(toBuilder = true)
+    private class CodeContext implements Terminatable {
+        ElementKind kind;
+        String      elementName;
+        @lombok.Builder.Default           int     indentLevel      = 0;
+        @lombok.Builder.Default           boolean indentTerminator = false;
+        @lombok.Builder.Default @Nullable String  terminator       = null;
+
+        public void terminate() throws IOException {
+            //noinspection ConstantValue
+            if (terminator == null) return;
+            if (indentTerminator) writeIndent(indentLevel);
+            write(terminator);
+        }
+    }
 }
