@@ -83,13 +83,8 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         write('@');
         write(type);
         if (!attributes.isEmpty()) {
-            write('(');
-            if (attributes.size() == 1 && attributes.containsKey("value")) {
-                writeExpression(attributes.get("value"));
-            } else {
-                writeTokenList("", attributes.entrySet(), attr -> "%s = %s".formatted(attr.getKey(), attr.getValue()), ",");
-            }
-            write(')');
+            var onlyValue = attributes.size() == 1 && attributes.containsKey("value");
+            writeTokenList("(", ")", attributes.entrySet(), attr -> onlyValue ? attr.getValue() : "%s = %s".formatted(attr.getKey(), attr.getValue()), ",");
         }
         lf();
         return this;
@@ -116,7 +111,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             writeWhitespaced("extends");
             write(extendsType);
         }
-        writeTokenList("implements", implementsTypes, this::getImportedOrCanonicalClassName, ",");
+        writeTokenList("implements", "", implementsTypes, this::getImportedOrCanonicalClassName, ",");
         beginBlock(CLASS, name);
         return this;
     }
@@ -141,9 +136,9 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             writeWhitespaced(name);
         }
         write('(');
-        writeTokenList("", parameters, Parameter::toString, ",");
+        writeTokenList("", "", parameters, Parameter::toString, ",");
         write(')');
-        writeTokenList("throws", throwsTypes, this::getImportedOrCanonicalClassName, ",");
+        writeTokenList("throws", "", throwsTypes, this::getImportedOrCanonicalClassName, ",");
         beginBlock(METHOD, name);
         return this;
     }
@@ -157,6 +152,25 @@ public class JavaSourcecodeWriter extends WriterDelegate {
                 .indentLevel(++indentLevel)
                 .terminator("}\n")
                 .indentTerminator(true)
+                .build());
+        return this;
+    }
+
+    @Builder(builderClassName = "BeginEnumConstant", builderMethodName = "beginEnumConstant", buildMethodName = "and")
+    public JavaSourcecodeWriter writeEnumConstant(
+            @NotNull @Language(value = "Java", prefix = "enum x { ", suffix = "; }") String name,
+            @Singular(ignoreNullCollections = true) List<String> arguments
+    ) throws IOException {
+        if (name.isBlank())
+            throw new IllegalArgumentException("Package name cannot be empty");
+        writeIndent();
+        write(name);
+        if (!arguments.isEmpty())
+            writeTokenList("(", ")", arguments, Function.identity(), ",");
+        contexts.push(CodeContext.builder()
+                .kind(ENUM)
+                .elementName(name)
+                .indentLevel(++indentLevel)
                 .build());
         return this;
     }
@@ -276,15 +290,22 @@ public class JavaSourcecodeWriter extends WriterDelegate {
                 writeWhitespaced(entry.getValue());
     }
 
-    public <T> JavaSourcecodeWriter writeTokenList(String key, Collection<T> source, Function<T, String> toString, String separator) throws IOException {
+    public <T> JavaSourcecodeWriter writeTokenList(String prefix, String suffix, Collection<T> source, Function<T, String> toString, String separator)
+    throws IOException {
         var iter = source.iterator();
         if (!iter.hasNext())
             return this;
-        writeWhitespaced(key);
+        writeWhitespaced(prefix);
         while (iter.hasNext()) {
             writeWhitespaced(toString.apply(iter.next()));
             if (iter.hasNext()) write(separator);
         }
+        writeWhitespaced(suffix);
+        return this;
+    }
+
+    public JavaSourcecodeWriter comma() throws IOException {
+        write(',');
         return this;
     }
 
