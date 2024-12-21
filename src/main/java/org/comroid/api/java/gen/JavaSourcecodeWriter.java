@@ -5,6 +5,7 @@ import lombok.Singular;
 import org.comroid.api.func.util.Bitmask;
 import org.comroid.api.io.WriterDelegate;
 import org.intellij.lang.annotations.MagicConstant;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,16 +14,19 @@ import java.io.Writer;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Modifier;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static java.lang.reflect.Modifier.*;
 
-@SuppressWarnings("unused")
+@SuppressWarnings({ "unused", "UnusedReturnValue" })
 public class JavaSourcecodeWriter extends WriterDelegate {
+    private final Set<Class<?>>         imports     = new HashSet<>();
     private final Stack<IndentedString> terminators = new Stack<>();
     private       int                   length      = 0;
     private       int                   indentLevel = 0;
@@ -45,6 +49,24 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         return this;
     }
 
+    @SuppressWarnings("resource")
+    public JavaSourcecodeWriter writeImport(Class<?> @NotNull ... types) throws IOException {
+        if (types.length == 0)
+            return this;
+        Class<?> type;
+        if (types.length > 1) {
+            for (var each : types)
+                writeImport(each);
+            return this;
+        } else type = types[0];
+        imports.add(type);
+        write("import");
+        write(type);
+        write(';');
+        lf();
+        return this;
+    }
+
     @Builder(builderClassName = "BeginAnnotation", builderMethodName = "beginAnnotation", buildMethodName = "and")
     public JavaSourcecodeWriter writeAnnotation(
             @NotNull Class<? extends Annotation> type,
@@ -52,7 +74,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     ) throws IOException {
         writeIndent();
         write('@');
-        write(type.getCanonicalName());
+        write(type);
         if (!attributes.isEmpty()) {
             write('(');
             if (attributes.size() == 1 && attributes.containsKey("value")) {
@@ -81,9 +103,9 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         writeWhitespaced(name);
         if (extendsType != null) {
             writeWhitespaced("extends");
-            writeWhitespaced(extendsType.getCanonicalName());
+            write(extendsType);
         }
-        writeDeclarationList("implements", implementsTypes, Class::getCanonicalName, ",");
+        writeDeclarationList("implements", implementsTypes, this::getImportedOrCanonicalClassName, ",");
         beginBlock();
         return this;
     }
@@ -100,12 +122,12 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             throw new IllegalArgumentException("Package name cannot be empty");
         writeIndent();
         writeModifiers(modifiers);
-        writeWhitespaced(returnType.getCanonicalName());
+        write(returnType);
         writeWhitespaced(name);
         write('(');
         writeDeclarationList("", parameters, e -> "%s %s".formatted(e.getKey(), e.getValue()), ",");
         write(')');
-        writeDeclarationList("throws", throwsTypes, Class::getCanonicalName, ",");
+        writeDeclarationList("throws", throwsTypes, this::getImportedOrCanonicalClassName, ",");
         beginBlock();
         return this;
     }
@@ -126,7 +148,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             throw new IllegalArgumentException("Package name cannot be empty");
         writeIndent();
         writeModifiers(modifiers);
-        writeWhitespaced(type.getCanonicalName());
+        write(type);
         writeWhitespaced(name);
         return this;
     }
@@ -136,13 +158,13 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         terminators.push(new IndentedString(";\n", 0));
     }
 
-    @SuppressWarnings("UnusedReturnValue")
+    @Contract("-> this")
     public JavaSourcecodeWriter end() throws IOException {
         write(terminators.pop());
         return this;
     }
 
-    @SuppressWarnings({ "UnusedReturnValue", "resource" })
+    @SuppressWarnings("resource")
     public JavaSourcecodeWriter endAll() throws IOException {
         while (!terminators.isEmpty())
             end();
@@ -167,8 +189,8 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         if (buf.length > 0) {
             var last = off + len;
             if (0 <= last && last < buf.length) {
-                whitespaced = IntStream.of(' ', '\t').anyMatch(x -> buf[last] == x);
                 newline     = buf[last] == '\n';
+                whitespaced = newline || IntStream.of(' ', '\t').anyMatch(x -> buf[last] == x);
             }
         }
     }
@@ -178,6 +200,10 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     public void close() throws IOException {
         endAll();
         super.close();
+    }
+
+    public void write(@NotNull Class<?> type) throws IOException {
+        writeWhitespaced(getImportedOrCanonicalClassName(type));
     }
 
     public void writeModifiers(@Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers) throws IOException {
@@ -241,6 +267,12 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     public void lf() throws IOException {
         if (!newline)
             write('\n');
+    }
+
+    private String getImportedOrCanonicalClassName(Class<?> type) {
+        if (imports.stream().map(Class::getCanonicalName).anyMatch(type.getCanonicalName()::equals))
+            return type.getSimpleName();
+        else return type.getCanonicalName();
     }
 
     private void write(IndentedString string) throws IOException {
