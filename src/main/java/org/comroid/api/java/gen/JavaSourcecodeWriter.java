@@ -110,7 +110,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             throw new IllegalArgumentException("Invalid class kind: " + kind.name());
         writeIndent();
         writeModifiers(modifiers);
-        writeWhitespaced("class");
+        writeWhitespaced(kind == ANNOTATION_TYPE ? "@interface" : kind.name().toLowerCase());
         writeWhitespaced(name);
         if (extendsType != null) {
             writeWhitespaced("extends");
