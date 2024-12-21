@@ -89,7 +89,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     }
 
     @Builder(builderClassName = "BeginClass", builderMethodName = "beginClass", buildMethodName = "and")
-    public JavaSourcecodeWriter writeClass(
+    public JavaSourcecodeWriter writeClassHeader(
             @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             @NotNull String name,
             @Nullable Class<?> extendsType,
@@ -111,7 +111,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     }
 
     @Builder(builderClassName = "BeginMethod", builderMethodName = "beginMethod", buildMethodName = "and")
-    public JavaSourcecodeWriter writeMethod(
+    public JavaSourcecodeWriter writeMethodHeader(
             @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             @NotNull Class<?> returnType,
             @NotNull String name,
@@ -139,7 +139,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     }
 
     @Builder(builderClassName = "BeginField", builderMethodName = "beginField", buildMethodName = "and")
-    public JavaSourcecodeWriter writeField(
+    public JavaSourcecodeWriter writeFieldHeader(
             @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             @NotNull Class<?> type,
             @NotNull String name
