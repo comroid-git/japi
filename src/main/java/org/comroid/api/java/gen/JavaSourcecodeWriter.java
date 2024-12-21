@@ -34,6 +34,8 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     public JavaSourcecodeWriter writePackage(@NotNull String name) throws IOException {
         if (length != 0)
             throw new IllegalStateException("Package declaration must be written at index 0");
+        if (name.isBlank())
+            throw new IllegalArgumentException("Package name cannot be empty");
         write("package");
         writeWhitespaced(name);
         write(';');
@@ -69,6 +71,8 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             @Nullable Class<?> extendsType,
             @Singular(ignoreNullCollections = true) List<Class<?>> implementsTypes
     ) throws IOException {
+        if (name.isBlank())
+            throw new IllegalArgumentException("Package name cannot be empty");
         writeIndent();
         writeModifiers(modifiers);
         writeWhitespaced("class");
@@ -90,6 +94,8 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             @Singular(ignoreNullCollections = true) List<Class<? extends Throwable>> throwsTypes,
             @Singular(ignoreNullCollections = true) List<Map.Entry<Class<?>, String>> parameters
     ) throws IOException {
+        if (name.isBlank())
+            throw new IllegalArgumentException("Package name cannot be empty");
         writeIndent();
         writeModifiers(modifiers);
         writeWhitespaced(returnType.getCanonicalName());
@@ -114,6 +120,8 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             @NotNull Class<?> type,
             @NotNull String name
     ) throws IOException {
+        if (name.isBlank())
+            throw new IllegalArgumentException("Package name cannot be empty");
         writeIndent();
         writeModifiers(modifiers);
         writeWhitespaced(type.getCanonicalName());
