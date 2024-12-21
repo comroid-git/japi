@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Singular;
 import org.comroid.api.func.util.Bitmask;
 import org.comroid.api.io.WriterDelegate;
+import org.intellij.lang.annotations.Language;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -24,7 +25,7 @@ import java.util.stream.IntStream;
 
 import static java.lang.reflect.Modifier.*;
 
-@SuppressWarnings({ "unused", "UnusedReturnValue" })
+@SuppressWarnings({ "resource", "unused", "UnusedReturnValue" })
 public class JavaSourcecodeWriter extends WriterDelegate {
     private final Set<Class<?>>         imports     = new HashSet<>();
     private final Stack<IndentedString> terminators = new Stack<>();
@@ -37,7 +38,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         super(delegate);
     }
 
-    public JavaSourcecodeWriter writePackage(@NotNull String name) throws IOException {
+    public JavaSourcecodeWriter writePackage(@NotNull @Language(value = "Java", prefix = "package ", suffix = ";") String name) throws IOException {
         if (length != 0)
             throw new IllegalStateException("Package declaration must be written at index 0");
         if (name.isBlank())
@@ -49,7 +50,6 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         return this;
     }
 
-    @SuppressWarnings("resource")
     public JavaSourcecodeWriter writeImport(Class<?> @NotNull ... types) throws IOException {
         if (indentLevel > 0)
             throw new IllegalStateException("Imports must be written before class definition");
@@ -93,7 +93,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     @Builder(builderClassName = "BeginClass", builderMethodName = "beginClass", buildMethodName = "and")
     public JavaSourcecodeWriter writeClassHeader(
             @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
-            @NotNull String name,
+            @NotNull @Language(value = "Java", prefix = "class ", suffix = " {}") String name,
             @Nullable Class<?> extendsType,
             @Singular(ignoreNullCollections = true) List<Class<?>> implementsTypes
     ) throws IOException {
@@ -116,7 +116,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     public JavaSourcecodeWriter writeMethodHeader(
             @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             @NotNull Class<?> returnType,
-            @NotNull String name,
+            @NotNull @Language(value = "Java", prefix = "class $ {void ", suffix = "() {}}") String name,
             @Singular(ignoreNullCollections = true) List<Class<? extends Throwable>> throwsTypes,
             @Singular(ignoreNullCollections = true) List<Map.Entry<Class<?>, String>> parameters
     ) throws IOException {
@@ -134,17 +134,18 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         return this;
     }
 
-    public void beginBlock() throws IOException {
+    public JavaSourcecodeWriter beginBlock() throws IOException {
         writeWhitespaced("{");
         lf();
         terminators.push(new IndentedString("}\n", indentLevel++));
+        return this;
     }
 
     @Builder(builderClassName = "BeginField", builderMethodName = "beginField", buildMethodName = "and")
     public JavaSourcecodeWriter writeFieldHeader(
             @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             @NotNull Class<?> type,
-            @NotNull String name
+            @NotNull @Language(value = "Java", prefix = "class $ {void ", suffix = " = null;}") String name
     ) throws IOException {
         if (name.isBlank())
             throw new IllegalArgumentException("Package name cannot be empty");
@@ -155,9 +156,15 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         return this;
     }
 
-    public void beginExpression() throws IOException {
+    public JavaSourcecodeWriter writeDeclaration() throws IOException {
         writeWhitespaced("=");
         terminators.push(new IndentedString(";\n", 0));
+        return this;
+    }
+
+    public JavaSourcecodeWriter writeExpression(@NotNull @Language(value = "Java", prefix = "var x = ", suffix = ";") String expr) throws IOException {
+        writeWhitespaced(expr);
+        return this;
     }
 
     @Contract("-> this")
@@ -198,17 +205,21 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     }
 
     @Override
-    @SuppressWarnings("resource")
     public void close() throws IOException {
         endAll();
         super.close();
     }
 
-    public void write(@NotNull Class<?> type) throws IOException {
+    public JavaSourcecodeWriter writeIndent() throws IOException {
+        writeIndent(indentLevel);
+        return this;
+    }
+
+    private void write(@NotNull Class<?> type) throws IOException {
         writeWhitespaced(getImportedOrCanonicalClassName(type));
     }
 
-    public void writeModifiers(@Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers) throws IOException {
+    private void writeModifiers(@Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers) throws IOException {
         if (modifiers == null) modifiers = 0;
         for (var entry : Map.<@NotNull Integer, String>of(
                 PUBLIC, "public",
@@ -231,7 +242,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
                 writeWhitespaced(entry.getValue());
     }
 
-    public <T> void writeDeclarationList(String key, Collection<T> source, Function<T, String> toString, String separator) throws IOException {
+    private <T> void writeDeclarationList(String key, Collection<T> source, Function<T, String> toString, String separator) throws IOException {
         var iter = source.iterator();
         if (!iter.hasNext())
             return;
@@ -242,31 +253,27 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         }
     }
 
-    public void writeWhitespaced(String str) throws IOException {
+    private void writeWhitespaced(String str) throws IOException {
         if (!whitespaced && !str.startsWith(" ")) ws();
         write(str);
     }
 
-    public void writeIndented(String str) throws IOException {
+    private void writeIndented(String str) throws IOException {
         writeIndent(indentLevel);
         write(str);
     }
 
-    public void writeIndent() throws IOException {
-        writeIndent(indentLevel);
-    }
-
-    public void writeIndent(int c) throws IOException {
+    private void writeIndent(int c) throws IOException {
         while (c-- > 0)
             write("    ");
     }
 
-    public void ws() throws IOException {
+    private void ws() throws IOException {
         if (!whitespaced)
             write(' ');
     }
 
-    public void lf() throws IOException {
+    private void lf() throws IOException {
         if (!newline)
             write('\n');
     }
