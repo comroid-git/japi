@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 import java.util.function.Function;
@@ -130,7 +131,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         writeModifiers(modifiers);
         ElementKind kind;
         if (name.endsWith("ctor"))
-            writeWhitespaced(currentContext().elementName);
+            writeWhitespaced(currentContext(CLASS).map(CodeContext::getElementName).orElseThrow());
         else {
             write(returnType);
             writeWhitespaced(name);
@@ -146,13 +147,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     public JavaSourcecodeWriter beginBlock(ElementKind kind, String name) throws IOException {
         writeWhitespaced("{");
         lf();
-        contexts.push(CodeContext.builder()
-                .kind(kind)
-                .elementName(name)
-                .indentLevel(++indentLevel)
-                .terminator("}\n")
-                .indentTerminator(true)
-                .build());
+        contexts.push(new CodeContext(kind, name, ++indentLevel, "}\n", true));
         return this;
     }
 
@@ -167,11 +162,6 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         write(name);
         if (!arguments.isEmpty())
             writeTokenList("(", ")", arguments, Function.identity(), ",");
-        contexts.push(CodeContext.builder()
-                .kind(ENUM)
-                .elementName(name)
-                .indentLevel(++indentLevel)
-                .build());
         return this;
     }
 
@@ -187,12 +177,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         writeModifiers(modifiers);
         write(type);
         writeWhitespaced(name);
-        contexts.push(CodeContext.builder()
-                .kind(FIELD)
-                .elementName(name)
-                .indentLevel(indentLevel)
-                .terminator(";")
-                .build());
+        contexts.push(new CodeContext(FIELD, name, ";\n"));
         return this;
     }
 
@@ -215,6 +200,8 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     @Contract("-> this")
     public JavaSourcecodeWriter end() throws IOException {
         contexts.pop().terminate();
+        indentLevel = currentContext().indentLevel;
+        flush();
         return this;
     }
 
@@ -227,11 +214,14 @@ public class JavaSourcecodeWriter extends WriterDelegate {
 
     public JavaSourcecodeWriter write(String... lines) throws IOException {
         var iter = List.of(lines).iterator();
-        if (iter.hasNext())
+        if (iter.hasNext()) {
             write(iter.next());
+            lf();
+        }
         while (iter.hasNext()) {
             writeIndent();
             write(iter.next());
+            lf();
         }
         return this;
     }
@@ -324,17 +314,20 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             write("    ");
     }
 
-    private void ws() throws IOException {
+    public void ws() throws IOException {
         if (!whitespaced)
             write(' ');
     }
 
-    private void lf() throws IOException {
+    public void lf() throws IOException {
         if (!newline)
             write('\n');
     }
 
     private String getImportedOrCanonicalClassName(Class<?> type) {
+        type = type.isArray() ? type.getComponentType() : type;
+        if ("java.lang".equals(type.getPackageName()))
+            return type.getSimpleName();
         if (imports.stream().map(Class::getCanonicalName).anyMatch(type.getCanonicalName()::equals))
             return type.getSimpleName();
         else return type.getCanonicalName();
@@ -344,19 +337,47 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         return contexts.peek();
     }
 
+    private Optional<CodeContext> currentContext(ElementKind kind) {
+        return contexts.reversed().stream()
+                .filter(ctx -> ctx.kind == kind)
+                .findFirst();
+    }
+
     @Value
-    @Builder(toBuilder = true)
     private class CodeContext implements Terminatable {
         ElementKind kind;
         String      elementName;
-        @lombok.Builder.Default           int     indentLevel      = 0;
-        @lombok.Builder.Default           boolean indentTerminator = false;
-        @lombok.Builder.Default @Nullable String  terminator       = null;
+        int         indentLevel;
+        boolean     indentTerminator;
+        @Nullable String terminator;
+
+        public CodeContext(ElementKind kind, String elementName) {
+            this(kind, elementName, 0);
+        }
+
+        public CodeContext(ElementKind kind, String elementName, int indentLevel) {
+            this(kind, elementName, indentLevel, null);
+        }
+
+        public CodeContext(ElementKind kind, String elementName, @Nullable String terminator) {
+            this(kind, elementName, 0, terminator, false);
+        }
+
+        public CodeContext(ElementKind kind, String elementName, int indentLevel, @Nullable String terminator) {
+            this(kind, elementName, indentLevel, terminator, false);
+        }
+
+        public CodeContext(ElementKind kind, String elementName, int indentLevel, @Nullable String terminator, boolean indentTerminator) {
+            this.kind             = kind;
+            this.elementName      = elementName;
+            this.indentLevel      = indentLevel;
+            this.indentTerminator = indentTerminator;
+            this.terminator       = terminator;
+        }
 
         public void terminate() throws IOException {
-            //noinspection ConstantValue
             if (terminator == null) return;
-            if (indentTerminator) writeIndent(indentLevel);
+            if (indentTerminator) writeIndent(indentLevel - 1);
             write(terminator);
         }
     }

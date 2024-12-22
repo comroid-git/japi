@@ -101,7 +101,14 @@ public final class Debug {
     }
 
     public static void log(org.slf4j.Logger log, String message, org.slf4j.event.Level normalLevel, org.slf4j.event.Level debugLevel, @Nullable Throwable t) {
-        log.atLevel(isDebug() ? debugLevel : normalLevel).log(message + (t == null ? "" : '\n' + StackTraceUtils.toString(t)));
+        var txt = message + (t == null ? "" : '\n' + StackTraceUtils.toString(t));
+        switch (isDebug() ? debugLevel : normalLevel) {
+            case ERROR -> log.error(txt);
+            case WARN -> log.warn(txt);
+            case INFO -> log.info(txt);
+            case DEBUG -> log.debug(txt);
+            case TRACE -> log.trace(txt);
+        }
     }
 
     private static String pad(int r, int c) {

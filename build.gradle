@@ -1,4 +1,5 @@
 apply plugin: 'java-library'
+apply plugin: 'java-gradle-plugin'
 
 static String envOr(String key, String presentPrefix = "", Object or = "") {
     def env = System.getenv()
@@ -38,6 +39,15 @@ apply from: 'gradle/vars.gradle'
 
 sourceCompatibility = 17
 targetCompatibility = 17
+
+gradlePlugin {
+    plugins {
+        generateSpigotResourceClassesPlugin {
+            id = 'org.comroid.codegen.spigot'
+            implementationClass = 'org.comroid.codegen.spigot.GenerateSpigotResourceClassesPlugin'
+        }
+    }
+}
 
 configurations {
     compileClasspath {
@@ -96,6 +106,8 @@ dependencies {
     // soft dependencies
     compileOnly 'org.slf4j:slf4j-api:1.+'
     implementation 'org.apache.logging.log4j:log4j-api:2.23.1'
+
+    compileOnly 'org.yaml:snakeyaml:+'
 
     compileOnly 'com.fasterxml.jackson.core:jackson-databind:2.+'
     compileOnly 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.+'
