@@ -120,15 +120,25 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     public JavaSourcecodeWriter writeGetter(
             @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             @NotNull Class<?> returnType,
-            @NotNull @Language(value = "Java", prefix = "class $ {void ", suffix = " = null;}") String name
+            @NotNull @Language(value = "Java", prefix = "class $ {void ", suffix = " = null;}") String propertyName
     ) throws IOException {
-        if (name.isBlank())
+        if (propertyName.isBlank())
             throw new IllegalArgumentException("Name cannot be empty");
-        return writeMethodHeader(modifiers, returnType,
-                "get" + Character.toUpperCase(name.charAt(0)) + (name.length() < 2 ? "" : name.substring(1)),
-                List.of(), List.of())
+        return writeGetter(modifiers, returnType, propertyName,
+                "get" + Character.toUpperCase(propertyName.charAt(0)) + (propertyName.length() < 2 ? "" : propertyName.substring(1)));
+    }
+
+    public JavaSourcecodeWriter writeGetter(
+            @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
+            @NotNull Class<?> returnType,
+            @NotNull @Language(value = "Java", prefix = "class $ {void ", suffix = " = null;}") String propertyName,
+            @NotNull @Language(value = "Java", prefix = "class $ {void ", suffix = "(){}}") String methodName
+    ) throws IOException {
+        if (propertyName.isBlank() || methodName.isBlank())
+            throw new IllegalArgumentException("Name cannot be empty");
+        return writeMethodHeader(modifiers, returnType, methodName, List.of(), List.of())
                 .writeIndent()
-                .writeStatement("return " + name)
+                .writeStatement("return " + propertyName)
                 .end();
     }
 

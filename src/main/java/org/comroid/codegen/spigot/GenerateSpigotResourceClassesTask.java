@@ -182,7 +182,8 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                         "this.defaultValue = defaultValue;"
                 ).end();
 
-        java.writeGetter(PUBLIC, String.class, "name")
+        java.writeGetter(PUBLIC, String.class, "name", "toString")
+                .writeGetter(PUBLIC, String.class, "name")
                 .writeGetter(PUBLIC, String.class, "description")
                 .writeGetter(PUBLIC, boolean.class, "defaultValue");
 
