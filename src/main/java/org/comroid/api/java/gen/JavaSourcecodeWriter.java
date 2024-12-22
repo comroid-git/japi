@@ -127,6 +127,8 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     ) throws IOException {
         if (name.isBlank())
             throw new IllegalArgumentException("Package name cannot be empty");
+        if (modifiers == null)
+            modifiers = 0;
         writeIndent();
         writeModifiers(modifiers);
         ElementKind kind;
@@ -140,7 +142,9 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         writeTokenList("", "", parameters, Parameter::toString, ",");
         write(')');
         writeTokenList("throws", "", throwsTypes, this::getImportedOrCanonicalClassName, ",");
-        beginBlock(METHOD, name);
+        if (Bitmask.isFlagSet(modifiers, ABSTRACT))
+            writeLineTerminator();
+        else beginBlock(METHOD, name);
         return this;
     }
 
@@ -266,6 +270,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
                 break;
             }
         for (var entry : Map.<@NotNull Integer, String>of(
+                ABSTRACT, "abstract",
                 STATIC, "static",
                 FINAL, "final",
                 SYNCHRONIZED, "synchronized",
