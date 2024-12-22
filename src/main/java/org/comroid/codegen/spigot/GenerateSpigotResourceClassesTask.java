@@ -72,7 +72,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
 
                 generateBaseFields(java, yml);
                 generateCommandsEnum(java, Polyfill.uncheckedCast(yml.getOrDefault("commands", Map.of())));
-                generatePermissions(java, Polyfill.uncheckedCast(yml.getOrDefault("permissions", Map.of())));
+                generatePermissions(java, Polyfill.uncheckedCast(yml.getOrDefault("permissions", new HashMap<>())));
 
                 java.beginClass().kind(ENUM).name("LoadTime").and()
                         .writeIndent()
@@ -137,13 +137,58 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         java.end();
     }
 
-    private void generatePermissions(JavaSourcecodeWriter java, Map<String, Object> permissions) throws IOException {
+    private void cleanupKeys(Map<String, Map<String, Object>> data) {cleanupKeys(data, "", 0);}
+
+    private void cleanupKeys(Map<String, Map<String, Object>> permissions, String compoundKey, int depth) {
+        for (var permissionKey : permissions.keySet().toArray(String[]::new)) {
+            // only when path blob count differs from depth
+            var count = permissionKey.chars().filter(x->x=='.').count();
+            if (count == depth) continue;
+            if (count < depth) throw new IllegalArgumentException("Inner permissionKey does not have enough path blobs: " + permissionKey);
+
+            // wrap own permissions
+            var children = new HashMap<String, Map<String, Object>>();
+            var split    = permissionKey.split("\\.");
+            var wrap     = permissions.getOrDefault(permissionKey, Map.of());
+            if (split.length > 1) {
+                for (var c = split.length; c > 1; c--) {
+                    var intermediateKey = compoundKey;
+                    for (var i = 0; i < c; i++)
+                        intermediateKey += '.' + split[i];
+                    if (intermediateKey.startsWith("."))
+                        intermediateKey = intermediateKey.substring(1);
+                    children.put(intermediateKey, wrap);
+                    wrap = new HashMap<>() {{put("children", children);}};
+                }
+
+                // replace old stuff
+                permissions.merge(split[0], wrap, this::mergeMapsRec);
+                permissions.remove(permissionKey);
+            }
+
+            // recurse into children
+            var ck = (compoundKey.isBlank() ? "" : compoundKey + '.') + permissionKey;
+            cleanupKeys(children, ck, (int) ck.chars().filter(x -> x == '.').count());
+        }
+    }
+
+    private Map<String, Object> mergeMapsRec(Map<String, Object> a, Map<String, Object> b) {
+        b.forEach((k1, v1) -> a.compute(k1, (k0, v0) -> {
+            if (v0 instanceof Map<?, ?> inner0 && v1 instanceof Map<?, ?> inner1)
+                return mergeMapsRec(Polyfill.uncheckedCast(inner0), Polyfill.uncheckedCast(inner1));
+            return v1;
+        }));
+        return a;
+    }
+
+    private void generatePermissions(JavaSourcecodeWriter java, Map<String, Map<String, Object>> permissions) throws IOException {
         java.beginClass().kind(ElementKind.INTERFACE).name("Permission")
                 .implementsType(Named.class).implementsType(Described.class).and()
                 .beginMethod().modifiers(ABSTRACT).returnType(boolean.class).name("getDefaultValue").and();
 
         terminalNodes.clear();
-        generatePermissionsNodes(java, "#", permissions);
+        cleanupKeys(permissions);
+        generatePermissionsNodes(java, "#", Polyfill.uncheckedCast(permissions));
 
         generateField(java, 0, "Permission[]", "TERMINAL_NODES", () -> terminalNodes,
                 ls -> ls.isEmpty() ? "new Permission[0]" : ls.stream().collect(Collectors.joining(",", "new Permission[]{", "}")));
@@ -152,25 +197,8 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
 
     private void generatePermissionsNodes(JavaSourcecodeWriter java, String parentKey, Map<String, Object> nodes) throws IOException {
         for (var key : nodes.keySet()) {
-            var name  = key.startsWith(parentKey) ? key.substring(parentKey.length() + 1) : key;
-            var split = name.split("\\.");
-
-            if (split.length == 1)
-                generatePermissionsNode(java, parentKey, name, Polyfill.uncheckedCast(nodes.get(key)));
-            else {
-                var wrap = Map.of(name, nodes.get(name));
-                for (var i = split.length - 2; i >= 0; i--) {
-                    wrap = Map.of("children", wrap);
-                    var partialKey = new StringBuilder();
-                    for (int j = 0; j < split.length - 1; j++) {
-                        partialKey.append(split[j]);
-                        if (j + 2 < split.length)
-                            partialKey.append('.');
-                    }
-                    wrap = Map.of(partialKey.toString(), wrap);
-                }
-                generatePermissionsNode(java, parentKey, split[0], Polyfill.uncheckedCast(wrap.get(split[0])));
-            }
+            var name = key.startsWith(parentKey) ? key.substring(parentKey.length() + 1) : key;
+            generatePermissionsNode(java, parentKey, name, Polyfill.uncheckedCast(nodes.get(key)));
         }
     }
 
