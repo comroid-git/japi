@@ -98,7 +98,9 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     }
 
     private void generateCommandsEnum(JavaSourcecodeWriter java, Map<String, Object> commands) throws IOException {
-        java.beginClass().kind(ENUM).name("Command").and();
+        java.beginClass().kind(ENUM).name("Command")
+                .implementsType(Named.class).implementsType(Described.class).and();
+
         var iter = Polyfill.<Map<String, Map<String, Object>>>uncheckedCast(commands).entrySet().iterator();
         while (iter.hasNext()) {
             var each = iter.next();
@@ -113,11 +115,13 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                 java.comma().lf();
         }
         java.writeLineTerminator().lf();
-        generateField(java, PUBLIC | FINAL, String.class, "description");
-        generateField(java, PUBLIC | FINAL, String[].class, "aliases");
-        generateField(java, PUBLIC | FINAL, String.class, "requiredPermission");
-        generateField(java, PUBLIC | FINAL, String.class, "permissionMessage");
-        generateField(java, PUBLIC | FINAL, String.class, "usage");
+
+        generateField(java, PRIVATE | FINAL, String.class, "description");
+        generateField(java, PRIVATE | FINAL, String[].class, "aliases");
+        generateField(java, PRIVATE | FINAL, String.class, "requiredPermission");
+        generateField(java, PRIVATE | FINAL, String.class, "permissionMessage");
+        generateField(java, PRIVATE | FINAL, String.class, "usage");
+
         java.beginMethod().name("ctor")
                 .parameter(java.new Parameter(String.class, "description"))
                 .parameter(java.new Parameter(String[].class, "aliases"))
@@ -132,6 +136,14 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                         "this.permissionMessage = permissionMessage;",
                         "this.usage = usage;"
                 ).end();
+
+        java.writeGetter(PUBLIC, String.class, "getName()", "toString")
+                .writeGetter(PUBLIC, String.class, "description")
+                .writeGetter(PUBLIC, String[].class, "aliases")
+                .writeGetter(PUBLIC, String.class, "requiredPermission")
+                .writeGetter(PUBLIC, String.class, "permissionMessage")
+                .writeGetter(PUBLIC, String.class, "usage");
+
         java.end();
     }
 

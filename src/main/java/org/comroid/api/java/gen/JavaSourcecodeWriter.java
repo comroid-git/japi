@@ -131,14 +131,14 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     public JavaSourcecodeWriter writeGetter(
             @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             @NotNull Class<?> returnType,
-            @NotNull @Language(value = "Java", prefix = "class $ {void ", suffix = " = null;}") String propertyName,
+            @Language(value = "Java", prefix = "var x = ", suffix = ";") String expression,
             @NotNull @Language(value = "Java", prefix = "class $ {void ", suffix = "(){}}") String methodName
     ) throws IOException {
-        if (propertyName.isBlank() || methodName.isBlank())
+        if (expression.isBlank() || methodName.isBlank())
             throw new IllegalArgumentException("Name cannot be empty");
         return writeMethodHeader(modifiers, returnType, methodName, List.of(), List.of())
                 .writeIndent()
-                .writeStatement("return " + propertyName)
+                .writeStatement("return " + expression)
                 .end();
     }
 
