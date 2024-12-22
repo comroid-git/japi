@@ -100,7 +100,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             @Singular(ignoreNullCollections = true) List<Class<?>> implementsTypes
     ) throws IOException {
         if (name.isBlank())
-            throw new IllegalArgumentException("Package name cannot be empty");
+            throw new IllegalArgumentException("Class name cannot be empty");
         if (kind == null) kind = CLASS;
         if (Stream.of(CLASS, ElementKind.INTERFACE, ENUM, RECORD, ANNOTATION_TYPE).noneMatch(kind::equals))
             throw new IllegalArgumentException("Invalid class kind: " + kind.name());
@@ -200,7 +200,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     @Contract("-> this")
     public JavaSourcecodeWriter end() throws IOException {
         contexts.pop().terminate();
-        indentLevel = currentContext().indentLevel;
+        indentLevel = currentContext().map(CodeContext::getIndentLevel).orElse(0);
         flush();
         return this;
     }
@@ -333,8 +333,8 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         else return type.getCanonicalName();
     }
 
-    private CodeContext currentContext() {
-        return contexts.peek();
+    private Optional<CodeContext> currentContext() {
+        return contexts.isEmpty() ? Optional.empty() : Optional.ofNullable(contexts.peek());
     }
 
     private Optional<CodeContext> currentContext(ElementKind kind) {

@@ -133,10 +133,12 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     }
 
     private void generatePermissionsNode(JavaSourcecodeWriter java, String parentKey, String key, Map<String, Object> node) throws IOException {
-        var name = key.startsWith(parentKey) ? key.substring(parentKey.length()) : key;
+        var name = key.startsWith(parentKey) ? key.substring(parentKey.length() + 1) : key;
         var id   = name.split("\\.");
-        for (var idPart : id)
+        for (var idPart : id) {
+            if(idPart.isBlank()) continue;
             java.beginClass().kind(ElementKind.INTERFACE).name(idPart).and();
+        }
 
         generateField(java, 0, String.class, "description", fromString(node, "description"), toStringExpr());
         generateField(java, 0, Boolean.class, "default", fromBoolean(node, "default"), toPlainExpr());
@@ -171,7 +173,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     }
 
     private static Supplier<@NotNull Boolean> fromBoolean(Map<String, Object> data, String key) {
-        return () -> "true".equalsIgnoreCase((String) data.getOrDefault(key, ""));
+        return () -> (boolean) data.getOrDefault(key, false);
     }
 
     private static Supplier<String> fromString(Map<String, Object> data, String key) {
@@ -181,6 +183,8 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     private static Supplier<List<String>> fromStringList(Map<String, Object> data, String key) {
         return () -> {
             var value = data.get(key);
+            if (value == null)
+                return List.of();
             if (value instanceof List ls)
                 return ls;
             return List.of((String)value);
