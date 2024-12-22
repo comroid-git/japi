@@ -7,8 +7,8 @@ import org.comroid.api.attr.Described;
 import org.comroid.api.attr.Named;
 import org.comroid.api.java.gen.JavaSourcecodeWriter;
 import org.gradle.api.DefaultTask;
-import org.gradle.api.tasks.InputDirectory;
-import org.gradle.api.tasks.OutputDirectory;
+import org.gradle.api.Task;
+import org.gradle.api.artifacts.ConfigurationContainer;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.TaskAction;
 import org.intellij.lang.annotations.Language;
@@ -39,26 +39,38 @@ import static javax.lang.model.element.ElementKind.*;
 public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     private final Set<String> terminalNodes = new HashSet<>();
 
-    @InputDirectory
-    public File getPluginResourcesDirectory() {
-        return getProject().getExtensions().getByType(SourceSetContainer.class)
-                .getByName("main").getResources()
-                .getSrcDirs().iterator().next();
-    }
+    {
+        var src = getProject().getExtensions().getByType(SourceSetContainer.class);
+        var srcMain = src.getByName("main");
 
-    @OutputDirectory
-    public File getGeneratedSourceCodeDirectory() {
-        return new File(getProject().getLayout().getBuildDirectory().getAsFile().get(), "generated/sources/r/");
+        var outputDir = srcMain.getJava().getAsPath().replace("main", "generated");
+        var srcGen = src.create("generated", it -> {
+            it.getJava().srcDir(outputDir);
+            it.setCompileClasspath(srcMain.getCompileClasspath());
+            it.setRuntimeClasspath(srcMain.getRuntimeClasspath());
+        });
+
+        var inputs = getInputs();
+        inputs.dir(srcMain.getResources().getSourceDirectories());
+        inputs.dir(getProject().getTasks().getByName("processResources").getOutputs());
+
+        var outputs = getOutputs();
+        outputs.dir(outputDir);
+
+        var cfgs = getProject().getConfigurations();
+        var cfgMain        = cfgs.getByName(srcMain.getCompileClasspathConfigurationName());
+        var cfgGen         = cfgs.getByName(srcGen.getCompileClasspathConfigurationName());
+        cfgGen.extendsFrom(cfgMain);
     }
 
     @TaskAction
     public void generate() {
-        try (var pluginYml = new FileInputStream(new File(getPluginResourcesDirectory(), "plugin.yml"))) {
+        try (var pluginYml = new FileInputStream(getInputs().getFiles().filter(f -> "plugin.yml".equals(f.getName())).getSingleFile())) {
             Map<String, Object> yml    = new Yaml().load(pluginYml);
             var                 main   = (String) yml.get("main");
             var                 lio    = main.lastIndexOf('.');
             var                 pkg    = main.substring(0, lio);
-            var                 pkgDir = new File(getGeneratedSourceCodeDirectory(), pkg.replace('.', '/'));
+            var                 pkgDir = new File(getOutputs().getFiles().filter(f -> "java".equals(f.getName())).getAsPath() + '/' + pkg.replace('.', '/'));
             if (!pkgDir.exists() && !pkgDir.mkdirs())
                 throw new RuntimeException("Unable to create output directory");
             try (
@@ -143,7 +155,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     private void cleanupKeys(Map<String, Map<String, Object>> permissions, String compoundKey, int depth) {
         for (var permissionKey : permissions.keySet().toArray(String[]::new)) {
             // only when path blob count differs from depth
-            var count = permissionKey.chars().filter(x->x=='.').count();
+            var count = permissionKey.chars().filter(x -> x == '.').count();
             if (count == depth) continue;
             if (count < depth) throw new IllegalArgumentException("Inner permissionKey does not have enough path blobs: " + permissionKey);
 
