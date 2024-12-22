@@ -107,10 +107,10 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         generateField(java, PUBLIC | FINAL, String.class, "requiredPermission");
         generateField(java, PUBLIC | FINAL, String[].class, "aliases");
         java.beginMethod().name("ctor")
-                .parameter(new JavaSourcecodeWriter.Parameter(String.class, "description"))
-                .parameter(new JavaSourcecodeWriter.Parameter(String.class, "requiredPermission"))
-                .parameter(new JavaSourcecodeWriter.Parameter(String[].class, "aliases", true))
-                .and().writeIndent()
+                .parameter(java.new Parameter(String.class, "description"))
+                .parameter(java.new Parameter(String.class, "requiredPermission"))
+                .parameter(java.new Parameter(String[].class, "aliases", true))
+                .and()
                 .write(
                         "this.description = description;",
                         "this.requiredPermission = requiredPermission;",

@@ -215,14 +215,9 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     }
 
     public JavaSourcecodeWriter write(String... lines) throws IOException {
-        var iter = List.of(lines).iterator();
-        if (iter.hasNext()) {
-            write(iter.next());
-            lf();
-        }
-        while (iter.hasNext()) {
+        for (var line : List.of(lines)) {
             writeIndent();
-            write(iter.next());
+            write(line);
             lf();
         }
         return this;
@@ -385,7 +380,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     }
 
     @Value
-    public static class Parameter {
+    public class Parameter {
         Class<?> type;
         String   name;
         boolean  varargs;
@@ -402,7 +397,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
 
         @Override
         public String toString() {
-            return "%s%s %s".formatted(type.getCanonicalName(), varargs ? "..." : "", name);
+            return "%s%s %s".formatted(getImportedOrCanonicalClassName(type), varargs ? "..." : "", name);
         }
     }
 }
