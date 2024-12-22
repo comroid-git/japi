@@ -66,7 +66,8 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                     var java = new JavaSourcecodeWriter(sourcecode)
             ) {
                 java.writePackage(pkg)
-                        .writeImport(Named.class, Described.class, Getter.class, RequiredArgsConstructor.class)
+                        .writeImport(Named.class, Described.class, Getter.class, RequiredArgsConstructor.class, SuppressWarnings.class)
+                        .writeAnnotation(SuppressWarnings.class, Map.of("value", "unused"))
                         .beginClass().modifiers(PUBLIC).kind(ElementKind.INTERFACE).name("PluginYml").and();
                 //.beginMethod().modifiers(PRIVATE).name("ctor").and().end();
 
