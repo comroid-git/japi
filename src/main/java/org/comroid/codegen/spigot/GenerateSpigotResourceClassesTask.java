@@ -1,6 +1,8 @@
 package org.comroid.codegen.spigot;
 
 import org.comroid.api.Polyfill;
+import org.comroid.api.attr.Described;
+import org.comroid.api.attr.Named;
 import org.comroid.api.java.gen.JavaSourcecodeWriter;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.tasks.InputDirectory;
@@ -20,6 +22,7 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Modifier;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -27,6 +30,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static java.lang.reflect.Modifier.*;
+import static javax.lang.model.element.ElementKind.*;
 
 public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     @InputDirectory
@@ -60,7 +64,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
             generateCommandsEnum(java, Polyfill.uncheckedCast(yml.getOrDefault("commands", Map.of())));
             generatePermissions(java, Polyfill.uncheckedCast(yml.getOrDefault("permissions", Map.of())));
 
-            java.beginClass().kind(ElementKind.ENUM).name("LoadTime").and()
+            java.beginClass().kind(ENUM).name("LoadTime").and()
                     .writeIndent()
                     .writeTokenList("", "", List.of("STARTUP", "POSTWORLD"), Function.identity(), ",")
                     .writeLineTerminator()
@@ -90,7 +94,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     }
 
     private void generateCommandsEnum(JavaSourcecodeWriter java, Map<String, Object> commands) throws IOException {
-        java.beginClass().kind(ElementKind.ENUM).name("Command").and();
+        java.beginClass().kind(ENUM).name("Command").and();
         var iter = Polyfill.<Map<String, Map<String, Object>>>uncheckedCast(commands).entrySet().iterator();
         while (iter.hasNext()) {
             var each = iter.next();
@@ -120,7 +124,9 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     }
 
     private void generatePermissions(JavaSourcecodeWriter java, Map<String, Object> permissions) throws IOException {
-        java.beginClass().kind(ElementKind.INTERFACE).name("Permission").and();
+        java.beginClass().kind(ElementKind.INTERFACE).name("Permission")
+                .implementsType(Named.class).implementsType(Described.class).and()
+                .beginMethod().modifiers(ABSTRACT).returnType(boolean.class).name("getDefaultValue").and();
         generatePermissionsNodes(java, "#", permissions);
         java.end();
     }
@@ -132,27 +138,67 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
 
     private void generatePermissionsNode(JavaSourcecodeWriter java, String parentKey, String key, Map<String, Object> node) throws IOException {
         var name = key.startsWith(parentKey) ? key.substring(parentKey.length() + 1) : key;
-        var id   = name.split("\\.");
-        for (var idPart : id) {
-            if (idPart.isBlank()) continue;
-            java.beginClass().kind(ElementKind.INTERFACE).name(idPart).and();
-        }
 
-        generateField(java, 0, String.class, "permission", () -> key, toStringExpr());
-        generateField(java, 0, String.class, "description", fromString(node, "description"), toStringExpr());
-        generateField(java, 0, Boolean.class, "defaultValue", fromBoolean(node, "default"), toPlainExpr());
-        var children = Polyfill.<Map<String, Object>>uncheckedCast(node.getOrDefault("children", Map.of()));
-        generatePermissionsNodes(java, key, children);
+        java.beginClass().modifiers(PUBLIC).kind(ENUM).name(name).and();
+        generatePermissionEnumConstant("$self", java, key, node);
+        java.comma().lf();
+        generatePermissionEnumConstant("$wildcard", java, key + ".*", node);
 
-        for (var $ : id)
-            java.end();
+        var deepChildren = new HashMap<String, Object>();
+        var children     = Polyfill.<Map<String, Object>>uncheckedCast(node.getOrDefault("children", Map.of()));
+        if (!children.isEmpty())
+            for (var entry : children.entrySet()) {
+                var eKey        = entry.getKey();
+                var eName       = eKey.startsWith(key) ? eKey.substring(key.length() + 1) : eKey;
+                var subChildren = Polyfill.<Map<String, Object>>uncheckedCast(entry.getValue()).getOrDefault("children", Map.of());
+                if (Polyfill.<Map<String, Object>>uncheckedCast(subChildren).isEmpty()) {
+                    // no further children; write enum constant
+                    java.comma().lf();
+                    generatePermissionEnumConstant(eName, java, eKey, Polyfill.uncheckedCast(entry.getValue()));
+                } else deepChildren.put(eKey, entry.getValue());
+            }
+        java.writeLineTerminator().lf();
+
+        generateField(java, PRIVATE | FINAL, String.class, "name");
+        generateField(java, PRIVATE | FINAL, String.class, "description");
+        generateField(java, PRIVATE | FINAL, boolean.class, "defaultValue");
+
+        java.beginMethod().name("ctor")
+                .parameter(java.new Parameter(String.class, "name"))
+                .parameter(java.new Parameter(String.class, "description"))
+                .parameter(java.new Parameter(String.class, "defaultValue"))
+                .and().write(
+                        "this.name = name;",
+                        "this.description = description;",
+                        "this.defaultValue = defaultValue;"
+                ).end();
+
+        java.writeGetter(PUBLIC, String.class, "name")
+                .writeGetter(PUBLIC, String.class, "description")
+                .writeGetter(PUBLIC, boolean.class, "defaultValue");
+
+        generatePermissionsNodes(java, key, deepChildren);
+        java.end();
+    }
+
+    private void generatePermissionEnumConstant(
+            @NotNull @Language(value = "Java", prefix = "enum x { ", suffix = "; }") String name,
+            JavaSourcecodeWriter java,
+            String key,
+            Map<String, Object> node
+    ) throws IOException {
+        java.writeEnumConstant(name, List.of(
+                toStringExpr().apply(key),
+                toStringExpr().apply(fromString(node, "description").get()),
+                toPlainExpr().apply(fromBoolean(node, "default").get())
+        ));
     }
 
     private <T> void generateField(
             JavaSourcecodeWriter java,
             @SuppressWarnings("SameParameterValue") @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             Class<?> type,
-            String name
+            @Language(value = "Java", prefix = "var ", suffix = " = null") String name
     ) throws IOException {generateField(java, modifiers, type, name, null, null);}
 
     private <T> void generateField(
@@ -190,7 +236,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         };
     }
 
-    private static <T> Function<T, String> toPlainExpr() {return java.lang.String::valueOf;}
+    private static <T> Function<T, String> toPlainExpr() {return String::valueOf;}
 
     private static Function<String, String> toStringExpr() {return "\"%s\""::formatted;}
 

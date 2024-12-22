@@ -112,9 +112,24 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             writeWhitespaced("extends");
             write(extendsType);
         }
-        writeTokenList("implements", "", implementsTypes, this::getImportedOrCanonicalClassName, ",");
+        writeTokenList(kind == ElementKind.INTERFACE ? "extends" : "implements", "", implementsTypes, this::getImportedOrCanonicalClassName, ",");
         beginBlock(CLASS, name);
         return this;
+    }
+
+    public JavaSourcecodeWriter writeGetter(
+            @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
+            @NotNull Class<?> returnType,
+            @NotNull @Language(value = "Java", prefix = "class $ {void ", suffix = " = null;}") String name
+    ) throws IOException {
+        if (name.isBlank())
+            throw new IllegalArgumentException("Name cannot be empty");
+        return writeMethodHeader(modifiers, returnType,
+                "get" + Character.toUpperCase(name.charAt(0)) + (name.length() < 2 ? "" : name.substring(1)),
+                List.of(), List.of())
+                .writeIndent()
+                .writeStatement("return " + name)
+                .end();
     }
 
     @Builder(builderClassName = "BeginMethod", builderMethodName = "beginMethod", buildMethodName = "and")
@@ -198,6 +213,14 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         return this;
     }
 
+    public JavaSourcecodeWriter writeStatement(@NotNull @Language(value = "Java", prefix = "void x() { ", suffix = " }") String stmt) throws IOException {
+        write(stmt);
+        if (!stmt.endsWith(";"))
+            writeLineTerminator();
+        else lf();
+        return this;
+    }
+
     public JavaSourcecodeWriter writeExpression(@Nullable @Language(value = "Java", prefix = "var x = ", suffix = ";") String expr) throws IOException {
         writeWhitespaced(expr == null ? "null" : expr);
         return this;
@@ -218,7 +241,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         return this;
     }
 
-    public JavaSourcecodeWriter write(String... lines) throws IOException {
+    public JavaSourcecodeWriter write(@Language(value = "Java", prefix = "void x() { ", suffix = " }") String... lines) throws IOException {
         for (var line : List.of(lines)) {
             writeIndent();
             write(line);
