@@ -1,5 +1,7 @@
 package org.comroid.codegen.spigot;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Described;
 import org.comroid.api.attr.Named;
@@ -64,7 +66,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                     var java = new JavaSourcecodeWriter(sourcecode)
             ) {
                 java.writePackage(pkg)
-                        .writeImport(Named.class, Described.class)
+                        .writeImport(Named.class, Described.class, Getter.class, RequiredArgsConstructor.class)
                         .beginClass().modifiers(PUBLIC).kind(ElementKind.INTERFACE).name("PluginYml").and();
                 //.beginMethod().modifiers(PRIVATE).name("ctor").and().end();
 
@@ -103,7 +105,10 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     }
 
     private void generateCommandsEnum(JavaSourcecodeWriter java, Map<String, Object> commands) throws IOException {
-        java.beginClass().kind(ENUM).name("Command")
+        java
+                .beginAnnotation().type(Getter.class).and()
+                .beginAnnotation().type(RequiredArgsConstructor.class).and()
+                .beginClass().kind(ENUM).name("Command")
                 .implementsType(Named.class).implementsType(Described.class).and();
 
         var iter = Polyfill.<Map<String, Map<String, Object>>>uncheckedCast(commands).entrySet().iterator();
@@ -127,27 +132,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         generateField(java, PRIVATE | FINAL, String.class, "permissionMessage");
         generateField(java, PRIVATE | FINAL, String.class, "usage");
 
-        java.beginMethod().name("ctor")
-                .parameter(java.new Parameter(String.class, "description"))
-                .parameter(java.new Parameter(String[].class, "aliases"))
-                .parameter(java.new Parameter(String.class, "requiredPermission"))
-                .parameter(java.new Parameter(String.class, "permissionMessage"))
-                .parameter(java.new Parameter(String.class, "usage"))
-                .and()
-                .write(
-                        "this.description = description;",
-                        "this.aliases = aliases;",
-                        "this.requiredPermission = requiredPermission;",
-                        "this.permissionMessage = permissionMessage;",
-                        "this.usage = usage;"
-                ).end();
-
-        java.writeGetter(PUBLIC, String.class, "getName()", "toString")
-                .writeGetter(PUBLIC, String.class, "description")
-                .writeGetter(PUBLIC, String[].class, "aliases")
-                .writeGetter(PUBLIC, String.class, "requiredPermission")
-                .writeGetter(PUBLIC, String.class, "permissionMessage")
-                .writeGetter(PUBLIC, String.class, "usage");
+        java.writeGetter(PUBLIC, String.class, "getName()", "toString");
 
         java.end();
     }
@@ -191,7 +176,10 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
 
     private void generatePermissionsNode(JavaSourcecodeWriter java, String parentKey, String key, Map<String, Object> node) throws IOException {
         var name = key.startsWith(parentKey) ? key.substring(parentKey.length() + 1) : key;
-        java.beginClass().modifiers(PUBLIC).kind(ENUM).name(name).implementsType("Permission").and();
+        java
+                .beginAnnotation().type(Getter.class).and()
+                .beginAnnotation().type(RequiredArgsConstructor.class).and()
+                .beginClass().modifiers(PUBLIC).kind(ENUM).name(name).implementsType("Permission").and();
 
         generatePermissionEnumConstant("$self", java, key, node);
         java.comma().lf();
@@ -218,19 +206,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         generateField(java, PRIVATE | FINAL, String.class, "description");
         generateField(java, PRIVATE | FINAL, boolean.class, "defaultValue");
 
-        java.beginMethod().name("ctor")
-                .parameter(java.new Parameter(String.class, "name"))
-                .parameter(java.new Parameter(String.class, "description"))
-                .parameter(java.new Parameter(boolean.class, "defaultValue"))
-                .and().write(
-                        "this.name = name;",
-                        "this.description = description;",
-                        "this.defaultValue = defaultValue;"
-                ).end();
-
         java.writeGetter(PUBLIC, String.class, "name", "toString")
-                .writeGetter(PUBLIC, String.class, "name")
-                .writeGetter(PUBLIC, String.class, "description")
                 .writeGetter(PUBLIC, boolean.class, "defaultValue");
 
         generatePermissionsNodes(java, key, deepChildren);
