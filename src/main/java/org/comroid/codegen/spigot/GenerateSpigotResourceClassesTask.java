@@ -76,7 +76,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         generateField(java, 0, String.class, "mainClassName", fromString(yml, "main"), toStringExpr());
         generateField(java, 0, String.class, "loggingPrefix", fromString(yml, "prefix"), toStringExpr());
         generateField(java, 0, String.class, "apiVersion", fromString(yml, "api-version"), toStringExpr());
-        generateField(java, 0, String.class, "load", fromString(yml, "load"), toNamedEnumExpr("LoadTime"));
+        generateField(java, 0, "LoadTime", "load", fromString(yml, "load"), toEnumConstExpr("LoadTime"));
         generateField(java, 0, String.class, "name", fromString(yml, "name"), toStringExpr());
         generateField(java, 0, String.class, "version", fromString(yml, "version"), toStringExpr());
         generateField(java, 0, String.class, "description", fromString(yml, "description"), toStringExpr());
@@ -158,7 +158,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     private <T> void generateField(
             JavaSourcecodeWriter java,
             @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
-            Class<?> type,
+            Object type,
             @Language(value = "Java", prefix = "var ", suffix = " = null") String name,
             @Nullable Supplier<@Nullable T> source,
             @Nullable Function<T, String> toExpr
@@ -200,7 +200,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     }
 
     @SuppressWarnings("SameParameterValue")
-    private static Function<String, String> toNamedEnumExpr(String enumTypeName) {
+    private static Function<String, String> toEnumConstExpr(String enumTypeName) {
         return v -> "%s.%s".formatted(enumTypeName, v);
     }
 }

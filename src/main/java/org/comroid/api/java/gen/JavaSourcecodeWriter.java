@@ -168,14 +168,16 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     @Builder(builderClassName = "BeginField", builderMethodName = "beginField", buildMethodName = "and")
     public JavaSourcecodeWriter writeFieldHeader(
             @Nullable @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
-            @NotNull Class<?> type,
+            @NotNull Object type,
             @NotNull @Language(value = "Java", prefix = "class $ {void ", suffix = " = null;}") String name
     ) throws IOException {
         if (name.isBlank())
             throw new IllegalArgumentException("Package name cannot be empty");
         writeIndent();
         writeModifiers(modifiers);
-        write(type);
+        if (type instanceof Class<?> cls)
+            write(cls);
+        else writeWhitespaced(String.valueOf(type));
         writeWhitespaced(name);
         contexts.push(new CodeContext(FIELD, name, ";\n"));
         return this;
