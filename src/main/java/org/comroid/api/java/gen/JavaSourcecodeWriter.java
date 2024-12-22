@@ -113,7 +113,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             write(extendsType);
         }
         writeTokenList(kind == ElementKind.INTERFACE ? "extends" : "implements", "", implementsTypes, this::getImportedOrCanonicalClassName, ",");
-        beginBlock(CLASS, name);
+        beginBlock(kind, name);
         return this;
     }
 
@@ -169,7 +169,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         writeTokenList("throws", "", throwsTypes, this::getImportedOrCanonicalClassName, ",");
         if (Bitmask.isFlagSet(modifiers, ABSTRACT))
             writeLineTerminator();
-        else beginBlock(METHOD, name);
+        else beginBlock("ctor".equals(name) ? CONSTRUCTOR : METHOD, name);
         return this;
     }
 
