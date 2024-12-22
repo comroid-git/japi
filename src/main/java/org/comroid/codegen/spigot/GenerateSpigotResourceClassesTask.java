@@ -39,9 +39,6 @@ import static javax.lang.model.element.ElementKind.*;
 public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     private final Set<String> terminalNodes = new HashSet<>();
 
-    public @InputDirectory DirectoryProperty InputResources;
-    public @OutputDirectory DirectoryProperty OutputSourcecode;
-
     {
         var src = getProject().getExtensions().getByType(SourceSetContainer.class);
         var srcMain = src.getByName("main");
