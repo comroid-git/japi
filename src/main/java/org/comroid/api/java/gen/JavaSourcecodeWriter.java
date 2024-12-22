@@ -297,11 +297,14 @@ public class JavaSourcecodeWriter extends WriterDelegate {
                 PUBLIC, "public",
                 PROTECTED, "protected",
                 PRIVATE, "private"
-        ).entrySet())
+        ).entrySet()) {
+            if (currentContext().map(CodeContext::getKind).filter(k -> k == ElementKind.INTERFACE && entry.getKey() == PUBLIC).isPresent())
+                continue;
             if (Bitmask.isFlagSet(modifiers, entry.getKey())) {
                 writeWhitespaced(entry.getValue());
                 break;
             }
+        }
         for (var entry : Map.<@NotNull Integer, String>of(
                 ABSTRACT, "abstract",
                 STATIC, "static",
@@ -310,9 +313,12 @@ public class JavaSourcecodeWriter extends WriterDelegate {
                 VOLATILE, "volatile",
                 TRANSIENT, "transient",
                 NATIVE, "native"
-        ).entrySet())
+        ).entrySet()) {
+            if (currentContext().map(CodeContext::getKind).filter(k -> k == ElementKind.INTERFACE && entry.getKey() == ABSTRACT).isPresent())
+                continue;
             if (Bitmask.isFlagSet(modifiers, entry.getKey()))
                 writeWhitespaced(entry.getValue());
+        }
     }
 
     public <T> JavaSourcecodeWriter writeTokenList(String prefix, String suffix, Collection<T> source, Function<T, String> toString, String separator)
@@ -362,7 +368,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     private String getImportedOrCanonicalClassName(Object obj) {
         if (obj instanceof String str)
             return str;
-        var type = (Class<?>) obj;
+        var type   = (Class<?>) obj;
         var target = type.isArray() ? type.getComponentType() : type;
         if ("java.lang".equals(target.getPackageName()))
             return type.getSimpleName();
