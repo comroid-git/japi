@@ -22,7 +22,6 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Modifier;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -110,7 +109,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         var iter = Polyfill.<Map<String, Map<String, Object>>>uncheckedCast(commands).entrySet().iterator();
         while (iter.hasNext()) {
             var each = iter.next();
-            java.beginEnumConstant().name(each.getKey())
+            java.beginEnumConstant().name(each.getKey().toUpperCase())
                     .argument(toStringExpr().apply(fromString(each.getValue(), "description").get()))
                     .argument(toStringArrayExpr().apply(fromStringList(each.getValue(), "aliases").get()))
                     .argument(toStringExpr().apply(fromString(each.getValue(), "permission").get()))
@@ -167,20 +166,32 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     }
 
     private void generatePermissionsNodes(JavaSourcecodeWriter java, String parentKey, Map<String, Object> nodes) throws IOException {
-        for (var name : nodes.keySet())
-            generatePermissionsNode(java, parentKey, name, Polyfill.uncheckedCast(nodes.get(name)));
+        for (var key : nodes.keySet()) {
+            var name  = key.startsWith(parentKey) ? key.substring(parentKey.length() + 1) : key;
+            var split = name.split("\\.");
+
+            if (split.length == 1)
+                generatePermissionsNode(java, parentKey, name, Polyfill.uncheckedCast(nodes.get(key)));
+            else {
+                var wrap = Map.of(name, nodes.get(name));
+                for (var i = split.length - 2; i >= 0; i--) {
+                    wrap = Map.of("children", wrap);
+                    var partialKey = new StringBuilder();
+                    for (int j = 0; j < split.length - 1; j++) {
+                        partialKey.append(split[j]);
+                        if (j + 2 < split.length)
+                            partialKey.append('.');
+                    }
+                    wrap = Map.of(partialKey.toString(), wrap);
+                }
+                generatePermissionsNode(java, parentKey, split[0], Polyfill.uncheckedCast(wrap.get(split[0])));
+            }
+        }
     }
 
     private void generatePermissionsNode(JavaSourcecodeWriter java, String parentKey, String key, Map<String, Object> node) throws IOException {
-        var name  = key.startsWith(parentKey) ? key.substring(parentKey.length() + 1) : key;
-        var split = name.split("\\.");
-        var iter  = Arrays.stream(split).iterator();
-        while (iter.hasNext()) {
-            var blob = iter.next();
-            if (iter.hasNext())
-                java.beginClass().modifiers(PUBLIC).kind(ElementKind.INTERFACE).name(blob).and();
-            else java.beginClass().modifiers(PUBLIC).kind(ENUM).name(blob).implementsType("Permission").and();
-        }
+        var name = key.startsWith(parentKey) ? key.substring(parentKey.length() + 1) : key;
+        java.beginClass().modifiers(PUBLIC).kind(ENUM).name(name).implementsType("Permission").and();
 
         generatePermissionEnumConstant("$self", java, key, node);
         java.comma().lf();
@@ -190,8 +201,9 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         var children     = Polyfill.<Map<String, Object>>uncheckedCast(node.getOrDefault("children", Map.of()));
         if (!children.isEmpty())
             for (var entry : children.entrySet()) {
+                var midKey      = "#".equals(parentKey) ? key : parentKey + '.' + key;
                 var eKey        = entry.getKey();
-                var eName       = eKey.startsWith(key) ? eKey.substring(key.length() + 1) : eKey;
+                var eName       = eKey.startsWith(midKey) ? eKey.substring(midKey.length() + 1) : eKey;
                 var subChildren = Polyfill.<Map<String, Object>>uncheckedCast(entry.getValue()).getOrDefault("children", Map.of());
                 if (Polyfill.<Map<String, Object>>uncheckedCast(subChildren).isEmpty()) {
                     // no further children; write enum constant
@@ -222,8 +234,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                 .writeGetter(PUBLIC, boolean.class, "defaultValue");
 
         generatePermissionsNodes(java, key, deepChildren);
-        for (var c = split.length; c > 0; c--)
-            java.end();
+        java.end();
     }
 
     private void generatePermissionEnumConstant(
