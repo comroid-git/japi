@@ -7,6 +7,7 @@ import org.gradle.api.tasks.InputDirectory;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.TaskAction;
+import org.intellij.lang.annotations.Language;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -141,7 +142,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         }
 
         generateField(java, 0, String.class, "description", fromString(node, "description"), toStringExpr());
-        generateField(java, 0, Boolean.class, "default", fromBoolean(node, "default"), toPlainExpr());
+        generateField(java, 0, Boolean.class, "defaultValue", fromBoolean(node, "default"), toPlainExpr());
         var children = Polyfill.<Map<String, Object>>uncheckedCast(node.getOrDefault("children", Map.of()));
         generatePermissionsNodes(java, key, children);
 
@@ -160,7 +161,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
             JavaSourcecodeWriter java,
             @MagicConstant(flagsFromClass = Modifier.class) Integer modifiers,
             Class<?> type,
-            String name,
+            @Language(value = "Java", prefix = "var ", suffix = " = null") String name,
             @Nullable Supplier<@Nullable T> source,
             @Nullable Function<T, String> toExpr
     ) throws IOException {
