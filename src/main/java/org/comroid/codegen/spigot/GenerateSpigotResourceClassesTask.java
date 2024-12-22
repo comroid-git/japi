@@ -138,6 +138,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
             java.beginClass().kind(ElementKind.INTERFACE).name(idPart).and();
         }
 
+        generateField(java, 0, String.class, "permission", () -> key, toStringExpr());
         generateField(java, 0, String.class, "description", fromString(node, "description"), toStringExpr());
         generateField(java, 0, Boolean.class, "defaultValue", fromBoolean(node, "default"), toPlainExpr());
         var children = Polyfill.<Map<String, Object>>uncheckedCast(node.getOrDefault("children", Map.of()));
@@ -189,7 +190,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         };
     }
 
-    private static <T> Function<T, String> toPlainExpr() {return String::valueOf;}
+    private static <T> Function<T, String> toPlainExpr() {return java.lang.String::valueOf;}
 
     private static Function<String, String> toStringExpr() {return "\"%s\""::formatted;}
 
