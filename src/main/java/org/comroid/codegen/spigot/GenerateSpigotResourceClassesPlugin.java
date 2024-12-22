@@ -2,6 +2,7 @@ package org.comroid.codegen.spigot;
 
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.tasks.SourceSetContainer;
 
 public class GenerateSpigotResourceClassesPlugin implements Plugin<Project> {
     @Override
@@ -12,5 +13,8 @@ public class GenerateSpigotResourceClassesPlugin implements Plugin<Project> {
         });
 
         project.getTasks().named("compileJava", compileJavaTask -> compileJavaTask.dependsOn(task));
+        project.getExtensions().getByType(SourceSetContainer.class)
+                .getByName("main").getJava()
+                .srcDir(task.get().getGeneratedSourceCodeDirectory());
     }
 }

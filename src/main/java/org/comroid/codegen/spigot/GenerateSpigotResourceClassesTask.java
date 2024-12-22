@@ -38,7 +38,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
 
     @OutputDirectory
     public File getGeneratedSourceCodeDirectory() {
-        return new File(getProject().getLayout().getBuildDirectory().getAsFile().get(), "generated/sources/r");
+        return new File(getProject().getLayout().getBuildDirectory().getAsFile().get(), "generated/sources/r/");
     }
 
     @TaskAction
@@ -61,6 +61,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
             generatePermissions(java, Polyfill.uncheckedCast(yml.getOrDefault("permissions", Map.of())));
 
             java.beginClass().kind(ElementKind.ENUM).name("LoadTime").and()
+                    .writeIndent()
                     .writeTokenList("", "", List.of("STARTUP", "POSTWORLD"), Function.identity(), ",")
                     .writeLineTerminator()
                     .end();
@@ -69,10 +70,6 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         } catch (IOException e) {
             throw new RuntimeException("Unable to generate plugin.yml resource class", e);
         }
-
-        var sourceSets    = getProject().getExtensions().getByType(SourceSetContainer.class);
-        var mainSourceSet = sourceSets.getByName("main");
-        mainSourceSet.getJava().srcDir(getGeneratedSourceCodeDirectory());
     }
 
     private void generateBaseFields(JavaSourcecodeWriter java, Map<String, Object> yml) throws IOException {
@@ -103,7 +100,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                     .argument(toStringArrayExpr().apply(fromStringList(each.getValue(), "aliases").get()))
                     .and();
             if (iter.hasNext())
-                java.comma();
+                java.comma().lf();
         }
         java.writeLineTerminator().lf();
         generateField(java, PUBLIC | FINAL, String.class, "description");
@@ -137,7 +134,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         var name = key.startsWith(parentKey) ? key.substring(parentKey.length() + 1) : key;
         var id   = name.split("\\.");
         for (var idPart : id) {
-            if(idPart.isBlank()) continue;
+            if (idPart.isBlank()) continue;
             java.beginClass().kind(ElementKind.INTERFACE).name(idPart).and();
         }
 
@@ -188,7 +185,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                 return List.of();
             if (value instanceof List ls)
                 return ls;
-            return List.of((String)value);
+            return List.of((String) value);
         };
     }
 

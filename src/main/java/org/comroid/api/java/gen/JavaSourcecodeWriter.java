@@ -231,7 +231,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
         length += len;
         super.write(buf, off, len);
         if (buf.length > 0) {
-            var last = off + len;
+            var last = off + len - 1;
             if (0 <= last && last < buf.length) {
                 newline     = buf[last] == '\n';
                 whitespaced = newline || IntStream.of(' ', '\t').anyMatch(x -> buf[last] == x);
