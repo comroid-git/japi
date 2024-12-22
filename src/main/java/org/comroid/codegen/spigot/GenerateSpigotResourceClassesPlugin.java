@@ -13,8 +13,10 @@ public class GenerateSpigotResourceClassesPlugin implements Plugin<Project> {
         });
 
         project.getTasks().named("compileJava", compileJavaTask -> compileJavaTask.dependsOn(task));
+
+        var outputDir = task.get().getGeneratedSourceCodeDirectory();
         project.getExtensions().getByType(SourceSetContainer.class)
                 .getByName("main").getJava()
-                .srcDir(task.get().getGeneratedSourceCodeDirectory());
+                .srcDir(outputDir.getAbsolutePath());
     }
 }

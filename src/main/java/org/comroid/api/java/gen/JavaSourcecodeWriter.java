@@ -97,7 +97,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             @Nullable ElementKind kind,
             @NotNull @Language(value = "Java", prefix = "class ", suffix = " {}") String name,
             @Nullable Class<?> extendsType,
-            @Singular(ignoreNullCollections = true) List<Class<?>> implementsTypes
+            @Singular(ignoreNullCollections = true) List<Object> implementsTypes
     ) throws IOException {
         if (name.isBlank())
             throw new IllegalArgumentException("Class name cannot be empty");
@@ -359,7 +359,10 @@ public class JavaSourcecodeWriter extends WriterDelegate {
             write('\n');
     }
 
-    private String getImportedOrCanonicalClassName(Class<?> type) {
+    private String getImportedOrCanonicalClassName(Object obj) {
+        if (obj instanceof String str)
+            return str;
+        var type = (Class<?>) obj;
         var target = type.isArray() ? type.getComponentType() : type;
         if ("java.lang".equals(target.getPackageName()))
             return type.getSimpleName();

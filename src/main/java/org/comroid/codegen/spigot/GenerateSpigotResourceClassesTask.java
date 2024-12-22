@@ -22,6 +22,7 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,7 +36,7 @@ import static java.lang.reflect.Modifier.*;
 import static javax.lang.model.element.ElementKind.*;
 
 public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
-    private final Set<String> endNodes = new HashSet<>();
+    private final Set<String> terminalNodes = new HashSet<>();
 
     @InputDirectory
     public File getPluginResourcesDirectory() {
@@ -51,29 +52,33 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
 
     @TaskAction
     public void generate() {
-        try (
-                var pluginYml = new FileInputStream(new File(getPluginResourcesDirectory(), "plugin.yml"));
-                var sourcecode = new FileWriter(new File(getGeneratedSourceCodeDirectory(), "PluginYml.java"));
-                var java = new JavaSourcecodeWriter(sourcecode)
-        ) {
-            Map<String, Object> yml = new Yaml().load(pluginYml);
+        try (var pluginYml = new FileInputStream(new File(getPluginResourcesDirectory(), "plugin.yml"))) {
+            Map<String, Object> yml    = new Yaml().load(pluginYml);
+            var                 main   = (String) yml.get("main");
+            var                 lio    = main.lastIndexOf('.');
+            var                 pkg    = main.substring(0, lio);
+            var                 pkgDir = new File(getGeneratedSourceCodeDirectory(), pkg.replace('.', '/'));
+            if (!pkgDir.exists() && !pkgDir.mkdirs())
+                throw new RuntimeException("Unable to create output directory");
+            try (
+                    var sourcecode = new FileWriter(new File(pkgDir, "PluginYml.java"));
+                    var java = new JavaSourcecodeWriter(sourcecode)
+            ) {
+                java.writePackage(pkg)
+                        .writeImport(Named.class, Described.class)
+                        .beginClass().modifiers(PUBLIC).kind(ElementKind.INTERFACE).name("PluginYml").and();
+                //.beginMethod().modifiers(PRIVATE).name("ctor").and().end();
 
-            var main = (String) yml.get("main");
-            var lio  = main.lastIndexOf('.');
-            java.writePackage(main.substring(0, lio))
-                    .writeImport(Named.class, Described.class)
-                    .beginClass().modifiers(PUBLIC).kind(ElementKind.INTERFACE).name("PluginYml").and();
-            //.beginMethod().modifiers(PRIVATE).name("ctor").and().end();
+                generateBaseFields(java, yml);
+                generateCommandsEnum(java, Polyfill.uncheckedCast(yml.getOrDefault("commands", Map.of())));
+                generatePermissions(java, Polyfill.uncheckedCast(yml.getOrDefault("permissions", Map.of())));
 
-            generateBaseFields(java, yml);
-            generateCommandsEnum(java, Polyfill.uncheckedCast(yml.getOrDefault("commands", Map.of())));
-            generatePermissions(java, Polyfill.uncheckedCast(yml.getOrDefault("permissions", Map.of())));
-
-            java.beginClass().kind(ENUM).name("LoadTime").and()
-                    .writeIndent()
-                    .writeTokenList("", "", List.of("STARTUP", "POSTWORLD"), Function.identity(), ",")
-                    .writeLineTerminator()
-                    .end();
+                java.beginClass().kind(ENUM).name("LoadTime").and()
+                        .writeIndent()
+                        .writeTokenList("", "", List.of("STARTUP", "POSTWORLD"), Function.identity(), ",")
+                        .writeLineTerminator()
+                        .end();
+            }
         } catch (FileNotFoundException | SecurityException e) {
             throw new RuntimeException("Unable to read plugin.yml", e);
         } catch (IOException e) {
@@ -153,11 +158,11 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                 .implementsType(Named.class).implementsType(Described.class).and()
                 .beginMethod().modifiers(ABSTRACT).returnType(boolean.class).name("getDefaultValue").and();
 
-        endNodes.clear();
+        terminalNodes.clear();
         generatePermissionsNodes(java, "#", permissions);
 
-        generateField(java, 0, "Permission[]", "TERMINAL_NODES", endNodes::stream,
-                s -> s.map(id -> "Permission." + id).collect(Collectors.joining(",", "List.of(", ")")));
+        generateField(java, 0, "Permission[]", "TERMINAL_NODES", () -> terminalNodes,
+                ls -> ls.isEmpty() ? "new Permission[0]" : ls.stream().collect(Collectors.joining(",", "new Permission[]{", "}")));
         java.end();
     }
 
@@ -167,9 +172,16 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
     }
 
     private void generatePermissionsNode(JavaSourcecodeWriter java, String parentKey, String key, Map<String, Object> node) throws IOException {
-        var name = key.startsWith(parentKey) ? key.substring(parentKey.length() + 1) : key;
+        var name  = key.startsWith(parentKey) ? key.substring(parentKey.length() + 1) : key;
+        var split = name.split("\\.");
+        var iter  = Arrays.stream(split).iterator();
+        while (iter.hasNext()) {
+            var blob = iter.next();
+            if (iter.hasNext())
+                java.beginClass().modifiers(PUBLIC).kind(ElementKind.INTERFACE).name(blob).and();
+            else java.beginClass().modifiers(PUBLIC).kind(ENUM).name(blob).implementsType("Permission").and();
+        }
 
-        java.beginClass().modifiers(PUBLIC).kind(ENUM).name(name).and();
         generatePermissionEnumConstant("$self", java, key, node);
         java.comma().lf();
         generatePermissionEnumConstant("$wildcard", java, key + ".*", node);
@@ -184,7 +196,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                 if (Polyfill.<Map<String, Object>>uncheckedCast(subChildren).isEmpty()) {
                     // no further children; write enum constant
                     java.comma().lf();
-                    endNodes.add(eKey);
+                    terminalNodes.add(eKey);
                     generatePermissionEnumConstant(eName, java, eKey, Polyfill.uncheckedCast(entry.getValue()));
                 } else deepChildren.put(eKey, entry.getValue());
             }
@@ -197,7 +209,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
         java.beginMethod().name("ctor")
                 .parameter(java.new Parameter(String.class, "name"))
                 .parameter(java.new Parameter(String.class, "description"))
-                .parameter(java.new Parameter(String.class, "defaultValue"))
+                .parameter(java.new Parameter(boolean.class, "defaultValue"))
                 .and().write(
                         "this.name = name;",
                         "this.description = description;",
@@ -210,7 +222,8 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                 .writeGetter(PUBLIC, boolean.class, "defaultValue");
 
         generatePermissionsNodes(java, key, deepChildren);
-        java.end();
+        for (var c = split.length; c > 0; c--)
+            java.end();
     }
 
     private void generatePermissionEnumConstant(
