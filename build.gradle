@@ -1,95 +1,12 @@
+import static com.ampznetwork.build.Util.getCommitTimestampMinutes
+
 apply plugin: 'java-library'
-apply plugin: 'java-gradle-plugin'
 
-static String envOr(String key, String presentPrefix = "", Object or = "") {
-    def env = System.getenv()
-    if (env.containsKey(key))
-        return presentPrefix + env.get(key)
-    return or
-}
-
-def getCommitTimestampMinutes() {
-    // Run 'git log' command to get the timestamp of the latest commit
-    def result = new ByteArrayOutputStream()
-    exec {
-        commandLine 'git', 'log', '-1', '--format=%ct'
-        standardOutput = result
-    }
-
-    // Convert the timestamp to minutes
-    def timestampSeconds = result.toString().trim().toLong()
-    def timestampMinutes = timestampSeconds / 60
-
-    return (int) timestampMinutes
-}
-
-ext {
-    buildId = getCommitTimestampMinutes()
-}
-task tcBuildId {
-    doLast {
-        println "##teamcity[buildNumber '$buildId']"
-    }
-}
 tasks.named('jar').configure { dependsOn tcBuildId }
 group 'org.comroid'
-version '2.1' + '.' + buildId
+version '2.2.' + getCommitTimestampMinutes()
 
-apply from: 'gradle/vars.gradle'
-
-sourceCompatibility = 17
-targetCompatibility = 17
-
-gradlePlugin {
-    plugins {
-        generateSpigotResourceClassesPlugin {
-            id = 'org.comroid.codegen.spigot'
-            implementationClass = 'org.comroid.codegen.spigot.GenerateSpigotResourceClassesPlugin'
-        }
-    }
-}
-
-configurations {
-    compileClasspath {
-        resolutionStrategy.activateDependencyLocking()
-    }
-}
-
-tasks.withType(Javadoc) {
-    source = sourceSets.main.java
-
-    options {
-        encoding = 'UTF-8'
-        /*
-        links = [
-                "https://docs.oracle.com/javase/8/docs/api/",
-                "https://docs.oracle.com/javaee/7/api/"
-        ]
-        */
-    }
-}
-
-task sourcesJar(type: Jar) {
-    from sourceSets.main.allJava
-
-    try {
-        archiveClassifier.set 'sources'
-    } catch (MissingPropertyException ignored) {
-        classifier = "sources"
-    }
-}
-
-task javadocJar(type: Jar) {
-    from javadoc.destinationDir
-
-    try {
-        archiveClassifier.set 'javadoc'
-    } catch (MissingPropertyException ignored) {
-        classifier = "javadoc"
-    }
-}
-
-compileJava.options.encoding = 'UTF-8'
+configurations.compileClasspath.resolutionStrategy.activateDependencyLocking()
 
 repositories {
     mavenLocal()
@@ -131,4 +48,4 @@ dependencies {
     testImplementation 'org.easymock:easymock:+'
 }
 
-apply from: 'gradle/publishing.gradle'
+//apply from: 'gradle/publishing.gradle'
