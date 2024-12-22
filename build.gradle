@@ -1,5 +1,7 @@
-apply plugin: 'java-library'
-apply plugin: 'java-gradle-plugin'
+plugins {
+    id 'java-library'
+    id 'java-gradle-plugin'
+}
 
 static String envOr(String key, String presentPrefix = "", Object or = "") {
     def env = System.getenv()
