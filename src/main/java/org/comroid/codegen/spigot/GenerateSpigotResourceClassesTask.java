@@ -23,8 +23,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -122,12 +124,18 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                 .end();
         java.end();
     }
+    private final Set<String> endNodes = new HashSet<>();
 
     private void generatePermissions(JavaSourcecodeWriter java, Map<String, Object> permissions) throws IOException {
         java.beginClass().kind(ElementKind.INTERFACE).name("Permission")
                 .implementsType(Named.class).implementsType(Described.class).and()
                 .beginMethod().modifiers(ABSTRACT).returnType(boolean.class).name("getDefaultValue").and();
+
+        endNodes.clear();
         generatePermissionsNodes(java, "#", permissions);
+
+        generateField(java, 0, "Permission[]", "TERMINAL_NODES", endNodes::stream,
+                s -> s.map(id -> "Permission." + id).collect(Collectors.joining(",", "List.of(", ")")));
         java.end();
     }
 
@@ -154,6 +162,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
                 if (Polyfill.<Map<String, Object>>uncheckedCast(subChildren).isEmpty()) {
                     // no further children; write enum constant
                     java.comma().lf();
+                    endNodes.add(eKey);
                     generatePermissionEnumConstant(eName, java, eKey, Polyfill.uncheckedCast(entry.getValue()));
                 } else deepChildren.put(eKey, entry.getValue());
             }
