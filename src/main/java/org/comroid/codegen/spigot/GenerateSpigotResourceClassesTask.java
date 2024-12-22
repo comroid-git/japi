@@ -35,6 +35,8 @@ import static java.lang.reflect.Modifier.*;
 import static javax.lang.model.element.ElementKind.*;
 
 public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
+    private final Set<String> endNodes = new HashSet<>();
+
     @InputDirectory
     public File getPluginResourcesDirectory() {
         return getProject().getExtensions().getByType(SourceSetContainer.class)
@@ -102,29 +104,36 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
             var each = iter.next();
             java.beginEnumConstant().name(each.getKey())
                     .argument(toStringExpr().apply(fromString(each.getValue(), "description").get()))
-                    .argument(toStringExpr().apply(fromString(each.getValue(), "permission").get()))
                     .argument(toStringArrayExpr().apply(fromStringList(each.getValue(), "aliases").get()))
+                    .argument(toStringExpr().apply(fromString(each.getValue(), "permission").get()))
+                    .argument(toStringExpr().apply(fromString(each.getValue(), "permission-message").get()))
+                    .argument(toStringExpr().apply(fromString(each.getValue(), "usage").get()))
                     .and();
             if (iter.hasNext())
                 java.comma().lf();
         }
         java.writeLineTerminator().lf();
         generateField(java, PUBLIC | FINAL, String.class, "description");
-        generateField(java, PUBLIC | FINAL, String.class, "requiredPermission");
         generateField(java, PUBLIC | FINAL, String[].class, "aliases");
+        generateField(java, PUBLIC | FINAL, String.class, "requiredPermission");
+        generateField(java, PUBLIC | FINAL, String.class, "permissionMessage");
+        generateField(java, PUBLIC | FINAL, String.class, "usage");
         java.beginMethod().name("ctor")
                 .parameter(java.new Parameter(String.class, "description"))
+                .parameter(java.new Parameter(String[].class, "aliases"))
                 .parameter(java.new Parameter(String.class, "requiredPermission"))
-                .parameter(java.new Parameter(String[].class, "aliases", true))
+                .parameter(java.new Parameter(String.class, "permissionMessage"))
+                .parameter(java.new Parameter(String.class, "usage"))
                 .and()
                 .write(
                         "this.description = description;",
+                        "this.aliases = aliases;",
                         "this.requiredPermission = requiredPermission;",
-                        "this.aliases = aliases;")
-                .end();
+                        "this.permissionMessage = permissionMessage;",
+                        "this.usage = usage;"
+                ).end();
         java.end();
     }
-    private final Set<String> endNodes = new HashSet<>();
 
     private void generatePermissions(JavaSourcecodeWriter java, Map<String, Object> permissions) throws IOException {
         java.beginClass().kind(ElementKind.INTERFACE).name("Permission")
@@ -248,10 +257,10 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
 
     private static <T> Function<T, String> toPlainExpr() {return String::valueOf;}
 
-    private static Function<String, String> toStringExpr() {return "\"%s\""::formatted;}
+    private static Function<String, String> toStringExpr() {return args -> args == null || "null".equals(args) ? "null" : "\"%s\"".formatted(args);}
 
     private static Function<List<String>, String> toStringArrayExpr() {
-        return ls -> "new String[]{%s}".formatted(ls.stream()
+        return ls -> ls.isEmpty() ? "new String[0]" : "new String[]{%s}".formatted(ls.stream()
                 .collect(Collectors.joining("\",\"", "\"", "\"")));
     }
 

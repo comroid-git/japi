@@ -360,10 +360,10 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     }
 
     private String getImportedOrCanonicalClassName(Class<?> type) {
-        type = type.isArray() ? type.getComponentType() : type;
-        if ("java.lang".equals(type.getPackageName()))
+        var target = type.isArray() ? type.getComponentType() : type;
+        if ("java.lang".equals(target.getPackageName()))
             return type.getSimpleName();
-        if (imports.stream().map(Class::getCanonicalName).anyMatch(type.getCanonicalName()::equals))
+        if (imports.stream().map(Class::getCanonicalName).anyMatch(target.getCanonicalName()::equals))
             return type.getSimpleName();
         else return type.getCanonicalName();
     }
