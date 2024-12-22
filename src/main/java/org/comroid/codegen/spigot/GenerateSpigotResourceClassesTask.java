@@ -61,6 +61,7 @@ public abstract class GenerateSpigotResourceClassesTask extends DefaultTask {
             var main = (String) yml.get("main");
             var lio  = main.lastIndexOf('.');
             java.writePackage(main.substring(0, lio))
+                    .writeImport(Named.class, Described.class)
                     .beginClass().modifiers(PUBLIC).kind(ElementKind.INTERFACE).name("PluginYml").and();
             //.beginMethod().modifiers(PRIVATE).name("ctor").and().end();
 

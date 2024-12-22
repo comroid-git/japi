@@ -67,11 +67,11 @@ public class JavaSourcecodeWriter extends WriterDelegate {
                 writeImport(each);
             return this;
         } else type = types[0];
-        imports.add(type);
         write("import");
         write(type);
         write(';');
         lf();
+        imports.add(type);
         return this;
     }
 
