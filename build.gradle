@@ -15,11 +15,18 @@ static int getCommitTimestampMinutes() {
 
 apply plugin: 'java-library'
 
-tasks.named('jar').configure { dependsOn tcBuildId }
 group 'org.comroid'
 version '2.2.' + getCommitTimestampMinutes()
 
 configurations.compileClasspath.resolutionStrategy.activateDependencyLocking()
+
+compileJava.finalizedBy jar, tasks.register('copyJapiToBuildSrc', Copy) {
+    group 'build setup'
+    dependsOn jar
+    from tasks.named('jar').get().outputs.files.singleFile
+    into "$rootProject.projectDir/gradle/build"
+    rename { 'japi.jar' }
+}.get()
 
 repositories {
     mavenLocal()
