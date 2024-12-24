@@ -287,6 +287,7 @@ public class JavaSourcecodeWriter extends WriterDelegate {
     private void write(@NotNull Class<?> type) throws IOException {
         if (type.isArray()) {
             write(type.getComponentType());
+            write("[]");
         } else writeWhitespaced(getImportedOrCanonicalClassName(type));
     }
 
