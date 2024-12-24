@@ -14,19 +14,12 @@ static int getCommitTimestampMinutes() {
 }
 
 apply plugin: 'java-library'
+apply plugin: 'maven-publish'
 
 group 'org.comroid'
 version '2.2.' + getCommitTimestampMinutes()
 
 configurations.compileClasspath.resolutionStrategy.activateDependencyLocking()
-
-compileJava.finalizedBy jar, tasks.register('copyJapiToBuildSrc', Copy) {
-    group 'build setup'
-    dependsOn jar
-    from tasks.named('jar').get().outputs.files.singleFile
-    into "$rootProject.projectDir/gradle/build"
-    rename { 'japi.jar' }
-}.get()
 
 repositories {
     mavenLocal()
@@ -68,4 +61,30 @@ dependencies {
     testImplementation 'org.easymock:easymock:+'
 }
 
-//apply from: 'gradle/publishing.gradle'
+publishing {
+    repositories.mavenLocal()
+
+    publications {
+        maven(MavenPublication) {
+            from components.java
+            pom {
+                name = project.name
+                licenses {
+                    license {
+                        name = "The Apache License, Version 2.0"
+                        url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "burdoto"
+                        name = "Kaleidox"
+                        email = "contact@kaleidox.de"
+                    }
+                }
+            }
+        }
+    }
+}
+
+jar.finalizedBy publishToMavenLocal
