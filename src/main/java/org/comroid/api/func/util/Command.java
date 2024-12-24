@@ -62,7 +62,6 @@ import org.comroid.api.text.Capitalization;
 import org.comroid.api.text.StringMode;
 import org.comroid.api.tree.Container;
 import org.comroid.api.tree.Initializable;
-import org.intellij.lang.annotations.Language;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -113,12 +112,7 @@ public @interface Command {
 
     String usage() default EmptyAttribute;
 
-    @SuppressWarnings("LanguageMismatch")
-    @Language(value = "Groovy", prefix = "Object x =", suffix = ";")
     String permission() default EmptyAttribute;
-
-    @Deprecated
-    boolean ephemeral() default false;
 
     PrivacyLevel privacy() default PrivacyLevel.EPHEMERAL;
 
@@ -770,7 +764,7 @@ public @interface Command {
                         .findAny()
                         .orElseThrow();
                 if (response instanceof CompletableFuture)
-                    e.deferReply().setEphemeral(cmd.node.attribute.ephemeral())
+                    e.deferReply().setEphemeral(cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC)
                             .submit()
                             .thenCombine(((CompletableFuture<?>) response), (hook, resp) -> {
                                 WebhookMessageCreateAction<Message> req;
@@ -790,7 +784,7 @@ public @interface Command {
                             embed = embedFinalizer.apply(embed, user);
                         req = e.replyEmbeds(embed.build());
                     } else req = e.reply(String.valueOf(response));
-                    req.setEphemeral(cmd.node.attribute.ephemeral()).submit();
+                    req.setEphemeral(cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC).submit();
                 }
             }
 
