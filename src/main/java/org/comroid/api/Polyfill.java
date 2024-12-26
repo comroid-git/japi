@@ -49,17 +49,18 @@ import static java.util.Objects.*;
 @Experimental
 @UtilityClass
 public final class Polyfill {
-    private static final CompletableFuture<?> infiniteFuture = new CompletableFuture<>();
+    private static final CompletableFuture<?>                                   infiniteFuture     = new CompletableFuture<>();
     private static final Pattern                                                DURATION_PATTERN   = Pattern.compile(
             "((?<amount>\\d+)(?<unit>[yMwdhms][oi]?n?))");
     private static final Map<@Doc("secondsFactor") Long, @Doc("suffix") String> durationStringBase = Map.of(
+            1L, "sec", // minutes
             60L, "min", // minutes
             3600L, "h", // hours
             86400L, "d", // days
             604800L, "w" // weeks
     );
     @Deprecated
-    public static final  String               UUID_PATTERN   = RegExpUtil.UUID4.pattern();
+    public static final  String                                                 UUID_PATTERN       = RegExpUtil.UUID4.pattern();
 
     public static <T> T supplyOnce(Provider<T> provider, Function<T, T> writer, Supplier<T> accessor) {
         final T accessed = accessor.get();
@@ -362,21 +363,29 @@ public final class Polyfill {
     }
 
     public static String durationString(Duration d) {
+        return durationString(d, -1);
+    }
+
+    public static String durationString(Duration d, int maxFields) {
         long seconds = d.getSeconds();
         long absSeconds = Math.abs(seconds);
         var  sb      = new StringBuilder();
         for (var e : durationStringBase.entrySet().stream()
                 .sorted(Comparator.<Map.Entry<Long, String>>comparingLong(Map.Entry::getKey).reversed())
                 .toList()) {
+            if (maxFields == 0) break;
             var secondsFactor = e.getKey();
             if (absSeconds > secondsFactor) {
+                maxFields -= 1;
                 var diff = absSeconds / secondsFactor;
                 sb.append(diff).append(e.getValue());
                 absSeconds -= diff * secondsFactor;
             }
         }
+        /*
         if (absSeconds > 0)
             sb.append((absSeconds)).append("sec");
+         */
         return sb.toString();
     }
 
