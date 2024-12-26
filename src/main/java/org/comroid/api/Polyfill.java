@@ -53,11 +53,12 @@ public final class Polyfill {
     private static final Pattern                                                DURATION_PATTERN   = Pattern.compile(
             "((?<amount>\\d+)(?<unit>[yMwdhms][oi]?n?))");
     private static final Map<@Doc("secondsFactor") Long, @Doc("suffix") String> durationStringBase = Map.of(
-            1L, "sec", // minutes
-            60L, "min", // minutes
+            1L, "s", // minutes
+            60L, "m", // minutes
             3600L, "h", // hours
             86400L, "d", // days
-            604800L, "w" // weeks
+            604800L, "w", // weeks
+            220903200L, "y" // years
     );
     @Deprecated
     public static final  String                                                 UUID_PATTERN       = RegExpUtil.UUID4.pattern();
