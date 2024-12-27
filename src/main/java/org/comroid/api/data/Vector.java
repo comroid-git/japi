@@ -4,6 +4,7 @@ import jakarta.persistence.AttributeConverter;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Value;
 import lombok.experimental.FieldDefaults;
@@ -261,19 +262,17 @@ public interface Vector {
             return new N3(x, y, z);
         }
 
-        /* todo
         @Override
-        public String toString() {
-            final var dims = new char[]{'x','y','z','w'};
-            var ls="";
-            for (var n=0;n<n();n++)
-                ls+=(dims.length>n?dims[n]:'#'+n)+'='+get(n)+',';
-            return "Vector%d(%s\b)".formatted(n(),ls);
+        public final String toString() {
+            final var dims = new char[]{ 'x', 'y', 'z', 'w' };
+            var       ls   = "(";
+            for (var n = 0; n < n(); n++)
+                ls += "" + dims[n] + '=' + get(n) + ';';
+            return ls.substring(0, ls.length() - 1) + ')';
         }
-         */
     }
 
-    @Data
+    @Getter
     @NoArgsConstructor
     @EqualsAndHashCode(callSuper = true)
     @FieldDefaults(level = AccessLevel.PROTECTED)
@@ -332,7 +331,7 @@ public interface Vector {
         }
     }
 
-    @Data
+    @Getter
     @NoArgsConstructor
     @EqualsAndHashCode(callSuper = true)
     @FieldDefaults(level = AccessLevel.PROTECTED)
@@ -347,13 +346,13 @@ public interface Vector {
         }
 
         @Override
-        public int n() {
-            return 4;
+        public double[] toArray() {
+            return new double[]{ x, y, z, w };
         }
 
         @Override
-        public double[] toArray() {
-            return new double[]{ x, y, z, w };
+        public int n() {
+            return 4;
         }
 
         @Override
