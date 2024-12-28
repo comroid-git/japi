@@ -1,19 +1,15 @@
 package org.comroid.api.net;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
+import lombok.Builder;
 import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.NonFinal;
 import lombok.extern.java.Log;
 import org.comroid.api.ByteConverter;
-import org.comroid.api.Polyfill;
-import org.comroid.api.data.seri.DataNode;
-import org.comroid.api.data.seri.adp.JSON;
-import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.Event;
@@ -26,7 +22,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 
 import static java.util.Collections.*;
 import static org.comroid.api.Polyfill.*;
@@ -40,7 +35,7 @@ public class Rabbit {
 
     public static Wrap<Rabbit> of(@Nullable String uri) {
         if (uri == null) return Wrap.empty();
-        final var uri0 = Polyfill.uri(uri);
+        final var uri0 = uri(uri);
         return SoftDepend.type("com.rabbitmq.client.Connection")
                 .map($ -> $cache.computeIfAbsent(uri0, Rabbit::new));
     }
@@ -48,6 +43,7 @@ public class Rabbit {
     URI                   uri;
     Map<String, Exchange> exchanges = new ConcurrentHashMap<>();
     @NonFinal Connection connection;
+
     private Rabbit(URI uri) {
         this.uri = uri;
         this.connection = touch();
@@ -65,24 +61,29 @@ public class Rabbit {
         return factory.newConnection();
     }
 
-    @lombok.Builder(builderMethodName = "bind", buildMethodName = "create", builderClassName = "Binder")
-    public <T> Exchange.Route<T> bind(String exchange, String routingKey, ByteConverter<T> converter) {
-        return exchange(exchange).route(routingKey, converter);
+    @Builder(builderMethodName = "bind", buildMethodName = "create", builderClassName = "Binder")
+    public <T> Exchange.Route<T> bind(String exchange, @Nullable String exchangeType, String routingKey, ByteConverter<T> converter) {
+        return exchange(exchange, exchangeType).route(routingKey, converter);
     }
 
     public Exchange exchange(String exchange) {
-        return exchanges.computeIfAbsent(exchange, Exchange::new);
+        return exchange(exchange, null);
+    }
+
+    public Exchange exchange(String exchange, String exchangeType) {
+        return exchanges.computeIfAbsent(exchange, exc -> new Exchange(exc, exchangeType));
     }
 
     @Value
     public class Exchange {
         Map<String, Route<?>> routes = new ConcurrentHashMap<>();
         String exchange;
+        String exchangeType;
         @NonFinal Channel channel;
 
-        @SneakyThrows
-        private Exchange(String exchange) {
-            this.exchange = exchange;
+        private Exchange(String exchange, @Nullable String exchangeType) {
+            this.exchange     = exchange;
+            this.exchangeType = exchangeType == null ? "topic" : exchangeType;
         }
 
         @SneakyThrows
@@ -97,7 +98,7 @@ public class Rabbit {
             }
             connection = Rabbit.this.touch();
             channel = connection.createChannel();
-            channel.exchangeDeclare(exchange, "topic");
+            channel.exchangeDeclare(exchange, exchangeType);
             return channel;
         }
 
