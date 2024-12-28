@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.Singular;
+import lombok.SneakyThrows;
 import lombok.ToString;
 import lombok.Value;
 import lombok.experimental.FieldDefaults;
@@ -66,6 +67,10 @@ import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.StringWriter;
 import java.lang.annotation.ElementType;
@@ -88,6 +93,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -116,7 +122,7 @@ public @interface Command {
 
     PrivacyLevel privacy() default PrivacyLevel.EPHEMERAL;
 
-    enum PrivacyLevel { PUBLIC, PRIVATE, EPHEMERAL }
+    enum PrivacyLevel {PUBLIC, PRIVATE, EPHEMERAL}
 
     enum Capability {
         NAMED_ARGS;
@@ -673,6 +679,55 @@ public @interface Command {
         @Override
         public boolean equals(Object obj) {
             return obj instanceof Manager && obj.hashCode() == hashCode();
+        }
+
+        @Value
+        public class Adapter$StdIO extends Adapter {
+            InputStream in;
+            PrintStream out;
+
+            public Adapter$StdIO() {
+                this(System.in, System.out);
+            }
+
+            public Adapter$StdIO(InputStream in, OutputStream out) {
+                this.in  = in;
+                this.out = out instanceof PrintStream ps ? ps : new PrintStream(out);
+            }
+
+            @Override
+            public Set<Capability> getCapabilities() {
+                return Set.of();
+            }
+
+            @Override
+            public void initialize() {
+                CompletableFuture.supplyAsync(this::inputReader, Executors.newSingleThreadExecutor())
+                        .exceptionally(Debug.exceptionLogger("A fatal error occurred in the Input reader"));
+            }
+
+            @Override
+            public void handleResponse(Usage command, @NotNull Object response, Object... args) {
+                out.println(response);
+            }
+
+            @SneakyThrows
+            private Void inputReader() {
+                try (
+                        var isr = new InputStreamReader(in);
+                        var br = new BufferedReader(isr)
+                ) {
+                    String line;
+                    do {
+                        line = br.readLine();
+                        if ("exit".equals(line))
+                            break;
+                        Manager.this.execute(this, line.split(" "), Map.of(), Manager.this);
+                    } while (true);
+                    System.exit(0);
+                }
+                return null;
+            }
         }
 
         @Value
