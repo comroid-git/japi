@@ -13,6 +13,7 @@ import org.comroid.api.func.exc.ThrowingConsumer;
 import org.comroid.api.func.util.Streams;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -75,10 +76,12 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
             return closed.get().isDone();
         }
 
-        public <T> T addChild(@Nullable T it) {
+        @Contract("_ -> this")
+        public <T> Object addChild(@Nullable T it) {
             return Polyfill.uncheckedCast(addChildren(it));
         }
 
+        @Contract("_ -> this")
         public Object addChildren(@Nullable Object @NotNull ... children) {
             Stream.of(children)
                     .filter(Objects::nonNull)
