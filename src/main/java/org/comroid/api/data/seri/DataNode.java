@@ -382,6 +382,11 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
 
         @Override
         public String toString() {
+            return String.valueOf(value);
+        }
+
+        @Override
+        public String toSerializedString() {
             var str = String.valueOf(value);
             if (value instanceof String)
                 return "\"%s\"".formatted(str);

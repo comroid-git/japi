@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -109,6 +110,17 @@ public final class Debug {
             case DEBUG -> log.debug(txt);
             case TRACE -> log.trace(txt);
         }
+    }
+
+    public static <T> Function<Throwable, T> exceptionLogger(String message) {return exceptionLogger(message, null);}
+
+    public static <T> Function<Throwable, T> exceptionLogger(String message, @Nullable Function<Throwable, T> wrap) {
+        return t -> {
+            log(message, t);
+            if (wrap == null)
+                return null;
+            return wrap.apply(t);
+        };
     }
 
     private static String pad(int r, int c) {
