@@ -340,7 +340,7 @@ public @interface Command {
                     break;
                 var text = fullCommand[i];
                 var result = node.nodes()
-                        .filter(it -> it.names().anyMatch(text::equals))
+                        .filter(it -> it.aliases().anyMatch(text::equals))
                         .flatMap(cast(Node.Callable.class))
                         .findAny();
                 if (result.isEmpty())
@@ -439,7 +439,7 @@ public @interface Command {
 
         protected final Usage createUsageBase(Handler source, String[] fullCommand, Object... baseArgs) {
             var baseNode = baseNodes.stream() // find base node to initiate advancing to execution node
-                    .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
+                    .filter(node -> node.aliases().anyMatch(fullCommand[0]::equals))
                     .flatMap(cast(Node.Callable.class))
                     .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand)));
             return Usage.builder()
