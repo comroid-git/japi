@@ -222,6 +222,8 @@ public final class FileHandle extends File implements Named, ContentParser {
 
     public Writer openWriter(boolean append) {
         try {
+            if (!getParentFile().exists() && !mkdirs())
+                throw new RuntimeException("Could not create directory: " + getParent());
             return new FileWriter(this, append);
         } catch (IOException e) {
             throw new RuntimeException(e);
