@@ -10,6 +10,7 @@ import org.comroid.api.attr.EnabledState;
 import org.comroid.api.attr.Owned;
 import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.exc.ThrowingConsumer;
+import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Streams;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
@@ -51,6 +52,14 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
 
     default Stream<Object> streamOwnChildren() {
         return Stream.empty();
+    }
+
+    default <T> Stream<T> children(@Nullable Class<? super T> type) {
+        return this.streamChildren(type);
+    }
+
+    default <T> Wrap<T> child(@Nullable Class<? super T> type) {
+        return () -> Polyfill.uncheckedCast(this.children(type).findAny().orElse(null));
     }
 
     private static Exception makeException(List<Throwable> errors) {
