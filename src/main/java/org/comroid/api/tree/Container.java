@@ -72,9 +72,9 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
     }
 
     class Base implements Container, Reloadable {
-        @Ignore @Getter(onMethod = @__(@Ignore)) final Set<Object>                              children;
-        @Ignore @Getter(onMethod = @__(@Ignore))
-        private final                                  AtomicReference<CompletableFuture<Void>> closed = new AtomicReference<>(new CompletableFuture<>());
+        @Ignore @Getter final Set<Object>                              children;
+        @Ignore @Getter
+        private final         AtomicReference<CompletableFuture<Void>> closed = new AtomicReference<>(new CompletableFuture<>());
 
         public Base(Object... children) {
             this.children = new HashSet<>(Set.of(children));

@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 
 public interface Tuple {
     @Data
-    class N2<A, B> implements Tuple {
+    class N2<A, B> implements Tuple, Map.Entry<A, B> {
         public static <K, V> Collector<N2<K, V>, ?, @NotNull Map<K, @NotNull V>> toMap() {
             return Collectors.toMap(N2::getA, N2::getB);
         }
@@ -29,6 +29,23 @@ public interface Tuple {
         public N2(A a, B b) {
             this.a = a;
             this.b = b;
+        }
+
+        @Override
+        public A getKey() {
+            return a;
+        }
+
+        @Override
+        public B getValue() {
+            return b;
+        }
+
+        @Override
+        public B setValue(B value) {
+            var prev = b;
+            b = value;
+            return prev;
         }
 
         @Override

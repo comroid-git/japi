@@ -43,12 +43,16 @@ public interface ThrowingFunction<I, O, T extends Throwable> {
         };
     }
 
-    static <I, O> Function<I, @Nullable O> fallback(ThrowingFunction<I, O, ?> function, Supplier<O> fallback) {
+    static <I, O> Function<I, @Nullable O> fallback(ThrowingFunction<I, O, ?> function) {
+        return fallback(function, null);
+    }
+
+    static <I, O> Function<I, @Nullable O> fallback(ThrowingFunction<I, O, ?> function, @Nullable Supplier<O> fallback) {
         return x -> {
             try {
                 return function.apply(x);
             } catch (Throwable ignored) {
-                return fallback.get();
+                return fallback == null ? null : fallback.get();
             }
         };
     }
