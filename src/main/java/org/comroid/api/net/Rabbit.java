@@ -18,6 +18,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
@@ -112,7 +113,7 @@ public class Rabbit {
 
         @Value
         public class Route<T> extends Event.Bus<T> {
-            String           routingKey;
+            @Nullable String routingKey;
             ByteConverter<T> converter;
             @NonFinal String tag;
 
@@ -148,11 +149,15 @@ public class Rabbit {
                 publish(data);
             }
 
-            @SneakyThrows
             public void send(T data) {
+                send(data, routingKey);
+            }
+
+            @SneakyThrows
+            public void send(T data, @Nullable String routingKey) {
                 try {
                     var body = converter.toBytes(data);
-                    touch().basicPublish(exchange, routingKey, null, body);
+                    touch().basicPublish(exchange, Objects.requireNonNullElse(routingKey, this.routingKey), null, body);
                     Debug.log(log, "Data sent: " + data);
                 } catch (Throwable t) {
                     Debug.log(log, "Could not send data to rabbit", t);
