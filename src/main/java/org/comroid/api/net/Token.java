@@ -3,6 +3,7 @@ package org.comroid.api.net;
 import org.comroid.api.comp.Base64;
 
 import java.util.Random;
+import java.util.function.Predicate;
 
 public class Token {
     public static Random rng = new Random();
@@ -17,5 +18,13 @@ public class Token {
             str.append(c);
         }
         return base64 ? Base64.encode(str.toString()) : str.toString();
+    }
+
+    public static String generate(int length, boolean base64, Predicate<String> criteria) {
+        String str;
+        do {
+            str = random(length, base64);
+        } while (!criteria.test(str));
+        return str;
     }
 }
