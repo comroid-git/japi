@@ -19,6 +19,6 @@ public class PathUtil {
         var str = string.toString().replace('\\', '/');
         for (var c : new char[]{ '<', '>', ':', '"', '|', '?', '*'/*,'/','\\'*/ })
             str = str.replace(c, '_');
-        return str;
+        return str.replaceFirst("^~", System.getProperty("user.home"));
     }
 }

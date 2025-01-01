@@ -1,5 +1,8 @@
 package org.comroid.api.java;
 
+import org.comroid.util.PathUtil;
+
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -34,6 +37,15 @@ public interface ResourceLoader {
                 throw new RuntimeException("Resource not found: " + name, e);
             }
         };
+    }
+
+    static InputStream fromResourceString(String string) throws FileNotFoundException {
+        if (string.startsWith("@:"))
+            return ClassLoader.getSystemClassLoader()
+                    .getResourceAsStream(PathUtil.sanitize(string.substring(2)));
+        if (string.startsWith("@"))
+            return new FileInputStream(PathUtil.sanitize(string.substring(1)));
+        return new ByteArrayInputStream(PathUtil.sanitize(string).getBytes());
     }
 
     default Reader getResourceReader(String name) {

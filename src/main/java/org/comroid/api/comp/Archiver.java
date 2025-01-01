@@ -1,6 +1,5 @@
 package org.comroid.api.comp;
 
-import lombok.Builder;
 import lombok.Getter;
 import lombok.Singular;
 import lombok.SneakyThrows;
@@ -160,7 +159,7 @@ public enum Archiver implements Named {
         return execPath.isDone() && !execPath.isCompletedExceptionally();
     }
 
-    @Builder(builderMethodName = "zip", buildMethodName = "execute", builderClassName = "API")
+    //@Builder(builderMethodName = "zip", buildMethodName = "execute", builderClassName = "API")
     public CompletableFuture<File> execute(
             Object outputPath, // without extension
             Object inputDirectory,
