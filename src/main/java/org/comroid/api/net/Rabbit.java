@@ -37,8 +37,7 @@ public class Rabbit {
     public static Wrap<Rabbit> of(@Nullable String uri) {
         if (uri == null) return Wrap.empty();
         final var uri0 = uri(uri);
-        return SoftDepend.type("com.rabbitmq.client.Connection")
-                .map($ -> $cache.computeIfAbsent(uri0, Rabbit::new));
+        return SoftDepend.type("com.rabbitmq.client.Connection").map($ -> $cache.computeIfAbsent(uri0, Rabbit::new));
     }
 
     URI                   uri;
@@ -52,8 +51,7 @@ public class Rabbit {
 
     @SneakyThrows
     private synchronized Connection touch() {
-        if (connection != null && connection.isOpen())
-            return connection;
+        if (connection != null && connection.isOpen()) return connection;
         if (connection != null) try {
             connection.close();
         } catch (Throwable ignored) {
@@ -75,6 +73,16 @@ public class Rabbit {
         return exchanges.computeIfAbsent(exchange, exc -> new Exchange(exc, exchangeType));
     }
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(uri);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof Rabbit rabbit && Objects.equals(uri, rabbit.uri);
+    }
+
     @Value
     public class Exchange {
         Map<String, Route<?>> routes = new ConcurrentHashMap<>();
@@ -90,8 +98,7 @@ public class Rabbit {
         @SneakyThrows
         private synchronized Channel touch() {
             if (channel != null) {
-                if (channel.isOpen())
-                    return channel;
+                if (channel.isOpen()) return channel;
                 try {
                     channel.close();
                 } catch (Throwable ignored) {
@@ -109,6 +116,16 @@ public class Rabbit {
 
         public Rabbit rabbit() {
             return Rabbit.this;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(exchange);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Exchange exchange && Objects.equals(this.exchange, exchange.exchange) && Objects.equals(this.rabbit(), exchange.rabbit());
         }
 
         @Value
@@ -142,9 +159,7 @@ public class Rabbit {
             }
 
             private void handleRabbitData(String $, Delivery content) {
-                var data = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
-                        .map($$ -> converter.fromBytes(content.getBody()))
-                        .assertion();
+                var data = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper").map($$ -> converter.fromBytes(content.getBody())).assertion();
                 Debug.log(log, "Data received: " + data);
                 publish(data);
             }
@@ -170,6 +185,16 @@ public class Rabbit {
 
             public Exchange exchange() {
                 return Exchange.this;
+            }
+
+            @Override
+            public boolean equals(Object other) {
+                return other instanceof Route<?> route && Objects.equals(routingKey, route.routingKey) && Objects.equals(exchange(), route.exchange());
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(routingKey);
             }
         }
     }
