@@ -24,6 +24,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
 import static java.util.Collections.*;
 import static org.comroid.api.Polyfill.*;
@@ -179,9 +180,13 @@ public class Rabbit implements Named {
             }
 
             private void handleRabbitData(String $, Delivery content) {
-                var data = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper").map($$ -> converter.fromBytes(content.getBody())).assertion();
-                Debug.log(log, "Data received: " + data);
-                publish(data);
+                try {
+                    Debug.log(log, "Data receiving: " + new String(content.getBody()));
+                    var data = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper").map($$ -> converter.fromBytes(content.getBody())).assertion();
+                    publish(data);
+                } catch (Throwable t) {
+                    org.comroid.api.info.Log.at(Level.WARNING, "Could not receive data from rabbit: " + new String(content.getBody()), t);
+                }
             }
 
             public void send(T data) {
@@ -191,11 +196,11 @@ public class Rabbit implements Named {
             @SneakyThrows
             public void send(T data, @Nullable String routingKey) {
                 try {
+                    Debug.log(log, "Data sending: " + data);
                     var body = converter.toBytes(data);
                     touch().basicPublish(exchange, Objects.requireNonNullElse(routingKey, this.routingKey), null, body);
-                    Debug.log(log, "Data sent: " + data);
                 } catch (Throwable t) {
-                    Debug.log(log, "Could not send data to rabbit", t);
+                    org.comroid.api.info.Log.at(Level.WARNING, "Could not send data to rabbit: " + data, t);
                 }
             }
 
