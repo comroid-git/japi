@@ -31,9 +31,11 @@ import static org.comroid.api.Polyfill.*;
 @Log
 @Value
 public class Rabbit implements Named {
-    private static final ConnectionFactory factory = new ConnectionFactory();
-    private static final Map<URI, Rabbit> $cache = new ConcurrentHashMap<>();
-    public static final  Map<URI, Rabbit> CACHE  = unmodifiableMap($cache);
+    private static final ConnectionFactory factory = new ConnectionFactory() {{
+        setAutomaticRecoveryEnabled(true);
+    }};
+    private static final Map<URI, Rabbit>  $cache  = new ConcurrentHashMap<>();
+    public static final  Map<URI, Rabbit>  CACHE   = unmodifiableMap($cache);
 
     public static Wrap<Rabbit> of(@Nullable String uri) {
         return of(null, uri);

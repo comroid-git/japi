@@ -68,24 +68,19 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         return Cache.get("dependencies of " + type.getCanonicalName(), () -> {
             var struct = DataStructure.of(type);
             //noinspection unchecked,rawtypes            suck my dick, compiler
-            return Stream.concat(
-                            struct.getProperties().stream()
-                                    .flatMap(prop -> prop.streamAnnotations(Inject.class)
-                                            .map(Annotations.Result::getAnnotation)
-                                            .map(inject -> new Dependency(
-                                                    Optional.ofNullable(inject.value())
-                                                            .filter(not(String::isEmpty))
-                                                            .orElseGet(prop::getName),
-                                                    Optional.ofNullable((Class) inject.type())
-                                                            .filter(not(cls -> cls.equals(Component.class)))
-                                                            .orElseGet(() -> prop.getType().getTargetClass()),
-                                                    !prop.isAnnotationPresent(Nullable.class) && (inject.required()
-                                                                                                  || prop.isAnnotationPresent(NotNull.class)),
-                                                    (DataStructure<? extends Component>.Property<?>) prop))),
-                            Annotations.findAnnotations(Requires.class, type)
-                                    .flatMap(requires -> Arrays.stream(requires.getAnnotation().value()))
-                                    .map(cls -> new Dependency("", cls, true, null)))
-                    .collect(Collectors.toUnmodifiableSet());
+            return Stream.concat(struct.getProperties()
+                            .stream()
+                            .flatMap(prop -> prop.streamAnnotations(Inject.class)
+                                    .map(Annotations.Result::getAnnotation)
+                                    .map(inject -> new Dependency(Optional.ofNullable(inject.value()).filter(not(String::isEmpty)).orElseGet(prop::getName),
+                                            Optional.ofNullable((Class) inject.type())
+                                                    .filter(not(cls -> cls.equals(Component.class)))
+                                                    .orElseGet(() -> prop.getType().getTargetClass()),
+                                            !prop.isAnnotationPresent(Nullable.class) && (inject.required() || prop.isAnnotationPresent(NotNull.class)),
+                                            (DataStructure<? extends Component>.Property<?>) prop))),
+                    Annotations.findAnnotations(Requires.class, type)
+                            .flatMap(requires -> Arrays.stream(requires.getAnnotation().value()))
+                            .map(cls -> new Dependency("", cls, true, null))).collect(Collectors.toUnmodifiableSet());
         });
     }
 
@@ -103,22 +98,14 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     }
 
     default String getFullName() {
-        return Optional.ofNullable(getParent())
-                .map(Component::getFullName)
-                .map(pName -> pName + '.' + getName())
-                .orElseGet(this::getName);
+        return Optional.ofNullable(getParent()).map(Component::getFullName).map(pName -> pName + '.' + getName()).orElseGet(this::getName);
     }
 
     State getCurrentState();
 
     default <T extends Component> Stream<T> components(@Nullable Class<? super T> type) {
-        return Stream.concat(
-                streamChildren(type),
-                isSubComponent()
-                ? Stream.of(getParent())
-                        .filter(Objects::nonNull)
-                        .flatMap(comp -> comp.components(type))
-                : empty());
+        return Stream.concat(streamChildren(type),
+                isSubComponent() ? Stream.of(getParent()).filter(Objects::nonNull).flatMap(comp -> comp.components(type)) : empty());
     }
 
     default <T extends Component> Wrap<T> component(@Nullable Class<? super T> type) {
@@ -131,8 +118,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
     default UncheckedCloseable execute(ScheduledExecutorService scheduler, Duration tickRate) {
         var task = scheduler.scheduleAtFixedRate(() -> {
-            if (testState(State.PreInit))
-                initialize();
+            if (testState(State.PreInit)) initialize();
             tick();
         }, 0, tickRate.toMillis(), TimeUnit.MILLISECONDS);
         final UncheckedCloseable closeable = () -> {
@@ -177,15 +163,11 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     }
 
     enum State implements Bitmask.Attribute<State> {
-        PreInit,
-        Init,
-        LateInit(Init),
+        PreInit, Init, LateInit(Init),
 
         Active,
 
-        EarlyTerminate,
-        Terminate(EarlyTerminate),
-        PostTerminate(PreInit);
+        EarlyTerminate, Terminate(EarlyTerminate), PostTerminate(PreInit);
 
         private final long mask;
 
@@ -239,21 +221,17 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         String  name;
         Class<?> type;
         boolean required;
-        @Ignore
-        @Nullable
-        DataStructure<? extends Component>.Property<?> prop;
+        @Ignore @Nullable DataStructure<? extends Component>.Property<?> prop;
     }
 
     @Getter
     @Ignore
     class Base extends Container.Base implements Component {
-        protected boolean enabled       = true;
-        private   State   currentState  = State.PreInit;
-        private   State   previousState = State.PreInit;
-        private @Setter
-        @Nullable Component parent;
-        private @Setter
-        @Nullable String  name          = "%s#%x".formatted(StackTraceUtils.lessSimpleName(getClass()), hashCode());
+        protected                 boolean   enabled       = true;
+        private                   State     currentState  = State.PreInit;
+        private                   State     previousState = State.PreInit;
+        private @Setter @Nullable Component parent;
+        private @Setter @Nullable String    name;
 
         public Base(Object... children) {
             this((Component) null, children);
@@ -274,11 +252,14 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
             this.name = name;
         }
 
+        public @Nullable String getName() {
+            return name != null ? name : "%s#%x".formatted(StackTraceUtils.lessSimpleName(getClass()), hashCode());
+        }
+
         @Override
         public Object addChildren(Object @NotNull ... children) {
             for (Object child : children)
-                if (child instanceof Component)
-                    ((Component) child).setParent(this);
+                if (child instanceof Component) ((Component) child).setParent(this);
             return super.addChildren(children);
         }
 
@@ -292,8 +273,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         //@PreRemove @PreDestroy
         public final synchronized void initialize() {
             try {
-                if (!testState(State.PreInit))
-                    return;
+                if (!testState(State.PreInit)) return;
                 Log.at(Level.FINE, "Initializing " + this);
 
                 injectDependencies();
@@ -313,8 +293,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         @Override
         //@PostUpdate
         public final synchronized void tick() {
-            if (!testState(State.Active))
-                return;
+            if (!testState(State.Active)) return;
             try {
                 Log.at(Level.FINER, MessageFormat.format("Ticking {0}", this));
                 $tick();
@@ -327,8 +306,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         @Override
         //@PreRemove @PreDestroy
         public final synchronized void terminate() {
-            if (testState(State.PostTerminate))
-                return;
+            if (testState(State.PostTerminate)) return;
             try {
                 earlyTerminate();
 
@@ -349,8 +327,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
         @Override
         public final synchronized void lateInitialize() {
-            if (!testState(State.Init) && !pushState(State.LateInit))
-                return;
+            if (!testState(State.Init) && !pushState(State.LateInit)) return;
             var count = runOnDependencies(Component::lateInitialize);
             $lateInitialize();
             runOnChildren(LifeCycle.class, LifeCycle::lateInitialize, it -> test(it, State.Init));
@@ -374,66 +351,47 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         private void cleanupChildren() {
             final Predicate<Object> isNotComponent = x -> !Component.class.isAssignableFrom(x.getClass());
             final var remove = streamChildren(Object.class).filter(isNotComponent).toArray();
-            if (removeChildren(remove) != remove.length)
-                Log.at(Level.WARNING, "Could not remove all children of %s".formatted(this));
+            if (removeChildren(remove) != remove.length) Log.at(Level.WARNING, "Could not remove all children of %s".formatted(this));
         }
 
         protected void $terminate() {
         }
 
         private void injectDependencies() {
-            dependencies().stream()
-                    .filter(dep -> dep.prop != null && dep.prop.canSet())
-                    .<Map.Entry<Dependency, Component>>flatMap(dep -> {
-                        var results = components(dep.type).toList();
-                        if (results.size() > 1) {
-                            final var names = dep.name.isEmpty()
-                                              ? Stream.concat(Stream.of(dep.prop.getName()), dep.prop.getAliases().stream())
-                                                      .collect(Collectors.toSet())
-                                              : Set.of(dep.name);
-                            var byName = results.stream()
-                                    .filter(it -> names.stream().anyMatch(alias -> equalsIgnoreCase(alias, it.getName())))
-                                    .toList();
-                            if (byName.isEmpty()) {
-                                Log.at(Level.WARNING, "Exact name match yielded no results; attempting to find with contains()");
-                                byName = results.stream()
-                                        .filter(it -> names.stream()
-                                                .map(String::toLowerCase)
-                                                .anyMatch(alias -> it.getName().toLowerCase().contains(alias)))
-                                        .toList();
-                            }
-                            results = byName;
-                        }
-                        if (results.isEmpty()) {
-                            MI_MissingDependency.new CheckResult(this, this, dep);
-                            if (dep.isRequired())
-                                throw new Constraint.UnmetError("Unmet required " + dep);
-                            else return empty();
-                        }
-                        var result = results.get(0);
-                        if (results.size() > 1)
-                            Log.at(Level.WARNING, "More than one result for " + dep + "; using " + result);
-                        return Stream.of(new AbstractMap.SimpleImmutableEntry<>(dep, result));
-                    })
-                    .forEach(e -> Wrap.of(e.getKey())
-                            .map(Dependency::getProp)
-                            .map(DataStructure.Property::getSetter)
-                            .filter(func -> {
-                                var success = func.makeAccessible();
-                                if (!success)
-                                    Log.at(Level.WARNING, "Unable to make setter accessible: " + func);
-                                return success;
-                            })
-                            .ifPresentOrElseThrow(func -> func.invokeSilent(Component.Base.this, e.getValue()),
-                                    () -> new AssertionError("property was not settable")));
+            dependencies().stream().filter(dep -> dep.prop != null && dep.prop.canSet()).<Map.Entry<Dependency, Component>>flatMap(dep -> {
+                var results = components(dep.type).toList();
+                if (results.size() > 1) {
+                    final var names = dep.name.isEmpty() ? Stream.concat(Stream.of(dep.prop.getName()), dep.prop.getAliases().stream())
+                            .collect(Collectors.toSet()) : Set.of(dep.name);
+                    var byName = results.stream().filter(it -> names.stream().anyMatch(alias -> equalsIgnoreCase(alias, it.getName()))).toList();
+                    if (byName.isEmpty()) {
+                        Log.at(Level.WARNING, "Exact name match yielded no results; attempting to find with contains()");
+                        byName = results.stream()
+                                .filter(it -> names.stream().map(String::toLowerCase).anyMatch(alias -> it.getName().toLowerCase().contains(alias)))
+                                .toList();
+                    }
+                    results = byName;
+                }
+                if (results.isEmpty()) {
+                    MI_MissingDependency.new CheckResult(this, this, dep);
+                    if (dep.isRequired()) throw new Constraint.UnmetError("Unmet required " + dep);
+                    else return empty();
+                }
+                var result = results.get(0);
+                if (results.size() > 1) Log.at(Level.WARNING, "More than one result for " + dep + "; using " + result);
+                return Stream.of(new AbstractMap.SimpleImmutableEntry<>(dep, result));
+            }).forEach(e -> Wrap.of(e.getKey()).map(Dependency::getProp).map(DataStructure.Property::getSetter).filter(func -> {
+                var success = func.makeAccessible();
+                if (!success) Log.at(Level.WARNING, "Unable to make setter accessible: " + func);
+                return success;
+            }).ifPresentOrElseThrow(func -> func.invokeSilent(Component.Base.this, e.getValue()), () -> new AssertionError("property was not settable")));
         }
 
         protected void $initialize() {
         }
 
         private boolean pushState(State state) {
-            if (currentState == state)
-                return false; // avoid pushing same state twice
+            if (currentState == state) return false; // avoid pushing same state twice
             previousState = currentState;
             currentState = state;
             Log.at(Level.FINE, getName() + " changed into state: " + currentState);
@@ -441,8 +399,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         }
 
         private long runOnDependencies(final ThrowingConsumer<Component, Throwable> action) {
-            if (getParent() == null)
-                return 0L;
+            if (getParent() == null) return 0L;
             final var wrap = action.wrap();
             return dependencies().stream()
                     .filter(dep -> dep.prop != null)
