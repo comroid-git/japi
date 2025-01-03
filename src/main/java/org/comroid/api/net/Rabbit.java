@@ -14,7 +14,6 @@ import org.comroid.api.attr.Named;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.Event;
-import org.comroid.api.java.SoftDepend;
 import org.jetbrains.annotations.Nullable;
 
 import java.net.URI;
@@ -45,7 +44,7 @@ public class Rabbit implements Named {
     public static Wrap<Rabbit> of(@Nullable String name, @Nullable String uri) {
         if (uri == null) return Wrap.empty();
         final var uri0 = uri(uri);
-        return SoftDepend.type("com.rabbitmq.client.Connection").map($ -> $cache.computeIfAbsent(uri0, uri1 -> new Rabbit(name, uri1)));
+        return Wrap.of($cache.compute(uri0, (uri1, old) -> old == null || !old.connection.isOpen() ? new Rabbit(name, uri1) : old));
     }
 
     @Nullable String name;
@@ -84,7 +83,7 @@ public class Rabbit implements Named {
     }
 
     public Exchange exchange(String exchange, String exchangeType) {
-        return exchanges.computeIfAbsent(exchange, exc -> new Exchange(exc, exchangeType));
+        return exchanges.compute(exchange, (exc, old) -> old == null || !old.channel.isOpen() ? new Exchange(exc, exchangeType) : old);
     }
 
     @Override
@@ -130,7 +129,7 @@ public class Rabbit implements Named {
         }
 
         public <T> Route<T> route(String name, String routingKey, ByteConverter<T> converter) {
-            return uncheckedCast(routes.computeIfAbsent(routingKey, (k) -> new Route<>(name, routingKey, converter)));
+            return uncheckedCast(routes.compute(routingKey, (rk, old) -> old == null || old.isClosed() ? new Route<>(name, routingKey, converter) : old));
         }
 
         public Rabbit rabbit() {
@@ -182,7 +181,7 @@ public class Rabbit implements Named {
             private void handleRabbitData(String $, Delivery content) {
                 try {
                     Debug.log(log, "Data receiving: " + new String(content.getBody()));
-                    var data = SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper").map($$ -> converter.fromBytes(content.getBody())).assertion();
+                    var data = converter.fromBytes(content.getBody());
                     publish(data);
                 } catch (Throwable t) {
                     org.comroid.api.info.Log.at(Level.WARNING, "Could not receive data from rabbit: " + new String(content.getBody()), t);
