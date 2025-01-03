@@ -96,6 +96,11 @@ public class Rabbit implements Named {
         return other instanceof Rabbit rabbit && Objects.equals(uri, rabbit.uri);
     }
 
+    @Override
+    public String toString() {
+        return name != null ? name : uri.getHost() + ':' + uri.getPort() + '/' + Objects.requireNonNullElse(uri.getPath(), "");
+    }
+
     @Value
     public class Exchange implements Named {
         Map<String, Route<?>> routes = new ConcurrentHashMap<>();
@@ -146,11 +151,17 @@ public class Rabbit implements Named {
             return other instanceof Exchange exchange && Objects.equals(this.exchange, exchange.exchange) && Objects.equals(this.rabbit(), exchange.rabbit());
         }
 
+        @Override
+        public String toString() {
+            return rabbit() + "::" + exchange;
+        }
+
         @Value
         public class Route<T> extends Event.Bus<T> {
             @Nullable String name;
             @Nullable String routingKey;
             ByteConverter<T> converter;
+            @NonFinal String queue;
             @NonFinal String tag;
 
             private Route(@Nullable String name, @Nullable String routingKey, ByteConverter<T> converter) {
@@ -170,10 +181,9 @@ public class Rabbit implements Named {
             public synchronized Channel touch() {
                 var channel = Exchange.this.touch();
                 if (tag == null) {
-                    var queue = (name == null ? channel.queueDeclare() : channel.queueDeclare(name, true, true, true, Map.of())).getQueue();
+                    queue = (name == null ? channel.queueDeclare() : channel.queueDeclare(name, true, true, true, Map.of())).getQueue();
                     channel.queueBind(queue, exchange, routingKey);
-                    tag = channel.basicConsume(queue, this::handleRabbitData, tag -> {
-                    });
+                    tag = channel.basicConsume(queue, this::handleRabbitData, tag -> {});
                 }
                 return channel;
             }
@@ -184,7 +194,7 @@ public class Rabbit implements Named {
                     var data = converter.fromBytes(content.getBody());
                     publish(data);
                 } catch (Throwable t) {
-                    org.comroid.api.info.Log.at(Level.WARNING, "Could not receive data from rabbit: " + new String(content.getBody()), t);
+                    org.comroid.api.info.Log.at(Level.WARNING, "Could not receive data from route: " + new String(content.getBody()), t);
                 }
             }
 
@@ -199,7 +209,7 @@ public class Rabbit implements Named {
                     var body = converter.toBytes(data);
                     touch().basicPublish(exchange, Objects.requireNonNullElse(routingKey, this.routingKey), null, body);
                 } catch (Throwable t) {
-                    org.comroid.api.info.Log.at(Level.WARNING, "Could not send data to rabbit: " + data, t);
+                    org.comroid.api.info.Log.at(Level.WARNING, "Could not send data to route: " + data, t);
                 }
             }
 
@@ -219,6 +229,23 @@ public class Rabbit implements Named {
             @Override
             public int hashCode() {
                 return Objects.hash(routingKey);
+            }
+
+            @Override
+            public String toString() {
+                return exchange + "::" + routingKey + '@' + tag + " -> " + queue;
+            }
+
+            @Override
+            @SneakyThrows
+            public void closeSelf() {
+                try {
+                    if (channel != null && tag != null) channel.basicCancel(tag);
+                    super.closeSelf();
+                    if (channel != null && queue != null) channel.queueDelete(queue);
+                } catch (Throwable t) {
+                    org.comroid.api.info.Log.at(Level.WARNING, "Could not close route " + this, t);
+                }
             }
         }
     }
