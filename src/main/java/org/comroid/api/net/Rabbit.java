@@ -10,6 +10,7 @@ import lombok.Value;
 import lombok.experimental.NonFinal;
 import lombok.extern.java.Log;
 import org.comroid.api.ByteConverter;
+import org.comroid.api.attr.Named;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.Event;
@@ -29,23 +30,29 @@ import static org.comroid.api.Polyfill.*;
 
 @Log
 @Value
-public class Rabbit {
+public class Rabbit implements Named {
     private static final ConnectionFactory factory = new ConnectionFactory();
     private static final Map<URI, Rabbit> $cache = new ConcurrentHashMap<>();
     public static final  Map<URI, Rabbit> CACHE  = unmodifiableMap($cache);
 
     public static Wrap<Rabbit> of(@Nullable String uri) {
-        if (uri == null) return Wrap.empty();
-        final var uri0 = uri(uri);
-        return SoftDepend.type("com.rabbitmq.client.Connection").map($ -> $cache.computeIfAbsent(uri0, Rabbit::new));
+        return of(null, uri);
     }
 
+    public static Wrap<Rabbit> of(@Nullable String name, @Nullable String uri) {
+        if (uri == null) return Wrap.empty();
+        final var uri0 = uri(uri);
+        return SoftDepend.type("com.rabbitmq.client.Connection").map($ -> $cache.computeIfAbsent(uri0, uri1 -> new Rabbit(name, uri1)));
+    }
+
+    @Nullable String name;
     URI                   uri;
     Map<String, Exchange> exchanges = new ConcurrentHashMap<>();
     @NonFinal Connection connection;
 
-    private Rabbit(URI uri) {
-        this.uri = uri;
+    private Rabbit(@Nullable String name, URI uri) {
+        this.name = name;
+        this.uri  = uri;
         this.connection = touch();
     }
 
@@ -54,15 +61,19 @@ public class Rabbit {
         if (connection != null && connection.isOpen()) return connection;
         if (connection != null) try {
             connection.close();
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
+            Debug.log("Unable to close old connection", t);
         }
         factory.setUri(uri);
-        return factory.newConnection();
+        return name == null ? factory.newConnection() : factory.newConnection(name);
     }
 
     @Builder(builderMethodName = "bind", buildMethodName = "create", builderClassName = "Binder")
-    public <T> Exchange.Route<T> bind(String exchange, @Nullable String exchangeType, String routingKey, ByteConverter<T> converter) {
-        return exchange(exchange, exchangeType).route(routingKey, converter);
+    public <T> Exchange.Route<T> bind(
+            @Nullable String queueName, String exchange, @Nullable String exchangeType, String routingKey,
+            ByteConverter<T> converter
+    ) {
+        return exchange(exchange, exchangeType).route(queueName, routingKey, converter);
     }
 
     public Exchange exchange(String exchange) {
@@ -84,7 +95,7 @@ public class Rabbit {
     }
 
     @Value
-    public class Exchange {
+    public class Exchange implements Named {
         Map<String, Route<?>> routes = new ConcurrentHashMap<>();
         String exchange;
         String exchangeType;
@@ -101,7 +112,8 @@ public class Rabbit {
                 if (channel.isOpen()) return channel;
                 try {
                     channel.close();
-                } catch (Throwable ignored) {
+                } catch (Throwable t) {
+                    Debug.log("Unable to close old channel", t);
                 }
             }
             connection = Rabbit.this.touch();
@@ -111,7 +123,11 @@ public class Rabbit {
         }
 
         public <T> Route<T> route(String routingKey, ByteConverter<T> converter) {
-            return uncheckedCast(routes.computeIfAbsent(routingKey, (k) -> new Route<>(routingKey, converter)));
+            return route(null, routingKey, converter);
+        }
+
+        public <T> Route<T> route(String name, String routingKey, ByteConverter<T> converter) {
+            return uncheckedCast(routes.computeIfAbsent(routingKey, (k) -> new Route<>(name, routingKey, converter)));
         }
 
         public Rabbit rabbit() {
@@ -130,11 +146,13 @@ public class Rabbit {
 
         @Value
         public class Route<T> extends Event.Bus<T> {
+            @Nullable String name;
             @Nullable String routingKey;
             ByteConverter<T> converter;
             @NonFinal String tag;
 
-            private Route(String routingKey, ByteConverter<T> converter) {
+            private Route(@Nullable String name, @Nullable String routingKey, ByteConverter<T> converter) {
+                this.name = name;
                 this.routingKey = routingKey;
                 this.converter  = converter;
 
@@ -150,7 +168,7 @@ public class Rabbit {
             public synchronized Channel touch() {
                 var channel = Exchange.this.touch();
                 if (tag == null) {
-                    var queue = Exchange.this.touch().queueDeclare().getQueue();
+                    var queue = (name == null ? channel.queueDeclare() : channel.queueDeclare(name, true, true, true, Map.of())).getQueue();
                     channel.queueBind(queue, exchange, routingKey);
                     tag = channel.basicConsume(queue, this::handleRabbitData, tag -> {
                     });
