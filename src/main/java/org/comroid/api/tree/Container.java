@@ -162,6 +162,7 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
         @SneakyThrows
         public final void close() {
             runOnChildren(AutoCloseable.class, AutoCloseable::close, $ -> true, this::closeSelf);
+            closeSelf();
             setClosed(true);
         }
 
