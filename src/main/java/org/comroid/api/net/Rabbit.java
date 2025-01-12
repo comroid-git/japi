@@ -190,7 +190,9 @@ public class Rabbit implements Named {
 
             private void handleRabbitData(String $, Delivery content) {
                 try {
-                    Debug.log(log, "Data receiving: " + new String(content.getBody()));
+                    var str = new String(content.getBody());
+                    Debug.log(log, "Data receiving: " + str);
+                    if (str.isBlank() || "null".equals(str)) return;
                     var data = converter.fromBytes(content.getBody());
                     publish(data);
                 } catch (Throwable t) {
