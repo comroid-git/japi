@@ -11,6 +11,7 @@ import lombok.experimental.NonFinal;
 import lombok.extern.java.Log;
 import org.comroid.api.ByteConverter;
 import org.comroid.api.attr.Named;
+import org.comroid.api.func.exc.ThrowingRunnable;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.Event;
@@ -23,6 +24,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
 import static java.util.Collections.*;
@@ -161,6 +163,7 @@ public class Rabbit implements Named {
             @Nullable String name;
             @Nullable String routingKey;
             ByteConverter<T> converter;
+            AtomicInteger seq = new AtomicInteger(0);
             @NonFinal String queue;
             @NonFinal String tag;
 
@@ -194,7 +197,12 @@ public class Rabbit implements Named {
                     Debug.log(log, "Data receiving: " + str);
                     if (str.isBlank() || "null".equals(str)) return;
                     var data = converter.fromBytes(content.getBody());
-                    publish(data);
+                    var event = new Event<>(seq.incrementAndGet(),
+                            null,
+                            null,
+                            data,
+                            ThrowingRunnable.rethrowing(() -> channel.basicAck(content.getEnvelope().getDeliveryTag(), false)));
+                    accept(event);
                 } catch (Throwable t) {
                     org.comroid.api.info.Log.at(Level.WARNING, "Could not receive data from route: " + new String(content.getBody()), t);
                 }
