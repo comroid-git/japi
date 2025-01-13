@@ -31,8 +31,8 @@ public interface FileProcessor extends Disposable, UncheckedCloseable {
         }
 
         @Override
-        default UUID getUUID() {
-            return getUnderlyingFileProcessor().getUUID();
+        default UUID getUuid() {
+            return getUnderlyingFileProcessor().getUuid();
         }
 
         @Override

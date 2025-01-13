@@ -14,7 +14,7 @@ import static org.comroid.api.Polyfill.*;
 
 public interface PropertyHolder extends PropertiesHolder, UUIDContainer {
     @Override
-    default UUID getUUID() {
+    default UUID getUuid() {
         return this.<UUID>computeProperty("uuid", ($, id) -> id == null ? UUID.randomUUID() : id).assertion();
     }
 
@@ -42,7 +42,7 @@ public interface PropertyHolder extends PropertiesHolder, UUIDContainer {
         private static final Map<UUID, Map<String, Object>> cache = new ConcurrentHashMap<>();
 
         private static Map<String, Object> getCache(PropertyHolder holder) {
-            return cache.computeIfAbsent(holder.getUUID(), k -> new ConcurrentHashMap<>());
+            return cache.computeIfAbsent(holder.getUuid(), k -> new ConcurrentHashMap<>());
         }
     }
 }

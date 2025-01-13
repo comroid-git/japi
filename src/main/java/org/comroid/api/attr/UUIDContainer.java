@@ -2,21 +2,12 @@ package org.comroid.api.attr;
 
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
-import org.comroid.annotations.Ignore;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
 
 public interface UUIDContainer {
-    default UUID getUuid() {
-        return getUUID();
-    }
-
-    @Ignore
-    @Deprecated
-    default UUID getUUID() {
-        return getUuid();
-    }
+    UUID getUuid();
 
     @ToString(of = "id")
     @EqualsAndHashCode(of = "id")
@@ -32,7 +23,7 @@ public interface UUIDContainer {
         }
 
         @Override
-        public UUID getUUID() {
+        public UUID getUuid() {
             return id;
         }
     }
@@ -41,7 +32,7 @@ public interface UUIDContainer {
         private final UUID id = UUID.nameUUIDFromBytes(idSeed().getBytes());
 
         @Override
-        public UUID getUUID() {
+        public UUID getUuid() {
             return id;
         }
 

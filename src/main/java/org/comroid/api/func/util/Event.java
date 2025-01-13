@@ -13,7 +13,6 @@ import lombok.experimental.NonFinal;
 import lombok.extern.java.Log;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Named;
-import org.comroid.api.attr.UUIDContainer;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.func.N;
 import org.comroid.api.func.Provider;
@@ -195,9 +194,9 @@ public class Event<T> implements Wrap<T> {
 
     @Log
     @Getter
-    @EqualsAndHashCode(of = { }, callSuper = true)
+    @EqualsAndHashCode(callSuper = true, of = { "name" })
     @ToString(of = { "name", "upstream", "factory", "active" })
-    public static class Bus<T> extends Container.Base implements Named, N.Consumer.$3<T, String, Long>, Provider<T>, UUIDContainer {
+    public static class Bus<T> extends Container.Base implements Named, N.Consumer.$3<T, String, Long>, Provider<T> {
         @Nullable private Event.Bus<?>                                    upstream;
         @NotNull          Set<Bus<?>>                                     downstream = new HashSet<>();
         @NotNull          Queue<Listener<T>>                              listeners  = new ConcurrentLinkedQueue<>();
