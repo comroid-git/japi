@@ -220,6 +220,14 @@ public class Streams {
         };
     }
 
+    public static <Outer, Inner> Consumer<Outer> proxy(final Function<Outer, Inner> mapper, final Consumer<Inner> test) {
+        return outer -> test.accept(mapper.apply(outer));
+    }
+
+    public static <Outer, Inner> Predicate<Outer> proxy(final Function<Outer, Inner> mapper, final Predicate<Inner> test) {
+        return outer -> test.test(mapper.apply(outer));
+    }
+
     public static <T, L extends T, R extends T> Stream<Tuple.N2<L, R>> merge(Stream<L> left, Stream<R> right) {
         return merge(DesyncStrategy.SYNC_ONLY, left, right);
     }
@@ -442,7 +450,9 @@ public class Streams {
 
         @WrapWith("flatMap")
         public <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filter(
-                final @NotNull BiPredicate<A, B> predicate, final @NotNull BiConsumer<A, B> disposal) {
+                final @NotNull BiPredicate<A, B> predicate,
+                final @NotNull BiConsumer<A, B> disposal
+        ) {
             return e -> {
                 if (predicate.test(e.getKey(), e.getValue())) return Stream.of(e);
                 disposal.accept(e.getKey(), e.getValue());
