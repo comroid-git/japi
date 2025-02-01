@@ -30,13 +30,17 @@ public class TrailingCommentOmittingInputStream extends InputStream {
 
     @Override
     public int read() throws IOException {
-        var c = base.read();
-        if (omitting) {
-            if (c == commentEnd) {
-                omitting = false;
-                c        = '\n';
-            }
-        } else omitting = c == commentStart;
-        return omitting ? read() : c;
+        try {
+            var c = base.read();
+            if (omitting) {
+                if (c == commentEnd) {
+                    omitting = false;
+                    c        = '\n';
+                }
+            } else omitting = c == commentStart;
+            return omitting ? read() : c;
+        } catch (StackOverflowError ignored) {
+            return -1;
+        }
     }
 }
