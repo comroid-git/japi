@@ -509,6 +509,7 @@ public @interface Command {
                         useArgs[i] = Optional.ofNullable(namedArgs.get(paramNode.getName()))
                                 .or(() -> usage.context.stream().flatMap(cast(finalParamNode.param.getType())).findAny())
                                 .or(() -> Optional.ofNullable(finalParamNode.defaultValue()).map(Polyfill::uncheckedCast))
+                                .filter(not(it -> it instanceof String str && str.isBlank()))
                                 .orElse(null);
                     } else {
                         // eg. console, minecraft
@@ -525,7 +526,8 @@ public @interface Command {
 
                         argIndex += 1;
                         var valueType = ValueType.of(parameterType);
-                        useArgs[i] = argStr == null ? valueType.defaultValue() : valueType.parse(argStr);
+                        var value = argStr == null ? valueType.defaultValue() : valueType.parse(argStr);
+                        useArgs[i] = value == null || (value instanceof String str && str.isBlank()) ? null : value;
                     }
                 }
 
