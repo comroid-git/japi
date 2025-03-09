@@ -31,12 +31,13 @@ public class Ratelimit<T, Acc> {
         return Cache.get(task.getClass(), () -> new Ratelimit<>(cooldown, source, task)).push(value);
     }
 
-    @NotNull  Duration                                        cooldown;
-    @NotNull  AtomicReference<CompletableFuture<@Nullable T>> source;
-    @NotNull  BiFunction<T, Queue<Acc>, CompletableFuture<T>> accumulator;
-    @NotNull  Queue<Acc>                                      queue = new LinkedBlockingQueue<>();
+    @NotNull Duration                                        cooldown;
+    @NotNull AtomicReference<CompletableFuture<@Nullable T>> source;
+    @NotNull BiFunction<T, Queue<Acc>, CompletableFuture<T>> accumulator;
+    @NotNull Queue<Acc>                                      queue = new LinkedBlockingQueue<>();
+    Object lock = Polyfill.selfawareObject();
     @NonFinal
-    @Nullable CompletableFuture<T>                            result;
+    @Nullable CompletableFuture<T> result;
     @NonFinal
     Instant last = Instant.EPOCH;
 
@@ -45,8 +46,8 @@ public class Ratelimit<T, Acc> {
             @NotNull AtomicReference<CompletableFuture<@Nullable T>> source,
             @NotNull BiFunction<T, Queue<Acc>, CompletableFuture<T>> accumulator
     ) {
-        this.cooldown = cooldown;
-        this.source   = source;
+        this.cooldown    = cooldown;
+        this.source      = source;
         this.accumulator = accumulator;
     }
 
@@ -55,15 +56,16 @@ public class Ratelimit<T, Acc> {
         synchronized (queue) {
             queue.add(value);
         }
-        if (result != null && result.isDone())
-            result = null;
-        if (result == null)
+        synchronized (lock) {
+            if (result != null)
+                result = null;
             result = start();
+        }
         return result;
     }
 
     private CompletableFuture<T> start() {
-        var now = Instant.now();
+        var now  = Instant.now();
         var next = last.plus(cooldown);
         var time = Duration.between(now, next).toMillis();
         log.finer("wait for next = " + time);
@@ -87,7 +89,7 @@ public class Ratelimit<T, Acc> {
 
     private CompletableFuture<@Nullable T> accumulate() {
         return source.updateAndGet(stage -> stage
-                .thenCompose(src -> {
+                .thenComposeAsync(src -> {
                     if (queue.isEmpty())
                         return completedFuture(src);
                     synchronized (queue) {

@@ -1,5 +1,6 @@
 package org.comroid.api.func.exc;
 
+import lombok.SneakyThrows;
 import org.comroid.api.Polyfill;
 import org.comroid.api.func.ext.Wrap;
 import org.jetbrains.annotations.Nullable;
@@ -25,6 +26,18 @@ public interface ThrowingSupplier<T, E extends Throwable> {
                 if (fallback == null)
                     return null;
                 return fallback.apply(t);
+            }
+        };
+    }
+
+    static <R> Wrap<R> sneaky(
+            ThrowingSupplier<R, Throwable> supplier
+    ) {
+        return new Wrap<>() {
+            @Override
+            @SneakyThrows
+            public @Nullable R get() {
+                return supplier.get();
             }
         };
     }
