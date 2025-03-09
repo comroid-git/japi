@@ -100,6 +100,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -172,14 +173,17 @@ public @interface Command {
     @FunctionalInterface
     interface PermissionChecker {
         PermissionChecker ALLOW_ALL = (usage, key) -> true;
-        PermissionChecker DENY_ALL  = (usage, key) -> false;
+        PermissionChecker DENY_ALL = (usage, key) -> false;
 
         static PermissionChecker minecraft(Adapter adapter) {
             return (usage, key) -> {
-                var userId = usage.getContext().stream().flatMap(cast(UUID.class)).findAny().orElseThrow();
+                var userId = usage.getContext().stream()
+                        .flatMap(cast(UUID.class))
+                        .findAny().orElseThrow();
                 return key instanceof Integer level
                        ? adapter.checkOpLevel(userId, level)
-                       : adapter.checkPermission(userId, key.toString(), false).toBooleanOrElse(false);
+                       : adapter.checkPermission(userId, key.toString(), false)
+                               .toBooleanOrElse(false);
             };
         }
 
@@ -188,12 +192,15 @@ public @interface Command {
         }
 
         default boolean userHasPermission(Usage usage) {
-            return getPermissionKey(usage).filter(key -> userHasPermission(usage, key)).isPresent();
+            return getPermissionKey(usage)
+                    .filter(key -> userHasPermission(usage, key))
+                    .isPresent();
         }
 
         default Optional<Object> getPermissionKey(Usage usage) {
             return Optional.of(usage.getNode().getAttribute().permission())
-                    .filter(Predicate.<String>not(Command.EmptyAttribute::equals).and(not(String::isBlank)))
+                    .filter(Predicate.<String>not(Command.EmptyAttribute::equals)
+                            .and(not(String::isBlank)))
                     .map(StandardValueType::findGoodType);
         }
 
@@ -225,7 +232,10 @@ public @interface Command {
 
                 if (!currentValue.isEmpty()) {
                     var last = chars[chars.length - 1];
-                    if (Character.isDigit(last)) return of("min", "h", "d", "w", "mon", "y").distinct().map(suffix -> currentValue + suffix);
+                    if (Character.isDigit(last))
+                        return of("min", "h", "d", "w", "mon", "y")
+                                .distinct()
+                                .map(suffix -> currentValue + suffix);
                 }
                 return of("5m", "6h", "3d", "2w", "6mon", "1y");
             }
@@ -251,7 +261,9 @@ public @interface Command {
 
             @Override
             public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
-                return Arrays.stream(type.getEnumConstants()).map(Named::$).map(usage.source.getDesiredKeyCapitalization()::convert);
+                return Arrays.stream(type.getEnumConstants())
+                        .map(Named::$)
+                        .map(usage.source.getDesiredKeyCapitalization()::convert);
             }
         }
     }
@@ -265,10 +277,12 @@ public @interface Command {
         void handleResponse(Usage command, @NotNull Object response, Object... args);
 
         default String handleThrowable(Throwable throwable) {
-            while (throwable instanceof InvocationTargetException itex) throwable = throwable.getCause();
-            var msg = "%s: %s".formatted(throwable instanceof Error
-                                         ? throwable.getClass().getSimpleName()
-                                         : StackTraceUtils.lessSimpleName(throwable.getClass()),
+            while (throwable instanceof InvocationTargetException itex)
+                throwable = throwable.getCause();
+            var msg = "%s: %s".formatted(
+                    throwable instanceof Error
+                    ? throwable.getClass().getSimpleName()
+                    : StackTraceUtils.lessSimpleName(throwable.getClass()),
                     throwable.getMessage() == null
                     ? throwable.getCause() == null
                       ? "Internal Error"
@@ -276,19 +290,23 @@ public @interface Command {
                         ? throwable.getCause().getMessage()
                         : throwable.getCause().getClass().getSimpleName() + ": " + throwable.getCause().getMessage()
                     : throwable.getMessage());
-            if (throwable instanceof Error) return msg;
+            if (throwable instanceof Error)
+                return msg;
             var buf = new StringWriter();
             var out = new PrintStream(new DelegateStream.Output(buf));
             out.println(msg);
             Throwable cause = throwable;
             do {
                 var c = cause.getCause();
-                if (c == null) break;
+                if (c == null)
+                    break;
                 cause = c;
-            } while (cause instanceof InvocationTargetException || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
+            } while (cause instanceof InvocationTargetException
+                     || (cause instanceof RuntimeException && cause.getCause() instanceof InvocationTargetException));
             StackTraceUtils.wrap(cause, out, true);
             var str = buf.toString();
-            if (str.length() > 1950) str = str.substring(0, 1950);
+            if (str.length() > 1950)
+                str = str.substring(0, 1950);
             return str;
         }
 
@@ -300,35 +318,46 @@ public @interface Command {
         }
     }
 
-    interface Info extends Capability.Provider, ContextProvider, Initializable {}
+    interface Info extends Capability.Provider, ContextProvider, Initializable {
+    }
 
-    record AutoFillOption(String key, String description) {}
+    record AutoFillOption(String key, String description) {
+    }
 
     @Value
     @Builder
     class Usage {
-        Manager  manager;
+        Manager manager;
         String[] fullCommand;
-        @Singular("context")              Set<Object>   context;
-        @NotNull                          Handler       source;
-        @lombok.Builder.Default           Node.Callable baseNode  = null;
-        @NonFinal                         Node.Callable node;
-        @NonFinal @lombok.Builder.Default int           callIndex = 0;
+        @Singular("context")
+        Set<Object>   context;
+        @NotNull
+        Handler       source;
+        @lombok.Builder.Default
+        Node.Callable baseNode  = null;
+        @NonFinal
+        Node.Callable node;
+        @NonFinal @lombok.Builder.Default
+        int           callIndex = 0;
 
         public void advanceFull() {
             // reset if necessary
             if (callIndex != 0) {
-                node      = baseNode;
+                node = baseNode;
                 callIndex = 0;
             }
             // start from i=1 because the initial node was spawned at creation in Manager#createUsageBase()
             for (var i = 1; i < fullCommand.length; i++) {
                 if (node instanceof Node.Call) // do not advance into parameters
                     break;
-                var text   = fullCommand[i];
-                var result = node.nodes().filter(it -> it.aliases().anyMatch(text::equals)).flatMap(cast(Node.Callable.class)).findAny();
-                if (result.isEmpty()) break;
-                node      = result.get();
+                var text = fullCommand[i];
+                var result = node.nodes()
+                        .filter(it -> it.aliases().anyMatch(text::equals))
+                        .flatMap(cast(Node.Callable.class))
+                        .findAny();
+                if (result.isEmpty())
+                    break;
+                node = result.get();
                 callIndex = i;
             }
         }
@@ -340,12 +369,14 @@ public @interface Command {
     @ToString(of = { "id" })
     class Manager extends Container.Base implements Info, PermissionChecker {
         public static final Handler DefaultHandler = (command, x, args) -> System.out.println(x);
-        UUID      id        = UUID.randomUUID();
+        UUID id = UUID.randomUUID();
         Set<Node> baseNodes = new HashSet<>();
 
         @Override
         public final Set<Capability> getCapabilities() {
-            return streamChildren(Capability.Provider.class).flatMap(provider -> provider.getCapabilities().stream()).collect(Collectors.toUnmodifiableSet());
+            return streamChildren(Capability.Provider.class)
+                    .flatMap(provider -> provider.getCapabilities().stream())
+                    .collect(Collectors.toUnmodifiableSet());
         }
 
         @SuppressWarnings("UnusedReturnValue")
@@ -361,7 +392,8 @@ public @interface Command {
         }
 
         public final Node.Group createGroupNode(@Nullable Object target, Class<?> source) {
-            var attribute = Annotations.findAnnotations(Command.class, source).findFirst().orElseThrow().getAnnotation();
+            var attribute = Annotations.findAnnotations(Command.class, source)
+                    .findFirst().orElseThrow().getAnnotation();
             var group = Node.Group.builder()
                     .name(EmptyAttribute.equals(attribute.value()) ? source.getSimpleName() : attribute.value())
                     .attribute(attribute)
@@ -374,15 +406,19 @@ public @interface Command {
 
             var calls = new HashSet<Node.Call>();
             registerCalls(target, calls, source);
-            var defaultCall = calls.stream().filter(call -> "$".equals(call.getName())).findAny().orElse(null);
-            if (defaultCall != null) calls.remove(defaultCall);
+            var defaultCall = calls.stream()
+                    .filter(call -> "$".equals(call.getName()))
+                    .findAny().orElse(null);
+            if (defaultCall != null)
+                calls.remove(defaultCall);
             group.calls(calls).defaultCall(defaultCall);
 
             return group.build();
         }
 
         public final Node.Call createCallNode(@Nullable Object target, Method source) {
-            var attribute = Annotations.findAnnotations(Command.class, source).findFirst().orElseThrow().getAnnotation();
+            var attribute = Annotations.findAnnotations(Command.class, source)
+                    .findFirst().orElseThrow().getAnnotation();
             var call = Node.Call.builder()
                     .name(EmptyAttribute.equals(attribute.value()) ? source.getName() : attribute.value())
                     .attribute(attribute)
@@ -404,7 +440,9 @@ public @interface Command {
         }
 
         public final Stream<AutoFillOption> autoComplete(
-                Handler source, @Doc("Do not include currentValue") String[] fullCommand, String argName,
+                Handler source,
+                @Doc("Do not include currentValue") String[] fullCommand,
+                String argName,
                 @Nullable String currentValue
         ) {
             var usage = createUsageBase(source, fullCommand);
@@ -415,13 +453,13 @@ public @interface Command {
             var baseNode = baseNodes.stream() // find base node to initiate advancing to execution node
                     .filter(node -> node.aliases().anyMatch(fullCommand[0]::equals))
                     .flatMap(cast(Node.Callable.class))
-                    .findAny()
-                    .orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand)));
+                    .findAny().orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand)));
             return Usage.builder()
                     .source(source)
                     .manager(this)
                     .fullCommand(fullCommand)
-                    .context(expandContext(concat(of(this, source), Arrays.stream(baseArgs)).toArray()).collect(Collectors.toSet()))
+                    .context(expandContext(concat(Stream.of(this, source), Arrays.stream(baseArgs)).toArray())
+                            .collect(Collectors.toSet()))
                     .baseNode(baseNode)
                     .node(baseNode)
                     .build();
@@ -437,10 +475,13 @@ public @interface Command {
                 usage.advanceFull();
                 //todo verifyPermission(usage);
 
-                return (usage.node instanceof Node.Call call ? call.nodes()
-                        .skip(usage.callIndex + usage.fullCommand.length - 2)
-                        .limit(1)
-                        .flatMap(param -> param.autoFill(usage, argName, currentValue)) : usage.node.nodes().map(Node::getName)).map(String::trim)
+                return (usage.node instanceof Node.Call call
+                        ? call.nodes()
+                                .skip(usage.callIndex + usage.fullCommand.length - 2)
+                                .limit(1)
+                                .flatMap(param -> param.autoFill(usage, argName, currentValue))
+                        : usage.node.nodes().map(Node::getName))
+                        .map(String::trim)
                         .distinct()
                         .filter(not("$"::equals))
                         .filter(str -> {
@@ -450,7 +491,9 @@ public @interface Command {
                         .map(str -> new AutoFillOption(str, str));
             } catch (Throwable e) {
                 log.log(isDebug() ? Level.WARN : Level.DEBUG, "An error ocurred during command autocompletion", e);
-                return of(usage.source.handleThrowable(e)).map(String::valueOf).map(str -> new AutoFillOption(str, ""));
+                return Stream.of(usage.source.handleThrowable(e))
+                        .map(String::valueOf)
+                        .map(str -> new AutoFillOption(str, ""));
             }
         }
 
@@ -458,17 +501,22 @@ public @interface Command {
             var opt = getPermissionKey(usage);
             if (opt.isEmpty()) return;
             var key = opt.get();
-            if (!userHasPermission(usage, key)) throw PermissionChecker.insufficientPermissions("(missing permission: '%s')".formatted(key));
+            if (!userHasPermission(usage, key))
+                throw PermissionChecker.insufficientPermissions("(missing permission: '%s')".formatted(key));
         }
 
         @Override
         public final boolean userHasPermission(Usage usage, Object key) {
-            return streamChildren(PermissionChecker.class).findAny().isEmpty() || streamChildren(PermissionChecker.class).anyMatch(pc -> pc.userHasPermission(
-                    usage,
-                    key));
+            return streamChildren(PermissionChecker.class)
+                    .anyMatch(pc -> pc.userHasPermission(usage, key));
         }
 
-        public final @Nullable Object execute(Handler source, String[] fullCommand, @Nullable Map<String, Object> namedArgs, Object... extraArgs) {
+        public final @Nullable Object execute(
+                Handler source,
+                String[] fullCommand,
+                @Nullable Map<String, Object> namedArgs,
+                Object... extraArgs
+        ) {
             var usage = createUsageBase(source, fullCommand, extraArgs);
             return execute(usage, namedArgs);
         }
@@ -484,7 +532,8 @@ public @interface Command {
                     call = group.defaultCall;
                     //usage.callIndex += 1;
                 } else call = usage.node.as(Node.Call.class, "Invalid node type! Is your syntax correct?");
-                if (call == null) throw new Error("No such command");
+                if (call == null)
+                    throw new Error("No such command");
 
                 // sort arguments
                 if (usage.callIndex < 0 || usage.callIndex >= usage.fullCommand.length)
@@ -496,36 +545,51 @@ public @interface Command {
                 for (int i = 0; i < useArgs.length; i++) {
                     final int i0            = i;
                     var       parameterType = parameterTypes[i];
-                    var       parameter     = of(call.callable.accessor()).flatMap(cast(Method.class)).map(mtd -> mtd.getParameters()[i0]).findAny();
-                    var attribute = parameter.flatMap(param -> Annotations.findAnnotations(Arg.class, param).findFirst())
+                    var parameter = Stream.of(call.callable.accessor())
+                            .flatMap(cast(Method.class))
+                            .map(mtd -> mtd.getParameters()[i0])
+                            .findAny();
+                    var attribute = parameter
+                            .flatMap(param -> Annotations.findAnnotations(Arg.class, param).findFirst())
                             .map(Annotations.Result::getAnnotation)
                             .orElse(null);
                     Node.Parameter paramNode = null;
-                    if (attribute != null) paramNode = call.parameters.stream().filter(node -> node.attribute.equals(attribute)).findAny().orElseThrow();
+                    if (attribute != null)
+                        paramNode = call.parameters.stream()
+                                .filter(node -> node.attribute.equals(attribute))
+                                .findAny().orElseThrow();
                     if (attribute == null) {
                         // try to fit in an extraArg
-                        useArgs[i] = usage.context.stream().filter(parameterType::isInstance).findAny().orElseGet(() -> {
-                            if (parameterType.isArray() && parameterType.getComponentType().equals(String.class)) {
-                                var args = new String[usage.fullCommand.length - usage.callIndex - 1];
-                                System.arraycopy(usage.fullCommand, usage.callIndex + 1, args, 0, args.length);
-                                return args;
-                            } else return null;
-                        });
+                        useArgs[i] = usage.context.stream()
+                                .filter(parameterType::isInstance)
+                                .findAny()
+                                .orElseGet(() -> {
+                                    if (parameterType.isArray() && parameterType.getComponentType().equals(String.class)) {
+                                        var args = new String[usage.fullCommand.length - usage.callIndex - 1];
+                                        System.arraycopy(usage.fullCommand, usage.callIndex + 1, args, 0, args.length);
+                                        return args;
+                                    } else return null;
+                                });
                     } else if (useNamedArgs) {
                         // eg. discord, fabric
                         Constraint.notNull(namedArgs, "args").run();
                         Constraint.notNull(paramNode, "parameter").run();
-                        if (paramNode.isRequired() && !namedArgs.containsKey(paramNode.getName())) throw new Error("Missing argument " + paramNode.getName());
+                        if (paramNode.isRequired() && !namedArgs.containsKey(paramNode.getName()))
+                            throw new Error("Missing argument " + paramNode.getName());
 
                         final var finalParamNode = paramNode;
                         useArgs[i] = Optional.ofNullable(namedArgs.get(paramNode.getName()))
-                                .or(() -> usage.context.stream().flatMap(cast(finalParamNode.param.getType())).findAny())
-                                .or(() -> Optional.ofNullable(finalParamNode.defaultValue()).map(Polyfill::uncheckedCast))
+                                .or(() -> usage.context.stream()
+                                        .flatMap(cast(finalParamNode.param.getType()))
+                                        .findAny())
+                                .or(() -> Optional.ofNullable(finalParamNode.defaultValue())
+                                        .map(Polyfill::uncheckedCast))
                                 .orElse(null);
                     } else {
                         // eg. console, minecraft
                         Constraint.notNull(paramNode, "parameter").run();
-                        if (paramNode.isRequired() && argIndex >= usage.fullCommand.length) throw new Error("Not enough arguments");
+                        if (paramNode.isRequired() && argIndex >= usage.fullCommand.length)
+                            throw new Error("Not enough arguments");
                         String argStr;
                         if (argIndex < usage.fullCommand.length) {
                             if (attribute.stringMode() == StringMode.GREEDY) {
@@ -537,7 +601,8 @@ public @interface Command {
 
                         argIndex += 1;
                         var valueType = ValueType.of(parameterType);
-                        useArgs[i] = argStr == null ? valueType.defaultValue() : valueType.parse(argStr);
+                        var value = argStr == null ? valueType.defaultValue() : valueType.parse(argStr);
+                        useArgs[i] = value == null || (value instanceof String str && str.isBlank()) ? null : value;
                     }
                 }
 
@@ -548,7 +613,8 @@ public @interface Command {
                 log.log(isDebug() ? Level.ERROR : Level.DEBUG, "An error ocurred during command execution", e);
                 response = usage.source.handleThrowable(e);
             }
-            if (response != null) usage.source.handleResponse(usage, response, usage.context.toArray());
+            if (response != null)
+                usage.source.handleResponse(usage, response, usage.context.toArray());
             return result;
         }
 
@@ -558,19 +624,22 @@ public @interface Command {
 
         private void registerGroups(@Nullable Object target, Collection<? super Node.Group> nodes, Class<?> source) {
             for (var groupNodeSource : source.getClasses()) {
-                if (!groupNodeSource.isAnnotationPresent(Command.class)) continue;
+                if (!groupNodeSource.isAnnotationPresent(Command.class))
+                    continue;
                 var node = createGroupNode(target, groupNodeSource);
                 nodes.add(node);
             }
         }
 
         private Node.Parameter createParameterNode(int index, Method origin, Parameter source) {
-            var attribute = Annotations.findAnnotations(Arg.class, source).findFirst().orElseThrow().getAnnotation();
+            var attribute = Annotations.findAnnotations(Arg.class, source)
+                    .findFirst().orElseThrow().getAnnotation();
             // construct parameter node
             var builder = Node.Parameter.builder()
                     .name(Optional.ofNullable(attribute.value())
                             .filter(not(EmptyAttribute::equals))
-                            .or(() -> Optional.ofNullable(source.getName()).filter(name -> !name.matches("arg\\d+")))
+                            .or(() -> Optional.ofNullable(source.getName())
+                                    .filter(name -> !name.matches("arg\\d+")))
                             .or(() -> Aliased.$(source).findFirst())
                             .orElse(String.valueOf(index)))
                     .attribute(attribute)
@@ -579,13 +648,14 @@ public @interface Command {
                     .index(index);
 
             // init special types
-            if (source.getType().isEnum()) builder.autoFillProvider(new AutoFillProvider.Enum(Polyfill.uncheckedCast(source.getType())));
-            else if (attribute.autoFill().length > 0) builder.autoFillProvider(new AutoFillProvider.Array(attribute.autoFill()));
+            if (source.getType().isEnum())
+                builder.autoFillProvider(new AutoFillProvider.Enum(Polyfill.uncheckedCast(source.getType())));
+            else if (attribute.autoFill().length > 0)
+                builder.autoFillProvider(new AutoFillProvider.Array(attribute.autoFill()));
 
             // init custom autofill providers
             for (var providerType : attribute.autoFillProvider()) {
-                var provider = ReflectionHelper.instanceField(providerType)
-                        .stream()
+                var provider = ReflectionHelper.instanceField(providerType).stream()
                         .flatMap(cast(AutoFillProvider.class))
                         .findAny()
                         .orElseGet(() -> Activator.get(providerType).createInstance(DataNode.Value.NULL));
@@ -596,7 +666,8 @@ public @interface Command {
 
         private void registerCalls(@Nullable Object target, Collection<? super Node.Call> nodes, Class<?> source) {
             for (var callNodeSource : source.getMethods()) {
-                if (!callNodeSource.isAnnotationPresent(Command.class)) continue;
+                if (!callNodeSource.isAnnotationPresent(Command.class))
+                    continue;
                 var node = createCallNode(target, callNodeSource);
                 nodes.add(node);
             }
@@ -605,7 +676,8 @@ public @interface Command {
         private void registerParameters(Collection<? super Node.Parameter> nodes, Method source) {
             var index = 0;
             for (var paramNodeSource : source.getParameters()) {
-                if (!paramNodeSource.isAnnotationPresent(Arg.class)) continue;
+                if (!paramNodeSource.isAnnotationPresent(Arg.class))
+                    continue;
                 var node = createParameterNode(index, source, paramNodeSource);
                 nodes.add(node);
                 index += 1;
@@ -644,7 +716,7 @@ public @interface Command {
             @Override
             public void initialize() {
                 CompletableFuture.supplyAsync(this::inputReader, Executors.newSingleThreadExecutor())
-                        .exceptionally(exceptionLogger("A fatal error occurred in the Input reader"));
+                        .exceptionally(Debug.exceptionLogger("A fatal error occurred in the Input reader"));
             }
 
             @Override
@@ -655,12 +727,14 @@ public @interface Command {
             @SneakyThrows
             private Void inputReader() {
                 try (
-                        var isr = new InputStreamReader(in); var br = new BufferedReader(isr)
+                        var isr = new InputStreamReader(in);
+                        var br = new BufferedReader(isr)
                 ) {
                     String line;
                     do {
                         line = br.readLine();
-                        if ("exit".equals(line)) break;
+                        if ("exit".equals(line))
+                            break;
                         Manager.this.execute(this, line.split(" "), Map.of(), Manager.this);
                     } while (true);
                     System.exit(0);
@@ -693,8 +767,7 @@ public @interface Command {
                         bus.publish(event);
                     }
                 });
-                bus.flatMap(SlashCommandInteractionEvent.class)
-                        .listen()
+                bus.flatMap(SlashCommandInteractionEvent.class).listen()
                         .subscribeData(event -> execute(Adapter$JDA.this,
                                 event.getCommandString().substring(1)/*.replaceAll("(\\w+):","$1")*/.split(" "),
                                 event.getOptions().stream().collect(Collectors.toMap(OptionMapping::getName, mapping -> switch (mapping.getType()) {
@@ -816,25 +889,33 @@ public @interface Command {
 
             @Override
             public void handleResponse(Usage cmd, @NotNull Object response, Object... args) {
-                final var e    = of(args).flatMap(cast(SlashCommandInteractionEvent.class)).findAny().orElseThrow();
-                final var user = of(args).flatMap(cast(User.class)).findAny().orElseThrow();
-                if (response instanceof CompletableFuture) e.deferReply()
-                        .setEphemeral(cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC)
-                        .submit()
-                        .thenCombine(((CompletableFuture<?>) response), (hook, resp) -> {
-                            WebhookMessageCreateAction<Message> req;
-                            if (resp instanceof EmbedBuilder embed) {
-                                if (embedFinalizer != null) embed = embedFinalizer.apply(embed, user);
-                                req = hook.sendMessageEmbeds(embed.build());
-                            } else req = hook.sendMessage(String.valueOf(resp));
-                            return req.submit();
-                        })
-                        .thenCompose(identity())
-                        .exceptionally(Polyfill.exceptionLogger());
+                final var e = Stream.of(args)
+                        .flatMap(cast(SlashCommandInteractionEvent.class))
+                        .findAny()
+                        .orElseThrow();
+                final var user = Stream.of(args)
+                        .flatMap(cast(User.class))
+                        .findAny()
+                        .orElseThrow();
+                if (response instanceof CompletableFuture)
+                    e.deferReply().setEphemeral(cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC)
+                            .submit()
+                            .thenCombine(((CompletableFuture<?>) response), (hook, resp) -> {
+                                WebhookMessageCreateAction<Message> req;
+                                if (resp instanceof EmbedBuilder embed) {
+                                    if (embedFinalizer != null)
+                                        embed = embedFinalizer.apply(embed, user);
+                                    req = hook.sendMessageEmbeds(embed.build());
+                                } else req = hook.sendMessage(String.valueOf(resp));
+                                return req.submit();
+                            })
+                            .thenCompose(identity())
+                            .exceptionally(Polyfill.exceptionLogger());
                 else {
                     ReplyCallbackAction req;
                     if (response instanceof EmbedBuilder embed) {
-                        if (embedFinalizer != null) embed = embedFinalizer.apply(embed, user);
+                        if (embedFinalizer != null)
+                            embed = embedFinalizer.apply(embed, user);
                         req = e.replyEmbeds(embed.build());
                     } else req = e.reply(String.valueOf(response));
                     req.setEphemeral(cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC).submit();
@@ -857,7 +938,8 @@ public @interface Command {
                     public Object getFrom(OptionMapping option) {
                         return option.getAsBoolean();
                     }
-                }, Int(StandardValueType.INTEGER, OptionType.INTEGER) {
+                },
+                Int(StandardValueType.INTEGER, OptionType.INTEGER) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsInt();
@@ -871,7 +953,8 @@ public @interface Command {
                                 .map(IntegerAttribute::getValue)
                                 .map(Polyfill::uncheckedCast);
                     }
-                }, Long(StandardValueType.LONG, OptionType.INTEGER) {
+                },
+                Long(StandardValueType.LONG, OptionType.INTEGER) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsLong();
@@ -885,12 +968,14 @@ public @interface Command {
                                 .map(LongAttribute::getValue)
                                 .map(Polyfill::uncheckedCast);
                     }
-                }, Double(StandardValueType.DOUBLE, OptionType.NUMBER) {
+                },
+                Double(StandardValueType.DOUBLE, OptionType.NUMBER) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsDouble();
                     }
-                }, String(StandardValueType.STRING, OptionType.STRING) {
+                },
+                String(StandardValueType.STRING, OptionType.STRING) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsString();
@@ -905,32 +990,38 @@ public @interface Command {
                                 .or(() -> Named.$(obj))
                                 .map(Polyfill::uncheckedCast);
                     }
-                }, Attachment(BoundValueType.of(Message.Attachment.class), OptionType.ATTACHMENT) {
+                },
+                Attachment(BoundValueType.of(Message.Attachment.class), OptionType.ATTACHMENT) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsAttachment();
                     }
-                }, Mentionable(BoundValueType.of(IMentionable.class), OptionType.MENTIONABLE) {
+                },
+                Mentionable(BoundValueType.of(IMentionable.class), OptionType.MENTIONABLE) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsMentionable();
                     }
-                }, Channel(BoundValueType.of(GuildChannelUnion.class), OptionType.CHANNEL) {
+                },
+                Channel(BoundValueType.of(GuildChannelUnion.class), OptionType.CHANNEL) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsChannel();
                     }
-                }, Role(BoundValueType.of(Role.class), OptionType.ROLE) {
+                },
+                Role(BoundValueType.of(net.dv8tion.jda.api.entities.Role.class), OptionType.ROLE) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsRole();
                     }
-                }, User(BoundValueType.of(User.class), OptionType.USER) {
+                },
+                User(BoundValueType.of(User.class), OptionType.USER) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsUser();
                     }
-                }, Member(BoundValueType.of(Member.class), OptionType.USER) {
+                },
+                Member(BoundValueType.of(net.dv8tion.jda.api.entities.Member.class), OptionType.USER) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsMember();
@@ -938,7 +1029,9 @@ public @interface Command {
                 };
 
                 public static Wrap<IOptionAdapter> of(final Class<?> type) {
-                    return Wrap.of(Arrays.stream(values()).filter(adp -> adp.valueType.getTargetClass().isAssignableFrom(type)).findAny());
+                    return Wrap.of(Arrays.stream(values())
+                            .filter(adp -> adp.valueType.getTargetClass().isAssignableFrom(type))
+                            .findAny());
                 }
 
                 ValueType<?> valueType;
@@ -987,7 +1080,7 @@ public @interface Command {
         @RequiredArgsConstructor
         public class Adapter$Spigot extends Adapter implements Handler.Minecraft, TabCompleter, CommandExecutor {
             Set<Capability> capabilities = Set.of();
-            JavaPlugin      plugin;
+            JavaPlugin plugin;
 
             {
                 addChild(this);
@@ -995,31 +1088,40 @@ public @interface Command {
 
             @Override
             public List<String> onTabComplete(
-                    @NotNull CommandSender sender, @NotNull org.bukkit.command.Command command, @NotNull String alias,
+                    @NotNull CommandSender sender,
+                    @NotNull org.bukkit.command.Command command,
+                    @NotNull String alias,
                     @NotNull String[] args
             ) {
-                if (alias.contains(":")) alias = alias.substring(alias.indexOf(':') + 1);
+                if (alias.contains(":"))
+                    alias = alias.substring(alias.indexOf(':') + 1);
                 var strings = strings(alias, args);
-                var usage   = createUsageBase(this, strings, expandContext(sender).toArray());
-                return autoComplete(usage, String.valueOf(args.length - 1), strings[strings.length - 1]).map(AutoFillOption::key).toList();
+                var usage = createUsageBase(this, strings, expandContext(sender).toArray());
+                return autoComplete(usage, String.valueOf(args.length - 1), strings[strings.length - 1])
+                        .map(AutoFillOption::key)
+                        .toList();
             }
 
             @Override
             public Stream<Object> expandContext(Object... context) {
                 return super.expandContext(context).flatMap(expand(it -> {
-                    if (it instanceof Player player) return of(player.getUniqueId());
+                    if (it instanceof Player player)
+                        return Stream.of(player.getUniqueId());
                     return empty();
                 }));
             }
 
             @Override
             public boolean onCommand(
-                    @NotNull CommandSender sender, @NotNull org.bukkit.command.Command command, @NotNull String label,
+                    @NotNull CommandSender sender,
+                    @NotNull org.bukkit.command.Command command,
+                    @NotNull String label,
                     @NotNull String[] args
             ) {
-                if (label.contains(":")) label = label.substring(label.indexOf(':') + 1);
+                if (label.contains(":"))
+                    label = label.substring(label.indexOf(':') + 1);
                 var strings = strings(label, args);
-                var usage   = createUsageBase(this, strings, expandContext(sender).toArray());
+                var usage = createUsageBase(this, strings, expandContext(sender).toArray());
                 execute(usage, null);
                 return true;
             }
@@ -1030,8 +1132,11 @@ public @interface Command {
                     future.thenAcceptAsync(late -> handleResponse(command, late, args));
                     return;
                 }
-                var sender = Arrays.stream(args).flatMap(cast(CommandSender.class)).findAny().orElseThrow();
-                if (response instanceof Component component) sender.spigot().sendMessage(get().serialize(component));
+                var sender = Arrays.stream(args)
+                        .flatMap(cast(CommandSender.class))
+                        .findAny().orElseThrow();
+                if (response instanceof Component component)
+                    sender.spigot().sendMessage(get().serialize(component));
                 else sender.sendMessage(String.valueOf(response));
             }
         }
@@ -1043,7 +1148,7 @@ public @interface Command {
 
             @Override
             public Stream<Object> expandContext(Object... context) {
-                return of(context);
+                return Stream.of(context);
             }
 
             protected String[] strings(String label, String[] args) {
@@ -1059,7 +1164,8 @@ public @interface Command {
     @SuperBuilder
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     abstract class Node implements Named, Described, Aliased, Specifiable<Node> {
-        @NotNull String name;
+        @NotNull
+        String name;
 
         @Override
         public Stream<String> aliases() {
@@ -1070,12 +1176,15 @@ public @interface Command {
         @SuperBuilder
         @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
         public static abstract class Callable extends Node {
-            @NotNull Command attribute;
+            @NotNull
+            Command attribute;
 
             public @NotNull String getName() {
-                return EmptyAttribute.equals(attribute.value()) ? Optional.of(super.getName())
-                        .or(() -> Optional.ofNullable(getAlternateName()))
-                        .orElseThrow(() -> new NullPointerException("No name defined for command " + this)) : attribute.value();
+                return EmptyAttribute.equals(attribute.value())
+                       ? Optional.of(super.getName())
+                               .or(() -> Optional.ofNullable(getAlternateName()))
+                               .orElseThrow(() -> new NullPointerException("No name defined for command " + this))
+                       : attribute.value();
             }
 
             @Override
@@ -1089,10 +1198,16 @@ public @interface Command {
         @Value
         @SuperBuilder
         public static class Group extends Callable {
-            @NotNull @AnnotatedTarget         Class<?>    source;
-            @Singular                         List<Group> groups;
-            @Singular                         List<Call>  calls;
-            @Nullable @lombok.Builder.Default Call        defaultCall = null;
+            @NotNull
+            @AnnotatedTarget
+            Class<?>   source;
+            @Singular
+            List<Group> groups;
+            @Singular
+            List<Call> calls;
+            @Nullable
+            @lombok.Builder.Default
+            Call       defaultCall = null;
 
             @Override
             public Stream<Callable> nodes() {
@@ -1110,10 +1225,14 @@ public @interface Command {
         @Value
         @SuperBuilder
         public static class Call extends Callable {
-            @Nullable Object          target;
-            @NotNull  Method          method;
-            @NotNull  Invocable<?>    callable;
-            @Singular List<Parameter> parameters;
+            @Nullable
+            Object       target;
+            @NotNull
+            Method       method;
+            @NotNull
+            Invocable<?> callable;
+            @Singular
+            List<Parameter> parameters;
 
             @Override
             public String getAlternateName() {
@@ -1134,16 +1253,22 @@ public @interface Command {
         @Value
         @SuperBuilder
         public static class Parameter extends Node implements AutoFillProvider, Default.Extension {
-            public static             Comparator<? super Parameter> COMPARATOR = Comparator.comparingInt(param -> param.index);
-            @NotNull                  Arg                           attribute;
-            @NotNull @AnnotatedTarget java.lang.reflect.Parameter   param;
+            public static Comparator<? super Parameter> COMPARATOR = Comparator.comparingInt(param -> param.index);
+            @NotNull
+            Arg attribute;
+            @NotNull
+            @AnnotatedTarget
+            java.lang.reflect.Parameter param;
             boolean required;
-            int     index;
-            @Singular List<AutoFillProvider> autoFillProviders;
+            int index;
+            @Singular
+            List<AutoFillProvider> autoFillProviders;
 
             @Override
             public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
-                return autoFillProviders.stream().flatMap(provider -> provider.autoFill(usage, argName, currentValue)).distinct();
+                return autoFillProviders.stream()
+                        .flatMap(provider -> provider.autoFill(usage, argName, currentValue))
+                        .distinct();
             }
 
             @Override
@@ -1156,7 +1281,7 @@ public @interface Command {
     @Getter
     class Error extends RuntimeException {
         private final @Nullable Object response;
-        private final @Nullable Usage  command;
+        private final @Nullable Usage command;
 
         public Error(String message) {
             this(message, null);
@@ -1174,7 +1299,7 @@ public @interface Command {
         public Error(@Nullable String message, @Nullable Throwable cause, @Nullable Object response, @Nullable Usage command) {
             super(message, cause);
             this.response = response;
-            this.command  = command;
+            this.command = command;
         }
 
         public Error(Object response) {
