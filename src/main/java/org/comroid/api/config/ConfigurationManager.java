@@ -111,7 +111,7 @@ public class ConfigurationManager<T extends DataNode> {
     }
 
     private void invokePropertyAdaptersRecursive(Context context, DataNode node, DataStructure<?> struct, Object it) {
-        if (node.isNull()) return;
+        if (node == null || node.isNull()) return;
         for (var property : struct.getProperties()) {
             var propType = property.getType();
             if (propType.isStandard()) continue;
