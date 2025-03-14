@@ -124,6 +124,10 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
                 .orElse(MimeType.JSON);
     }
 
+    default boolean isNull() {
+        return this instanceof Value<?> value && value.value == null;
+    }
+
     @Override
     default String toSerializedString() {
         return this instanceof JSON.Node ? toString() : json().toSerializedString();
@@ -371,16 +375,6 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         protected @Nullable T        value;
 
         @Override
-        public int size() {
-            return isNull() ? 0 : 1;
-        }
-
-        @Override
-        public final Stream<Entry> properties() {
-            return Stream.of(new Entry("", this));
-        }
-
-        @Override
         public String toString() {
             return String.valueOf(value);
         }
@@ -391,6 +385,21 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
             if (value instanceof String)
                 return "\"%s\"".formatted(str);
             return str;
+        }
+
+        @Override
+        public boolean isNull() {
+            return super.isNull();
+        }
+
+        @Override
+        public int size() {
+            return isNull() ? 0 : 1;
+        }
+
+        @Override
+        public final Stream<Entry> properties() {
+            return Stream.of(new Entry("", this));
         }
     }
 
