@@ -89,8 +89,9 @@ public class ConfigurationManager<T extends DataNode> {
 
     @SneakyThrows
     public void save() {
-        DataNode data   = config;
-        var      prefix = dataType.getSerializerPrefix();
+        DataNode data = config;
+        if (data == null) return;
+        var prefix = dataType.getSerializerPrefix();
         if (prefix != null) data = prefix.apply(data);
         try (var fos = new FileOutputStream(file)) {
             fos.write(data.toSerializedString().getBytes(StandardCharsets.UTF_8));
