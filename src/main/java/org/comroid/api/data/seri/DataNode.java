@@ -140,8 +140,8 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
             return properties().collect(JSON.Object::new, (n, e) -> n.put(e.key, e.getValue().json()), Map::putAll);
         else if (this instanceof Array)
             return properties().collect(JSON.Array::new, (n, e) -> n.add(e.getValue().json()), List::addAll);
-        else if (this instanceof Value)
-            return Convertible.convert(this, JSON.Value.class);
+        else if (this instanceof Value<?> value)
+            return JSON.Value.convert(value);
         else return of(this).json();
     }
 

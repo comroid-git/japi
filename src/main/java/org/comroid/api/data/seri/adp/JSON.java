@@ -19,7 +19,6 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 public enum JSON implements Serializer<JSON.Node> {
@@ -193,9 +192,9 @@ public enum JSON implements Serializer<JSON.Node> {
         }
 
         @Override
-        public String toString() {
+        public String toSerializedString() {
             return map.entrySet().stream()
-                    .map(e -> "\"%s\": %s".formatted(e.getKey(), e.getValue().toString()))
+                    .map(e -> "\"%s\": %s".formatted(e.getKey(), e.getValue().toSerializedString()))
                     .collect(Collectors.joining(", ", "{", "}"));
         }
     }
@@ -210,9 +209,9 @@ public enum JSON implements Serializer<JSON.Node> {
         }
 
         @Override
-        public String toString() {
+        public String toSerializedString() {
             return list.stream()
-                    .map(Objects::toString)
+                    .map(DataNode::toSerializedString)
                     .collect(Collectors.joining(", ", "[", "]"));
         }
     }
@@ -231,9 +230,9 @@ public enum JSON implements Serializer<JSON.Node> {
         }
 
         @Override
-        public String toString() {
+        public @NotNull String toSerializedString() {
             // this method is a super-stub because it depends on the functionality of the underlying method
-            return super.toString();
+            return super.toSerializedString();
         }
     }
 }
