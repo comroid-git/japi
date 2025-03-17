@@ -10,6 +10,7 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
@@ -154,6 +155,7 @@ public class ConfigurationManager<T extends DataNode> {
     }
 
     @Value
+    @NonFinal
     public class Presentation$JDA implements Presentation {
         InteractionHandler handler = new InteractionHandler();
         TextChannel        channel;
@@ -162,6 +164,10 @@ public class ConfigurationManager<T extends DataNode> {
             this.channel = channel;
 
             channel.getJDA().addEventListener(handler);
+        }
+
+        protected boolean checkOutOfContext(GenericInteractionCreateEvent event) {
+            return true;
         }
 
         @Override
@@ -266,6 +272,7 @@ public class ConfigurationManager<T extends DataNode> {
         private final class InteractionHandler extends ListenerAdapter {
             @Override
             public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
+                if (checkOutOfContext(event)) return;
                 event.replyModal(Modal.create(event.getComponentId(), event.getComponentId())
                         .addActionRow(TextInput.create("newValue", "New Value", TextInputStyle.SHORT)
                                 .setPlaceholder(config.get(event.getComponentId().split("\\.")).asString())
@@ -275,6 +282,7 @@ public class ConfigurationManager<T extends DataNode> {
 
             @Override
             public void onModalInteraction(@NotNull ModalInteractionEvent event) {
+                if (checkOutOfContext(event)) return;
                 var path     = event.getModalId().split("\\.");
                 var locals   = descend(path);
                 var propType = locals.getFirst().getType();
@@ -287,6 +295,7 @@ public class ConfigurationManager<T extends DataNode> {
 
             @Override
             public void onStringSelectInteraction(@NotNull StringSelectInteractionEvent event) {
+                if (checkOutOfContext(event)) return;
                 var path     = event.getComponentId().split("\\.");
                 var locals   = descend(path);
                 var propType = locals.getFirst().getType();
@@ -308,6 +317,7 @@ public class ConfigurationManager<T extends DataNode> {
 
             @Override
             public void onEntitySelectInteraction(@NotNull EntitySelectInteractionEvent event) {
+                if (checkOutOfContext(event)) return;
                 var path   = event.getComponentId().split("\\.");
                 var locals = descend(path);
 
