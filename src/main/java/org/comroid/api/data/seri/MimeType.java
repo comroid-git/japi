@@ -7,6 +7,8 @@ import lombok.Value;
 import lombok.With;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.data.seri.adp.FormData;
+import org.comroid.api.data.seri.adp.Jackson;
+import org.comroid.api.java.SoftDepend;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,7 +26,10 @@ public class MimeType {
 
     public static final MimeType GRAPHQL    = parse("application/graphql");
     public static final MimeType JAVASCRIPT = parse("application/javascript");
-    public static final MimeType JSON       = parse("application/json", DataNode::json, org.comroid.api.data.seri.adp.JSON.Parser);
+    public static final MimeType JSON = parse("application/json",
+            DataNode::json,
+            SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
+                    .ifPresentMapOrElseGet($ -> Jackson.JSON, () -> org.comroid.api.data.seri.adp.JSON.Parser));
     public static final MimeType MSWORD     = parse("application/msword");
     public static final MimeType PDF        = parse("application/pdf");
     public static final MimeType SQL        = parse("application/sql");
@@ -53,7 +58,7 @@ public class MimeType {
     }
 
     @SneakyThrows
-    public static MimeType parse(String str, @Nullable Function<DataNode, DataNode> serializerPrefix, @Nullable Serializer<?> deserializer) {
+    public static MimeType parse(String str, @Nullable Function<DataNode, DataNode> serializerPrefix, @Nullable Serializer<? extends DataNode> deserializer) {
         var matcher = PATTERN.matcher(str);
         if (!matcher.matches()) throw new IllegalArgumentException("Invalid MimeType format: " + str);
         return new MimeType(matcher.group("type"),
@@ -70,8 +75,8 @@ public class MimeType {
     @NotNull  String subtype;
     @Nullable String suffix;
     String @Nullable [] args;
-    @Nullable Function<DataNode, DataNode> serializerPrefix;
-    @Nullable Serializer<?>                deserializer;
+    @Nullable Function<DataNode, DataNode>   serializerPrefix;
+    @Nullable Serializer<? extends DataNode> deserializer;
 
     public MimeType(
             @NotNull String type, @NotNull String subtype, @Nullable Function<DataNode, DataNode> serializerPrefix,
@@ -82,7 +87,7 @@ public class MimeType {
 
     public MimeType(
             @NotNull String type, @Nullable String tree, @NotNull String subtype, @Nullable String suffix, @Nullable String[] args,
-            @Nullable Function<DataNode, DataNode> serializerPrefix, @Nullable Serializer<?> deserializer
+            @Nullable Function<DataNode, DataNode> serializerPrefix, @Nullable Serializer<? extends DataNode> deserializer
     ) {
         this.type             = type;
         this.tree             = tree;

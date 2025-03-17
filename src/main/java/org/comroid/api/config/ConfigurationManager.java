@@ -4,6 +4,7 @@ import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.NonFinal;
 import net.dv8tion.jda.api.entities.IMentionable;
+import net.dv8tion.jda.api.entities.ISnowflake;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.User;
@@ -16,6 +17,7 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.interactions.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
@@ -42,17 +44,23 @@ import org.comroid.api.text.Capitalization;
 import org.comroid.api.tree.UncheckedCloseable;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.comroid.api.Polyfill.*;
 import static org.comroid.api.text.Markdown.*;
@@ -87,8 +95,44 @@ public class ConfigurationManager<T extends DataNode> {
     }
 
     public void reload() {
-        if (ftime().isBefore(timestamp)) return; // reload is not necessary
+        reload(false);
+    }
+
+    @SneakyThrows
+    public void reload(boolean force) {
+        if (!force && ftime().isBefore(timestamp)) return; // reload is not necessary
+
+        DataNode node;
+        try (var fis = new FileInputStream(file); var isr = new InputStreamReader(fis); var br = new BufferedReader(isr)) {
+            var data = br.lines().collect(Collectors.joining());
+            node = Objects.requireNonNull(dataType.getDeserializer(), "No deserializer set for " + dataType).apply(data);
+        }
+        Objects.requireNonNull(node, "No data");
+
+        setSelfAndChildrenRecursive(struct, config, node);
         this.timestamp = Instant.now();
+    }
+
+    private void setSelfAndChildrenRecursive(DataStructure<?> struct, Object it, DataNode data) {
+        for (var property : struct.getProperties()) {
+            var        node     = data.get(property.getName());
+            var        propType = property.getType();
+            Object     value    = null;
+            Class<?>[] classes  = null;
+            if (property.isAnnotationPresent(Adapt.class)) {
+                classes = property.getAnnotation(Adapt.class).value();
+                JITAssistant.prepare(classes);
+                value = Arrays.stream(classes)
+                        .flatMap($ -> Stream.ofNullable(TypeAdapter.CACHE.getOrDefault(property.getType().getTargetClass(), null)))
+                        .flatMap(adp -> adp.deserialize(context, adp.parseSerialized(node.asString())).stream())
+                        .findAny()
+                        .orElse(null);
+            }
+            if (propType.isStandard() || classes != null) {
+                if (propType.isStandard() && value == null) value = propType.parse(node.asString());
+                property.setFor(it, uncheckedCast(value));
+            } else setSelfAndChildrenRecursive(DataStructure.of(propType.getTargetClass()), property.getFrom(it), node);
+        }
     }
 
     @SneakyThrows
@@ -138,7 +182,7 @@ public class ConfigurationManager<T extends DataNode> {
                 @SuppressWarnings("OptionalOfNullableMisuse") var value = Optional.ofNullable(node.get(key))
                         .map(n -> n.as(adp.getSerialized()))
                         .orElseGet(() -> Annotations.defaultValue(property));
-                return adp.deserialize(context, uncheckedCast(value));
+                return adp.deserialize(context, uncheckedCast(value)).get();
             }).ifPresent(value -> property.setFor(it, uncheckedCast(value)));
         }
     }
@@ -156,18 +200,17 @@ public class ConfigurationManager<T extends DataNode> {
 
     @Value
     @NonFinal
-    public class Presentation$JDA implements Presentation {
-        InteractionHandler handler = new InteractionHandler();
-        TextChannel        channel;
+    public class Presentation$JDA extends ListenerAdapter implements Presentation {
+        TextChannel channel;
 
         public Presentation$JDA(TextChannel channel) {
             this.channel = channel;
 
-            channel.getJDA().addEventListener(handler);
+            channel.getJDA().addEventListener(this);
         }
 
         protected boolean checkOutOfContext(GenericInteractionCreateEvent event) {
-            return true;
+            return false;
         }
 
         @Override
@@ -193,10 +236,10 @@ public class ConfigurationManager<T extends DataNode> {
             Debug.log(fullName + " is not null");
 
             var title     = IntStream.range(0, level).mapToObj($ -> "#").collect(Collectors.joining()) + " Config Value " + Code.apply(fullName);
+            var desc    = property.getDescription();
+            var current = property.getFrom(it);
             var propType  = property.getType();
             var propClass = propType.getTargetClass();
-            var current = property.getFrom(it);
-            var desc    = property.getDescription();
             var text = """
                     %s%s
                     ```
@@ -218,6 +261,7 @@ public class ConfigurationManager<T extends DataNode> {
 
                         // set default value
                         EntitySelectMenu.DefaultValue def;
+                        if (current instanceof ISnowflake flake) current = flake.getIdLong();
                         if (current != null) {
                             var currentId = (long) current;
                             if (Channel.class.isAssignableFrom(propClass)) def = EntitySelectMenu.DefaultValue.channel(currentId);
@@ -266,23 +310,26 @@ public class ConfigurationManager<T extends DataNode> {
 
         @Override
         public void close() {
-            channel.getJDA().removeEventListener(handler);
+            channel.getJDA().removeEventListener(this);
         }
 
-        private final class InteractionHandler extends ListenerAdapter {
-            @Override
-            public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
-                if (checkOutOfContext(event)) return;
+        @Override
+        public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
+            event.deferReply().submit().thenCompose(hook -> {
+                if (checkOutOfContext(event)) return CompletableFuture.completedFuture(null);
                 event.replyModal(Modal.create(event.getComponentId(), event.getComponentId())
                         .addActionRow(TextInput.create("newValue", "New Value", TextInputStyle.SHORT)
                                 .setPlaceholder(config.get(event.getComponentId().split("\\.")).asString())
                                 .build())
                         .build()).queue();
-            }
+                return hook.sendMessage("Done!").setEphemeral(false).submit();
+            }).exceptionally(Debug.exceptionLogger("Internal error when handling interaction"));
+        }
 
-            @Override
-            public void onModalInteraction(@NotNull ModalInteractionEvent event) {
-                if (checkOutOfContext(event)) return;
+        @Override
+        public void onModalInteraction(@NotNull ModalInteractionEvent event) {
+            event.deferReply().submit().thenCompose(hook -> {
+                if (checkOutOfContext(event)) return CompletableFuture.completedFuture(null);
                 var path     = event.getModalId().split("\\.");
                 var locals   = descend(path);
                 var propType = locals.getFirst().getType();
@@ -290,17 +337,19 @@ public class ConfigurationManager<T extends DataNode> {
                 var newValue = event.getValue("newValue").getAsString();
                 locals.getFirst().setFor(locals.getSecond(), uncheckedCast(propType.parse(String.valueOf(newValue))));
                 save();
-                resend();
-            }
+                return updateDisplayValue(event.getMessage(), hook, newValue);
+            }).exceptionally(Debug.exceptionLogger("Internal error when handling interaction"));
+        }
 
-            @Override
-            public void onStringSelectInteraction(@NotNull StringSelectInteractionEvent event) {
-                if (checkOutOfContext(event)) return;
+        @Override
+        public void onStringSelectInteraction(@NotNull StringSelectInteractionEvent event) {
+            event.deferReply().submit().thenCompose(hook -> {
+                if (checkOutOfContext(event)) return CompletableFuture.completedFuture(null);
                 var path     = event.getComponentId().split("\\.");
                 var locals   = descend(path);
                 var propType = locals.getFirst().getType();
 
-                event.getValues()
+                return event.getValues()
                         .stream()
                         .flatMap(value -> Arrays.stream(propType.getTargetClass().getFields())
                                 .filter(Field::isEnumConstant)
@@ -310,37 +359,52 @@ public class ConfigurationManager<T extends DataNode> {
                                         .orElseGet(field::getName))))
                         .findAny()
                         .map(ThrowingFunction.sneaky(field -> field.get(null)))
-                        .ifPresent(value -> locals.getFirst().setFor(locals.getSecond(), uncheckedCast(value)));
-                save();
-                resend();
-            }
+                        .map(value -> {
+                            locals.getFirst().setFor(locals.getSecond(), uncheckedCast(value));
+                            save();
+                            return updateDisplayValue(event.getMessage(), hook, value);
+                        })
+                        .orElseGet(() -> failedFuture(new IllegalArgumentException("Invalid values: " + event.getValues())));
+            }).exceptionally(Debug.exceptionLogger("Internal error when handling interaction"));
+        }
 
-            @Override
-            public void onEntitySelectInteraction(@NotNull EntitySelectInteractionEvent event) {
-                if (checkOutOfContext(event)) return;
+        @Override
+        public void onEntitySelectInteraction(@NotNull EntitySelectInteractionEvent event) {
+            event.deferReply().submit().thenCompose(hook -> {
+                if (checkOutOfContext(event)) return CompletableFuture.completedFuture(null);
                 var path   = event.getComponentId().split("\\.");
                 var locals = descend(path);
 
-                event.getValues().stream().findAny().ifPresent(mentionable -> locals.getFirst().setFor(locals.getSecond(), uncheckedCast(mentionable)));
-                save();
-                resend();
-            }
+                return event.getValues().stream().findAny().map(mentionable -> {
+                    locals.getFirst().setFor(locals.getSecond(), uncheckedCast(mentionable));
+                    save();
+                    return updateDisplayValue(event.getMessage(), hook, mentionable.getId());
+                }).orElseGet(() -> failedFuture(new IllegalArgumentException("Invalid values: " + event.getValues())));
+            }).exceptionally(Debug.exceptionLogger("Internal error when handling interaction"));
+        }
 
-            private Pair<DataStructure<?>.Property<?>, Object> descend(String... path) {
-                if (path.length == 0) throw new IllegalArgumentException("Empty path");
-                Wrap<DataStructure<?>.Property<?>> wrap   = uncheckedCast(struct.getProperty(path[0]));
-                Object                             holder = config;
-                if (wrap.test(prop -> !prop.getType().isStandard())) holder = wrap.ifPresentMap(prop -> prop.getFrom(config));
-                for (var i = 1; i < path.length; i++) {
-                    final var fi = i;
-                    final var fh = holder;
-                    wrap = wrap.map(it -> it.getType().getTargetClass()).map(DataStructure::of).flatMap(struct -> struct.getProperty(path[fi]));
-                    if (wrap.test(prop -> !prop.getType().isStandard())) holder = wrap.ifPresentMap(prop -> prop.getFrom(fh));
-                }
+        private CompletableFuture<?> updateDisplayValue(Message original, InteractionHook hook, Object value) {
+            var raw   = original.getContentRaw();
+            var start = raw.indexOf("```");
+            return original.editMessage(raw.substring(0, start) + "```\n" + value + "\n```").flatMap($ -> hook.deleteOriginal()).submit();
+        }
+
+        private Pair<DataStructure<?>.Property<?>, Object> descend(String... path) {
+            if (path.length == 0) throw new IllegalArgumentException("Empty path");
+            Wrap<DataStructure<?>.Property<?>> wrap   = uncheckedCast(struct.getProperty(path[0]));
+            Object                             holder = config;
+            if (wrap.test(prop -> !prop.getType().isStandard())) holder = wrap.ifPresentMap(prop -> prop.getFrom(config));
+            for (var i = 1; i < path.length; i++) {
+                final var fi = i;
                 final var fh = holder;
-                return wrap.ifPresentMapOrElseThrow(prop -> new Pair<>(prop, fh),
-                        () -> new NoSuchElementException("No such property: " + String.join(".", path)));
+                wrap = wrap.map(it -> it.getType().getTargetClass()).map(DataStructure::of).flatMap(struct -> struct.getProperty(path[fi]));
+                if (wrap.test(prop -> !prop.getType().isStandard() && prop.getType().getTargetClass().isInstance(fh))) {
+                    Object o = wrap.ifPresentMap(prop -> prop.getFrom(fh));
+                    if (o != null) holder = o;
+                }
             }
+            final var fh = holder;
+            return wrap.ifPresentMapOrElseThrow(prop -> new Pair<>(prop, fh), () -> new NoSuchElementException("No such property: " + String.join(".", path)));
         }
 
         private static EntitySelectMenu.@NotNull SelectTarget getSelectTarget(DataStructure<?>.Property<?> property) {

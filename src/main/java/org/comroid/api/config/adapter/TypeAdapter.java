@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Value
@@ -31,5 +32,7 @@ public abstract class TypeAdapter<T, S> {
 
     public abstract @NotNull S toSerializable(Context context, T value);
 
-    public abstract @Nullable T deserialize(Context context, S serialized);
+    public abstract Optional<T> deserialize(Context context, S serialized);
+
+    public abstract S parseSerialized(@Nullable String string);
 }
