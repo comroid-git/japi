@@ -341,6 +341,19 @@ public class DataStructure<T> implements Named {
         return getProperty(member.getName());
     }
 
+    public Wrap<DataStructure<?>.Property<?>> getProperty(String... path) {
+        if (path.length == 0)
+            return Wrap.empty();
+        Wrap<DataStructure<?>.Property<?>> it = uncheckedCast(getProperty(path[0]));
+        for (var i = 1; i < path.length; i++) {
+            final var fi = i;
+            it = it.map(prop -> prop.getType().getTargetClass())
+                    .map(DataStructure::of)
+                    .flatMap(struct -> struct.getProperty(path[fi]));
+        }
+        return it;
+    }
+
     public <V> Wrap<Property<V>> getProperty(String name) {
         return Wrap.ofStream(getProperties().stream()
                         .filter(prop -> Stream.concat(Stream.of(prop.name), prop.aliases.stream())

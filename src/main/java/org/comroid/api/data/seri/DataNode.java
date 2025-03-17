@@ -17,6 +17,7 @@ import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ValueBox;
 import org.comroid.api.func.ext.Convertible;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.DelegateStream;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.Activator;
@@ -108,6 +109,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         }
     }
 
+    @Ignore
     @Override
     @JsonIgnore
     default MimeType getMimeType() {
@@ -162,9 +164,28 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         return (int) properties().count();
     }
 
+    default DataNode get(String... path) {
+        if (path.length == 0)
+            return Value.NULL;
+        var node = get(path[0]);
+        for (var i = 1; i < path.length; i++)
+            node = node.get(path[i]);
+        return node;
+    }
+
     @NotNull
     default DataNode get(java.lang.Object key) {
-        return Objects.requireNonNullElse(asObject().get(String.valueOf(key)), Value.NULL);
+        try {
+            if (this instanceof Map<?, ?> map)
+                return of(map.getOrDefault(key, null));
+            return Value.NULL;
+        } catch (Throwable t) {
+            Debug.log("Unable to get key " + key, t);
+            return properties().filter(e -> key.equals(e.key))
+                    .findAny().map(Entry::getValue)
+                    .map(DataNode::of)
+                    .orElse(Value.NULL);
+        }
     }
 
     default Object asObject() {
@@ -198,7 +219,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         var node = asValue();
         var val = node.value;
         if (val == null)
-            return null;
+            return Wrap.empty();
         if (!type.test(val))
             return Wrap.of(type.parse(val.toString()));
         return Wrap.of(type.getTargetClass().cast(val));
@@ -375,8 +396,8 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         protected @Nullable T        value;
 
         @Override
-        public String toString() {
-            return String.valueOf(value);
+        public boolean isNull() {
+            return super.isNull();
         }
 
         @Override
@@ -388,11 +409,6 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         }
 
         @Override
-        public boolean isNull() {
-            return super.isNull();
-        }
-
-        @Override
         public int size() {
             return isNull() ? 0 : 1;
         }
@@ -400,6 +416,11 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         @Override
         public final Stream<Entry> properties() {
             return Stream.of(new Entry("", this));
+        }
+
+        @Override
+        public String toString() {
+            return String.valueOf(value);
         }
     }
 
