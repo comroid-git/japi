@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import org.comroid.api.info.Assert;
@@ -278,8 +279,8 @@ public interface Vector {
     @FieldDefaults(level = AccessLevel.PROTECTED)
     class N3 extends N2 {
         public static final N3 Zero = new N3();
-        public static final N3 One = new N3(1, 1, 1);
-        double z;
+        public static final N3     One = new N3(1, 1, 1);
+        @Setter             double z;
 
         public N3(double x, double y, double z) {
             super(x, y);
@@ -338,7 +339,7 @@ public interface Vector {
     class N4 extends N3 {
         public static final N4 Zero = new N4();
         public static final N4 One = new N4(1, 1, 1, 1);
-        double w;
+        @Setter double w;
 
         public N4(double x, double y, double z, double w) {
             super(x, y, z);
