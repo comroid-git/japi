@@ -2,6 +2,7 @@ package org.comroid.api.info;
 
 import lombok.Setter;
 import lombok.Value;
+import lombok.With;
 import lombok.experimental.NonFinal;
 import org.jetbrains.annotations.Nullable;
 
@@ -11,7 +12,7 @@ import java.util.stream.IntStream;
 @Value
 @Setter
 public class Range<T extends Number> {
-    @Nullable T start, end;
+    @With @Nullable T start, end;
     @NonFinal @Nullable T lowerBound, upperBound;
 
     @SuppressWarnings("unchecked")
