@@ -8,6 +8,8 @@ import lombok.SneakyThrows;
 import lombok.experimental.Delegate;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.Polyfill;
+import org.comroid.api.config.Adapt;
+import org.comroid.api.config.adapter.TypeAdapter;
 import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.data.seri.adp.FormData;
 import org.comroid.api.data.seri.adp.JSON;
@@ -15,8 +17,10 @@ import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ValueBox;
+import org.comroid.api.func.ext.Context;
 import org.comroid.api.func.ext.Convertible;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.DelegateStream;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.Activator;
@@ -30,6 +34,7 @@ import java.io.StringReader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -49,49 +54,57 @@ import static org.comroid.api.data.seri.type.StandardValueType.*;
 @Ignore({ Convertible.class, DataStructure.class })
 public interface DataNode extends MimeType.Container, StringSerializable, Specifiable<Object> {
     static Stream<Entry> properties(final java.lang.Object it) {
-        if (it instanceof DataNode.Base)
-            return ((DataNode) it).properties();
-        if (it instanceof Map<?, ?> map)
-            return map.entrySet().stream().collect(new Collector<Map.Entry<?, ?>, List<Entry>, Stream<Entry>>() {
-                @Override
-                public Supplier<List<Entry>> supplier() {
-                    return ArrayList::new;
-                }
+        if (it instanceof DataNode.Base) return ((DataNode) it).properties();
+        if (it instanceof Map<?, ?> map) return map.entrySet().stream().collect(new Collector<Map.Entry<?, ?>, List<Entry>, Stream<Entry>>() {
+            @Override
+            public Supplier<List<Entry>> supplier() {
+                return ArrayList::new;
+            }
 
-                @Override
-                public BiConsumer<List<Entry>, Map.Entry<?, ?>> accumulator() {
-                    return (ls, e) -> ls.add(new Entry(String.valueOf(e.getKey()), of(e.getValue())));
-                }
+            @Override
+            public BiConsumer<List<Entry>, Map.Entry<?, ?>> accumulator() {
+                return (ls, e) -> ls.add(new Entry(String.valueOf(e.getKey()), of(e.getValue())));
+            }
 
-                @Override
-                public BinaryOperator<List<Entry>> combiner() {
-                    return (l, r) -> {
-                        l.addAll(r);
-                        return l;
-                    };
-                }
+            @Override
+            public BinaryOperator<List<Entry>> combiner() {
+                return (l, r) -> {
+                    l.addAll(r);
+                    return l;
+                };
+            }
 
-                @Override
-                public Function<List<Entry>, Stream<Entry>> finisher() {
-                    return Collection::stream;
-                }
+            @Override
+            public Function<List<Entry>, Stream<Entry>> finisher() {
+                return Collection::stream;
+            }
 
-                @Override
-                public Set<Characteristics> characteristics() {
-                    return Set.of();
-                }
-            });
+            @Override
+            public Set<Characteristics> characteristics() {
+                return Set.of();
+            }
+        });
         return DataStructure.of(it.getClass(), java.lang.Object.class)
-                .getDeclaredProperties().values().stream()
-                .map(Polyfill::<DataStructure<java.lang.Object>.Property<Object>>uncheckedCast)
-                .map(prop -> new Entry(prop.getName(), of(prop.getFrom(it))));
+                .getDeclaredProperties()
+                .values()
+                .stream()
+                .map(Polyfill::<DataStructure<java.lang.Object>.Property<java.lang.Object>>uncheckedCast)
+                .map(prop -> {
+                    final java.lang.Object obj = prop.getFrom(it);
+                    return Stream.ofNullable(prop.getAnnotation(Adapt.class))
+                            .flatMap(adapt -> TypeAdapter.CACHE.values()
+                                    .stream()
+                                    .filter(adp -> Arrays.stream(adapt.value()).anyMatch(type -> type.isInstance(adp))))
+                            .findFirst()
+                            .map(adp -> adp.toSerializable(Context.root(), Polyfill.uncheckedCast(obj)))
+                            .map(value -> new Entry(prop.getName(), of(value)))
+                            .orElseGet(() -> new Entry(prop.getName(), of(obj)));
+                });
     }
 
     static DataNode of(java.lang.Object it) {
-        if (it == null)
-            return Value.NULL;
-        else if (it instanceof DataNode.Base)
-            return (DataNode) it;
+        if (it == null) return Value.NULL;
+        else if (it instanceof DataNode.Base) return (DataNode) it;
         else if (it instanceof Iterable) {
             // handle as array node
             var arr = new Array();
@@ -100,21 +113,18 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         } else {
             // handle as object node
             var typeOf = typeOf(it);
-            if (typeOf instanceof StandardValueType<?>)
-                return new Value<>(it);
+            if (typeOf instanceof StandardValueType<?>) return new Value<>(it);
             var obj = new Object();
             properties(it).forEach(e -> obj.put(e.key, e.getValue()));
             return obj;
         }
     }
 
+    @Ignore
     @Override
     @JsonIgnore
     default MimeType getMimeType() {
-        final var supported = Map.of(
-                "json", MimeType.JSON,
-                "form", MimeType.URLENCODED
-        );
+        final var supported = Map.of("json", MimeType.JSON, "form", MimeType.URLENCODED);
         return StackTraceUtils.stream()
                 .map(StackTraceElement::getMethodName)
                 .map(name -> supported.getOrDefault(name, null))
@@ -122,6 +132,10 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
                 .findFirst()
                 //.orElseThrow(()->new AbstractMethodError("MimeType was not specified or supported for DataNode " + this));
                 .orElse(MimeType.JSON);
+    }
+
+    default boolean isNull() {
+        return this instanceof Value<?> value && value.value == null;
     }
 
     @Override
@@ -134,21 +148,16 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
     }
 
     default JSON.Node json() {
-        if (this instanceof JSON.Node)
-            return (JSON.Node) this;
-        else if (this instanceof Object)
-            return properties().collect(JSON.Object::new, (n, e) -> n.put(e.key, e.getValue().json()), Map::putAll);
-        else if (this instanceof Array)
-            return properties().collect(JSON.Array::new, (n, e) -> n.add(e.getValue().json()), List::addAll);
-        else if (this instanceof Value)
-            return Convertible.convert(this, JSON.Value.class);
+        if (this instanceof JSON.Node) return (JSON.Node) this;
+        else if (this instanceof Object) return properties().collect(JSON.Object::new, (n, e) -> n.put(e.key, e.getValue().json()), Map::putAll);
+        else if (this instanceof Array) return properties().collect(JSON.Array::new, (n, e) -> n.add(e.getValue().json()), List::addAll);
+        else if (this instanceof Value<?> value) return JSON.Value.convert(value);
         else return of(this).json();
     }
 
     default FormData.Object form() {
         if (this instanceof Object) {
-            if (this instanceof FormData.Object)
-                return (FormData.Object) this;
+            if (this instanceof FormData.Object) return (FormData.Object) this;
             else return properties().collect(FormData.Object::new, (n, e) -> n.put(e.key, e.getValue()), Map::putAll);
         }
         return of(this).form();
@@ -158,9 +167,23 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         return (int) properties().count();
     }
 
+    default DataNode get(String... path) {
+        if (path.length == 0) return Value.NULL;
+        var node = get(path[0]);
+        for (var i = 1; i < path.length; i++)
+            node = node.get(path[i]);
+        return node;
+    }
+
     @NotNull
     default DataNode get(java.lang.Object key) {
-        return Objects.requireNonNullElse(asObject().get(String.valueOf(key)), Value.NULL);
+        try {
+            if (this instanceof Map<?, ?> map) return of(map.getOrDefault(key, null));
+            return Value.NULL;
+        } catch (Throwable t) {
+            Debug.log("Unable to get key " + key, t);
+            return properties().filter(e -> key.equals(e.key)).findAny().map(Entry::getValue).map(DataNode::of).orElse(Value.NULL);
+        }
     }
 
     default Object asObject() {
@@ -168,8 +191,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
     }
 
     default <T extends DataNode, R extends T> R asType(Class<? extends T> type) {
-        Constraint.Type.anyOf(this, "type", type)
-                .setConstraint("preliminary cast check").run();
+        Constraint.Type.anyOf(this, "type", type).setConstraint("preliminary cast check").run();
         return Polyfill.uncheckedCast(type.cast(this));
     }
 
@@ -193,10 +215,8 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
     default <T> Wrap<T> as(ValueType<T> type) {
         var node = asValue();
         var val = node.value;
-        if (val == null)
-            return null;
-        if (!type.test(val))
-            return Wrap.of(type.parse(val.toString()));
+        if (val == null) return Wrap.empty();
+        if (!type.test(val)) return Wrap.of(type.parse(val.toString()));
         return Wrap.of(type.getTargetClass().cast(val));
     }
 
@@ -315,8 +335,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
 
     @Data
     class Object extends Base implements Convertible, Map<String, DataNode> {
-        @Delegate
-        protected final Map<String, DataNode> map = new ConcurrentHashMap<>();
+        @Delegate protected final Map<String, DataNode> map = new ConcurrentHashMap<>();
 
         public <T> DataNode set(String key, T value) {
             var val = DataNode.of(value);
@@ -337,8 +356,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
 
     @Data
     class Array extends Base implements List<DataNode> {
-        @Delegate
-        protected final List<DataNode> list = new ArrayList<>();
+        @Delegate protected final List<DataNode> list = new ArrayList<>();
 
         public <T> DataNode append(T value) {
             var val = DataNode.of(value);
@@ -371,6 +389,18 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         protected @Nullable T        value;
 
         @Override
+        public boolean isNull() {
+            return super.isNull();
+        }
+
+        @Override
+        public String toSerializedString() {
+            var str = String.valueOf(value);
+            if (value instanceof String) return "\"%s\"".formatted(str);
+            return str;
+        }
+
+        @Override
         public int size() {
             return isNull() ? 0 : 1;
         }
@@ -383,14 +413,6 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         @Override
         public String toString() {
             return String.valueOf(value);
-        }
-
-        @Override
-        public String toSerializedString() {
-            var str = String.valueOf(value);
-            if (value instanceof String)
-                return "\"%s\"".formatted(str);
-            return str;
         }
     }
 
