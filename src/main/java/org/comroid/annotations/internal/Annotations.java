@@ -48,8 +48,8 @@ import java.util.stream.Stream;
 
 import static java.lang.reflect.Modifier.*;
 import static java.util.Arrays.*;
-import static java.util.stream.Stream.of;
 import static java.util.stream.Stream.*;
+import static java.util.stream.Stream.of;
 import static org.comroid.api.func.util.Streams.*;
 
 @Log
@@ -118,7 +118,7 @@ public class Annotations {
                         .findAny()
                         .map(StandardValueType::findGoodType)
                         .map(Polyfill::<R>uncheckedCast)
-                        .orElseThrow();
+                        .orElse(null);
             }
         } catch (Throwable t) {
             log.log(Debug.isDebug() ? Level.WARNING : Level.FINE, "Failed to evaluate default expression of " + of, t);

@@ -3,8 +3,8 @@ package org.comroid.api.func.ext;
 import org.comroid.annotations.Convert;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.func.util.Invocable;
-import org.comroid.api.info.Constraint;
 import org.jetbrains.annotations.ApiStatus.Experimental;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Modifier;
@@ -16,12 +16,12 @@ import java.util.stream.Stream;
 public interface Convertible {
     @Experimental
     @SuppressWarnings("unchecked")
-    static <R> @NotNull R convert(Object it_, Class<? super R> target) {
+    @Contract("null, !null -> null; !null, !null -> _; !null, null -> fail")
+    static <R> R convert(Object it_, Class<? super R> target) {
         var it = it_ instanceof Supplier && Annotations.ignore(it_.getClass(), Convertible.class).isEmpty()
                  ? ((Supplier<?>) it_).get() : it_;
-        Constraint.notNull(it, "source object")
-                .setHint("check implementation")
-                .run();
+        if (it == null)
+            return null;
         if (target.isInstance(it))
             return (R) target.cast(it);
         return Stream.concat(Stream.of(target.getConstructors()),

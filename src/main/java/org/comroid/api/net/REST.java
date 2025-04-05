@@ -176,7 +176,7 @@ public final class REST {
         public CompletableFuture<Response> apply(Request request) {
             var pub = List.of(Method.GET, Method.OPTIONS, Method.TRACE).contains(request.method) || request.body == null
                       ? HttpRequest.BodyPublishers.noBody()
-                      : HttpRequest.BodyPublishers.ofString(request.body.toString());
+                      : HttpRequest.BodyPublishers.ofString(request.body.toSerializedString());
             var req = HttpRequest.newBuilder().uri(request.uri).method(request.method.name(), pub);
             request.headers.forEach(req::header);
             req.header("Content-Type", request.body == null ? "application/json" : request.body.getMimeType().toString());
