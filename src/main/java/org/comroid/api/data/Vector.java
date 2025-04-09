@@ -69,6 +69,22 @@ public interface Vector {
 
     Vector setW(double value);
 
+    default Vector intCast() {
+        return map(x -> (int) x);
+    }
+
+    default Vector intRound() {
+        return map(Math::round);
+    }
+
+    default Vector intFloor() {
+        return map(Math::floor);
+    }
+
+    default Vector intCeil() {
+        return map(Math::ceil);
+    }
+
     default DoubleStream stream() {
         return Arrays.stream(toArray());
     }
@@ -279,7 +295,7 @@ public interface Vector {
     @FieldDefaults(level = AccessLevel.PROTECTED)
     class N3 extends N2 {
         public static final N3 Zero = new N3();
-        public static final N3     One = new N3(1, 1, 1);
+        public static final N3 One  = new N3(1, 1, 1);
         @Setter             double z;
 
         public N3(double x, double y, double z) {
@@ -337,9 +353,9 @@ public interface Vector {
     @EqualsAndHashCode(callSuper = true)
     @FieldDefaults(level = AccessLevel.PROTECTED)
     class N4 extends N3 {
-        public static final N4 Zero = new N4();
-        public static final N4 One = new N4(1, 1, 1, 1);
-        @Setter double w;
+        public static final N4     Zero = new N4();
+        public static final N4     One  = new N4(1, 1, 1, 1);
+        @Setter             double w;
 
         public N4(double x, double y, double z, double w) {
             super(x, y, z);
