@@ -8,13 +8,44 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.LongPredicate;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @Value
-public class DecimalX extends Number {
-    private static final Comparator<Digit> BY_DIGIT_POSITION = Comparator.comparingLong(Digit::pos).reversed();
-    private static final Digit             ZERO              = new Digit(0, 0);
+public class DecimalX extends Number implements NumberOps<DecimalX> {
+    private static final Comparator<Digit>           DIGITS_BY_POSITION = Comparator.comparingLong(Digit::pos).reversed();
+    private static final Digit                       DIGIT_ZERO         = new Digit(0, 0);
+    public static final  DecimalX                    ZERO;
+    public static final  DecimalX                    ONE;
+    public static final  DecimalX                    ONE_NEGATIVE;
+    public static final  DecimalX                    MIN_VALUE;
+    public static final  DecimalX                    MAX_VALUE;
+    public static final  INumberDescriptor<DecimalX> NUMBER_DESCRIPTOR;
+
+    static {
+        ZERO         = parse("0");
+        ONE          = parse("1");
+        ONE_NEGATIVE = parse("-1");
+
+        var ultra = IntStream.range(0, Integer.MAX_VALUE).mapToObj(p -> new Digit(9, p)).toArray(Digit[]::new);
+        MIN_VALUE = new DecimalX(ultra, true);
+        MAX_VALUE = new DecimalX(ultra, false);
+
+        NUMBER_DESCRIPTOR = new INumberDescriptor.Constant<>(Integer.MAX_VALUE,
+                true,
+                MIN_VALUE,
+                MAX_VALUE,
+                ZERO,
+                ONE,
+                ONE_NEGATIVE) {
+            @Override
+            public Function<String, DecimalX> getParse() {
+                return DecimalX::parse;
+            }
+        };
+    }
 
     public static DecimalX parse(String str) {
         str = str.trim();
@@ -54,6 +85,11 @@ public class DecimalX extends Number {
     private DecimalX(Digit[] digits, boolean negative) {
         this.digits   = digits;
         this.negative = negative;
+    }
+
+    @Override
+    public INumberDescriptor<DecimalX> numDesc() {
+        return NUMBER_DESCRIPTOR;
     }
 
     @Override
@@ -105,7 +141,7 @@ public class DecimalX extends Number {
     }
 
     private Stream<Digit> stream() {
-        return Arrays.stream(digits).sorted(BY_DIGIT_POSITION);
+        return Arrays.stream(digits).sorted(DIGITS_BY_POSITION);
     }
 
     private Digit[] array() {

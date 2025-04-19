@@ -1,5 +1,8 @@
 package org.comroid.api.data;
 
+import lombok.Value;
+import lombok.experimental.NonFinal;
+
 import java.util.function.Function;
 
 public interface INumberDescriptor<T> {
@@ -18,4 +21,12 @@ public interface INumberDescriptor<T> {
     T getNegativeOne();
 
     Function<String, T> getParse();
+
+    @Value
+    @NonFinal
+    abstract class Constant<T> implements INumberDescriptor<T> {
+        int     sizeof;
+        boolean supportDecimals;
+        T       minValue, maxValue, zero, one, negativeOne;
+    }
 }
