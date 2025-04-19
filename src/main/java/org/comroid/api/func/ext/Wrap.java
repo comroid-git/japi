@@ -1,5 +1,6 @@
 package org.comroid.api.func.ext;
 
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.Value;
 import lombok.experimental.Delegate;
@@ -44,8 +45,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     Wrap<?> EMPTY = () -> null;
 
     static <T> Wrap<T> of(final T value) {
-        if (value == null)
-            return empty();
+        if (value == null) return empty();
         return () -> value;
     }
 
@@ -87,10 +87,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         return exceptionally(supplier, t -> Log.at(Level.SEVERE, "An internal error occurred", t));
     }
 
-    static <R extends DataNode, T extends Throwable> Wrap<R> exceptionally(
-            @NotNull ThrowingSupplier<R, T> supplier,
-            @NotNull Consumer<T> handler
-    ) {
+    static <R extends DataNode, T extends Throwable> Wrap<R> exceptionally(@NotNull ThrowingSupplier<R, T> supplier, @NotNull Consumer<T> handler) {
         return () -> {
             try {
                 return supplier.get();
@@ -145,8 +142,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     }
 
     default <EX extends Throwable> T orElseThrow(Supplier<EX> exceptionSupplier) throws EX {
-        if (isNull())
-            throw exceptionSupplier.get();
+        if (isNull()) throw exceptionSupplier.get();
         return requireNonNull("Assertion Failure");
     }
 
@@ -163,8 +159,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
 
     @Contract("!null -> !null; _ -> _")
     default T orElse(T other) {
-        if (isNull())
-            return other;
+        if (isNull()) return other;
         return requireNonNull("Assertion Failure");
     }
 
@@ -207,8 +202,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     default <R> @Nullable R cast(Class<R> type) {
         final T it = get();
 
-        if (type.isInstance(it))
-            return type.cast(it);
+        if (type.isInstance(it)) return type.cast(it);
         return null;
     }
 
@@ -223,8 +217,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     }
 
     default <R> @Nullable R into(Function<? super @NotNull T, R> remapper) {
-        if (isNull())
-            return null;
+        if (isNull()) return null;
         return remapper.apply(get());
     }
 
@@ -233,27 +226,23 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     }
 
     default <X, R> @Nullable R accumulate(@Nullable Supplier<@Nullable X> other, BiFunction<T, X, @Nullable R> accumulator) {
-        if (other == null || other.get() == null)
-            return null;
+        if (other == null || other.get() == null) return null;
         return accumulator.apply(get(), other.get());
     }
 
     default boolean contentEquals(Object other) {
-        if (other == null)
-            return isNull();
+        if (other == null) return isNull();
         return testIfPresent(other::equals);
     }
 
     default boolean testIfPresent(Predicate<@NotNull ? super T> predicate) {
         var value = get();
-        if (value == null)
-            return false;
+        if (value == null) return false;
         return predicate.test(value);
     }
 
     default void ifPresent(Consumer<T> consumer) {
-        if (isNonNull())
-            consume(consumer);
+        if (isNonNull()) consume(consumer);
     }
 
     default void consume(Consumer<@Nullable T> consumer) {
@@ -261,48 +250,41 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     }
 
     default <EX extends Throwable> void ifPresentOrElseThrow(Consumer<T> consumer, Supplier<EX> exceptionSupplier) throws EX {
-        if (isNonNull())
-            consume(consumer);
+        if (isNonNull()) consume(consumer);
         else throw exceptionSupplier.get();
     }
 
     default void ifEmpty(Runnable task) {
-        if (isNull())
-            task.run();
+        if (isNull()) task.run();
     }
 
     default void ifPresentOrElse(Consumer<T> consumer, Runnable task) {
-        if (isNonNull())
-            consume(consumer);
+        if (isNonNull()) consume(consumer);
         else task.run();
     }
 
     default <R> @Nullable R ifPresentMap(Function<? super T, ? extends R> consumer) {
-        if (isNonNull())
-            return into(consumer);
+        if (isNonNull()) return into(consumer);
         return null;
     }
 
     default <R> R ifPresentMapOrElseGet(Function<? super T, ? extends R> consumer, Supplier<R> task) {
         if (isNonNull()) {
             R into = into(consumer);
-            if (into == null)
-                return task.get();
+            if (into == null) return task.get();
             return into;
         } else return task.get();
     }
 
     default <R, X extends Throwable> R ifPresentMapOrElseThrow(Function<T, R> consumer, Supplier<X> exceptionSupplier) throws X {
-        if (isNonNull())
-            return into(consumer);
+        if (isNonNull()) return into(consumer);
         throw exceptionSupplier.get();
     }
 
     default <O> void ifBothPresent(@Nullable Supplier<O> other, BiConsumer<@NotNull T, @NotNull O> accumulator) {
         if (isNonNull() && other != null) {
             O o = other.get();
-            if (o != null)
-                accumulator.accept(assertion(), o);
+            if (o != null) accumulator.accept(assertion(), o);
         }
     }
 
@@ -317,8 +299,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     default <O, R> @Nullable R ifBothPresentMap(@Nullable Supplier<O> other, BiFunction<@NotNull T, @NotNull O, R> accumulator) {
         if (other != null) {
             O o = other.get();
-            if (isNonNull() && o != null)
-                return accumulator.apply(assertion(), o);
+            if (isNonNull() && o != null) return accumulator.apply(assertion(), o);
         }
         return null;
     }
@@ -328,8 +309,7 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     }
 
     default T orElseGet(Supplier<? extends T> otherProvider) {
-        if (isNull())
-            return otherProvider.get();
+        if (isNull()) return otherProvider.get();
         return requireNonNull("Assertion Failure");
     }
 
@@ -366,6 +346,37 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
 
     default <O> Wrap<O> flatMap(final @NotNull Function<? super T, Supplier<? extends O>> func) {
         return ifPresentMapOrElseGet(func, () -> null)::get;
+    }
+
+    @Value
+    @NoArgsConstructor
+    class Lazy<T> implements Wrap<T> {
+        public static <T> Lazy<T> lazy(Supplier<T> supplier) {
+            var lazy = new Lazy<T>();
+            CompletableFuture.supplyAsync(supplier).thenAcceptAsync(lazy::set);
+            return lazy;
+        }
+
+        @NonFinal T       value;
+        @NonFinal boolean set;
+
+        @Override
+        public boolean isNull() {
+            return !set || value == null;
+        }
+
+        @Override
+        public T get() {
+            if (!set) throw new UnsupportedOperationException("Value has not been set yet");
+            return value;
+        }
+
+        public Lazy<T> set(T value) {
+            if (set) throw new UnsupportedOperationException("Value has already been set");
+            this.value = value;
+            this.set   = true;
+            return this;
+        }
     }
 
     @Value

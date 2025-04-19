@@ -1,12 +1,14 @@
 package org.comroid.api.data;
 
 import lombok.Value;
+import org.comroid.api.func.ext.Wrap;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.LongPredicate;
@@ -14,7 +16,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @Value
-public class DecimalX extends Number implements NumberOps<DecimalX> {
+public class DecimalX extends Number implements NumberOps<DecimalX>, Cloneable {
     private static final Comparator<Digit>           DIGITS_BY_POSITION = Comparator.comparingLong(Digit::pos).reversed();
     private static final Digit                       DIGIT_ZERO         = new Digit(0, 0);
     public static final  DecimalX                    ZERO;
@@ -33,13 +35,7 @@ public class DecimalX extends Number implements NumberOps<DecimalX> {
         MIN_VALUE = new DecimalX(ultra, true);
         MAX_VALUE = new DecimalX(ultra, false);
 
-        NUMBER_DESCRIPTOR = new INumberDescriptor.Constant<>(Integer.MAX_VALUE,
-                true,
-                MIN_VALUE,
-                MAX_VALUE,
-                ZERO,
-                ONE,
-                ONE_NEGATIVE) {
+        NUMBER_DESCRIPTOR = new INumberDescriptor.Constant<>(Integer.MAX_VALUE, true, MIN_VALUE, MAX_VALUE, ZERO, ONE, ONE_NEGATIVE) {
             @Override
             public Function<String, DecimalX> getParse() {
                 return DecimalX::parse;
@@ -79,8 +75,9 @@ public class DecimalX extends Number implements NumberOps<DecimalX> {
         return new DecimalX(buf.toArray(Digit[]::new), negative);
     }
 
-    Digit[] digits;
-    boolean negative;
+    Digit[]      digits;
+    boolean      negative;
+    Wrap<String> string = new Wrap.Lazy<>();
 
     private DecimalX(Digit[] digits, boolean negative) {
         this.digits   = digits;
@@ -88,24 +85,45 @@ public class DecimalX extends Number implements NumberOps<DecimalX> {
     }
 
     @Override
-    public INumberDescriptor<DecimalX> numDesc() {
-        return NUMBER_DESCRIPTOR;
+    public int hashCode() {
+        return toString().hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof DecimalX dx && toString().equals(dx.toString());
+    }
+
+    @Override
+    @SuppressWarnings("MethodDoesntCallSuperMethod")
+    protected Object clone() {
+        var copy = Arrays.stream(digits).map(old -> new Digit(old.digit, old.pos)).toArray(Digit[]::new);
+        return new DecimalX(copy, negative);
     }
 
     @Override
     public String toString() {
-        final var sb = new StringBuilder();
-        if (negative) sb.append('-');
+        return string.orElseGet(() -> {
+            final var sb = new StringBuilder();
+            if (negative) sb.append('-');
 
-        var min = stream().mapToLong(Digit::pos).min().orElse(0) - 1;
-        var max = stream().mapToLong(Digit::pos).max().orElse(0);
-        for (var p = max; p > min; p--) {
-            if (p == -1) sb.append('.');
-            var digit = pos(p).orElse(new Digit(0, p));
-            sb.append(digit.digit);
-        }
+            var min = stream().mapToLong(Digit::pos).min().orElse(0) - 1;
+            var max = stream().mapToLong(Digit::pos).max().orElse(0);
+            for (var p = max; p > min; p--) {
+                if (p == -1) sb.append('.');
+                var digit = pos(p).orElse(new Digit(0, p));
+                sb.append(digit.digit);
+            }
 
-        return sb.toString();
+            var str = sb.toString();
+            ((Wrap.Lazy<String>) string).set(str);
+            return str;
+        });
+    }
+
+    @Override
+    public INumberDescriptor<DecimalX> numDesc() {
+        return NUMBER_DESCRIPTOR;
     }
 
     @Override
@@ -152,5 +170,15 @@ public class DecimalX extends Number implements NumberOps<DecimalX> {
         return stream().filter(digit -> digit.pos == i).findAny();
     }
 
-    private record Digit(long digit, long pos) {}
+    private record Digit(long digit, long pos) {
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Digit(long d1, long p1) && d1 == digit && p1 == pos;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(digit, pos);
+        }
+    }
 }
