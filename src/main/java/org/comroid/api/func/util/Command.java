@@ -22,8 +22,8 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.unions.GuildChannelUnion;
-import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.GenericEvent;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -675,8 +675,8 @@ public @interface Command {
             JDA                     jda;
             Event.Bus<GenericEvent> bus          = new Event.Bus<>();
             @Nullable @NonFinal @Setter BiFunction<EmbedBuilder, User, EmbedBuilder> embedFinalizer = null;
-            @NonFinal                   boolean                                      initialized    = false;
-            @NonFinal                   boolean                                      purgeCommands  = false;
+            @Setter @NonFinal           boolean                                      initialized    = false;
+            @Setter @NonFinal           boolean                                      purgeCommands  = false;//Debug.isDebug();
 
             {
                 addChild(this);
@@ -805,7 +805,7 @@ public @interface Command {
                     if (Integer.class.isAssignableFrom(t) || Long.class.isAssignableFrom(t)) return Optional.of(OptionType.INTEGER);
                     if (Number.class.isAssignableFrom(t)) return Optional.of(OptionType.NUMBER);
                     if (User.class.isAssignableFrom(t) || Member.class.isAssignableFrom(t)) return Optional.of(OptionType.USER);
-                    if (MessageChannelUnion.class.isAssignableFrom(t)) return Optional.of(OptionType.CHANNEL);
+                    if (Channel.class.isAssignableFrom(t)) return Optional.of(OptionType.CHANNEL);
                     if (Role.class.isAssignableFrom(t)) return Optional.of(OptionType.ROLE);
                     if (IMentionable.class.isAssignableFrom(t)) return Optional.of(OptionType.MENTIONABLE);
                     if (Message.Attachment.class.isAssignableFrom(t)) return Optional.of(OptionType.ATTACHMENT);
