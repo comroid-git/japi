@@ -171,11 +171,11 @@ public class Event<T> implements Wrap<T> {
         @NonFinal                   boolean active   = true;
 
         private Listener(@Nullable String key, @NotNull Bus<T> bus, Predicate<Event<T>> requirement, Consumer<Event<T>> action) {
-            this.name     = key;
-            this.bus      = bus;
+            this.name        = key;
+            this.bus         = bus;
             this.requirement = requirement;
-            this.action   = action;
-            this.location = caller(2);
+            this.action      = action;
+            this.location    = caller(2);
         }
 
         @Override
@@ -327,7 +327,7 @@ public class Event<T> implements Wrap<T> {
         ) {
             if (cleanup && this.upstream != null) this.upstream.downstream.remove(this);
             this.upstream    = parent;
-            this.function = uncheckedCast(function);
+            this.function    = uncheckedCast(function);
             this.keyFunction = keyFunction;
             this.upstream.downstream.add(this);
             return this;
@@ -407,7 +407,7 @@ public class Event<T> implements Wrap<T> {
         @Builder(builderClassName = "Publisher", buildMethodName = "publish", builderMethodName = "publisher")
         public Event<T> publish(@Nullable String key, @Nullable Long flag_, @Nullable T data) {
             if (!active) return null;
-            final var flag = flag_ == null ? Subscriber.DefaultFlag : flag_;
+            final var flag  = flag_ == null ? Subscriber.DefaultFlag : flag_;
             final var event = factory.apply(data, key, flag);
             accept(event);
             return event;
@@ -454,7 +454,7 @@ public class Event<T> implements Wrap<T> {
         private <P> void $publishDownstream(final Event<P> data) {
             if (function == null) return;
             Function<@NotNull Event<P>, @Nullable Event<T>> func = uncheckedCast(function);
-            var it = func.apply(data);
+            var                                             it   = func.apply(data);
             if (it == null) return;
             accept(it);
         }
@@ -464,7 +464,7 @@ public class Event<T> implements Wrap<T> {
             String              key;
             long                flag;
             Subscriber.FlagMode mode;
-            Invocable<?> delegate;
+            Invocable<?>        delegate;
 
             @Override
             public boolean test(Event<T> event) {
@@ -499,7 +499,7 @@ public class Event<T> implements Wrap<T> {
 
             public SubscriberListener(@Nullable Object target, Collection<SubscriberImpl> subscribers) {
                 super(null, Bus.this, $ -> true, $ -> {});
-                this.target = target;
+                this.target      = target;
                 this.subscribers = subscribers;
             }
 
