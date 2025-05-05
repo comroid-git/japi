@@ -222,6 +222,16 @@ public interface Vector {
         return sqrt(sum);
     }
 
+    default N2 as2() {
+        return (N2)this;
+    }
+    default N3 as3() {
+        return (N3)this;
+    }
+    default N4 as4() {
+        return (N4)this;
+    }
+
     private static UnsupportedOperationException outOfBounds(int n) {
         return new UnsupportedOperationException("Unsupported Vector dimension: " + n);
     }
