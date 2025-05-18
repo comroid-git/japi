@@ -31,10 +31,8 @@ public interface ResourceLoader {
     }
 
     static ResourceLoader ofDirectory(final File dir) {
-        if (!dir.isDirectory())
-            throw new IllegalArgumentException("File is not a directory: " + dir);
-        if (!dir.exists())
-            throw new IllegalArgumentException("Directory does not exist");
+        if (!dir.isDirectory()) throw new IllegalArgumentException("File is not a directory: " + dir);
+        if (!dir.exists()) throw new IllegalArgumentException("Directory does not exist");
         return name -> {
             try {
                 return new FileInputStream(new File(dir, name));
@@ -45,23 +43,20 @@ public interface ResourceLoader {
     }
 
     static InputStream fromResourceString(String string) throws FileNotFoundException {
-        if (string.startsWith("@:"))
-            return ClassLoader.getSystemClassLoader()
-                    .getResourceAsStream(PathUtil.sanitize(string.substring(2)));
-        if (string.startsWith("@"))
-            return new FileInputStream(PathUtil.sanitize(string.substring(1)));
+        if (string.startsWith("@:")) return ClassLoader.getSystemClassLoader().getResourceAsStream(PathUtil.sanitize(string.substring(2)));
+        if (string.startsWith("@")) return new FileInputStream(PathUtil.sanitize(string.substring(1)));
         return new ByteArrayInputStream(PathUtil.sanitize(string).getBytes());
     }
 
     static void assertFile(Class<?> resourceContext, String resource, File file, @Nullable Supplier<String> fallback) throws IOException {
-        if (file.exists()) return;
+        var dir = file.getParentFile();
+        if (!dir.exists() && !dir.mkdirs()) return;
+        if (file.exists() || !file.createNewFile()) return;
         try (
-                var res = resourceContext.getResourceAsStream(resource);
-                var fos = new FileOutputStream(file)
+                var res = resourceContext.getResourceAsStream(resource); var fos = new FileOutputStream(file, false)
         ) {
             if (res == null) {
-                if (fallback != null)
-                    fos.write(fallback.get().getBytes(StandardCharsets.US_ASCII));
+                if (fallback != null) fos.write(fallback.get().getBytes(StandardCharsets.US_ASCII));
             } else res.transferTo(fos);
         }
     }
