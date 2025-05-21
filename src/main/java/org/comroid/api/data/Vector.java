@@ -116,7 +116,7 @@ public interface Vector {
 
     default Vector muli(Vector other) {
         var a = toArray();
-        var b = toArray();
+        var b = other.toArray();
         var r = ctor();
         for (var i = 0; i < n(); i++) r.set(i, a[i] * b[i]);
         return r;
@@ -169,7 +169,7 @@ public interface Vector {
 
     default Vector addi(Vector other) {
         var a = toArray();
-        var b = toArray();
+        var b = other.toArray();
         var r = ctor();
         for (var i = 0; i < n(); i++) r.set(i, a[i] + b[i]);
         return r;
@@ -181,7 +181,7 @@ public interface Vector {
 
     default Vector subi(Vector other) {
         var a = toArray();
-        var b = toArray();
+        var b = other.toArray();
         var r = ctor();
         for (var i = 0; i < n(); i++) r.set(i, a[i] - b[i]);
         return r;
@@ -193,7 +193,7 @@ public interface Vector {
 
     default Vector modi(Vector other) {
         var a = toArray();
-        var b = toArray();
+        var b = other.toArray();
         var r = ctor();
         for (var i = 0; i < n(); i++) r.set(i, a[i] % b[i]);
         return r;
@@ -209,7 +209,7 @@ public interface Vector {
 
     default Vector divi(Vector other) {
         var a = toArray();
-        var b = toArray();
+        var b = other.toArray();
         var r = ctor();
         for (var i = 0; i < n(); i++) r.set(i, a[i] / b[i]);
         return r;
