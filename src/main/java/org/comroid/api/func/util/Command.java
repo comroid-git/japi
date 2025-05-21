@@ -20,6 +20,7 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.IMentionable;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.Channel;
@@ -37,8 +38,9 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandGroupData;
 import net.dv8tion.jda.api.requests.RestAction;
-import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.util.TriState;
 import org.apache.logging.log4j.Level;
@@ -813,30 +815,31 @@ public @interface Command {
                 }).orElse(OptionType.STRING);
             }
 
+            private CompletableFuture<?> handleResponse(MessageSender hook, User user, Object response) {
+                return (switch (response) {
+                    case MessageCreateData message -> hook.send(message);
+                    case EmbedBuilder embed -> {
+                        if (embedFinalizer != null) embed = embedFinalizer.apply(embed, user);
+                        yield hook.send(embed.build());
+                    }
+                    default -> hook.send(String.valueOf(response));
+                });
+            }
+
             @Override
             public void handleResponse(Usage cmd, @NotNull Object response, Object... args) {
-                final var e    = Stream.of(args).flatMap(cast(SlashCommandInteractionEvent.class)).findAny().orElseThrow();
-                final var user = Stream.of(args).flatMap(cast(User.class)).findAny().orElseThrow();
+                final var e         = Stream.of(args).flatMap(cast(SlashCommandInteractionEvent.class)).findAny().orElseThrow();
+                final var user      = Stream.of(args).flatMap(cast(User.class)).findAny().orElseThrow();
+                var       ephemeral = cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC;
                 if (response instanceof CompletableFuture) e.deferReply()
-                        .setEphemeral(cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC)
+                        .setEphemeral(ephemeral)
                         .submit()
-                        .thenCombine(((CompletableFuture<?>) response), (hook, resp) -> {
-                            WebhookMessageCreateAction<Message> req;
-                            if (resp instanceof EmbedBuilder embed) {
-                                if (embedFinalizer != null) embed = embedFinalizer.apply(embed, user);
-                                req = hook.sendMessageEmbeds(embed.build());
-                            } else req = hook.sendMessage(String.valueOf(resp));
-                            return req.submit();
-                        })
+                        .thenCombine(((CompletableFuture<?>) response), (hook, resp) -> handleResponse(msg -> hook.sendMessage(msg).submit(), user, resp))
                         .thenCompose(identity())
                         .exceptionally(Polyfill.exceptionLogger());
                 else {
                     ReplyCallbackAction req;
-                    if (response instanceof EmbedBuilder embed) {
-                        if (embedFinalizer != null) embed = embedFinalizer.apply(embed, user);
-                        req = e.replyEmbeds(embed.build());
-                    } else req = e.reply(String.valueOf(response));
-                    req.setEphemeral(cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC).submit();
+                    handleResponse(msg -> e.reply(msg).setEphemeral(ephemeral).submit(), user, response);
                 }
             }
 
@@ -976,11 +979,25 @@ public @interface Command {
             }
 
             public interface IOptionAdapter {
+
                 ValueType<?> getValueType();
 
                 OptionType getOptionType();
 
                 Object getFrom(OptionMapping option);
+            }
+
+            @FunctionalInterface
+            private interface MessageSender {
+                CompletableFuture<?> send(MessageCreateData message);
+
+                default CompletableFuture<?> send(MessageEmbed embed) {
+                    return send(new MessageCreateBuilder().addEmbeds(embed).build());
+                }
+
+                default CompletableFuture<?> send(String content) {
+                    return send(new MessageCreateBuilder().setContent(content).build());
+                }
             }
         }
 
