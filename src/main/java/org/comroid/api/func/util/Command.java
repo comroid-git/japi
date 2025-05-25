@@ -25,9 +25,14 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.unions.GuildChannelUnion;
+import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
+import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.GenericEvent;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.events.message.MessageBulkDeleteEvent;
+import net.dv8tion.jda.api.events.message.MessageDeleteEvent;
+import net.dv8tion.jda.api.events.message.react.MessageReactionAddEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.ICommandReference;
@@ -41,6 +46,8 @@ import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
+import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
+import net.dv8tion.jda.api.utils.messages.MessageRequest;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.util.TriState;
 import org.apache.logging.log4j.Level;
@@ -76,6 +83,7 @@ import org.comroid.api.text.Capitalization;
 import org.comroid.api.text.StringMode;
 import org.comroid.api.tree.Container;
 import org.comroid.api.tree.Initializable;
+import org.comroid.api.tree.UncheckedCloseable;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -108,7 +116,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -423,7 +433,7 @@ public @interface Command {
                     .source(source)
                     .manager(this)
                     .fullCommand(fullCommand)
-                    .context(expandContext(concat(Stream.of(this, source), Arrays.stream(baseArgs)).toArray()).collect(Collectors.toSet()))
+                    .context(expandContext(concat(of(this, source), Arrays.stream(baseArgs)).toArray()).collect(Collectors.toSet()))
                     .baseNode(baseNode)
                     .node(baseNode)
                     .build();
@@ -452,7 +462,7 @@ public @interface Command {
                         .map(str -> new AutoFillOption(str, str));
             } catch (Throwable e) {
                 log.log(isDebug() ? Level.WARN : Level.DEBUG, "An error ocurred during command autocompletion", e);
-                return Stream.of(usage.source.handleThrowable(e)).map(String::valueOf).map(str -> new AutoFillOption(str, ""));
+                return of(usage.source.handleThrowable(e)).map(String::valueOf).map(str -> new AutoFillOption(str, ""));
             }
         }
 
@@ -496,7 +506,7 @@ public @interface Command {
                 for (int i = 0; i < useArgs.length; i++) {
                     final int i0            = i;
                     var       parameterType = parameterTypes[i];
-                    var       parameter     = Stream.of(call.callable.accessor()).flatMap(cast(Method.class)).map(mtd -> mtd.getParameters()[i0]).findAny();
+                    var       parameter     = of(call.callable.accessor()).flatMap(cast(Method.class)).map(mtd -> mtd.getParameters()[i0]).findAny();
                     var attribute = parameter.flatMap(param -> Annotations.findAnnotations(Arg.class, param).findFirst())
                             .map(Annotations.Result::getAnnotation)
                             .orElse(null);
@@ -645,7 +655,7 @@ public @interface Command {
             @Override
             public void initialize() {
                 CompletableFuture.supplyAsync(this::inputReader, Executors.newSingleThreadExecutor())
-                        .exceptionally(Debug.exceptionLogger("A fatal error occurred in the Input reader"));
+                        .exceptionally(exceptionLogger("A fatal error occurred in the Input reader"));
             }
 
             @Override
@@ -718,10 +728,11 @@ public @interface Command {
                                 event.getChannel()));
                 bus.flatMap(CommandAutoCompleteInteractionEvent.class).listen().subscribeData(event -> {
                     var option = event.getFocusedOption();
-                    event.replyChoices(autoComplete(Adapter$JDA.this,
+                    var options = autoComplete(Adapter$JDA.this,
                             event.getCommandString().split(" "),
                             option.getName(),
-                            option.getValue()).map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key, e.description)).toList()).queue();
+                            option.getValue()).map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key, e.description)).toList();
+                    event.replyChoices(options).queue();
                 });
 
                 var helper = new Object() {
@@ -828,8 +839,8 @@ public @interface Command {
 
             @Override
             public void handleResponse(Usage cmd, @NotNull Object response, Object... args) {
-                final var e         = Stream.of(args).flatMap(cast(SlashCommandInteractionEvent.class)).findAny().orElseThrow();
-                final var user      = Stream.of(args).flatMap(cast(User.class)).findAny().orElseThrow();
+                final var e         = of(args).flatMap(cast(SlashCommandInteractionEvent.class)).findAny().orElseThrow();
+                final var user      = of(args).flatMap(cast(User.class)).findAny().orElseThrow();
                 var       ephemeral = cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC;
                 if (response instanceof CompletableFuture) e.deferReply()
                         .setEphemeral(ephemeral)
@@ -925,7 +936,7 @@ public @interface Command {
                     public Object getFrom(OptionMapping option) {
                         return option.getAsChannel();
                     }
-                }, Role(BoundValueType.of(net.dv8tion.jda.api.entities.Role.class), OptionType.ROLE) {
+                }, Role(BoundValueType.of(Role.class), OptionType.ROLE) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsRole();
@@ -935,7 +946,7 @@ public @interface Command {
                     public Object getFrom(OptionMapping option) {
                         return option.getAsUser();
                     }
-                }, Member(BoundValueType.of(net.dv8tion.jda.api.entities.Member.class), OptionType.USER) {
+                }, Member(BoundValueType.of(Member.class), OptionType.USER) {
                     @Override
                     public Object getFrom(OptionMapping option) {
                         return option.getAsMember();
@@ -999,6 +1010,156 @@ public @interface Command {
                     return send(new MessageCreateBuilder().setContent(content).build());
                 }
             }
+
+            @Value
+            public static class PaginatedList<T> extends ListenerAdapter implements UncheckedCloseable {
+                public static final String   EMOJI_DELETE     = "❌";
+                public static final String   EMOJI_REFRESH    = "🔄";
+                public static final String   EMOJI_NEXT_PAGE  = "➡️";
+                public static final String   EMOJI_PREV_PAGE  = "⬅️";
+                public static final String   EMOJI_FIRST_PAGE = "⏪";
+                public static final String   EMOJI_LAST_PAGE  = "⏩";
+                public static final String[] EMOJI_NUMBER     = new String[]{
+                        "0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"
+                };
+                MessageChannelUnion channel;
+                Supplier<Stream<T>> source;
+                Comparator<T>       comparator;
+                Function<T, String> toString;
+                @Nullable Function<T, String> toDescription;
+                String title;
+                int    perPage;
+                @NonFinal           int     page = 1;
+                @NonFinal @Nullable Message message;
+
+                public PaginatedList(
+                        MessageChannelUnion channel, Supplier<Stream<T>> source, Comparator<T> comparator, Function<T, String> toString,
+                        String title, int perPage
+                ) {
+                    this(channel, source, comparator, toString, null, title, perPage);
+                }
+
+                public PaginatedList(
+                        MessageChannelUnion channel, Supplier<Stream<T>> source, Comparator<T> comparator, Function<T, String> toString,
+                        @Nullable Function<T, String> toDescription, String title, int perPage
+                ) {
+                    this.channel       = channel;
+                    this.source        = source;
+                    this.comparator    = comparator;
+                    this.toString      = toString;
+                    this.toDescription = toDescription;
+                    this.title         = title;
+                    this.perPage       = perPage;
+
+                    channel.getJDA().addEventListener(this);
+                }
+
+                @Override
+                public void onMessageDelete(@NotNull MessageDeleteEvent event) {
+                    if (message == null || event.getMessageIdLong() != message.getIdLong()) return;
+                    message = null;
+                }
+
+                @Override
+                public void onMessageBulkDelete(@NotNull MessageBulkDeleteEvent event) {
+                    if (message == null || !event.getMessageIds().contains(message.getId())) return;
+                    message = null;
+                }
+
+                @Override
+                public void onMessageReactionAdd(@NotNull MessageReactionAddEvent event) {
+                    if (message == null || event.getMessageIdLong() != message.getIdLong() || event.getUser().isBot()) return;
+
+                    try {
+                        var str = event.getEmoji().getFormatted();
+                        if (EMOJI_DELETE.equals(str)) {
+                            close();
+                            return;
+                        } else if (EMOJI_REFRESH.equals(str)) {
+                            refresh().queue();
+                            return;
+                        }
+
+                        page = switch (str) {
+                            case EMOJI_FIRST_PAGE -> 1;
+                            case EMOJI_PREV_PAGE -> page - 1;
+                            case EMOJI_NEXT_PAGE -> page + 1;
+                            case EMOJI_LAST_PAGE -> pageCount();
+                            default -> {
+                                var search = Arrays.binarySearch(EMOJI_NUMBER, str);
+                                yield search < 0 ? page : search;
+                            }
+                        };
+
+                        refresh().queue();
+                    } finally {
+                        if (event.getUser() != null) event.getReaction().removeReaction(event.getUser()).queue();
+                    }
+                }
+
+                @Override
+                public void close() {
+                    channel.getJDA().removeEventListener(this);
+                    if (message != null) message.delete().queue();
+                }
+
+                public int pageCount() {
+                    return (int) Math.ceil((double) source.get().count() / perPage);
+                }
+
+                public RestAction<List<Void>> resend() {
+                    if (message != null) message.delete().queue();
+                    return message(new MessageCreateBuilder(), msg -> channel.sendMessage(msg.build()));
+                }
+
+                public RestAction<List<Void>> refresh() {
+                    if (message == null) return resend();
+                    return message(new MessageEditBuilder(), msg -> message.editMessage(msg.build()));
+                }
+
+                private <R extends MessageRequest<R>> RestAction<List<Void>> message(R request, Function<R, RestAction<Message>> executor) {
+                    request.setEmbeds(createEmbed().build());
+                    var message = executor.apply(request);
+                    return refreshReactions(message);
+                }
+
+                private EmbedBuilder createEmbed() {
+                    var embedBuilder = new EmbedBuilder().setTitle(title).setFooter("Seite %d / %d".formatted(page, pageCount()));
+
+                    var entries = source.get()
+                            .sorted(comparator)
+                            .skip((long) perPage * (page - 1))
+                            .limit(perPage)
+                            .map(it -> new MessageEmbed.Field(toString.apply(it),
+                                    toDescription == null ? "Keine Beschreibung" : toDescription.apply(it),
+                                    false))
+                            .toList();
+                    embedBuilder.getFields().addAll(entries);
+
+                    return embedBuilder;
+                }
+
+                private RestAction<List<Void>> refreshReactions(RestAction<Message> message) {
+                    var pageCount = pageCount();
+                    return message.flatMap(msg -> {
+                        this.message = msg;
+                        var emojis = concat(of(EMOJI_DELETE, EMOJI_REFRESH),
+                                (pageCount <= 9
+                                 ? Arrays.stream(EMOJI_NUMBER).skip(1).limit(pageCount)
+                                 : of(EMOJI_FIRST_PAGE, EMOJI_PREV_PAGE, EMOJI_NEXT_PAGE, EMOJI_LAST_PAGE))).map(Emoji::fromUnicode).toList();
+
+                        return RestAction.allOf(concat(
+                                // remove excess page numbers
+                                Arrays.stream(EMOJI_NUMBER)
+                                        .skip(1 + pageCount())
+                                        .map(Emoji::fromUnicode)
+                                        .filter(emoji -> msg.getReaction(emoji) != null)
+                                        .map(msg::removeReaction),
+                                // add new reactions
+                                emojis.stream().filter(emoji -> msg.getReaction(emoji) == null).map(msg::addReaction)).toList());
+                    });
+                }
+            }
         }
 
         @Value
@@ -1026,7 +1187,7 @@ public @interface Command {
             @Override
             public Stream<Object> expandContext(Object... context) {
                 return super.expandContext(context).flatMap(expand(it -> {
-                    if (it instanceof Player player) return Stream.of(player.getUniqueId());
+                    if (it instanceof Player player) return of(player.getUniqueId());
                     return empty();
                 }));
             }
@@ -1062,7 +1223,7 @@ public @interface Command {
 
             @Override
             public Stream<Object> expandContext(Object... context) {
-                return Stream.of(context);
+                return of(context);
             }
 
             protected String[] strings(String label, String[] args) {
