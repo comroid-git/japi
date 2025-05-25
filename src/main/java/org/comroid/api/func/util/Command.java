@@ -1142,12 +1142,24 @@ public @interface Command {
                 private RestAction<List<Void>> refreshReactions(RestAction<Message> message) {
                     var pageCount = pageCount();
                     return message.flatMap(msg -> {
+                        var emojis = concat(of(EMOJI_DELETE, EMOJI_REFRESH),
+                                (pageCount <= 9
+                                 ? Arrays.stream(EMOJI_NUMBER).skip(1).limit(pageCount)
+                                 : of(EMOJI_FIRST_PAGE, EMOJI_PREV_PAGE, EMOJI_NEXT_PAGE, EMOJI_LAST_PAGE))).map(Emoji::fromUnicode).toList();
+                        return concat(
+                                // remove excess page numbers
+                                Arrays.stream(EMOJI_NUMBER)
+                                        .skip(1 + pageCount())
+                                        .map(Emoji::fromUnicode)
+                                        .filter(emoji -> msg.getReaction(emoji) != null),
+                                // add new reactions
+                                emojis.stream().filter(emoji -> msg.getReaction(emoji) == null)).findAny().isPresent();
+                    }, msg -> {
                         this.message = msg;
                         var emojis = concat(of(EMOJI_DELETE, EMOJI_REFRESH),
                                 (pageCount <= 9
                                  ? Arrays.stream(EMOJI_NUMBER).skip(1).limit(pageCount)
                                  : of(EMOJI_FIRST_PAGE, EMOJI_PREV_PAGE, EMOJI_NEXT_PAGE, EMOJI_LAST_PAGE))).map(Emoji::fromUnicode).toList();
-
                         return RestAction.allOf(concat(
                                 // remove excess page numbers
                                 Arrays.stream(EMOJI_NUMBER)
