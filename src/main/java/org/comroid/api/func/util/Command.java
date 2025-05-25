@@ -33,6 +33,7 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.message.MessageBulkDeleteEvent;
 import net.dv8tion.jda.api.events.message.MessageDeleteEvent;
 import net.dv8tion.jda.api.events.message.react.MessageReactionAddEvent;
+import net.dv8tion.jda.api.events.session.ShutdownEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.ICommandReference;
@@ -1046,6 +1047,11 @@ public @interface Command {
                     this.perPage    = perPage;
 
                     channel.getJDA().addEventListener(this);
+                }
+
+                @Override
+                public void onShutdown(ShutdownEvent event) {
+                    close();
                 }
 
                 @Override
