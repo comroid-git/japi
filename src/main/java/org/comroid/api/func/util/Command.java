@@ -69,7 +69,7 @@ import org.comroid.api.attr.IntegerAttribute;
 import org.comroid.api.attr.LongAttribute;
 import org.comroid.api.attr.Named;
 import org.comroid.api.attr.StringAttribute;
-import org.comroid.api.data.seri.DataNode;
+import org.comroid.api.data.seri.adp.JSON;
 import org.comroid.api.data.seri.type.ArrayValueType;
 import org.comroid.api.data.seri.type.BoundValueType;
 import org.comroid.api.data.seri.type.StandardValueType;
@@ -111,6 +111,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -427,7 +428,7 @@ public @interface Command {
 
         protected final Usage createUsageBase(Handler source, String[] fullCommand, Object... baseArgs) {
             var baseNode = baseNodes.stream() // find base node to initiate advancing to execution node
-                    .filter(node -> node.aliases().anyMatch(fullCommand[0]::equals))
+                    .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
                     .flatMap(cast(Node.Callable.class))
                     .findAny()
                     .orElseThrow(() -> new Error("No such command: " + Arrays.toString(fullCommand)));
@@ -451,7 +452,17 @@ public @interface Command {
                 usage.advanceFull();
                 //todo verifyPermission(usage);
 
-                return (usage.node instanceof Node.Call call ? call.nodes()
+                if (!(argName.isBlank() || argName.matches("\\d+"))) {
+                    return usage.node.nodes()
+                            .flatMap(Streams.cast(Node.Parameter.class))
+                            .filter(node -> node.getName().equals(argName))
+                            .flatMap(param -> param.autoFill(usage, argName, currentValue))
+                            .filter(str -> {
+                                var current = currentValue == null ? "" : currentValue;
+                                return str.toLowerCase().startsWith(current.toLowerCase());
+                            })
+                            .map(str -> new AutoFillOption(str, str));
+                } else return (usage.node instanceof Node.Call call ? call.nodes()
                         .skip(usage.callIndex + usage.fullCommand.length - 2)
                         .limit(1)
                         .flatMap(param -> param.autoFill(usage, argName, currentValue)) : usage.node.nodes().map(Node::getName)).map(String::trim)
@@ -601,7 +612,7 @@ public @interface Command {
                         .stream()
                         .flatMap(cast(AutoFillProvider.class))
                         .findAny()
-                        .orElseGet(() -> Activator.get(providerType).createInstance(DataNode.Value.NULL));
+                        .orElseGet(() -> Activator.get(providerType).createInstance(JSON.Parser.createObjectNode()));
                 builder.autoFillProvider(provider);
             }
             return builder.build();
@@ -731,9 +742,9 @@ public @interface Command {
                 bus.flatMap(CommandAutoCompleteInteractionEvent.class).listen().subscribeData(event -> {
                     var option = event.getFocusedOption();
                     var options = autoComplete(Adapter$JDA.this,
-                            event.getCommandString().split(" "),
+                            event.getCommandString().substring(1).split(" "),
                             option.getName(),
-                            option.getValue()).map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key, e.description)).toList();
+                            option.getValue()).map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key, e.description)).limit(25).toList();
                     event.replyChoices(options).queue();
                 });
 
@@ -1332,7 +1343,7 @@ public @interface Command {
 
             @Override
             public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
-                return autoFillProviders.stream().flatMap(provider -> provider.autoFill(usage, argName, currentValue)).distinct();
+                return autoFillProviders.stream().filter(Objects::nonNull).flatMap(provider -> provider.autoFill(usage, argName, currentValue)).distinct();
             }
 
             @Override
