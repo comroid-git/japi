@@ -116,6 +116,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -1012,6 +1013,7 @@ public @interface Command {
             }
 
             @Value
+            @NonFinal
             public static class PaginatedList<T> extends ListenerAdapter implements UncheckedCloseable {
                 public static final String   EMOJI_DELETE     = "❌";
                 public static final String   EMOJI_REFRESH    = "🔄";
@@ -1022,34 +1024,26 @@ public @interface Command {
                 public static final String[] EMOJI_NUMBER     = new String[]{
                         "0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"
                 };
-                MessageChannelUnion channel;
-                Supplier<Stream<T>> source;
-                Comparator<T>       comparator;
-                Function<T, String> toString;
-                @Nullable Function<T, String> toDescription;
-                String title;
-                int    perPage;
-                @NonFinal           int     page = 1;
-                @NonFinal @Nullable Message message;
+                MessageChannelUnion             channel;
+                Supplier<Stream<T>>             source;
+                Comparator<T>                   comparator;
+                Function<T, MessageEmbed.Field> toField;
+                String                          title;
+                int                             perPage;
+                @NonFinal                   int                    page = 1;
+                @NonFinal @Nullable         Message                message;
+                @NonFinal @Setter @Nullable Consumer<EmbedBuilder> embedFinalizer;
 
                 public PaginatedList(
-                        MessageChannelUnion channel, Supplier<Stream<T>> source, Comparator<T> comparator, Function<T, String> toString,
+                        MessageChannelUnion channel, Supplier<Stream<T>> source, Comparator<T> comparator, Function<T, MessageEmbed.Field> toField,
                         String title, int perPage
                 ) {
-                    this(channel, source, comparator, toString, null, title, perPage);
-                }
-
-                public PaginatedList(
-                        MessageChannelUnion channel, Supplier<Stream<T>> source, Comparator<T> comparator, Function<T, String> toString,
-                        @Nullable Function<T, String> toDescription, String title, int perPage
-                ) {
-                    this.channel       = channel;
-                    this.source        = source;
-                    this.comparator    = comparator;
-                    this.toString      = toString;
-                    this.toDescription = toDescription;
-                    this.title         = title;
-                    this.perPage       = perPage;
+                    this.channel    = channel;
+                    this.source     = source;
+                    this.comparator = comparator;
+                    this.toField    = toField;
+                    this.title      = title;
+                    this.perPage    = perPage;
 
                     channel.getJDA().addEventListener(this);
                 }
@@ -1117,6 +1111,12 @@ public @interface Command {
                     return message(new MessageEditBuilder(), msg -> message.editMessage(msg.build()));
                 }
 
+                protected void finalizeEmbed(EmbedBuilder builder) {}
+
+                protected String pageText() {
+                    return "Page %d / %d".formatted(page, pageCount());
+                }
+
                 private <R extends MessageRequest<R>> RestAction<List<Void>> message(R request, Function<R, RestAction<Message>> executor) {
                     request.setEmbeds(createEmbed().build());
                     var message = executor.apply(request);
@@ -1124,17 +1124,11 @@ public @interface Command {
                 }
 
                 private EmbedBuilder createEmbed() {
-                    var embedBuilder = new EmbedBuilder().setTitle(title).setFooter("Seite %d / %d".formatted(page, pageCount()));
+                    var embedBuilder = new EmbedBuilder().setTitle(title).setFooter(pageText());
 
-                    var entries = source.get()
-                            .sorted(comparator)
-                            .skip((long) perPage * (page - 1))
-                            .limit(perPage)
-                            .map(it -> new MessageEmbed.Field(toString.apply(it),
-                                    toDescription == null ? "Keine Beschreibung" : toDescription.apply(it),
-                                    false))
-                            .toList();
+                    var entries = source.get().sorted(comparator).skip((long) perPage * (page - 1)).limit(perPage).map(toField).toList();
                     embedBuilder.getFields().addAll(entries);
+                    finalizeEmbed(embedBuilder);
 
                     return embedBuilder;
                 }
@@ -1148,10 +1142,7 @@ public @interface Command {
                                  : of(EMOJI_FIRST_PAGE, EMOJI_PREV_PAGE, EMOJI_NEXT_PAGE, EMOJI_LAST_PAGE))).map(Emoji::fromUnicode).toList();
                         return concat(
                                 // remove excess page numbers
-                                Arrays.stream(EMOJI_NUMBER)
-                                        .skip(1 + pageCount())
-                                        .map(Emoji::fromUnicode)
-                                        .filter(emoji -> msg.getReaction(emoji) != null),
+                                Arrays.stream(EMOJI_NUMBER).skip(1 + pageCount()).map(Emoji::fromUnicode).filter(emoji -> msg.getReaction(emoji) != null),
                                 // add new reactions
                                 emojis.stream().filter(emoji -> msg.getReaction(emoji) == null)).findAny().isPresent();
                     }, msg -> {
