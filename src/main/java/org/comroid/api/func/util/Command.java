@@ -365,11 +365,24 @@ public @interface Command {
 
         @SuppressWarnings("UnusedReturnValue")
         public final Set<Node> register(final Object target) {
-            var klass = target instanceof Class<?> cls0 ? cls0 : target.getClass();
-            var nodes = new HashSet<Node>();
+            var klass  = target instanceof Class<?> cls0 ? cls0 : target.getClass();
+            var groups = new ArrayList<Node.Group>();
+            var calls  = new ArrayList<Node.Call>();
 
-            registerGroups(target, nodes, klass);
-            registerCalls(target, nodes, klass);
+            registerGroups(target, groups, klass);
+            registerCalls(target, calls, klass);
+
+            Set<Node> nodes;
+            var       attr = klass.getAnnotation(Command.class);
+            if (attr != null) nodes = Set.of(Node.Group.builder()
+                    .attribute(attr)
+                    .name(EmptyAttribute.equals(attr.value()) ? klass.getSimpleName() : attr.value())
+                    .source(klass)
+                    .groups(groups)
+                    .calls(calls)
+                    .defaultCall(calls.stream().filter(call -> "$".equals(call.name())).findAny().orElse(null))
+                    .build());
+            else nodes = Stream.concat(groups.stream(), calls.stream()).collect(Collectors.toUnmodifiableSet());
 
             baseNodes.addAll(nodes);
             return nodes;
@@ -546,9 +559,7 @@ public @interface Command {
                                 .or(() -> Optional.ofNullable(finalParamNode.defaultValue()).map(Polyfill::uncheckedCast))
                                 .map(it -> {
                                     var type = finalParamNode.getParam().getType();
-                                    return StandardValueType.forClass(type)
-                                            .map(vt -> (Object) vt.parse(Objects.toString(it)))
-                                            .orElseGet(() -> type.cast(it));
+                                    return StandardValueType.forClass(type).map(vt -> (Object) vt.parse(Objects.toString(it))).orElseGet(() -> type.cast(it));
                                 })
                                 .orElse(null);
                     } else {
