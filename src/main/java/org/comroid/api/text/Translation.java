@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
@@ -62,7 +63,7 @@ public class Translation {
         @SneakyThrows
         public LangFileResourceBundle(InputStream data) {
             strings = new Properties() {{
-                load(data);
+                load(new InputStreamReader(data));
             }};
         }
 
