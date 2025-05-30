@@ -82,6 +82,7 @@ import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.StackTraceUtils;
 import org.comroid.api.text.Capitalization;
 import org.comroid.api.text.StringMode;
+import org.comroid.api.text.Translation;
 import org.comroid.api.tree.Container;
 import org.comroid.api.tree.Initializable;
 import org.comroid.api.tree.UncheckedCloseable;
@@ -1389,7 +1390,7 @@ public @interface Command {
 
         @lombok.Builder
         public Error(@Nullable String message, @Nullable Throwable cause, @Nullable Object response, @Nullable Usage command) {
-            super(message, cause);
+            super(Translation.str(message), cause);
             this.response = response;
             this.command  = command;
         }
