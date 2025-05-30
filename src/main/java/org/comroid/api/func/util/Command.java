@@ -544,7 +544,12 @@ public @interface Command {
                         useArgs[i] = Optional.ofNullable(namedArgs.get(paramNode.getName()))
                                 .or(() -> usage.context.stream().flatMap(cast(finalParamNode.param.getType())).findAny())
                                 .or(() -> Optional.ofNullable(finalParamNode.defaultValue()).map(Polyfill::uncheckedCast))
-                                .map(it -> StandardValueType.forClass(finalParamNode.getParam().getType()).assertion().parse(Objects.toString(it)))
+                                .map(it -> {
+                                    var type = finalParamNode.getParam().getType();
+                                    return StandardValueType.forClass(type)
+                                            .map(vt -> (Object) vt.parse(Objects.toString(it)))
+                                            .orElseGet(() -> type.cast(it));
+                                })
                                 .orElse(null);
                     } else {
                         // eg. console, minecraft
