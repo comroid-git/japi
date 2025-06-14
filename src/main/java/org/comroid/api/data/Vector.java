@@ -53,6 +53,22 @@ public interface Vector {
         throw outOfBounds(dim.length);
     }
 
+    static Vector min(Vector a, Vector b) {
+        var vec = a.ctor();
+        for (var dim = 0; dim < a.n(); dim++) vec.set(dim, Math.min(a.get(dim), b.get(dim)));
+        return vec;
+    }
+
+    static Vector max(Vector a, Vector b) {
+        var vec = a.ctor();
+        for (var dim = 0; dim < a.n(); dim++) vec.set(dim, Math.max(a.get(dim), b.get(dim)));
+        return vec;
+    }
+
+    static Vector rel(Vector root, Vector vector) {
+        return root.subi(vector);
+    }
+
     double getX();
 
     Vector setX(double value);
@@ -223,13 +239,15 @@ public interface Vector {
     }
 
     default N2 as2() {
-        return (N2)this;
+        return (N2) this;
     }
+
     default N3 as3() {
-        return (N3)this;
+        return (N3) this;
     }
+
     default N4 as4() {
-        return (N4)this;
+        return (N4) this;
     }
 
     private static UnsupportedOperationException outOfBounds(int n) {
@@ -241,7 +259,7 @@ public interface Vector {
     @FieldDefaults(level = AccessLevel.PROTECTED)
     class N2 implements Vector {
         public static final N2 Zero = new N2();
-        public static final N2 One = new N2(1, 1);
+        public static final N2 One  = new N2(1, 1);
         double x, y;
 
         public N2(double x, double y) {
@@ -304,8 +322,8 @@ public interface Vector {
     @EqualsAndHashCode(callSuper = true)
     @FieldDefaults(level = AccessLevel.PROTECTED)
     class N3 extends N2 {
-        public static final N3 Zero = new N3();
-        public static final N3 One  = new N3(1, 1, 1);
+        public static final N3     Zero = new N3();
+        public static final N3     One  = new N3(1, 1, 1);
         @Setter             double z;
 
         public N3(double x, double y, double z) {
@@ -339,7 +357,7 @@ public interface Vector {
             @Override
             public byte[] convertToDatabaseColumn(N3 attribute) {
                 var buf = ByteBuffer.allocate(attribute.n() */*byte count of double*/8);
-                var i = -8;
+                var i   = -8;
                 buf.putDouble(i += 8, attribute.x);
                 buf.putDouble(i += 8, attribute.y);
                 buf.putDouble(i, attribute.z);
@@ -349,10 +367,10 @@ public interface Vector {
             @Override
             public N3 convertToEntityAttribute(byte[] dbData) {
                 var buf = ByteBuffer.wrap(dbData);
-                var i = -8;
-                var x = buf.getDouble(i += 8);
-                var y = buf.getDouble(i += 8);
-                var z = buf.getDouble(i);
+                var i   = -8;
+                var x   = buf.getDouble(i += 8);
+                var y   = buf.getDouble(i += 8);
+                var z   = buf.getDouble(i);
                 return new N3(x, y, z);
             }
         }
@@ -393,7 +411,7 @@ public interface Vector {
             @Override
             public byte[] convertToDatabaseColumn(N4 attribute) {
                 var buf = ByteBuffer.allocate(attribute.n() */*byte count of double*/8);
-                var i = -8;
+                var i   = -8;
                 buf.putDouble(i += 8, attribute.x);
                 buf.putDouble(i += 8, attribute.y);
                 buf.putDouble(i += 8, attribute.z);
@@ -404,11 +422,11 @@ public interface Vector {
             @Override
             public N4 convertToEntityAttribute(byte[] dbData) {
                 var buf = ByteBuffer.wrap(dbData);
-                var i = -8;
-                var x = buf.getDouble(i += 8);
-                var y = buf.getDouble(i += 8);
-                var z = buf.getDouble(i += 8);
-                var w = buf.getDouble(i);
+                var i   = -8;
+                var x   = buf.getDouble(i += 8);
+                var y   = buf.getDouble(i += 8);
+                var z   = buf.getDouble(i += 8);
+                var w   = buf.getDouble(i);
                 return new N4(x, y, z, w);
             }
         }
