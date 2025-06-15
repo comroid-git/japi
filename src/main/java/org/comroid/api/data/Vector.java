@@ -69,6 +69,14 @@ public interface Vector {
         return root.subi(vector);
     }
 
+    static double dist(Vector a, Vector b) {
+        Vector min = min(a, b), max = max(a, b);
+        var    acc = 0.0;
+        for (var i = 0; i < a.n(); i++)
+            acc += Math.pow(max.get(i) - min.get(i), 2);
+        return Math.sqrt(acc);
+    }
+
     double getX();
 
     Vector setX(double value);
