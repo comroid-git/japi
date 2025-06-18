@@ -23,7 +23,7 @@ import java.util.stream.IntStream;
 import static java.lang.Math.*;
 
 @SuppressWarnings("unused")
-public interface Vector {
+public interface Vector extends Cloneable {
     int    IndexX = 0;
     int    IndexY = 1;
     int    IndexZ = 2;
@@ -264,6 +264,7 @@ public interface Vector {
 
     @Data
     @NoArgsConstructor
+    @EqualsAndHashCode(of = { "x", "y" })
     @FieldDefaults(level = AccessLevel.PROTECTED)
     class N2 implements Vector {
         public static final N2 Zero = new N2();
@@ -310,11 +311,6 @@ public interface Vector {
             return new N2(dim[0], dim[1]);
         }
 
-        @ApiStatus.Experimental
-        public N3 to3(double z) {
-            return new N3(x, y, z);
-        }
-
         @Override
         public final String toString() {
             final var dims = new char[]{ 'x', 'y', 'z', 'w' };
@@ -323,12 +319,17 @@ public interface Vector {
                 ls += "" + dims[n] + '=' + get(n) + ';';
             return ls.substring(0, ls.length() - 1) + ')';
         }
+
+        @ApiStatus.Experimental
+        public N3 to3(double z) {
+            return new N3(x, y, z);
+        }
     }
 
     @Getter
     @NoArgsConstructor
-    @EqualsAndHashCode(callSuper = true)
     @FieldDefaults(level = AccessLevel.PROTECTED)
+    @EqualsAndHashCode(of = "z", callSuper = true)
     class N3 extends N2 {
         public static final N3     Zero = new N3();
         public static final N3     One  = new N3(1, 1, 1);
@@ -386,8 +387,8 @@ public interface Vector {
 
     @Getter
     @NoArgsConstructor
-    @EqualsAndHashCode(callSuper = true)
     @FieldDefaults(level = AccessLevel.PROTECTED)
+    @EqualsAndHashCode(of = "w", callSuper = true)
     class N4 extends N3 {
         public static final N4     Zero = new N4();
         public static final N4     One  = new N4(1, 1, 1, 1);
