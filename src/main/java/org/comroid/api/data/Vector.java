@@ -3,7 +3,6 @@ package org.comroid.api.data;
 import jakarta.persistence.AttributeConverter;
 import lombok.AccessLevel;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -15,6 +14,7 @@ import org.jetbrains.annotations.Contract;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.DoubleUnaryOperator;
 import java.util.stream.DoubleStream;
@@ -42,15 +42,12 @@ public interface Vector extends Cloneable {
     }
 
     static Vector of(double... dim) {
-        switch (dim.length) {
-            case 2:
-                return new N2(dim[0], dim[1]);
-            case 3:
-                return new N3(dim[0], dim[1], dim[2]);
-            case 4:
-                return new N4(dim[0], dim[1], dim[2], dim[3]);
-        }
-        throw outOfBounds(dim.length);
+        return switch (dim.length) {
+            case 2 -> new N2(dim[0], dim[1]);
+            case 3 -> new N3(dim[0], dim[1], dim[2]);
+            case 4 -> new N4(dim[0], dim[1], dim[2], dim[3]);
+            default -> throw outOfBounds(dim.length);
+        };
     }
 
     static Vector min(Vector a, Vector b) {
@@ -73,8 +70,8 @@ public interface Vector extends Cloneable {
         Vector min = min(a, b), max = max(a, b);
         var    acc = 0.0;
         for (var i = 0; i < a.n(); i++)
-            acc += Math.pow(max.get(i) - min.get(i), 2);
-        return Math.sqrt(acc);
+            acc += pow(max.get(i) - min.get(i), 2);
+        return sqrt(acc);
     }
 
     double getX();
@@ -264,7 +261,6 @@ public interface Vector extends Cloneable {
 
     @Data
     @NoArgsConstructor
-    @EqualsAndHashCode(of = { "x", "y" })
     @FieldDefaults(level = AccessLevel.PROTECTED)
     class N2 implements Vector {
         public static final N2 Zero = new N2();
@@ -312,11 +308,25 @@ public interface Vector extends Cloneable {
         }
 
         @Override
+        public final int hashCode() {
+            return Objects.hash((Object[]) stream().boxed().toArray(Double[]::new));
+        }
+
+        @Override
+        public final boolean equals(Object o) {
+            if (!(o instanceof Vector ov)) return false;
+            double[] it = toArray(), ot = ov.toArray();
+            var      eq = 0;
+            for (var i = 0; i < n(); i++) if (abs(Double.compare(it[i], ot[i])) < 0.000_01) eq++;
+            return eq == n();
+        }
+
+        @Override
         public final String toString() {
             final var dims = new char[]{ 'x', 'y', 'z', 'w' };
-            var       ls   = "(";
+            var       ls   = new StringBuilder("(");
             for (var n = 0; n < n(); n++)
-                ls += "" + dims[n] + '=' + get(n) + ';';
+                ls.append(dims[n]).append('=').append(get(n)).append(';');
             return ls.substring(0, ls.length() - 1) + ')';
         }
 
@@ -329,7 +339,6 @@ public interface Vector extends Cloneable {
     @Getter
     @NoArgsConstructor
     @FieldDefaults(level = AccessLevel.PROTECTED)
-    @EqualsAndHashCode(of = "z", callSuper = true)
     class N3 extends N2 {
         public static final N3     Zero = new N3();
         public static final N3     One  = new N3(1, 1, 1);
@@ -388,7 +397,6 @@ public interface Vector extends Cloneable {
     @Getter
     @NoArgsConstructor
     @FieldDefaults(level = AccessLevel.PROTECTED)
-    @EqualsAndHashCode(of = "w", callSuper = true)
     class N4 extends N3 {
         public static final N4     Zero = new N4();
         public static final N4     One  = new N4(1, 1, 1, 1);
