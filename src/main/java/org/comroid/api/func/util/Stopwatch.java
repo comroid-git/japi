@@ -4,11 +4,10 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static java.time.Instant.*;
+import static java.lang.System.*;
 
 @Getter
 @RequiredArgsConstructor
@@ -26,15 +25,16 @@ public final class Stopwatch {
     public static Duration stop(Object key) {
         return get(key).stop();
     }
-    private final Object  key;
-    private       Instant start;
+
+    private final Object key;
+    private       long   start;
 
     public Stopwatch start() {
-        start = now();
+        start = nanoTime();
         return this;
     }
 
     public Duration stop() {
-        return Duration.between(start, now());
+        return Duration.ofNanos(nanoTime() - start);
     }
 }
