@@ -255,6 +255,10 @@ public interface Vector extends Cloneable {
         return (N4) this;
     }
 
+    default Vector negate() {
+        return map(x -> -x);
+    }
+
     private static UnsupportedOperationException outOfBounds(int n) {
         return new UnsupportedOperationException("Unsupported Vector dimension: " + n);
     }
