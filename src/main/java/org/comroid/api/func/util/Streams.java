@@ -20,6 +20,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.Spliterator;
@@ -102,7 +103,7 @@ public class Streams {
     }
 
     public static <I, O> Function<I, Stream<O>> cast(final Class<O> type) {
-        return obj -> Stream.of(obj).filter(type::isInstance).map(type::cast);
+        return obj -> Stream.of(obj).filter(Objects::nonNull).filter(type::isInstance).map(type::cast);
     }
 
     public static <T> Collector<T, List<T>, Optional<T>> oneOrNone(final @Nullable Supplier<RuntimeException> exception) {
