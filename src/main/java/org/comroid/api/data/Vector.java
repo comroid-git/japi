@@ -90,6 +90,16 @@ public interface Vector extends Cloneable {
 
     Vector setW(double value);
 
+    @SuppressWarnings("MethodDoesntCallSuperMethod")
+    default Vector clone() {
+        return switch (n()) {
+            case 2 -> new N2(getX(), getY());
+            case 3 -> new N3(getX(), getY(), getZ());
+            case 4 -> new N4(getX(), getY(), getZ(), getW());
+            default -> throw new RuntimeException(new CloneNotSupportedException());
+        };
+    }
+
     default Vector intCast() {
         return map(x -> (int) x);
     }
@@ -323,6 +333,11 @@ public interface Vector extends Cloneable {
             var      eq = 0;
             for (var i = 0; i < n(); i++) if (abs(Double.compare(it[i], ot[i])) < 0.000_01) eq++;
             return eq == n();
+        }
+
+        @Override
+        public Vector clone() {
+            return Vector.super.clone();
         }
 
         @Override
