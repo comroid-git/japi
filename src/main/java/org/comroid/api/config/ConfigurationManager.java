@@ -131,7 +131,10 @@ public class ConfigurationManager<T extends DataNode> {
             if (propType.isStandard() || classes != null) {
                 if (propType.isStandard() && value == null) value = propType.parse(node.asString());
                 property.setFor(it, uncheckedCast(value));
-            } else setSelfAndChildrenRecursive(DataStructure.of(propType.getTargetClass()), property.getFrom(it), node);
+            } else //noinspection ConstantValue <- false positive for some reason
+                if (node != null) setSelfAndChildrenRecursive(DataStructure.of(propType.getTargetClass()),
+                    property.getFrom(it),
+                    node);
         }
     }
 
