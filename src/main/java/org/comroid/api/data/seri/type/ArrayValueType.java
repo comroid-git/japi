@@ -22,7 +22,8 @@ public class ArrayValueType<T> implements ValueType<T>, HtmlReadonlyStringInputD
     public static final Map<Class<?>, ArrayValueType<?>> cache = Collections.unmodifiableMap($cache);
 
     public static <T> ArrayValueType<T> of(Class<? extends T> type) {
-        return Polyfill.uncheckedCast($cache.computeIfAbsent(type.arrayType(), ArrayValueType::new));
+        return Polyfill.uncheckedCast($cache.computeIfAbsent(type.isArray() ? type : type.arrayType(),
+                ArrayValueType::new));
     }
 
     Class<T> targetClass;
