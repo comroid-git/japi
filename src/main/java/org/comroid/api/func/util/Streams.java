@@ -2,6 +2,7 @@ package org.comroid.api.func.util;
 
 import lombok.Value;
 import lombok.experimental.UtilityClass;
+import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Named;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -102,11 +103,17 @@ public class Streams {
         return t -> filter.test(t) ? mapper.apply(t) : t;
     }
 
+    public static <T> Function<?, T> cast() {
+        return Polyfill::uncheckedCast;
+    }
+
     public static <I, O> Function<I, Stream<O>> cast(final Class<O> type) {
         return obj -> Stream.of(obj).filter(Objects::nonNull).filter(type::isInstance).map(type::cast);
     }
 
-    public static <T> Collector<T, List<T>, Optional<T>> oneOrNone(final @Nullable Supplier<RuntimeException> exception) {
+    public static <T> Collector<T, List<T>, Optional<T>> oneOrNone(
+            final @Nullable Supplier<RuntimeException> exception
+    ) {
         return Collector.of(ArrayList::new, List::add, (l, r) -> {
             l.addAll(r);
             return l;
@@ -120,8 +127,9 @@ public class Streams {
     }
 
     public static String intString(IntStream intStream) {
-        return intStream.collect(() -> new AtomicReference<>(""), (l, r) -> l.updateAndGet(s -> s + (char) r), (l, r) -> l.updateAndGet(s -> s + r.get()))
-                .get();
+        return intStream.collect(() -> new AtomicReference<>(""),
+                (l, r) -> l.updateAndGet(s -> s + (char) r),
+                (l, r) -> l.updateAndGet(s -> s + r.get())).get();
     }
 
     /* todo
@@ -148,21 +156,25 @@ public class Streams {
         return expand(identity(), by);
     }
 
-    public static <T, R> Function<T, Stream<R>> expand(Function<? super T, R> base, Function<? super T, Stream<? extends R>> by) {
+    public static <T, R> Function<T, Stream<R>> expand(
+            Function<? super T, R> base, Function<? super T, Stream<? extends R>> by) {
         return it -> concat(Stream.of(it).map(base), by.apply(it));
     }
 
     @SuppressWarnings("ReplaceInefficientStreamCount")
     public static <T> Collector<T, Set<T>, Stream<T>> expandRecursive(Function<? super T, Stream<? extends T>> by) {
-        return Collector.of(HashSet::new, Collection::add, (l, r) -> concat(l.stream(), r.stream()).collect(Collectors.toSet()), out -> {
-            Set<T> ls = new HashSet<>(), buf1 = out, buf2 = ls;
-            while (buf1.stream().flatMap(by).filter(buf2::add).count() > 0) {
-                var buf0 = buf1;
-                buf1 = buf2;
-                buf2 = buf0;
-            }
-            return concat(buf1.stream(), buf2.stream()).distinct();
-        });
+        return Collector.of(HashSet::new,
+                Collection::add,
+                (l, r) -> concat(l.stream(), r.stream()).collect(Collectors.toSet()),
+                out -> {
+                    Set<T> ls = new HashSet<>(), buf1 = out, buf2 = ls;
+                    while (buf1.stream().flatMap(by).filter(buf2::add).count() > 0) {
+                        var buf0 = buf1;
+                        buf1 = buf2;
+                        buf2 = buf0;
+                    }
+                    return concat(buf1.stream(), buf2.stream()).distinct();
+                });
     }
 
     public static <T> Collector<T, List<T>, List<List<T>>> groupingEvery(long groupSize) {
@@ -210,7 +222,10 @@ public class Streams {
     }
 
     @Deprecated(forRemoval = true)
-    public static <T, C> Comparator<T> comparatorAdapter(final @NotNull Function<T, C> mapper, final @NotNull Comparator<C> comparator) {
+    public static <T, C> Comparator<T> comparatorAdapter(
+            final @NotNull Function<T, C> mapper,
+            final @NotNull Comparator<C> comparator
+    ) {
         return (a, b) -> comparator.compare(mapper.apply(a), mapper.apply(b));
     }
 
@@ -221,11 +236,13 @@ public class Streams {
         };
     }
 
-    public static <Outer, Inner> Consumer<Outer> proxy(final Function<Outer, Inner> mapper, final Consumer<Inner> test) {
+    public static <Outer, Inner> Consumer<Outer> proxy(
+            final Function<Outer, Inner> mapper, final Consumer<Inner> test) {
         return outer -> test.accept(mapper.apply(outer));
     }
 
-    public static <Outer, Inner> Predicate<Outer> proxy(final Function<Outer, Inner> mapper, final Predicate<Inner> test) {
+    public static <Outer, Inner> Predicate<Outer> proxy(
+            final Function<Outer, Inner> mapper, final Predicate<Inner> test) {
         return outer -> test.test(mapper.apply(outer));
     }
 
@@ -233,7 +250,8 @@ public class Streams {
         return merge(DesyncStrategy.SYNC_ONLY, left, right);
     }
 
-    public static <T, L extends T, R extends T> Stream<Tuple.N2<L, R>> merge(DesyncStrategy strategy, Stream<L> left, Stream<R> right) {
+    public static <T, L extends T, R extends T> Stream<Tuple.N2<L, R>> merge(
+            DesyncStrategy strategy, Stream<L> left, Stream<R> right) {
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(new Iterator<>() {
             final boolean     fill = strategy == DesyncStrategy.FILL_NULL;
             final Iterator<L> l    = left.sequential().iterator();
@@ -310,7 +328,8 @@ public class Streams {
                 return l.getAsBoolean() | r.getAsBoolean();
             }
         };
-        public final java.util.stream.Collector<@NotNull BooleanSupplier, @NotNull Boolean, @NotNull Boolean> Collector = java.util.stream.Collector.of(() -> false,
+        public final java.util.stream.Collector<@NotNull BooleanSupplier, @NotNull Boolean, @NotNull Boolean> Collector = java.util.stream.Collector.of(
+                () -> false,
                 (l, r) -> test(() -> l, r),
                 (l, r) -> test(() -> l, () -> r));
 
@@ -344,7 +363,9 @@ public class Streams {
         }
 
         @WrapWith("flatMap")
-        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> routeA(final @NotNull Function<Stream<Entry<A, B>>, Stream<X>> function) {
+        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> routeA(
+                final @NotNull Function<Stream<Entry<A, B>>, Stream<X>> function
+        ) {
             return flatMap(Adapter.sideA(), (e, a) -> function.apply(Stream.of(e)));
         }
 
@@ -357,7 +378,9 @@ public class Streams {
         }
 
         @WrapWith("flatMap")
-        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> routeB(final @NotNull Function<Stream<Entry<A, B>>, Stream<Y>> function) {
+        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> routeB(
+                final @NotNull Function<Stream<Entry<A, B>>, Stream<Y>> function
+        ) {
             return flatMap(Adapter.sideB(), (e, b) -> function.apply(Stream.of(e)));
         }
 
@@ -376,7 +399,8 @@ public class Streams {
                 final @NotNull BiFunction<A, B, X> xFunction,
                 final @NotNull BiFunction<A, B, Y> yFunction
         ) {
-            return e -> new SimpleImmutableEntry<>(xFunction.apply(e.getKey(), e.getValue()), yFunction.apply(e.getKey(), e.getValue()));
+            return e -> new SimpleImmutableEntry<>(xFunction.apply(e.getKey(), e.getValue()),
+                    yFunction.apply(e.getKey(), e.getValue()));
         }
 
         @WrapWith("map")
@@ -407,7 +431,10 @@ public class Streams {
         }
 
         @WrapWith("peek")
-        public <A, B> Consumer<Entry<? extends A, ? extends B>> peek(final @NotNull Consumer<A> aConsumer, final @NotNull Consumer<B> bConsumer) {
+        public <A, B> Consumer<Entry<? extends A, ? extends B>> peek(
+                final @NotNull Consumer<A> aConsumer,
+                final @NotNull Consumer<B> bConsumer
+        ) {
             return peek((a, b) -> {
                 aConsumer.accept(a);
                 bConsumer.accept(b);
@@ -438,7 +465,8 @@ public class Streams {
 
         @WrapWith("flatMap")
         public <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filter(
-                final @NotNull OP op, final @NotNull Predicate<A> aPredicate,
+                final @NotNull OP op,
+                final @NotNull Predicate<A> aPredicate,
                 final @NotNull Predicate<B> bPredicate
         ) {
             return filter((a, b) -> op.test(() -> aPredicate.test(a), () -> bPredicate.test(b)));
@@ -467,7 +495,10 @@ public class Streams {
         }
 
         @WrapWith("flatMap")
-        public <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filter(@NotNull Predicate<A> aPredicate, @NotNull Predicate<B> bPredicate) {
+        public <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filter(
+                @NotNull Predicate<A> aPredicate,
+                @NotNull Predicate<B> bPredicate
+        ) {
             return filter(OP.LogicalAnd, aPredicate, bPredicate);
         }
 
@@ -477,22 +508,25 @@ public class Streams {
         }
 
         @WrapWith("flatMap")
-        public <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filterA(final @NotNull Predicate<A> predicate, final @NotNull Consumer<A> disposal) {
+        public <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filterA(
+                final @NotNull Predicate<A> predicate,
+                final @NotNull Consumer<A> disposal
+        ) {
             return filter(predicate, disposal, $ -> true, nop());
         }
 
         @WrapWith("flatMap")
         public <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filter(
-                final @NotNull Predicate<A> aPredicate, final @NotNull Consumer<A> aDisposal, final @NotNull Predicate<B> bPredicate,
-                final @NotNull Consumer<B> bDisposal
+                final @NotNull Predicate<A> aPredicate, final @NotNull Consumer<A> aDisposal,
+                final @NotNull Predicate<B> bPredicate, final @NotNull Consumer<B> bDisposal
         ) {
             return filter(OP.LogicalAnd, aPredicate, aDisposal, bPredicate, bDisposal);
         }
 
         @WrapWith("flatMap")
         public <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filter(
-                final @NotNull OP op, final @NotNull Predicate<A> aPredicate, final @NotNull Consumer<A> aDisposal, final @NotNull Predicate<B> bPredicate,
-                final @NotNull Consumer<B> bDisposal
+                final @NotNull OP op, final @NotNull Predicate<A> aPredicate, final @NotNull Consumer<A> aDisposal,
+                final @NotNull Predicate<B> bPredicate, final @NotNull Consumer<B> bDisposal
         ) {
             return filter((a, b) -> op.test(() -> aPredicate.test(a), () -> bPredicate.test(b)), (a, b) -> {
                 aDisposal.accept(a);
@@ -501,7 +535,10 @@ public class Streams {
         }
 
         @WrapWith("flatMap")
-        public <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filterB(final @NotNull Predicate<B> predicate, final @NotNull Consumer<B> disposal) {
+        public <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filterB(
+                final @NotNull Predicate<B> predicate,
+                final @NotNull Consumer<B> disposal
+        ) {
             return filter($ -> true, nop(), predicate, disposal);
         }
 
@@ -513,7 +550,10 @@ public class Streams {
         }
 
         @WrapWith("map")
-        public <A, B, X, Y> Function<Entry<A, B>, Entry<X, Y>> map(final @NotNull Function<A, X> axFunction, final @NotNull Function<B, Y> byFunction) {
+        public <A, B, X, Y> Function<Entry<A, B>, Entry<X, Y>> map(
+                final @NotNull Function<A, X> axFunction,
+                final @NotNull Function<B, Y> byFunction
+        ) {
             return e -> new SimpleImmutableEntry<>(axFunction.apply(e.getKey()), byFunction.apply(e.getValue()));
         }
 
@@ -530,27 +570,37 @@ public class Streams {
         //endregion
         //region flatMap
         @WrapWith("flatMap")
-        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(final @NotNull Function<A, Stream<X>> function) {
+        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(
+                final @NotNull Function<A, Stream<X>> function
+        ) {
             return flatMapA((e, a) -> function.apply(a));
         }
 
         @WrapWith("flatMap")
-        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(final @NotNull BiFunction<Entry<A, B>, A, Stream<X>> function) {
+        public <A, B, X> Function<Entry<A, B>, Stream<Entry<X, B>>> flatMapA(
+                final @NotNull BiFunction<Entry<A, B>, A, Stream<X>> function
+        ) {
             return flatMap(Adapter.sideA(), function);
         }
 
         @WrapWith("flatMap")
-        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(final @NotNull Function<B, Stream<Y>> function) {
+        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(
+                final @NotNull Function<B, Stream<Y>> function
+        ) {
             return flatMapB((e, b) -> function.apply(b));
         }
 
         @WrapWith("flatMap")
-        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(final @NotNull BiFunction<Entry<A, B>, B, Stream<Y>> function) {
+        public <A, B, Y> Function<Entry<A, B>, Stream<Entry<A, Y>>> flatMapB(
+                final @NotNull BiFunction<Entry<A, B>, B, Stream<Y>> function
+        ) {
             return flatMap(Adapter.sideB(), function);
         }
 
         @WrapWith("flatMap")
-        public <A, B, X, Y> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(final @NotNull Function<Stream<Entry<A, B>>, Stream<Entry<X, Y>>> function) {
+        public <A, B, X, Y> Function<Entry<A, B>, Stream<Entry<X, Y>>> flatMap(
+                final @NotNull Function<Stream<Entry<A, B>>, Stream<Entry<X, Y>>> function
+        ) {
             return flatMap(Adapter.tunnel(), ($, e) -> function.apply(Stream.of(e)));
         }
 
@@ -577,17 +627,26 @@ public class Streams {
         //region cast
         @WrapWith("flatMap")
         public <X, Y> Function<Entry<?, Y>, Stream<Entry<X, Y>>> castA(final @NotNull Class<X> type) {
-            return e -> Stream.of(e.getKey()).flatMap(Streams.cast(type)).map(a -> new SimpleImmutableEntry<>(a, e.getValue()));
+            return e -> Stream.of(e.getKey())
+                    .flatMap(Streams.cast(type))
+                    .map(a -> new SimpleImmutableEntry<>(a, e.getValue()));
         }
 
         @WrapWith("flatMap")
         public <X, Y> Function<Entry<X, ?>, Stream<Entry<X, Y>>> castB(final @NotNull Class<Y> type) {
-            return e -> Stream.of(e.getValue()).flatMap(Streams.cast(type)).map(b -> new SimpleImmutableEntry<>(e.getKey(), b));
+            return e -> Stream.of(e.getValue())
+                    .flatMap(Streams.cast(type))
+                    .map(b -> new SimpleImmutableEntry<>(e.getKey(), b));
         }
 
         @WrapWith("flatMap")
-        public <X, Y> Function<Entry<?, ?>, Stream<Entry<X, Y>>> cast(final @NotNull Class<X> aType, final @NotNull Class<Y> bType) {
-            return e -> Stream.of(e).flatMap(filter(aType::isInstance, bType::isInstance)).map(map(aType::cast, bType::cast));
+        public <X, Y> Function<Entry<?, ?>, Stream<Entry<X, Y>>> cast(
+                final @NotNull Class<X> aType,
+                final @NotNull Class<Y> bType
+        ) {
+            return e -> Stream.of(e)
+                    .flatMap(filter(aType::isInstance, bType::isInstance))
+                    .map(map(aType::cast, bType::cast));
         }
 
         //endregion
@@ -598,7 +657,10 @@ public class Streams {
         }
 
         @WrapWith("forEach")
-        public <A, B> Consumer<Entry<A, B>> forEach(final @NotNull Consumer<A> aConsumer, final @NotNull Consumer<B> bConsumer) {
+        public <A, B> Consumer<Entry<A, B>> forEach(
+                final @NotNull Consumer<A> aConsumer,
+                final @NotNull Consumer<B> bConsumer
+        ) {
             return forEach((a, b) -> {
                 aConsumer.accept(a);
                 bConsumer.accept(b);
