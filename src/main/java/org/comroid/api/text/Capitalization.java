@@ -28,20 +28,15 @@ import java.util.stream.Stream;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public enum Capitalization implements Named, Comparator<String> {
-    @Alias("camelBackCase")
-    lowerCamelCase(State.Lower, State.Lower, State.Upper, null), // "lowerCamelCase"
-    @Alias("PascalCase")
-    UpperCamelCase(State.Upper, State.Lower, State.Upper, null), // "UpperCamelCase"
+    @Alias("camelBackCase") lowerCamelCase(State.Lower, State.Lower, State.Upper, null), // "lowerCamelCase"
+    @Alias("PascalCase") UpperCamelCase(State.Upper, State.Lower, State.Upper, null), // "UpperCamelCase"
 
     lower_snake_case(State.Lower, State.Lower, State.Lower, '_'), // "lower_snake_case"
     Upper_Snake_Case(State.Upper, State.Lower, State.Upper, '_'), // "Upper_Snake_Case"
-    @Alias("SCREAMING_SNAKE_CASE")
-    CAPS_SNAKE_CASE(State.Upper, State.Upper, State.Upper, '_'), // "CAPS_SNAKE_CASE"
+    @Alias("SCREAMING_SNAKE_CASE") CAPS_SNAKE_CASE(State.Upper, State.Upper, State.Upper, '_'), // "CAPS_SNAKE_CASE"
 
-    @Alias("kebab-case")
-    lower_hyphen_case(State.Lower, State.Lower, State.Lower, '-'), // "lower-hyphen-case"
-    @Alias("Train-Case")
-    Upper_Hyphen_Case(State.Upper, State.Lower, State.Upper, '-'), // "Upper-Hyphen-Case"
+    @Alias("kebab-case") lower_hyphen_case(State.Lower, State.Lower, State.Lower, '-'), // "lower-hyphen-case"
+    @Alias("Train-Case") Upper_Hyphen_Case(State.Upper, State.Lower, State.Upper, '-'), // "Upper-Hyphen-Case"
     CAPS_HYPHEN_CASE(State.Upper, State.Upper, State.Upper, '-'), // "CAPS-HYPHEN-CASE"
 
     lower_dot_case(State.Lower, State.Lower, State.Lower, '.'), // "lower.dot.case"
@@ -49,8 +44,7 @@ public enum Capitalization implements Named, Comparator<String> {
     CAPS_DOT_CASE(State.Upper, State.Upper, State.Upper, '.'), // "CAPS.DOT.CASE"
 
     Title_Case(State.Upper, State.Lower, State.Upper, ' '), // "Title Case"
-    lower_case(State.Lower, State.Lower, State.Lower, ' '),
-    UPPER_CASE(State.Upper, State.Upper, State.Upper, ' ');
+    lower_case(State.Lower, State.Lower, State.Lower, ' '), UPPER_CASE(State.Upper, State.Upper, State.Upper, ' ');
 
     public static final Context Default = Context.builder().build();
     public static final Context Current = Default;
@@ -82,8 +76,7 @@ public enum Capitalization implements Named, Comparator<String> {
     public int score(String string) {
         var score = 0L;
 
-        if (separator != null)
-            score += string.chars().filter(separator::equals).count();
+        if (separator != null) score += string.chars().filter(separator::equals).count();
         else score -= Arrays.stream(values())
                 .filter(cap -> cap.separator != null)
                 .filter(cap -> string.indexOf(cap.separator) != -1)
@@ -95,12 +88,9 @@ public enum Capitalization implements Named, Comparator<String> {
         for (int i = 0; i < buf.length; i++) {
             var c = buf[i];
             find = State.find(c);
-            if (i == 0 && find == firstChar)
-                score++;
-            else if (i > 0 && prev == firstChar && find == midWord)
-                score++;
-            else if (i > 1 && prev == midWord && (find == midWord || find == recurringFirstChar || (separator != null && c == separator)))
-                score++;
+            if (i == 0 && find == firstChar) score++;
+            else if (i > 0 && prev == firstChar && find == midWord) score++;
+            else if (i > 1 && prev == midWord && (find == midWord || find == recurringFirstChar || (separator != null && c == separator))) score++;
             else score--;
             prev = find;
         }
@@ -117,11 +107,10 @@ public enum Capitalization implements Named, Comparator<String> {
     public String convert(Capitalization to, String string) {
         if (separator != null) {
             final int[] count = new int[]{ 0 };
-            return Arrays.stream(string.split(separator.toString()))
-                    .map(word -> {
-                        word = (count[0]++ == 0 ? to.firstChar : to.recurringFirstChar).apply(word, 0);
-                        return to.midWord.apply(word, IntStream.range(1, word.length()).toArray());
-                    }).collect(Collectors.joining(to.separator != null ? to.separator.toString() : ""));
+            return Arrays.stream(string.split(separator.toString())).map(word -> {
+                word = (count[0]++ == 0 ? to.firstChar : to.recurringFirstChar).apply(word, 0);
+                return to.midWord.apply(word, IntStream.range(1, word.length()).toArray());
+            }).collect(Collectors.joining(to.separator != null ? to.separator.toString() : ""));
         } else {
             // find word beginning with this Case
             final var firstLetters = new ArrayList<@NotNull Integer>();
@@ -130,8 +119,7 @@ public enum Capitalization implements Named, Comparator<String> {
             for (int i = 0; i < buf.length; i++) {
                 var c = buf[i];
                 var find = State.find(c);
-                if (prev == midWord && find == recurringFirstChar)
-                    firstLetters.add(i);
+                if (prev == midWord && find == recurringFirstChar) firstLetters.add(i);
                 prev = find;
             }
 
@@ -139,13 +127,9 @@ public enum Capitalization implements Named, Comparator<String> {
             final var sb = new StringBuilder();
             for (int i = 0; i < buf.length; i++) {
                 var firstLetter = firstLetters.contains(i);
-                if (firstLetter && to.separator != null)
-                    sb.append(to.separator);
-                sb.append((char) (i == 0
-                                  ? to.firstChar
-                                  : firstLetter
-                                    ? to.recurringFirstChar
-                                    : to.midWord).applyAsInt(buf[i]));
+                if (firstLetter && to.separator != null) sb.append(to.separator);
+                sb.append((char) (i == 0 ? to.firstChar : firstLetter ? to.recurringFirstChar : to.midWord).applyAsInt(
+                        buf[i]));
             }
             return sb.toString();
         }
@@ -159,40 +143,32 @@ public enum Capitalization implements Named, Comparator<String> {
             public State invert() {
                 return Any;
             }
-        },
-        Upper(Character::isUpperCase, Character::toUpperCase) {
+        }, Upper(Character::isUpperCase, Character::toUpperCase) {
             @Override
             public State invert() {
                 return Lower;
             }
-        },
-        Lower(Character::isLowerCase, Character::toLowerCase) {
+        }, Lower(Character::isLowerCase, Character::toLowerCase) {
             @Override
             public State invert() {
                 return Upper;
             }
         };
 
-        @Delegate
-        IntPredicate check;
-        @Delegate
-        IntUnaryOperator modify;
+        @Delegate IntPredicate     check;
+        @Delegate IntUnaryOperator modify;
 
         public abstract State invert();
 
         public String apply(String string, int... indices) {
             final var buf = string.toCharArray();
             for (int i = 0; i < buf.length; i++)
-                if (Arrays.binarySearch(indices, i) != -1)
-                    buf[i] = (char) applyAsInt(buf[i]);
+                if (Arrays.binarySearch(indices, i) != -1) buf[i] = (char) applyAsInt(buf[i]);
             return new String(buf);
         }
 
         static State find(int c) {
-            return Wrap.ofOptional(Stream.of(Lower, Upper)
-                            .filter(it -> it.test(c))
-                            .findAny())
-                    .orElse(Any);
+            return Wrap.ofOptional(Stream.of(Lower, Upper).filter(it -> it.test(c)).findAny()).orElse(Any);
         }
     }
 
