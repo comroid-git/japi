@@ -311,7 +311,7 @@ public @interface Command {
         interface Minecraft extends Handler {
             @Override
             default String handleThrowable(Throwable throwable) {
-                return "§c" + Handler.super.handleThrowable(throwable);
+                return "§c" + throwable.getClass().getSimpleName() + ": " + throwable.getMessage();
             }
         }
     }
