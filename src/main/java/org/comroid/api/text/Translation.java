@@ -2,6 +2,7 @@ package org.comroid.api.text;
 
 import lombok.SneakyThrows;
 import lombok.Value;
+import org.comroid.api.info.Log;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -12,10 +13,12 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.MissingResourceException;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 @Value
 public class Translation {
@@ -30,15 +33,21 @@ public class Translation {
     }
 
     public static Translation get(@NotNull ResourceBundle strings) {
-        return LOADED.computeIfAbsent(strings.getLocale().getLanguage(), k -> new Translation(strings.getLocale(), strings));
+        return LOADED.computeIfAbsent(strings.getLocale().getLanguage(),
+                k -> new Translation(strings.getLocale(), strings));
     }
 
     public static String str(@NotNull String key) {
-        return get(Locale.getDefault()).get(key);
+        return str(key, key);
     }
 
     public static String str(@NotNull String key, @Nullable String fallback) {
-        return get(Locale.getDefault()).get(key, fallback);
+        try {
+            return get(Locale.getDefault()).get(key, fallback);
+        } catch (MissingResourceException e) {
+            Log.at(Level.FINE, "Unable to translate key: " + key, e);
+            return fallback;
+        }
     }
 
     Locale         locale;
@@ -49,7 +58,9 @@ public class Translation {
     }
 
     public String get(@NotNull String key, @Nullable String fallback) {
-        return wrapNewlines(strings.containsKey(key) ? strings.getString(key) : Objects.requireNonNullElse(fallback, key));
+        return wrapNewlines(strings.containsKey(key)
+                            ? strings.getString(key)
+                            : Objects.requireNonNullElse(fallback, key));
     }
 
     private static String wrapNewlines(String raw) {
@@ -87,7 +98,10 @@ public class Translation {
 
         @Override
         @SneakyThrows
-        public ResourceBundle newBundle(String baseName, Locale locale, String format, ClassLoader loader, boolean reload) {
+        public ResourceBundle newBundle(
+                String baseName, Locale locale, String format, ClassLoader loader,
+                boolean reload
+        ) {
             if (!"lang".equals(format)) return null;
 
             var bundleName   = toBundleName(baseName, locale);
