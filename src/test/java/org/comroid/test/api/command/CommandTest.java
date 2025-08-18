@@ -1,4 +1,4 @@
-package org.comroid.test.api;
+package org.comroid.test.api.command;
 
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Description;

@@ -241,7 +241,8 @@ public @interface Command {
 
                 if (!currentValue.isEmpty()) {
                     var last = chars[chars.length - 1];
-                    if (Character.isDigit(last)) return of("min", "h", "d", "w", "mon", "y").distinct().map(suffix -> currentValue + suffix);
+                    if (Character.isDigit(last))
+                        return of("min", "h", "d", "w", "mon", "y").map(suffix -> currentValue + suffix);
                 }
                 return of("5m", "6h", "3d", "2w", "6mon", "1y");
             }
