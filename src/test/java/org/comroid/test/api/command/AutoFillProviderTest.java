@@ -39,7 +39,7 @@ public class AutoFillProviderTest {
     throws NoSuchMethodException {
         var t = RNG.nextInt(300);
 
-        var postfix = new String[]{ "min", "h", "d", "w", "mon", "y" };
+        var postfix = new String[]{ "min", "h", "d", "w", "Mon", "y" };
         var output  = new String[postfix.length];
         for (var i = 0; i < postfix.length; i++) output[i] = t + postfix[i];
 

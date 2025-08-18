@@ -124,7 +124,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.util.Collections.*;
@@ -250,31 +249,24 @@ public @interface Command {
                     .distinct()
                     .toArray();
 
-            public static Stream<String> suffixes() {
-                return Arrays.stream(suffixes)
-                        .flatMap(Streams.expand(each -> of(each.toLowerCase())))
-                        .flatMap(Streams.expand(each -> IntStream.range(1, each.length())
-                                .mapToObj(i -> each.substring(0, i))))
-                        .distinct();
-            }
-
             @Override
             public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
                 if (currentValue.isEmpty())
                     // example values
-                    return of("5m", "6h", "3d", "2w", "6mon", "1y");
+                    return of("5m", "6h", "3d", "2w", "6Mon", "1y");
 
                 // find last char
                 var chars = currentValue.toCharArray();
                 var lc = chars[chars.length - 1];
 
-                var offset = 1;
-                if (Arrays.binarySearch(chars, lc) != 0) offset += 1;
-                if (Arrays.binarySearch(longMask, lc) != 0) offset += 1;
+                var offset = 0;
+                if (Arrays.binarySearch(charMask, lc) != -1) offset += 1;
+                if (Arrays.binarySearch(longMask, lc) != -1) offset += 1;
                 if (lc == 'n') offset += 1;
 
                 final var cutoff = offset;
-                return suffixes().filter(str -> str.length() - 1 >= cutoff)
+                return Arrays.stream(suffixes)
+                        .filter(str -> str.length() - 1 >= cutoff)
                         .map(str -> str.substring(cutoff))
                         .filter(not(String::isBlank))
                         .map(str -> currentValue + str)
@@ -791,8 +783,7 @@ public @interface Command {
             Event.Bus<GenericEvent> bus          = new Event.Bus<>();
             @Nullable @NonFinal @Setter BiFunction<EmbedBuilder, User, EmbedBuilder> embedFinalizer = null;
             @Setter @NonFinal           boolean                                      initialized    = false;
-            @Setter @NonFinal
-            boolean purgeCommands = false;//Debug.isDebug();
+            @Setter @NonFinal boolean purgeCommands = false;//Debug.isDebug();
 
             {
                 addChild(this);
@@ -955,9 +946,7 @@ public @interface Command {
 
             @Override
             public void handleResponse(Usage cmd, @NotNull Object response, Object... args) {
-                final var e = of(args).flatMap(cast(SlashCommandInteractionEvent.class))
-                        .findAny()
-                        .orElseThrow();
+                final var e = of(args).flatMap(cast(SlashCommandInteractionEvent.class)).findAny().orElseThrow();
                 final var user      = of(args).flatMap(cast(User.class)).findAny().orElseThrow();
                 var       ephemeral = cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC;
                 if (response instanceof CompletableFuture) e.deferReply()
