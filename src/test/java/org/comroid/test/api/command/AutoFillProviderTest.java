@@ -1,7 +1,7 @@
 package org.comroid.test.api.command;
 
-import lombok.SneakyThrows;
 import org.comroid.api.data.seri.DataNode;
+import org.comroid.api.func.exc.ThrowingIntFunction;
 import org.comroid.api.func.util.Command;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.api.java.Activator;
@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.Annotation;
 import java.util.Random;
-import java.util.function.IntFunction;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -22,18 +21,19 @@ public class AutoFillProviderTest {
     public static void dummy(Object x) {}
 
     @RepeatedTest(20)
-    public void durationDirect() {
+    public void durationDirect() throws NoSuchMethodException {
         durationTest(t -> directInvokeProvider(Command.AutoFillProvider.Duration.INSTANCE,
                 "parameter",
                 String.valueOf(t)));
     }
 
     @RepeatedTest(20)
-    public void durationProcessed() {
+    public void durationProcessed() throws NoSuchMethodException {
         durationTest(t -> callAutoComplete(Command.AutoFillProvider.Duration.class, String.valueOf(t)));
     }
 
-    private void durationTest(IntFunction<String[]> results) {
+    private void durationTest(ThrowingIntFunction<String[], NoSuchMethodException> results)
+    throws NoSuchMethodException {
         var t = RNG.nextInt(300);
 
         var postfix = new String[]{ "min", "h", "d", "w", "mon", "y" };
@@ -44,26 +44,26 @@ public class AutoFillProviderTest {
     }
 
     @Test
-    public void enumNoFilter() {
+    public void enumNoFilter() throws NoSuchMethodException {
         enumTest("", TestEnum.values());
     }
 
     @Test
-    public void enumManyMatchFilter() {
+    public void enumManyMatchFilter() throws NoSuchMethodException {
         enumTest("Num", TestEnum.NumOne, TestEnum.NumTwo, TestEnum.NumThree, TestEnum.NumOnetyOne);
     }
 
     @Test
-    public void enumOneMatchFilter() {
+    public void enumOneMatchFilter() throws NoSuchMethodException {
         enumTest("NumOne", TestEnum.NumOne, TestEnum.NumOnetyOne);
     }
 
     @Test
-    public void enumExactMatchFilter() {
+    public void enumExactMatchFilter() throws NoSuchMethodException {
         enumTest("NumTwo", TestEnum.NumTwo);
     }
 
-    private void enumTest(String currentValue, TestEnum... expect) {
+    private void enumTest(String currentValue, TestEnum... expect) throws NoSuchMethodException {
         var enums = StringMode.values();
         var x     = enums[RNG.nextInt(enums.length)];
 
@@ -77,8 +77,8 @@ public class AutoFillProviderTest {
         NumOne, NumTwo, NumThree, NumOnetyOne, Unknown
     }
 
-    private static String[] directInvokeProvider(
-            Command.AutoFillProvider provider, String argName, String currentValue) {
+    private static String[] directInvokeProvider(Command.AutoFillProvider provider, String argName, String currentValue)
+    throws NoSuchMethodException {
         try (var mgr = new Command.Manager()) {
             var dcn = dummyCommandNode(provider);
             var usage = Command.Usage.builder()
@@ -95,7 +95,7 @@ public class AutoFillProviderTest {
     private static String[] callAutoComplete(
             Class<? extends Command.AutoFillProvider> providerType,
             String currentValue
-    ) {
+    ) throws NoSuchMethodException {
         var provider = Activator.get(providerType).createInstance(new DataNode.Array());
         var command  = dummyCommandNode(provider);
 
@@ -108,8 +108,8 @@ public class AutoFillProviderTest {
         }
     }
 
-    @SneakyThrows
-    private static Command.Node.Parameter dummyParameterNode(Command.AutoFillProvider provider) {
+    private static Command.Node.Parameter dummyParameterNode(Command.AutoFillProvider provider)
+    throws NoSuchMethodException {
         var mtd = AutoFillProviderTest.class.getMethod("dummy", Object.class);
 
         var argAttr = new Command.Arg() {
@@ -158,13 +158,12 @@ public class AutoFillProviderTest {
                 .build();
     }
 
-    private static Command.Node.Call dummyCommandNode(Command.AutoFillProvider provider) {
+    private static Command.Node.Call dummyCommandNode(Command.AutoFillProvider provider) throws NoSuchMethodException {
         var dpn = dummyParameterNode(provider);
         return dummyCommandNode(dpn);
     }
 
-    @SneakyThrows
-    private static Command.Node.Call dummyCommandNode(Command.Node.Parameter param) {
+    private static Command.Node.Call dummyCommandNode(Command.Node.Parameter param) throws NoSuchMethodException {
         var mtd = AutoFillProviderTest.class.getMethod("dummy", Object.class);
 
         var cmdAttr = new Command() {
