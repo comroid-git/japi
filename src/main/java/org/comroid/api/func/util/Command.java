@@ -233,7 +233,14 @@ public @interface Command {
         Stream<String> autoFill(Usage usage, String argName, String currentValue);
 
         default Predicate<String> stringCheck(String currentValue) {
-            return str -> currentValue.isBlank() || str.startsWith(currentValue);
+            return str -> {
+                if (currentValue.isBlank()) return true;
+                return currentValue.contains("*")
+                       // wildcard mode
+                       ? str.matches(currentValue.replace("*", "(*|.*?)"))
+                       // normal filter
+                       : str.startsWith(currentValue);
+            };
         }
 
         enum Duration implements AutoFillProvider {
