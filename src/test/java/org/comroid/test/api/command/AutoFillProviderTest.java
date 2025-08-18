@@ -7,10 +7,11 @@ import org.comroid.api.func.util.Invocable;
 import org.comroid.api.java.Activator;
 import org.comroid.api.text.StringMode;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Test;
 import org.junit.jupiter.api.RepeatedTest;
-import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.Annotation;
+import java.util.Arrays;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -20,6 +21,7 @@ public class AutoFillProviderTest {
 
     public static void dummy(Object x) {}
 
+    @Test
     @RepeatedTest(20)
     public void durationDirect() throws NoSuchMethodException {
         durationTest(t -> directInvokeProvider(Command.AutoFillProvider.Duration.INSTANCE,
@@ -27,6 +29,7 @@ public class AutoFillProviderTest {
                 String.valueOf(t)));
     }
 
+    @Test
     @RepeatedTest(20)
     public void durationProcessed() throws NoSuchMethodException {
         durationTest(t -> callAutoComplete(Command.AutoFillProvider.Duration.class, String.valueOf(t)));
@@ -64,13 +67,14 @@ public class AutoFillProviderTest {
     }
 
     private void enumTest(String currentValue, TestEnum... expect) throws NoSuchMethodException {
-        var enums = StringMode.values();
+        var enums = TestEnum.values();
         var x     = enums[RNG.nextInt(enums.length)];
 
-        var results = directInvokeProvider(new Command.AutoFillProvider.Enum(StringMode.class),
+        var results = directInvokeProvider(new Command.AutoFillProvider.Enum(TestEnum.class),
                 "parameter",
                 currentValue);
-        assertArrayEquals(expect, results);
+        var expected = Arrays.stream(expect).map(TestEnum::name).toArray(String[]::new);
+        assertArrayEquals(expected, results);
     }
 
     private enum TestEnum {
@@ -96,7 +100,7 @@ public class AutoFillProviderTest {
             Class<? extends Command.AutoFillProvider> providerType,
             String currentValue
     ) throws NoSuchMethodException {
-        var provider = Activator.get(providerType).createInstance(new DataNode.Array());
+        var provider = Activator.get(providerType).createInstance(new DataNode.Object());
         var command  = dummyCommandNode(provider);
 
         try (var mgr = new Command.Manager()) {

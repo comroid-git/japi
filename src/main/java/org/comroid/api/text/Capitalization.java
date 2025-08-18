@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.function.IntPredicate;
 import java.util.function.IntUnaryOperator;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -44,7 +45,10 @@ public enum Capitalization implements Named, Comparator<String> {
     CAPS_DOT_CASE(State.Upper, State.Upper, State.Upper, '.'), // "CAPS.DOT.CASE"
 
     Title_Case(State.Upper, State.Lower, State.Upper, ' '), // "Title Case"
-    lower_case(State.Lower, State.Lower, State.Lower, ' '), UPPER_CASE(State.Upper, State.Upper, State.Upper, ' ');
+    lower_case(State.Lower, State.Lower, State.Lower, ' '), // "lower case"
+    UPPER_CASE(State.Upper, State.Upper, State.Upper, ' '), // "UPPER CASE"
+
+    IDENTITY(null, null, null, (char) 0);
 
     public static final Context Default = Context.builder().build();
     public static final Context Current = Default;
@@ -55,6 +59,7 @@ public enum Capitalization implements Named, Comparator<String> {
 
     public static Wrap<Capitalization> of(final String string) {
         return Wrap.ofOptional(Arrays.stream(values())
+                .filter(Predicate.not(IDENTITY::equals))
                 // score with each capitalization
                 .map(cap -> new AbstractMap.SimpleImmutableEntry<>(cap.score(string), cap))
                 .peek(e -> log.finer("%s \t-\t %s \t-\t %s".formatted(string, e.getValue(), e.getKey())))
@@ -74,6 +79,7 @@ public enum Capitalization implements Named, Comparator<String> {
     }
 
     public int score(String string) {
+        if (this == IDENTITY) return 0;
         var score = 0L;
 
         if (separator != null) score += string.chars().filter(separator::equals).count();
@@ -99,12 +105,14 @@ public enum Capitalization implements Named, Comparator<String> {
     }
 
     public String convert(String string) {
+        if (this == IDENTITY) return string;
         var current = of(string).assertion("Could not determine capitalization case from string '" + string + '\'');
         if (current == this) return string;
         return current.convert(this, string);
     }
 
     public String convert(Capitalization to, String string) {
+        if (this == IDENTITY) return string;
         if (separator != null) {
             final int[] count = new int[]{ 0 };
             return Arrays.stream(string.split(separator.toString())).map(word -> {

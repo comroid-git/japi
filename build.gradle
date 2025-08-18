@@ -57,8 +57,11 @@ dependencies {
     api 'org.projectlombok:lombok:1.18.30'
     annotationProcessor 'org.projectlombok:lombok:+'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
     testImplementation 'org.easymock:easymock:+'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:+'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:+'
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:+'
+    testCompileOnly 'junit:junit:+'
 }
 
 publishing {
