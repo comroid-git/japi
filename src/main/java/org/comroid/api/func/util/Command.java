@@ -300,6 +300,13 @@ public @interface Command {
             Stream<T> objects(Usage usage, String currentValue);
         }
 
+        interface Named<T extends org.comroid.api.attr.Named> extends Adapter<T> {
+            @Override
+            default String toString(T object) {
+                return object.getPrimaryName();
+            }
+        }
+
         @Value
         class Array implements Strings {
             String[] options;
