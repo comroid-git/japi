@@ -57,6 +57,7 @@ dependencies {
     api 'org.projectlombok:lombok:1.18.30'
     annotationProcessor 'org.projectlombok:lombok:+'
 
+    compileOnly 'org.junit.jupiter:junit-jupiter-api:+'
     testImplementation 'org.easymock:easymock:+'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:+'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:+'

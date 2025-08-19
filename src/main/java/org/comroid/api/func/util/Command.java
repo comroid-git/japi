@@ -237,13 +237,13 @@ public @interface Command {
                 if (currentValue.isBlank()) return true;
                 return currentValue.contains("*")
                        // wildcard mode
-                       ? str.matches(currentValue.replace("*", "(*|.*?)"))
+                       ? str.toLowerCase().matches(currentValue.toLowerCase().replace("*", "(\\*|.*?)"))
                        // normal filter
-                       : str.startsWith(currentValue);
+                       : str.toLowerCase().startsWith(currentValue.toLowerCase());
             };
         }
 
-        enum Duration implements AutoFillProvider {
+        enum Duration implements Strings {
             @Instance INSTANCE;
 
             private static final String[] suffixes = new String[]{ "min", "h", "d", "w", "Mon", "y" };
@@ -257,7 +257,7 @@ public @interface Command {
                     .toArray();
 
             @Override
-            public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
+            public Stream<String> strings(Usage usage, String currentValue) {
                 if (currentValue.isEmpty())
                     // example values
                     return of("5m", "6h", "3d", "2w", "6Mon", "1y");
@@ -276,13 +276,32 @@ public @interface Command {
                         .filter(str -> str.length() - 1 >= cutoff)
                         .map(str -> str.substring(cutoff))
                         .filter(not(String::isBlank))
-                        .map(str -> currentValue + str)
-                        .filter(stringCheck(currentValue));
+                        .map(str -> currentValue + str);
             }
         }
 
+        interface Strings extends AutoFillProvider {
+            @Override
+            default Stream<String> autoFill(Usage usage, String argName, String currentValue) {
+                return strings(usage, currentValue).filter(stringCheck(currentValue));
+            }
+
+            Stream<String> strings(Usage usage, String currentValue);
+        }
+
+        interface Adapter<T> extends Strings {
+            @Override
+            default Stream<String> strings(Usage usage, String currentValue) {
+                return objects(usage, currentValue).map(this::toString);
+            }
+
+            String toString(T object);
+
+            Stream<T> objects(Usage usage, String currentValue);
+        }
+
         @Value
-        class Array implements AutoFillProvider {
+        class Array implements Strings {
             String[] options;
 
             public Array(String... options) {
@@ -290,27 +309,30 @@ public @interface Command {
             }
 
             @Override
-            public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
-                return of(options).filter(stringCheck(currentValue));
+            public Stream<String> strings(Usage usage, String currentValue) {
+                return of(options);
             }
         }
 
         @Value
-        class Enum implements AutoFillProvider {
-            Class<? extends java.lang.Enum<?>> type;
+        class Enum<T extends java.lang.Enum<? super T>> implements AutoFillProvider.Adapter<T> {
+            Class<T> type;
 
             @Override
-            public Stream<String> autoFill(Usage usage, String argName, String currentValue) {
-                return Arrays.stream(type.getEnumConstants())
-                        .map(Named::$)
-                        .map(usage.source.getDesiredKeyCapitalization()::convert)
-                        .filter(stringCheck(currentValue));
+            public String toString(T object) {
+                return object.name();
+            }
+
+            @Override
+            public Stream<T> objects(Usage usage, String currentValue) {
+                return Arrays.stream(type.getEnumConstants());
             }
         }
     }
 
     @FunctionalInterface
     interface Handler {
+        @Deprecated
         default Capitalization getDesiredKeyCapitalization() {
             return Capitalization.IDENTITY;
         }
@@ -522,10 +544,6 @@ public @interface Command {
                             .flatMap(Streams.cast(Node.Parameter.class))
                             .filter(node -> node.getName().equals(argName))
                             .flatMap(param -> param.autoFill(usage, argName, currentValue))
-                            .filter(str -> {
-                                var current = currentValue == null ? "" : currentValue;
-                                return str.toLowerCase().startsWith(current.toLowerCase());
-                            })
                             .map(str -> new AutoFillOption(str, str));
                 } else return (usage.node instanceof Node.Call call
                                ? call.nodes()
@@ -535,10 +553,6 @@ public @interface Command {
                                : usage.node.nodes().map(Node::getName)).map(String::trim)
                         .distinct()
                         .filter(not("$"::equals))
-                        .filter(str -> {
-                            var current = currentValue == null ? "" : currentValue;
-                            return str.toLowerCase().startsWith(current.toLowerCase());
-                        })
                         .map(str -> new AutoFillOption(str, str));
             } catch (Throwable e) {
                 log.log(isDebug() ? Level.WARN : Level.DEBUG, "An error ocurred during command autocompletion", e);
