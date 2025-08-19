@@ -234,7 +234,7 @@ public @interface Command {
 
         default Predicate<String> stringCheck(String currentValue) {
             return str -> {
-                if (currentValue.isBlank()) return true;
+                if (currentValue.isBlank() || currentValue.endsWith(" ")) return true;
                 return currentValue.contains("*")
                        // wildcard mode
                        ? str.toLowerCase().matches(currentValue.toLowerCase().replace("*", "(\\*|.*?)"))
@@ -528,12 +528,22 @@ public @interface Command {
             return Usage.builder()
                     .source(source)
                     .manager(this)
-                    .fullCommand(fullCommand)
+                    .fullCommand(trimFullCommand(fullCommand))
                     .context(expandContext(concat(of(this, source), Arrays.stream(baseArgs)).toArray()).collect(
                             Collectors.toSet()))
                     .baseNode(baseNode)
                     .node(baseNode)
                     .build();
+        }
+
+        private String[] trimFullCommand(String[] fullCommand) {
+            var ls = new ArrayList<String>();
+            for (var i = 0; i < fullCommand.length; i++) {
+                var part = fullCommand[i];
+                if (part.isBlank() && ls.getLast().isBlank()) break;
+                ls.add(part);
+            }
+            return ls.toArray(String[]::new);
         }
 
         @Override
@@ -547,20 +557,35 @@ public @interface Command {
                 //todo verifyPermission(usage);
 
                 if (!(argName.isBlank() || argName.matches("\\d+"))) {
+                    @Nullable String finalCurrentValue = currentValue;
                     return usage.node.nodes()
                             .flatMap(Streams.cast(Node.Parameter.class))
                             .filter(node -> node.getName().equals(argName))
-                            .flatMap(param -> param.autoFill(usage, argName, currentValue))
+                            .flatMap(param -> param.autoFill(usage, argName, finalCurrentValue))
                             .map(str -> new AutoFillOption(str, str));
-                } else return (usage.node instanceof Node.Call call
-                               ? call.nodes()
-                                       .skip(usage.callIndex + usage.fullCommand.length - 2)
-                                       .limit(1)
-                                       .flatMap(param -> param.autoFill(usage, argName, currentValue))
-                               : usage.node.nodes().map(Node::getName)).map(String::trim)
-                        .distinct()
-                        .filter(not("$"::equals))
-                        .map(str -> new AutoFillOption(str, str));
+                }
+
+                Stream<String> base;
+                var            last = usage.fullCommand[usage.fullCommand.length - 1];
+                if (usage.node instanceof Node.Call call) {
+                    var activeNodeIndex = usage.fullCommand.length - (usage.callIndex + 1 + (last.isBlank()
+                                                                                             ? 1
+                                                                                             : 0));
+                    var            subNodes = call.nodes().toList();
+                    var            lastNode = subNodes.getLast();
+                    Node.Parameter activeNode;
+                    if (activeNodeIndex >= call.nodes().count() && lastNode != null && lastNode.getAttribute()
+                                                                                               .stringMode() == StringMode.GREEDY) {
+                        activeNode      = lastNode;
+                        activeNodeIndex = usage.callIndex + 1 + subNodes.size();
+                        currentValue    = Arrays.stream(usage.fullCommand)
+                                .skip(activeNodeIndex + 1)
+                                .collect(Collectors.joining(" "));
+                    } else activeNode = subNodes.get(activeNodeIndex);
+                    base = activeNode.autoFill(usage, argName, currentValue).map(String::trim);
+                } else base = usage.node.nodes().map(Node::getName).map(String::trim);
+
+                return base.distinct().filter(not("$"::equals)).map(str -> new AutoFillOption(str, str));
             } catch (Throwable e) {
                 log.log(isDebug() ? Level.WARN : Level.DEBUG, "An error ocurred during command autocompletion", e);
                 return of(usage.source.handleThrowable(e)).map(String::valueOf).map(str -> new AutoFillOption(str, ""));
@@ -811,7 +836,8 @@ public @interface Command {
             Event.Bus<GenericEvent> bus          = new Event.Bus<>();
             @Nullable @NonFinal @Setter BiFunction<EmbedBuilder, User, EmbedBuilder> embedFinalizer = null;
             @Setter @NonFinal           boolean                                      initialized    = false;
-            @Setter @NonFinal boolean purgeCommands = false;//Debug.isDebug();
+            @Setter @NonFinal
+            boolean purgeCommands = false;//Debug.isDebug();
 
             {
                 addChild(this);
@@ -974,7 +1000,9 @@ public @interface Command {
 
             @Override
             public void handleResponse(Usage cmd, @NotNull Object response, Object... args) {
-                final var e = of(args).flatMap(cast(SlashCommandInteractionEvent.class)).findAny().orElseThrow();
+                final var e = of(args).flatMap(cast(SlashCommandInteractionEvent.class))
+                        .findAny()
+                        .orElseThrow();
                 final var user      = of(args).flatMap(cast(User.class)).findAny().orElseThrow();
                 var       ephemeral = cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC;
                 if (response instanceof CompletableFuture) e.deferReply()
