@@ -1,7 +1,8 @@
 package org.comroid.test.api.command;
 
 import org.comroid.api.func.exc.ThrowingIntFunction;
-import org.comroid.api.func.util.Command;
+import org.comroid.commands.autofill.impl.DurationAutoFillProvider;
+import org.comroid.commands.autofill.impl.EnumBasedAutoFillProvider;
 import org.comroid.util.TestUtil;
 import org.junit.Test;
 import org.junit.jupiter.api.RepeatedTest;
@@ -18,14 +19,14 @@ public class AutoFillProviderTest {
     @Test
     @RepeatedTest(20)
     public void durationDirect() throws NoSuchMethodException {
-        durationTest(t -> helper.directInvokeProvider(Command.AutoFillProvider.Duration.INSTANCE,
+        durationTest(t -> helper.directInvokeProvider(DurationAutoFillProvider.INSTANCE,
                 String.valueOf(t)));
     }
 
     @Test
     @RepeatedTest(20)
     public void durationProcessed() throws NoSuchMethodException {
-        durationTest(t -> helper.callAutoComplete(Command.AutoFillProvider.Duration.class, String.valueOf(t)));
+        durationTest(t -> helper.callAutoComplete(DurationAutoFillProvider.class, String.valueOf(t)));
     }
 
     private void durationTest(ThrowingIntFunction<String[], NoSuchMethodException> results)
@@ -63,7 +64,7 @@ public class AutoFillProviderTest {
         var enums = TestEnum.values();
         var x     = enums[RNG.nextInt(enums.length)];
 
-        var results = helper.directInvokeProvider(new Command.AutoFillProvider.Enum(TestEnum.class),
+        var results = helper.directInvokeProvider(new EnumBasedAutoFillProvider(TestEnum.class),
                 currentValue);
         var expected = Arrays.stream(expect).map(TestEnum::name).toArray(String[]::new);
         assertArrayEquals(expected, results);

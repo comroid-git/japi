@@ -3,10 +3,19 @@ package org.comroid.util;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import org.comroid.api.data.seri.DataNode;
-import org.comroid.api.func.util.Command;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.api.java.Activator;
 import org.comroid.api.text.StringMode;
+import org.comroid.commands.Command;
+import org.comroid.commands.autofill.AutoFillOption;
+import org.comroid.commands.autofill.IAutoFillProvider;
+import org.comroid.commands.impl.CommandManager;
+import org.comroid.commands.impl.CommandUsage;
+import org.comroid.commands.model.CommandPrivacyLevel;
+import org.comroid.commands.model.CommandResponseHandler;
+import org.comroid.commands.node.Call;
+import org.comroid.commands.node.Callable;
+import org.comroid.commands.node.Parameter;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 
@@ -43,45 +52,50 @@ public class TestUtil {
         final @Getter Set<Object> context = new HashSet<>();
 
         public void testCaseDirect(
-                String name, Command.AutoFillProvider provider, String currentValue,
+                String name, IAutoFillProvider provider, String currentValue,
                 String... expected
         ) {
             Assertions.assertArrayEquals(expected, directInvokeProvider(provider, currentValue), name);
         }
 
         public void testCaseCall(
-                String name, Class<? extends Command.AutoFillProvider> provider, String currentValue,
+                String name, Class<? extends IAutoFillProvider> provider,
+                String currentValue,
                 String... expected
         ) {
             Assertions.assertArrayEquals(expected, callAutoComplete(provider, currentValue), name);
         }
 
-        public String[] directInvokeProvider(Command.AutoFillProvider provider, String currentValue) {
-            try (var mgr = new Command.Manager()) {
+        public String[] directInvokeProvider(
+                IAutoFillProvider provider, String currentValue) {
+            try (var mgr = new CommandManager()) {
                 var command = dummyCommandNode(provider);
                 var usage   = dummyCommandUsage(mgr, currentValue, command);
                 return provider.autoFill(usage, "parameter", currentValue).toArray(String[]::new);
             }
         }
 
-        public String[] callAutoComplete(Class<? extends Command.AutoFillProvider> providerType, String currentValue) {
+        public String[] callAutoComplete(
+                Class<? extends IAutoFillProvider> providerType,
+                String currentValue
+        ) {
             var provider = Activator.get(providerType).createInstance(new DataNode.Object());
             var command  = dummyCommandNode(provider);
 
-            try (var mgr = new Command.Manager()) {
+            try (var mgr = new CommandManager()) {
                 mgr.getBaseNodes().add(command);
                 var usage = dummyCommandUsage(mgr, currentValue, command);
                 return mgr.autoComplete(usage, "parameter", currentValue)
-                        .map(Command.AutoFillOption::key)
+                        .map(AutoFillOption::key)
                         .toArray(String[]::new);
             }
         }
 
-        private Command.Usage dummyCommandUsage(
-                Command.Manager mgr, String currentValue,
-                Command.Node.Callable dummyCommandNode
+        private CommandUsage dummyCommandUsage(
+                CommandManager mgr, String currentValue,
+                Callable dummyCommandNode
         ) {
-            return Command.Usage.builder()
+            return CommandUsage.builder()
                     .source(new DummyHandler())
                     .manager(mgr)
                     .fullCommand(new String[]{ "command", currentValue })
@@ -90,7 +104,7 @@ public class TestUtil {
                     .build();
         }
 
-        private Command.Node.Parameter dummyParameterNode(Command.AutoFillProvider provider) {
+        private Parameter dummyParameterNode(IAutoFillProvider provider) {
             Method mtd = null;
             try {
                 mtd = AutoFillProvider.class.getMethod("$dummy", Object.class);
@@ -121,7 +135,7 @@ public class TestUtil {
 
                 @Override
                 @SuppressWarnings("unchecked")
-                public Class<? extends Command.AutoFillProvider>[] autoFillProvider() {
+                public Class<? extends IAutoFillProvider>[] autoFillProvider() {
                     return new Class[]{ provider.getClass() };
                 }
 
@@ -136,7 +150,7 @@ public class TestUtil {
                 }
             };
 
-            return Command.Node.Parameter.builder()
+            return Parameter.builder()
                     .name("parameter")
                     .attribute(argAttr)
                     .param(mtd.getParameters()[0])
@@ -144,12 +158,12 @@ public class TestUtil {
                     .build();
         }
 
-        private Command.Node.Call dummyCommandNode(Command.AutoFillProvider provider) {
+        private Call dummyCommandNode(IAutoFillProvider provider) {
             var dpn = dummyParameterNode(provider);
             return dummyCommandNode(dpn);
         }
 
-        private Command.Node.Call dummyCommandNode(Command.Node.Parameter param) {
+        private Call dummyCommandNode(Parameter param) {
             Method mtd = null;
             try {
                 mtd = AutoFillProvider.class.getMethod("$dummy", Object.class);
@@ -179,11 +193,11 @@ public class TestUtil {
                 }
 
                 @Override
-                public PrivacyLevel privacy() {
-                    return PrivacyLevel.EPHEMERAL;
+                public CommandPrivacyLevel privacy() {
+                    return CommandPrivacyLevel.EPHEMERAL;
                 }
             };
-            return Command.Node.Call.builder()
+            return Call.builder()
                     .name("command")
                     .attribute(cmdAttr)
                     .method(mtd)
@@ -192,9 +206,9 @@ public class TestUtil {
                     .build();
         }
 
-        private static class DummyHandler implements Command.Handler {
+        private static class DummyHandler implements CommandResponseHandler {
             @Override
-            public void handleResponse(Command.Usage command, @NotNull Object response, Object... args) {
+            public void handleResponse(CommandUsage command, @NotNull Object response, Object... args) {
                 System.out.println("response = " + response);
             }
         }
