@@ -76,7 +76,6 @@ import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.Specifiable;
 import org.comroid.api.func.ext.Wrap;
-import org.comroid.api.info.Constraint;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.StackTraceUtils;
@@ -115,8 +114,10 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Stack;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -208,7 +209,7 @@ public @interface Command {
         }
 
         default Optional<Object> getPermissionKey(Usage usage) {
-            return Optional.of(usage.getNode().getAttribute().permission())
+            return Optional.of(usage.getStackTrace().peek().getAttribute().permission())
                     .filter(Predicate.<String>not(Command.EmptyAttribute::equals).and(not(String::isBlank)))
                     .map(StandardValueType::findGoodType);
         }
@@ -393,31 +394,79 @@ public @interface Command {
     class Usage {
         Manager  manager;
         String[] fullCommand;
-        @Singular("context")              Set<Object>   context;
-        @NotNull                          Handler       source;
-        @lombok.Builder.Default           Node.Callable baseNode  = null;
-        @NonFinal                         Node.Callable node;
-        @NonFinal @lombok.Builder.Default int           callIndex = 0;
+        @NotNull                       Handler                     source;
+        @NotNull                       Node.Callable               baseNode;
+        @Default                       Stack<Node.Callable>        stackTrace      = new Stack<>();
+        @Default                       Stack<Node.Parameter>       paramTrace      = new Stack<>();
+        @Default @Singular("argument") Map<Node.Parameter, String> argumentStrings = new ConcurrentHashMap<>();
+        @Default @Singular("context")  Set<Object>                 context;
 
         public void advanceFull() {
-            // reset if necessary
-            if (callIndex != 0) {
-                node      = baseNode;
-                callIndex = 0;
-            }
-            // start from i=1 because the initial node was spawned at creation in Manager#createUsageBase()
-            for (var i = 1; i < fullCommand.length; i++) {
-                if (node instanceof Node.Call) // do not advance into parameters
-                    break;
-                var text = fullCommand[i];
-                var result = node.nodes()
-                        .filter(it -> it.aliases().anyMatch(text::equals))
-                        .flatMap(cast(Node.Callable.class))
-                        .findAny();
-                if (result.isEmpty()) break;
-                node      = result.get();
-                callIndex = i;
-            }
+            stackTrace.clear();
+            paramTrace.clear();
+
+            stackTrace.push(baseNode);
+
+            var helper = new Object() {
+                Node          node             = baseNode;
+                Node.Callable lastCallable     = null;
+                int           fullCommandIndex = 1;
+
+                boolean findNext() {
+                    if (fullCommandIndex >= fullCommand.length) return false;
+                    var part = fullCommand[fullCommandIndex];
+
+                    callable:
+                    if (node instanceof Node.Callable callable) {
+                        var result = callable.nodes().filter(node -> Objects.equals(part, node.getName())).findAny();
+                        if (result.isEmpty()) break callable;
+                        this.node         = result.get();
+                        this.lastCallable = result.flatMap(Optionals.cast(Node.Callable.class)).orElse(callable);
+                        this.fullCommandIndex += 1;
+                        return true;
+                    }
+
+                    if (lastCallable == null) return false;
+
+                    var params = lastCallable.nodes().flatMap(Streams.cast(Node.Parameter.class)).toList();
+                    node = params.getFirst();
+                    if (node instanceof Node.Parameter param) {
+                        // store argString
+                        var argString = new StringBuilder(fullCommand[fullCommandIndex]);
+                        switch (param.getAttribute().stringMode()) {
+                            case NORMAL, GREEDY -> {
+                                if (!argString.toString().startsWith("\"")) break;
+                                // immediately consume greedy argument
+                                argString = new StringBuilder(argString.substring(1));
+                                String next;
+                                do {
+                                    argString.append(next = fullCommand[++fullCommandIndex]);
+                                } while (!next.endsWith("\"") && fullCommandIndex + 1 < fullCommand.length);
+                                if (next.endsWith("\"")) argString.deleteCharAt(argString.length() - 1);
+                            }
+                        }
+                        argumentStrings.put(param, argString.toString());
+
+                        // advance parameter if possible
+                        var nextIndex = params.indexOf(param) + 1;
+                        if (nextIndex == -1) return false;
+                        if (nextIndex >= params.size() && param.getAttribute().stringMode() == StringMode.SINGLE_WORD)
+                            return false;
+                        this.node = params.get(nextIndex + 1);
+                        this.fullCommandIndex += 1;
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                void commit() {
+                    if (node instanceof Node.Callable callable) stackTrace.push(callable);
+                    if (node instanceof Node.Parameter parameter) paramTrace.push(parameter);
+                }
+            };
+
+            while (helper.findNext()) helper.commit();
         }
     }
 
@@ -532,7 +581,6 @@ public @interface Command {
                     .context(expandContext(concat(of(this, source), Arrays.stream(baseArgs)).toArray()).collect(
                             Collectors.toSet()))
                     .baseNode(baseNode)
-                    .node(baseNode)
                     .build();
         }
 
@@ -555,37 +603,11 @@ public @interface Command {
             try {
                 usage.advanceFull();
                 //todo verifyPermission(usage);
-
-                if (!(argName.isBlank() || argName.matches("\\d+"))) {
-                    @Nullable String finalCurrentValue = currentValue;
-                    return usage.node.nodes()
-                            .flatMap(Streams.cast(Node.Parameter.class))
-                            .filter(node -> node.getName().equals(argName))
-                            .flatMap(param -> param.autoFill(usage, argName, finalCurrentValue))
-                            .map(str -> new AutoFillOption(str, str));
-                }
-
-                Stream<String> base;
-                var            last = usage.fullCommand[usage.fullCommand.length - 1];
-                if (usage.node instanceof Node.Call call) {
-                    var activeNodeIndex = usage.fullCommand.length - (usage.callIndex + 1 + (last.isBlank()
-                                                                                             ? 1
-                                                                                             : 0));
-                    var            subNodes = call.nodes().toList();
-                    var            lastNode = subNodes.getLast();
-                    Node.Parameter activeNode;
-                    if (activeNodeIndex >= call.nodes().count() && lastNode != null && lastNode.getAttribute()
-                                                                                               .stringMode() == StringMode.GREEDY) {
-                        activeNode      = lastNode;
-                        activeNodeIndex = usage.callIndex + 1 + subNodes.size();
-                        currentValue    = Arrays.stream(usage.fullCommand)
-                                .skip(activeNodeIndex + 1)
-                                .collect(Collectors.joining(" "));
-                    } else activeNode = subNodes.get(activeNodeIndex);
-                    base = activeNode.autoFill(usage, argName, currentValue).map(String::trim);
-                } else base = usage.node.nodes().map(Node::getName).map(String::trim);
-
-                return base.distinct().filter(not("$"::equals)).map(str -> new AutoFillOption(str, str));
+                var paramTrace = usage.getParamTrace();
+                return (paramTrace.isEmpty()
+                        ? usage.getStackTrace().peek().nodes().map(Node::getName)
+                        : paramTrace.peek().autoFill(usage, argName, currentValue)).map(str -> new AutoFillOption(str,
+                        str));
             } catch (Throwable e) {
                 log.log(isDebug() ? Level.WARN : Level.DEBUG, "An error ocurred during command autocompletion", e);
                 return of(usage.source.handleThrowable(e)).map(String::valueOf).map(str -> new AutoFillOption(str, ""));
@@ -617,88 +639,32 @@ public @interface Command {
                 usage.advanceFull();
                 verifyPermission(usage);
 
-                Node.Call call;
-                if (usage.node instanceof Node.Group group) {
-                    call = group.defaultCall;
-                    //usage.callIndex += 1;
-                } else call = usage.node.as(Node.Call.class, "Invalid node type! Is your syntax correct?");
+                Node.Call call = usage.stackTrace.peek().asCall();
                 if (call == null) throw new Error("No such command");
 
                 // sort arguments
-                if (usage.callIndex < 0 || usage.callIndex >= usage.fullCommand.length)
-                    throw new Error("No such command: " + String.join(" ", usage.fullCommand));
-                var      parameterTypes = call.callable.parameterTypesOrdered();
-                Object[] useArgs        = new Object[parameterTypes.length];
-                var      useNamedArgs   = hasCapability(Capability.NAMED_ARGS);
-                var      argIndex       = usage.callIndex + 1;
-                for (int i = 0; i < useArgs.length; i++) {
-                    final int i0            = i;
-                    var       parameterType = parameterTypes[i];
-                    var parameter = of(call.callable.accessor()).flatMap(cast(Method.class))
-                            .map(mtd -> mtd.getParameters()[i0])
-                            .findAny();
-                    var attribute = parameter.flatMap(param -> Annotations.findAnnotations(Arg.class, param)
-                            .findFirst()).map(Annotations.Result::getAnnotation).orElse(null);
-                    Node.Parameter paramNode = null;
-                    if (attribute != null) paramNode = call.parameters.stream()
-                            .filter(node -> node.attribute.equals(attribute))
+                var parameters = call.getParameters();
+                var paramIndex = new int[]{ 0 };
+
+                // decide arg handling type
+                var argStringSource = (hasCapability(Capability.NAMED_ARGS)
+                                       ? (Function<String, Stream<Node.Parameter>>) key -> parameters.stream()
+                        .filter(p -> p.getName().equals(key))
+                                       : (Function<String, Stream<Node.Parameter>>) $ -> parameters.stream()
+                                               .sorted(Comparator.comparingInt(Node.Parameter::getIndex))
+                                               .skip(paramIndex[0])).andThen(src -> src.map(usage.getArgumentStrings()::get));
+
+                // parse args
+                var useArgs = parameters.stream().map(param -> {
+                    var vt = ValueType.of(param.getParam().getType());
+                    return argStringSource.apply(param.getName())
                             .findAny()
-                            .orElseThrow();
-                    if (attribute == null) {
-                        // try to fit in an extraArg
-                        useArgs[i] = usage.context.stream()
-                                .filter(parameterType::isInstance)
-                                .findAny()
-                                .orElseGet(() -> {
-                                    if (parameterType.isArray() && parameterType.getComponentType()
-                                            .equals(String.class)) {
-                                        var args = new String[usage.fullCommand.length - usage.callIndex - 1];
-                                        System.arraycopy(usage.fullCommand, usage.callIndex + 1, args, 0, args.length);
-                                        return args;
-                                    } else return null;
-                                });
-                    } else if (useNamedArgs) {
-                        // eg. discord, fabric
-                        Constraint.notNull(namedArgs, "args").run();
-                        Constraint.notNull(paramNode, "parameter").run();
-                        if (paramNode.isRequired() && !namedArgs.containsKey(paramNode.getName()))
-                            throw new Error("Missing argument " + paramNode.getName());
+                            .map(vt::parse)
+                            .or(() -> usage.getContext().stream().filter(vt.getTargetClass()::isInstance).findAny())
+                            .orElse(null);
+                }).toArray();
 
-                        final var finalParamNode = paramNode;
-                        useArgs[i] = Optional.ofNullable(namedArgs.get(paramNode.getName()))
-                                .or(() -> usage.context.stream()
-                                        .flatMap(cast(finalParamNode.param.getType()))
-                                        .findAny())
-                                .or(() -> Optional.ofNullable(finalParamNode.defaultValue())
-                                        .map(Polyfill::uncheckedCast))
-                                .map(it -> {
-                                    var type = finalParamNode.getParam().getType();
-                                    return StandardValueType.forClass(type)
-                                            .map(vt -> (Object) vt.parse(Objects.toString(it)))
-                                            .orElseGet(() -> type.cast(it));
-                                })
-                                .orElse(null);
-                    } else {
-                        // eg. console, minecraft
-                        Constraint.notNull(paramNode, "parameter").run();
-                        if (paramNode.isRequired() && argIndex >= usage.fullCommand.length)
-                            throw new Error("Not enough arguments");
-                        String argStr;
-                        if (argIndex < usage.fullCommand.length) {
-                            if (attribute.stringMode() == StringMode.GREEDY) {
-                                var buf = new String[usage.fullCommand.length - argIndex];
-                                System.arraycopy(usage.fullCommand, argIndex, buf, 0, buf.length);
-                                argStr = String.join(" ", buf);
-                            } else argStr = usage.fullCommand[argIndex];
-                        } else argStr = null;
-
-                        argIndex += 1;
-                        var valueType = ValueType.of(parameterType);
-                        var value     = argStr == null ? valueType.defaultValue() : valueType.parse(argStr);
-                        useArgs[i] = value == null || (value instanceof String str && str.isBlank()) ? null : value;
-                    }
-                }
-
+                // execute method
                 result = response = call.callable.invoke(call.target, useArgs);
             } catch (Error err) {
                 response = err.response == null ? usage.source.handleThrowable(err) : err.response;
@@ -1004,7 +970,7 @@ public @interface Command {
                         .findAny()
                         .orElseThrow();
                 final var user      = of(args).flatMap(cast(User.class)).findAny().orElseThrow();
-                var       ephemeral = cmd.node.attribute.privacy() != PrivacyLevel.PUBLIC;
+                var ephemeral = cmd.getStackTrace().peek().attribute.privacy() != PrivacyLevel.PUBLIC;
                 if (response instanceof CompletableFuture) e.deferReply()
                         .setEphemeral(ephemeral)
                         .submit()
@@ -1457,6 +1423,8 @@ public @interface Command {
                 return null; // stub to prevent recursion loop
             }
 
+            public abstract @Nullable Call asCall();
+
             public abstract Stream<? extends Node> nodes();
         }
 
@@ -1467,6 +1435,11 @@ public @interface Command {
             @Singular                         List<Group> groups;
             @Singular                         List<Call>  calls;
             @Nullable @lombok.Builder.Default Call        defaultCall = null;
+
+            @Override
+            public @Nullable Call asCall() {
+                return defaultCall;
+            }
 
             @Override
             public Stream<Callable> nodes() {
@@ -1492,6 +1465,11 @@ public @interface Command {
             @Override
             public String getAlternateName() {
                 return callable.getName();
+            }
+
+            @Override
+            public @Nullable Call asCall() {
+                return this;
             }
 
             @Override

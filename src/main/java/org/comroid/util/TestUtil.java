@@ -87,7 +87,6 @@ public class TestUtil {
                     .fullCommand(new String[]{ "command", currentValue })
                     .context(context)
                     .baseNode(dummyCommandNode)
-                    .node(dummyCommandNode)
                     .build();
         }
 
