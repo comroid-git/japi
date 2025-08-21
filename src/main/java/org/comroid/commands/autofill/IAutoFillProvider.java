@@ -7,16 +7,16 @@ import java.util.stream.Stream;
 
 @FunctionalInterface
 public interface IAutoFillProvider {
-    Stream<String> autoFill(CommandUsage usage, String argName, String currentValue);
-
-    default Predicate<String> stringCheck(String currentValue) {
+    static Predicate<CharSequence> stringCheck(String currentValue) {
         return str -> {
             if (currentValue.isBlank() || currentValue.endsWith(" ")) return true;
             return currentValue.contains("*")
                    // wildcard mode
-                   ? str.toLowerCase().matches(currentValue.toLowerCase().replace("*", "(\\*|.*?)"))
+                   ? str.toString().toLowerCase().matches(currentValue.toLowerCase().replace("*", "(\\*|.*?)"))
                    // normal filter
-                   : str.toLowerCase().startsWith(currentValue.toLowerCase());
+                   : str.toString().toLowerCase().startsWith(currentValue.toLowerCase());
         };
     }
+
+    Stream<? extends CharSequence> autoFill(CommandUsage usage, String argName, String currentValue);
 }

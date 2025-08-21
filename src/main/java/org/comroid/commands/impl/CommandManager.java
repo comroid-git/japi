@@ -181,17 +181,40 @@ public class CommandManager extends Container.Base implements CommandInfo, Permi
     public final Stream<AutoFillOption> autoComplete(
             CommandUsage usage, String argName, @Nullable String currentValue) {
         try {
+            // initialize usage
             usage.advanceFull();
+
+            // use permission modules to verify user has permission
             //todo verifyPermission(usage);
+
+            // collect autocompletion stream
+            var stackTrace = usage.getStackTrace();
             var paramTrace = usage.getParamTrace();
-            return (paramTrace.isEmpty()
-                    ? usage.getStackTrace().peek().nodes().map(Node::getName)
-                    : paramTrace.peek().autoFill(usage, argName, currentValue)).map(str -> new AutoFillOption(str,
-                    str));
+            var currentCallFirstParam = stackTrace.peek()
+                    .nodes()
+                    .flatMap(cast(org.comroid.commands.node.Parameter.class))
+                    .skip(usage.getArgumentStrings().size())
+                    .limit(1)
+                    .findAny();
+
+            // use current autoFill() when possible
+            if (!paramTrace.isEmpty() || currentCallFirstParam.isPresent())
+                // if present, try first param of current callable
+                return currentCallFirstParam.orElseGet(paramTrace::peek)
+                        .autoFill(usage, argName, currentValue)
+                        .filter(IAutoFillProvider.stringCheck(currentValue))
+                        .map(seq -> seq instanceof AutoFillOption afo
+                                    ? afo
+                                    : new AutoFillOption(seq.toString(), seq.toString()));
+                // else try sub-callables
+            else return stackTrace.peek()
+                    .nodes()
+                    .filter(n -> IAutoFillProvider.stringCheck(currentValue).test(n.getName()))
+                    .map(n -> new AutoFillOption(n.getName(), n.getDescription()));
         } catch (Throwable e) {
             log.log(isDebug() ? Level.WARN : Level.DEBUG, "An error ocurred during command autocompletion", e);
             return of(usage.getSource().handleThrowable(e)).map(String::valueOf)
-                    .map(str -> new AutoFillOption(str, ""));
+                    .map(str -> new AutoFillOption(str, str));
         }
     }
 

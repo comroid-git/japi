@@ -75,7 +75,7 @@ public class CommandUsage {
                             if (next.endsWith("\"")) argString.deleteCharAt(argString.length() - 1);
                         }
                     }
-                    argumentStrings.put(param, argString.toString());
+                    if (!argString.toString().isBlank()) argumentStrings.put(param, argString.toString());
 
                     // advance parameter if possible
                     var nextIndex = params.indexOf(param) + 1;

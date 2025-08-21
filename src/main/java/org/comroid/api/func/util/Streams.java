@@ -197,14 +197,24 @@ public class Streams {
         });
     }
 
+    @Deprecated
     public static <T> Collector<T, List<T>, Stream<T>> atLeastOneOrElseGet(Supplier<T> otherwise) {
+        return orElseGet(otherwise);
+    }
+
+    public static <T> Collector<T, List<T>, Stream<T>> orElseGet(Supplier<T> otherwise) {
         return Collector.of(ArrayList::new, List::add, (l, r) -> {
             l.addAll(r);
             return l;
         }, ls -> ls.isEmpty() ? Stream.of(otherwise.get()) : ls.stream());
     }
 
+    @Deprecated
     public static <T> Collector<T, List<T>, Stream<T>> atLeastOneOrElseFlatten(Supplier<Stream<T>> otherwise) {
+        return orElseFlat(otherwise);
+    }
+
+    public static <T> Collector<T, List<T>, Stream<T>> orElseFlat(Supplier<Stream<T>> otherwise) {
         return Collector.of(ArrayList::new, List::add, (l, r) -> {
             l.addAll(r);
             return l;
@@ -217,6 +227,16 @@ public class Streams {
             return l;
         }, ls -> {
             if (ls.isEmpty()) return supplier.get();
+            return ls.stream();
+        });
+    }
+
+    public static <T> Collector<T, List<T>, Stream<T>> reverse() {
+        return Collector.of(ArrayList::new, Collection::add, (l, r) -> {
+            l.addAll(r);
+            return l;
+        }, ls -> {
+            Collections.reverse(ls);
             return ls.stream();
         });
     }

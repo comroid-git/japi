@@ -29,7 +29,7 @@ public class Parameter extends Node implements IAutoFillProvider, Default.Extens
     @Singular List<IAutoFillProvider> autoFillProviders;
 
     @Override
-    public Stream<String> autoFill(CommandUsage usage, String argName, String currentValue) {
+    public Stream<? extends CharSequence> autoFill(CommandUsage usage, String argName, String currentValue) {
         return autoFillProviders.stream()
                 .filter(Objects::nonNull)
                 .flatMap(provider -> provider.autoFill(usage, argName, currentValue))
