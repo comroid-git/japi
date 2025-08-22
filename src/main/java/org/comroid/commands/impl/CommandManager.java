@@ -10,7 +10,6 @@ import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Aliased;
 import org.comroid.api.data.seri.adp.JSON;
-import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.ReflectionHelper;
@@ -37,14 +36,11 @@ import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -188,28 +184,26 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
 
             validatePermitted(usage, call);
 
-            // sort arguments
-            var parameters = call.getParameters();
-            var paramIndex = new int[]{ 0 };
+            var adapters = call.adaptParameters();
+            var useArgs  = new Object[adapters.length];
 
-            // decide arg handling type
-            var argStringSource = (hasCapability(CommandCapability.NAMED_ARGS)
-                                   ? (Function<String, Stream<org.comroid.commands.node.Parameter>>) key -> parameters.stream()
-                    .filter(p -> p.getName().equals(key))
-                                   : (Function<String, Stream<org.comroid.commands.node.Parameter>>) $ -> parameters.stream()
-                                           .sorted(Comparator.comparingInt(org.comroid.commands.node.Parameter::getIndex))
-                                           .skip(paramIndex[0])).andThen(src -> src.map(usage.getArgumentStrings()::get));
+            for (var i = 0; i < adapters.length; i++) {
+                var adapter          = adapters[i];
+                var commandParameter = adapter.commandParameter();
 
-            // parse args
-            var useArgs = parameters.stream().map(param -> {
-                var vt = ValueType.of(param.getParam().getType());
-                return argStringSource.apply(param.getName())
-                        .filter(Objects::nonNull)
-                        .findAny()
-                        .map(vt::parse)
-                        .or(() -> usage.getContext().stream().filter(vt.getTargetClass()::isInstance).findAny())
-                        .orElse(null);
-            }).toArray();
+                if (commandParameter != null) {
+                    // parse user argument
+                    var str = usage.getArgumentStrings().get(commandParameter);
+                    useArgs[i] = adapter.type().parse(str);
+                } else {
+                    // find contextual argument
+                    useArgs[i] = usage.getContext()
+                            .stream()
+                            .filter(adapter.type().getTargetClass()::isInstance)
+                            .findAny()
+                            .orElse(null);
+                }
+            }
 
             // execute method
             result = response = call.getCallable().invoke(call.getTarget(), useArgs);
