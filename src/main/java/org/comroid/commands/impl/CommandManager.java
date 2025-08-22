@@ -120,7 +120,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                 .manager(this)
                 .fullCommand(trimFullCommand(fullCommand))
                 .context(concat(of(this, source), Arrays.stream(context)).flatMap(Streams.expand(it -> children(
-                                CommandContextProvider.class).map(ccp -> ccp.expandContext(it))))
+                                CommandContextProvider.class).flatMap(ccp -> ccp.expandContext(it))))
                         .collect(Collectors.toUnmodifiableSet()))
                 .baseNode(baseNode)
                 .build();
