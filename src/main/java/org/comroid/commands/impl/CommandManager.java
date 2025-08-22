@@ -12,6 +12,7 @@ import org.comroid.api.attr.Aliased;
 import org.comroid.api.data.seri.adp.JSON;
 import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.util.Invocable;
+import org.comroid.api.func.util.Streams;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.tree.Container;
@@ -23,7 +24,7 @@ import org.comroid.commands.autofill.impl.EnumBasedAutoFillProvider;
 import org.comroid.commands.model.CommandCapability;
 import org.comroid.commands.model.CommandContextProvider;
 import org.comroid.commands.model.CommandError;
-import org.comroid.commands.model.CommandInfo;
+import org.comroid.commands.model.CommandInfoProvider;
 import org.comroid.commands.model.CommandResponseHandler;
 import org.comroid.commands.model.permission.PermissionChecker;
 import org.comroid.commands.node.Call;
@@ -58,7 +59,7 @@ import static org.comroid.api.func.util.Streams.*;
 @Log4j2
 @NonFinal
 @ToString(of = { "id" })
-public class CommandManager extends Container.Base implements CommandInfo, PermissionChecker {
+public class CommandManager extends Container.Base implements CommandInfoProvider {
     public static final CommandResponseHandler DefaultHandler = (command, x, args) -> System.out.println(x);
     UUID      id        = UUID.randomUUID();
     Set<Node> baseNodes = new HashSet<>();
@@ -94,44 +95,6 @@ public class CommandManager extends Container.Base implements CommandInfo, Permi
         return nodes;
     }
 
-    public final Group createGroupNode(@Nullable Object target, Class<?> source) {
-        var attribute = Annotations.findAnnotations(Command.class, source).findFirst().orElseThrow().getAnnotation();
-        var group = Group.builder()
-                .name(Command.EmptyAttribute.equals(attribute.value()) ? source.getSimpleName() : attribute.value())
-                .attribute(attribute)
-                .source(source)
-                .attribute(attribute);
-
-        var groups = new HashSet<Group>();
-        registerGroups(target, groups, source);
-        group.groups(groups);
-
-        var calls = new HashSet<Call>();
-        registerCalls(target, calls, source);
-        var defaultCall = calls.stream().filter(call -> "$".equals(call.getName())).findAny().orElse(null);
-        if (defaultCall != null) calls.remove(defaultCall);
-        group.calls(calls).defaultCall(defaultCall);
-
-        return group.build();
-    }
-
-    public final Call createCallNode(@Nullable Object target, Method source) {
-        var attribute = Annotations.findAnnotations(Command.class, source).findFirst().orElseThrow().getAnnotation();
-        var call = Call.builder()
-                .name(Command.EmptyAttribute.equals(attribute.value()) ? source.getName() : attribute.value())
-                .attribute(attribute)
-                .target(target)
-                .method(source)
-                .callable(Invocable.ofMethodCall(target, source));
-
-        var params = new ArrayList<org.comroid.commands.node.Parameter>();
-        registerParameters(params, source);
-        params.sort(org.comroid.commands.node.Parameter.COMPARATOR);
-        call.parameters(unmodifiableList(params));
-
-        return call.build();
-    }
-
     @Override
     public final void initialize() {
         streamChildren(AbstractCommandAdapter.class).forEach(AbstractCommandAdapter::initialize);
@@ -146,7 +109,7 @@ public class CommandManager extends Container.Base implements CommandInfo, Permi
         return autoComplete(usage, argName, currentValue);
     }
 
-    public final CommandUsage createUsageBase(CommandResponseHandler source, String[] fullCommand, Object... baseArgs) {
+    public final CommandUsage createUsageBase(CommandResponseHandler source, String[] fullCommand, Object... context) {
         var baseNode = baseNodes.stream() // find base node to initiate advancing to execution node
                 .filter(node -> node.names().anyMatch(fullCommand[0]::equals))
                 .flatMap(cast(Callable.class))
@@ -156,26 +119,11 @@ public class CommandManager extends Container.Base implements CommandInfo, Permi
                 .source(source)
                 .manager(this)
                 .fullCommand(trimFullCommand(fullCommand))
-                .context(expandContext(concat(of(this, source),
-                        Arrays.stream(baseArgs)).toArray()).collect(Collectors.toSet()))
+                .context(concat(of(this, source), Arrays.stream(context)).flatMap(Streams.expand(it -> children(
+                                CommandContextProvider.class).map(ccp -> ccp.expandContext(it))))
+                        .collect(Collectors.toUnmodifiableSet()))
                 .baseNode(baseNode)
                 .build();
-    }
-
-    private String[] trimFullCommand(String[] fullCommand) {
-        var ls = new ArrayList<String>();
-        for (var i = 0; i < fullCommand.length; i++) {
-            var part = fullCommand[i];
-            if (part.isBlank() && ls.getLast().isBlank()) break;
-            ls.add(part);
-        }
-        return ls.toArray(String[]::new);
-    }
-
-    @Override
-    public final Stream<Object> expandContext(Object... baseContext) {
-        return streamChildren(CommandContextProvider.class).flatMap(multiply(provider -> provider.expandContext(
-                baseContext)));
     }
 
     public final Stream<AutoFillOption> autoComplete(
@@ -184,14 +132,12 @@ public class CommandManager extends Container.Base implements CommandInfo, Permi
             // initialize usage
             usage.advanceFull();
 
-            // use permission modules to verify user has permission
-            //todo verifyPermission(usage);
-
             // collect autocompletion stream
             var stackTrace = usage.getStackTrace();
             var paramTrace = usage.getParamTrace();
-            var currentCallFirstParam = stackTrace.peek()
-                    .nodes()
+            var currentCallFirstParam = Stream.of(stackTrace.peek())
+                    .filter(callable -> isPermitted(usage, callable))
+                    .flatMap(Callable::nodes)
                     .flatMap(cast(org.comroid.commands.node.Parameter.class))
                     .skip(usage.getArgumentStrings().size())
                     .limit(1)
@@ -207,8 +153,9 @@ public class CommandManager extends Container.Base implements CommandInfo, Permi
                                     ? afo
                                     : new AutoFillOption(seq.toString(), seq.toString()));
                 // else try sub-callables
-            else return stackTrace.peek()
-                    .nodes()
+            else return Stream.of(stackTrace.peek())
+                    .filter(callable -> isPermitted(usage, callable))
+                    .flatMap(Callable::nodes)
                     .filter(n -> IAutoFillProvider.stringCheck(currentValue).test(n.getName()))
                     .map(n -> new AutoFillOption(n.getName(), n.getDescription()));
         } catch (Throwable e) {
@@ -216,19 +163,6 @@ public class CommandManager extends Container.Base implements CommandInfo, Permi
             return of(usage.getSource().handleThrowable(e)).map(String::valueOf)
                     .map(str -> new AutoFillOption(str, str));
         }
-    }
-
-    private void verifyPermission(CommandUsage usage) {
-        var opt = getPermissionKey(usage);
-        if (opt.isEmpty()) return;
-        var key = opt.get();
-        if (!userHasPermission(usage, key))
-            throw PermissionChecker.insufficientPermissions("(missing permission: '%s')".formatted(key));
-    }
-
-    @Override
-    public final boolean userHasPermission(CommandUsage usage, Object key) {
-        return streamChildren(PermissionChecker.class).anyMatch(pc -> pc.userHasPermission(usage, key));
     }
 
     public final @Nullable Object execute(
@@ -243,10 +177,11 @@ public class CommandManager extends Container.Base implements CommandInfo, Permi
         Object result = null, response;
         try {
             usage.advanceFull();
-            verifyPermission(usage);
 
             Call call = usage.getStackTrace().peek().asCall();
             if (call == null) throw new CommandError("No such command");
+
+            validatePermitted(usage, call);
 
             // sort arguments
             var parameters = call.getParameters();
@@ -282,8 +217,85 @@ public class CommandManager extends Container.Base implements CommandInfo, Permi
         return result;
     }
 
+    @Override
+    public final int hashCode() {
+        return id.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof CommandManager && obj.hashCode() == hashCode();
+    }
+
     protected Optional<AbstractCommandAdapter> adapter() {
         return streamChildren(AbstractCommandAdapter.class).findAny();
+    }
+
+    private String[] trimFullCommand(String[] fullCommand) {
+        var ls = new ArrayList<String>();
+        for (var i = 0; i < fullCommand.length; i++) {
+            var part = fullCommand[i];
+            if (part.isBlank() && ls.getLast().isBlank()) break;
+            ls.add(part);
+        }
+        return ls.toArray(String[]::new);
+    }
+
+    private boolean isPermitted(CommandUsage usage, Callable callable) {
+        var permission = callable.getAttribute().permission();
+        return usage.getContext()
+                       .stream()
+                       .flatMap(cast(PermissionChecker.class))
+                       .findAny()
+                       .isEmpty() || usage.getContext()
+                       .stream()
+                       .flatMap(cast(PermissionChecker.class))
+                       .filter(chk -> chk.acceptPermission(permission))
+                       .anyMatch(chk -> chk.userHasPermission(usage, permission));
+    }
+
+    private void validatePermitted(CommandUsage usage, Callable callable) {
+        if (!isPermitted(usage, callable))
+            throw PermissionChecker.insufficientPermissions("missing permission '" + callable.getAttribute()
+                    .permission() + "'");
+    }
+
+    private Group createGroupNode(@Nullable Object target, Class<?> source) {
+        var attribute = Annotations.findAnnotations(Command.class, source).findFirst().orElseThrow().getAnnotation();
+        var group = Group.builder()
+                .name(Command.EmptyAttribute.equals(attribute.value()) ? source.getSimpleName() : attribute.value())
+                .attribute(attribute)
+                .source(source)
+                .attribute(attribute);
+
+        var groups = new HashSet<Group>();
+        registerGroups(target, groups, source);
+        group.groups(groups);
+
+        var calls = new HashSet<Call>();
+        registerCalls(target, calls, source);
+        var defaultCall = calls.stream().filter(call -> "$".equals(call.getName())).findAny().orElse(null);
+        if (defaultCall != null) calls.remove(defaultCall);
+        group.calls(calls).defaultCall(defaultCall);
+
+        return group.build();
+    }
+
+    private Call createCallNode(@Nullable Object target, Method source) {
+        var attribute = Annotations.findAnnotations(Command.class, source).findFirst().orElseThrow().getAnnotation();
+        var call = Call.builder()
+                .name(Command.EmptyAttribute.equals(attribute.value()) ? source.getName() : attribute.value())
+                .attribute(attribute)
+                .target(target)
+                .method(source)
+                .callable(Invocable.ofMethodCall(target, source));
+
+        var params = new ArrayList<org.comroid.commands.node.Parameter>();
+        registerParameters(params, source);
+        params.sort(org.comroid.commands.node.Parameter.COMPARATOR);
+        call.parameters(unmodifiableList(params));
+
+        return call.build();
     }
 
     private void registerGroups(@Nullable Object target, Collection<? super Group> nodes, Class<?> source) {
@@ -294,7 +306,7 @@ public class CommandManager extends Container.Base implements CommandInfo, Permi
         }
     }
 
-    private org.comroid.commands.node.Parameter createParameterNode(int index, Method origin, Parameter source) {
+    private org.comroid.commands.node.Parameter createParameterNode(int index, Parameter source) {
         var attribute = Annotations.findAnnotations(Command.Arg.class, source)
                 .findFirst()
                 .orElseThrow()
@@ -340,19 +352,9 @@ public class CommandManager extends Container.Base implements CommandInfo, Permi
         var index = 0;
         for (var paramNodeSource : source.getParameters()) {
             if (!paramNodeSource.isAnnotationPresent(Command.Arg.class)) continue;
-            var node = createParameterNode(index, source, paramNodeSource);
+            var node = createParameterNode(index, paramNodeSource);
             nodes.add(node);
             index += 1;
         }
-    }
-
-    @Override
-    public final int hashCode() {
-        return id.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        return obj instanceof CommandManager && obj.hashCode() == hashCode();
     }
 }

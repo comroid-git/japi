@@ -14,6 +14,7 @@ import org.comroid.commands.impl.AbstractCommandAdapter;
 import org.comroid.commands.impl.CommandManager;
 import org.comroid.commands.impl.CommandUsage;
 import org.comroid.commands.model.CommandCapability;
+import org.comroid.commands.model.CommandContextProvider;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
@@ -31,7 +32,7 @@ import static org.comroid.api.func.util.Streams.*;
 @NonFinal
 @RequiredArgsConstructor
 public class SpigotCommandAdapter extends AbstractCommandAdapter
-        implements MinecraftResponseHandler, TabCompleter, CommandExecutor {
+        implements MinecraftResponseHandler, TabCompleter, CommandExecutor, CommandContextProvider {
     CommandManager manager;
     Set<CommandCapability> capabilities = Set.of();
     JavaPlugin             plugin;
@@ -44,11 +45,9 @@ public class SpigotCommandAdapter extends AbstractCommandAdapter
     }
 
     @Override
-    public Stream<Object> expandContext(Object... context) {
-        return super.expandContext(context).flatMap(expand(it -> {
-            if (it instanceof Player player) return of(player.getUniqueId());
-            return empty();
-        }));
+    public Stream<?> expandContext(Object it) {
+        if (it instanceof Player player) return of(player.getUniqueId());
+        return empty();
     }
 
     @Override

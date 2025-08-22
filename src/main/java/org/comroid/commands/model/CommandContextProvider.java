@@ -4,5 +4,5 @@ import java.util.stream.Stream;
 
 @FunctionalInterface
 public interface CommandContextProvider {
-    Stream<Object> expandContext(Object... context);
+    Stream<?> expandContext(Object context);
 }

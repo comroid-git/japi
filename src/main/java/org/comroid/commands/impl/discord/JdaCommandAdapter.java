@@ -274,6 +274,11 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
     }
 
     @Override
+    public boolean acceptPermission(String key) {
+        return key.matches("\\d+");
+    }
+
+    @Override
     public boolean userHasPermission(CommandUsage usage, Object key) {
         if (key == null || String.valueOf(key).isBlank()) return true;
         var permissions = Permission.getPermissions(Long.parseLong(key.toString()));

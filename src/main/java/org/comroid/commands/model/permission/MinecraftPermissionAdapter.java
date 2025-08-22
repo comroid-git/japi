@@ -5,7 +5,7 @@ import org.intellij.lang.annotations.MagicConstant;
 
 import java.util.UUID;
 
-public interface PermissionAdapter {
+public interface MinecraftPermissionAdapter {
     default boolean checkOpLevel(UUID playerId) {
         return checkOpLevel(playerId, 1);
     }

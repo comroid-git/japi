@@ -13,17 +13,22 @@ import java.util.function.Predicate;
 import static java.util.function.Predicate.*;
 import static org.comroid.api.func.util.Streams.*;
 
-@FunctionalInterface
 public interface PermissionChecker {
-    PermissionChecker ALLOW_ALL = (usage, key) -> true;
-    PermissionChecker DENY_ALL  = (usage, key) -> false;
+    static PermissionChecker minecraft(final MinecraftPermissionAdapter adapter) {
+        return new PermissionChecker() {
+            @Override
+            public boolean acceptPermission(String key) {
+                return key.matches("[0-4]|\\w+(\\.\\w+)+");
+            }
 
-    static PermissionChecker minecraft(PermissionAdapter adapter) {
-        return (usage, key) -> {
-            var userId = usage.getContext().stream().flatMap(cast(UUID.class)).findAny().orElseThrow();
-            return key instanceof Integer level
-                   ? adapter.checkOpLevel(userId, level)
-                   : adapter.checkPermission(userId, key.toString(), false).toBooleanOrElse(false);
+            @Override
+            public boolean userHasPermission(CommandUsage usage, Object key) {
+                if (key.toString().matches("\\d")) key = Integer.parseInt(key.toString());
+                var userId = usage.getContext().stream().flatMap(cast(UUID.class)).findAny().orElseThrow();
+                return key instanceof Integer level
+                       ? adapter.checkOpLevel(userId, level)
+                       : adapter.checkPermission(userId, key.toString(), false).toBooleanOrElse(false);
+            }
         };
     }
 
@@ -41,5 +46,6 @@ public interface PermissionChecker {
                 .map(StandardValueType::findGoodType);
     }
 
+    boolean acceptPermission(String key);
     boolean userHasPermission(CommandUsage usage, Object key);
 }
