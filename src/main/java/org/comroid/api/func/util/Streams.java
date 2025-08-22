@@ -153,7 +153,7 @@ public class Streams {
     }
 
     public static <T> Function<T, Stream<T>> expand(Function<? super T, Stream<? extends T>> by) {
-        return expand(identity(), by);
+        return expand(identity(), by.andThen(s -> s.flatMap(expand(by))));
     }
 
     public static <T, R> Function<T, Stream<R>> expand(

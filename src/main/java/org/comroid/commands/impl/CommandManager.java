@@ -12,7 +12,6 @@ import org.comroid.api.attr.Aliased;
 import org.comroid.api.data.seri.adp.JSON;
 import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.util.Invocable;
-import org.comroid.api.func.util.Streams;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.tree.Container;
@@ -41,6 +40,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -115,15 +115,20 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                 .flatMap(cast(Callable.class))
                 .findAny()
                 .orElseThrow(() -> new CommandError("No such command: " + Arrays.toString(fullCommand)));
-        return CommandUsage.builder()
+        var builder = CommandUsage.builder()
                 .source(source)
                 .manager(this)
                 .fullCommand(trimFullCommand(fullCommand))
-                .context(concat(of(this, source), Arrays.stream(context)).flatMap(Streams.expand(it -> children(
-                                CommandContextProvider.class).flatMap(ccp -> ccp.expandContext(it))))
-                        .collect(Collectors.toUnmodifiableSet()))
-                .baseNode(baseNode)
-                .build();
+                .baseNode(baseNode);
+        // collect context
+        var contextProviders = concat(children(CommandContextProvider.class),
+                of(this, source).flatMap(cast(CommandContextProvider.class))).collect(Collectors.toUnmodifiableSet());
+        var expand = expand(it -> contextProviders.stream().flatMap(ccp -> ccp.expandContext(it)));
+        of(this, source).flatMap(expand).distinct().forEach(builder::context);
+        concat(streamChildren(Object.class), Arrays.stream(context)).flatMap(expand)
+                .distinct()
+                .forEach(builder::context);
+        return builder.build();
     }
 
     public final Stream<AutoFillOption> autoComplete(
@@ -199,6 +204,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
             var useArgs = parameters.stream().map(param -> {
                 var vt = ValueType.of(param.getParam().getType());
                 return argStringSource.apply(param.getName())
+                        .filter(Objects::nonNull)
                         .findAny()
                         .map(vt::parse)
                         .or(() -> usage.getContext().stream().filter(vt.getTargetClass()::isInstance).findAny())

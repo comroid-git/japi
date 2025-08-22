@@ -57,7 +57,7 @@ public class SpigotCommandAdapter extends AbstractCommandAdapter
     ) {
         if (alias.contains(":")) alias = alias.substring(alias.indexOf(':') + 1);
         var strings = strings(alias, args);
-        var usage   = manager.createUsageBase(this, strings, expandContext(sender).toArray());
+        var usage = manager.createUsageBase(this, strings, sender);
         return manager.autoComplete(usage, String.valueOf(args.length - 1), strings[strings.length - 1])
                 .map(AutoFillOption::key)
                 .toList();
@@ -70,7 +70,7 @@ public class SpigotCommandAdapter extends AbstractCommandAdapter
     ) {
         if (label.contains(":")) label = label.substring(label.indexOf(':') + 1);
         var strings = strings(label, args);
-        var usage   = manager.createUsageBase(this, strings, expandContext(sender).toArray());
+        var usage = manager.createUsageBase(this, strings, sender);
         manager.execute(usage, null);
         return true;
     }
