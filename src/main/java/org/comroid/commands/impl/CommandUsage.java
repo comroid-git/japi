@@ -57,33 +57,29 @@ public class CommandUsage {
                 }
 
                 if (lastCallable == null) return false;
-
                 var params = lastCallable.nodes().flatMap(Streams.cast(Parameter.class)).toList();
-                node = params.getFirst();
+                if (!(node instanceof Parameter)) node = params.getFirst();
+
                 if (node instanceof Parameter param) {
                     // store argString
                     var argString = new StringBuilder(fullCommand[fullCommandIndex]);
-                    switch (param.getAttribute().stringMode()) {
-                        case NORMAL, GREEDY -> {
-                            if (!argString.toString().startsWith("\"")) break;
-                            // immediately consume greedy argument
-                            argString = new StringBuilder(argString.substring(1));
-                            String next;
-                            do {
-                                argString.append(next = fullCommand[++fullCommandIndex]);
-                            } while (!next.endsWith("\"") && fullCommandIndex + 1 < fullCommand.length);
-                            if (next.endsWith("\"")) argString.deleteCharAt(argString.length() - 1);
-                        }
+                    if (Objects.requireNonNull(param.getAttribute().stringMode()) == StringMode.GREEDY) {
+                        // immediately consume greedy argument
+                        if (!argString.isEmpty() && argString.charAt(0) == '"') argString.deleteCharAt(0);
+                        String read = "";
+                        while (!read.endsWith("\"") && fullCommandIndex + 1 < fullCommand.length) argString.append(' ')
+                                .append(read = fullCommand[++fullCommandIndex]);
+                        if (read.endsWith("\"")) argString.deleteCharAt(argString.length() - 1);
                     }
                     if (!argString.toString().isBlank()) argumentStrings.put(param, argString.toString());
 
                     // advance parameter if possible
                     var nextIndex = params.indexOf(param) + 1;
-                    if (nextIndex == -1) return false;
-                    if (nextIndex >= params.size() && param.getAttribute()
-                                                              .stringMode() == StringMode.SINGLE_WORD || nextIndex + 1 >= params.size())
-                        return false;
-                    this.node = params.get(nextIndex + 1);
+                    if (nextIndex >= params.size() || params.get(nextIndex)
+                                                              .getAttribute()
+                                                              .stringMode() == StringMode.SINGLE_WORD) return false;
+
+                    this.node = params.get(nextIndex);
                     this.fullCommandIndex += 1;
                     return true;
                 }
