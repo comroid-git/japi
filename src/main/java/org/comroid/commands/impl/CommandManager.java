@@ -133,6 +133,9 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
             // initialize usage
             usage.advanceFull();
 
+            var call = usage.getStackTrace().peek().asCall();
+            if (call != null && call.getParameters().size() <= usage.getArgumentStrings().size()) return empty();
+
             // collect autocompletion stream
             var stackTrace = usage.getStackTrace();
             var paramTrace = usage.getParamTrace();
