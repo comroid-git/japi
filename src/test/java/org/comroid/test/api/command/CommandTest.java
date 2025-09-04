@@ -1,9 +1,10 @@
-package org.comroid.test.api;
+package org.comroid.test.api.command;
 
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Description;
-import org.comroid.api.func.util.Command;
 import org.comroid.api.net.Token;
+import org.comroid.commands.Command;
+import org.comroid.commands.impl.CommandManager;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
 
@@ -20,7 +21,7 @@ public class CommandTest {
 
     @RepeatedTest(100)
     public void test() {
-        var cmdr = new Command.Manager();
+        var cmdr = new CommandManager();
         cmdr.register(this);
         var cmd = cmdr.getBaseNodes().stream()
                 .filter(node -> node.getName().equals("test"))
@@ -33,8 +34,8 @@ public class CommandTest {
         Assertions.assertEquals(name + " is lit af", execute(cmdr, "user " + name), "failed to execute command");
     }
 
-    public Object execute(Command.Manager cmdr, String command) {
-        return cmdr.execute(Command.Manager.DefaultHandler, command.split(" "), Map.of());
+    public Object execute(CommandManager cmdr, String command) {
+        return cmdr.execute(CommandManager.DefaultHandler, command.split(" "), Map.of());
     }
 
     @Command

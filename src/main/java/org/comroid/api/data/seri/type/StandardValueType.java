@@ -88,20 +88,20 @@ public class StandardValueType<R> implements ValueType<R>, HtmlInputDesc {
             "text",
             "pattern='" + RegExpUtil.UUID4_PATTERN + "'");
     public static final  StandardValueType<Void>      VOID      = new StandardValueType<>(void.class, "Void", () -> null, it -> null, "hidden");
-    /**
-     * @deprecated use {@link BoundValueType}
-     */
-    @Deprecated(forRemoval = true)
-    public static final  StandardValueType<Object>    OBJECT    = new StandardValueType<>(Object.class, "Object", () -> null, it -> it, "hidden");
-    /**
-     * @deprecated use {@link ArrayValueType}
-     */
-    @Deprecated(forRemoval = true)
-    public static final StandardValueType<Object[]>  ARRAY     = new StandardValueType<>(Object[].class,
-            "Array",
-            () -> new Object[0],
-            it -> new Object[]{ it },
-            "hidden");
+//    /**
+//     * @deprecated use {@link BoundValueType}
+//     */
+//    @Deprecated(forRemoval = true)
+//    public static final  StandardValueType<Object>    OBJECT    = new StandardValueType<>(Object.class, "Object", () -> null, it -> it, "hidden");
+//    /**
+//     * @deprecated use {@link ArrayValueType}
+//     */
+//    @Deprecated(forRemoval = true)
+//    public static final StandardValueType<Object[]>  ARRAY     = new StandardValueType<>(Object[].class,
+//            "Array",
+//            () -> new Object[0],
+//            it -> new Object[]{ it },
+//            "hidden");
 
     @Experimental
     public static Object findGoodType(String parse) {

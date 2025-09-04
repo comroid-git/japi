@@ -16,9 +16,12 @@ import org.jetbrains.annotations.Nullable;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named, HtmlFormElementDesc, Specifiable<ValueType<R>>, Default.Extension {
+public interface ValueType<R>
+        extends ValuePointer<R>, Predicate<Object>, Named, HtmlFormElementDesc, Specifiable<ValueType<R>>,
+        Default.Extension {
     static <T> ValueType<T> of(final Class<?> type) {
         return StandardValueType.forClass(type)
+                .or(() -> type.isArray() ? ArrayValueType.of(type.getComponentType()) : null)
                 .or(() -> BoundValueType.of(type))
                 .cast();
     }
@@ -70,7 +73,8 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named,
     @Nullable
     default Object defaultValue() {
         return ReflectionHelper.fieldWithAnnotation(getTargetClass(), Default.class)
-                .stream().findAny()
+                .stream()
+                .findAny()
                 .map(fld -> ReflectionHelper.forceGetField(null, fld))
                 .orElse(null);
     }
@@ -81,10 +85,8 @@ public interface ValueType<R> extends ValuePointer<R>, Predicate<Object>, Named,
     }
 
     default <T> T convert(R value, ValueType<T> toType) {
-        if (equals(toType))
-            return Polyfill.uncheckedCast(value);
-        if (value == null)
-            return null;
+        if (equals(toType)) return Polyfill.uncheckedCast(value);
+        if (value == null) return null;
         return toType.parse(value.toString());
     }
 }

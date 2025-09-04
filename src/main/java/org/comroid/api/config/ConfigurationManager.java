@@ -32,6 +32,7 @@ import org.comroid.api.config.adapter.TypeAdapter;
 import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.data.seri.MimeType;
+import org.comroid.api.data.seri.type.ArrayValueType;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.func.exc.ThrowingSupplier;
 import org.comroid.api.func.ext.Context;
@@ -39,6 +40,7 @@ import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.Pair;
 import org.comroid.api.io.FileHandle;
+import org.comroid.api.java.Activator;
 import org.comroid.api.java.JITAssistant;
 import org.comroid.api.text.Capitalization;
 import org.comroid.api.tree.UncheckedCloseable;
@@ -49,6 +51,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -89,7 +92,8 @@ public class ConfigurationManager<T extends DataNode> {
     }
 
     public T initialize() {
-        if (!file.exists() && (file.getParentFile().exists() || file.getParentFile().mkdirs())) save(); // save default config
+        if (!file.exists() && (file.getParentFile().exists() || file.getParentFile()
+                .mkdirs())) save(); // save default config
         reload();
         return config;
     }
@@ -103,9 +107,13 @@ public class ConfigurationManager<T extends DataNode> {
         if (!force && ftime().isBefore(timestamp)) return; // reload is not necessary
 
         DataNode node;
-        try (var fis = new FileInputStream(file); var isr = new InputStreamReader(fis); var br = new BufferedReader(isr)) {
+        try (
+                var fis = new FileInputStream(file); var isr = new InputStreamReader(fis);
+                var br = new BufferedReader(isr)
+        ) {
             var data = br.lines().collect(Collectors.joining());
-            node = Objects.requireNonNull(dataType.getDeserializer(), "No deserializer set for " + dataType).apply(data);
+            node = Objects.requireNonNull(dataType.getDeserializer(), "No deserializer set for " + dataType)
+                    .apply(data);
         }
         Objects.requireNonNull(node, "No data");
 
@@ -123,15 +131,30 @@ public class ConfigurationManager<T extends DataNode> {
                 classes = property.getAnnotation(Adapt.class).value();
                 JITAssistant.prepare(classes);
                 value = Arrays.stream(classes)
-                        .flatMap($ -> Stream.ofNullable(TypeAdapter.CACHE.getOrDefault(property.getType().getTargetClass(), null)))
+                        .flatMap($ -> Stream.ofNullable(TypeAdapter.CACHE.getOrDefault(property.getType()
+                                .getTargetClass(), null)))
                         .flatMap(adp -> adp.deserialize(context, adp.parseSerialized(node.asString())).stream())
                         .findAny()
                         .orElse(null);
             }
-            if (propType.isStandard() || classes != null) {
+
+            if (propType instanceof ArrayValueType<?>) {
+                var componentType = propType.getTargetClass().getComponentType();
+                var array         = (Object[]) Array.newInstance(componentType, node.size());
+                for (int i = 0; i < node.size(); i++) {
+                    var each = node.get(i);
+                    array[i] = Activator.get(componentType).createInstance(each);
+                }
+                value = array;
+            }
+
+            if (propType.isStandard() || propType.isArray() || classes != null) {
                 if (propType.isStandard() && value == null) value = propType.parse(node.asString());
                 property.setFor(it, uncheckedCast(value));
-            } else setSelfAndChildrenRecursive(DataStructure.of(propType.getTargetClass()), property.getFrom(it), node);
+            } else //noinspection ConstantValue <- false positive for some reason
+                if (node != null) setSelfAndChildrenRecursive(DataStructure.of(propType.getTargetClass()),
+                        property.getFrom(it),
+                        node);
         }
     }
 
@@ -225,17 +248,23 @@ public class ConfigurationManager<T extends DataNode> {
         @Override
         public void refresh() {
             for (var property : struct.getProperties())
-                if (!property.isAnnotationPresent(Ignore.class)) sendAttributeMessageRecursive(property.getName(), property, config, 1);
+                if (!property.isAnnotationPresent(Ignore.class)) sendAttributeMessageRecursive(property.getName(),
+                        property,
+                        config,
+                        1);
         }
 
-        private void sendAttributeMessageRecursive(String fullName, DataStructure<?>.Property<?> property, Object it, int level) {
+        private void sendAttributeMessageRecursive(
+                String fullName, DataStructure<?>.Property<?> property, Object it, int level) {
             if (it == null) {
                 Debug.log(fullName + " is null");
                 return;
             }
             Debug.log(fullName + " is not null");
 
-            var title     = IntStream.range(0, level).mapToObj($ -> "#").collect(Collectors.joining()) + " Config Value " + Code.apply(fullName);
+            var title = IntStream.range(0, level)
+                                .mapToObj($ -> "#")
+                                .collect(Collectors.joining()) + " Config Value " + Code.apply(fullName);
             var desc    = property.getDescription();
             var current = property.getFrom(it);
             var propType  = property.getType();
@@ -245,7 +274,10 @@ public class ConfigurationManager<T extends DataNode> {
                     ```
                     %s: %s
                     ```
-                    """.formatted(title, desc.isEmpty() ? "" : "\n> " + String.join("\n> ", desc), propType.getTargetClass().getSimpleName(), current);
+                    """.formatted(title,
+                    desc.isEmpty() ? "" : "\n> " + String.join("\n> ", desc),
+                    propType.getTargetClass().getSimpleName(),
+                    current);
 
             ifs:
             {
@@ -264,15 +296,20 @@ public class ConfigurationManager<T extends DataNode> {
                         if (current instanceof ISnowflake flake) current = flake.getIdLong();
                         if (current != null) {
                             var currentId = (long) current;
-                            if (Channel.class.isAssignableFrom(propClass)) def = EntitySelectMenu.DefaultValue.channel(currentId);
-                            else if (User.class.isAssignableFrom(propClass)) def = EntitySelectMenu.DefaultValue.user(currentId);
-                            else if (Role.class.isAssignableFrom(propClass)) def = EntitySelectMenu.DefaultValue.role(currentId);
-                            else throw new IllegalArgumentException("Invalid mentionable: " + propClass.getCanonicalName());
+                            if (Channel.class.isAssignableFrom(propClass)) def = EntitySelectMenu.DefaultValue.channel(
+                                    currentId);
+                            else if (User.class.isAssignableFrom(propClass)) def = EntitySelectMenu.DefaultValue.user(
+                                    currentId);
+                            else if (Role.class.isAssignableFrom(propClass)) def = EntitySelectMenu.DefaultValue.role(
+                                    currentId);
+                            else
+                                throw new IllegalArgumentException("Invalid mentionable: " + propClass.getCanonicalName());
                             builder.setDefaultValues(def);
                         }
 
                         // choose ChannelType if necessary
-                        if (target == EntitySelectMenu.SelectTarget.CHANNEL) builder.setChannelTypes(Arrays.stream(ChannelType.values())
+                        if (target == EntitySelectMenu.SelectTarget.CHANNEL) builder.setChannelTypes(Arrays.stream(
+                                        ChannelType.values())
                                 .filter(type -> type.getInterface().isAssignableFrom(propClass))
                                 .filter(type -> type != ChannelType.UNKNOWN)
                                 .toList());
@@ -287,7 +324,8 @@ public class ConfigurationManager<T extends DataNode> {
                             .filter(Field::isEnumConstant)
                             .forEach(field -> menu.addOption(Aliased.$(field)
                                     .findAny()
-                                    .or(() -> Optional.ofNullable(ThrowingSupplier.sneaky(() -> Named.$(field.get(null))).get()))
+                                    .or(() -> Optional.ofNullable(ThrowingSupplier.sneaky(() -> Named.$(field.get(null)))
+                                            .get()))
                                     .orElseGet(field::getName), field.getName(), Annotations.descriptionText(field)));
 
                     // send enum selection box
@@ -355,7 +393,8 @@ public class ConfigurationManager<T extends DataNode> {
                                 .filter(Field::isEnumConstant)
                                 .filter(field -> value.equals(Aliased.$(field)
                                         .findAny()
-                                        .or(() -> Optional.ofNullable(ThrowingSupplier.sneaky(() -> Named.$(field.get(null))).get()))
+                                        .or(() -> Optional.ofNullable(ThrowingSupplier.sneaky(() -> Named.$(field.get(
+                                                null))).get()))
                                         .orElseGet(field::getName))))
                         .findAny()
                         .map(ThrowingFunction.sneaky(field -> field.get(null)))
@@ -386,33 +425,44 @@ public class ConfigurationManager<T extends DataNode> {
         private CompletableFuture<?> updateDisplayValue(Message original, InteractionHook hook, Object value) {
             var raw   = original.getContentRaw();
             var start = raw.indexOf("```");
-            return original.editMessage(raw.substring(0, start) + "```\n" + value + "\n```").flatMap($ -> hook.deleteOriginal()).submit();
+            return original.editMessage(raw.substring(0, start) + "```\n" + value + "\n```")
+                    .flatMap($ -> hook.deleteOriginal())
+                    .submit();
         }
 
         private Pair<DataStructure<?>.Property<?>, Object> descend(String... path) {
             if (path.length == 0) throw new IllegalArgumentException("Empty path");
             Wrap<DataStructure<?>.Property<?>> wrap   = uncheckedCast(struct.getProperty(path[0]));
             Object                             holder = config;
-            if (wrap.test(prop -> !prop.getType().isStandard())) holder = wrap.ifPresentMap(prop -> prop.getFrom(config));
+            if (wrap.test(prop -> !prop.getType()
+                    .isStandard())) holder = wrap.ifPresentMap(prop -> prop.getFrom(config));
             for (var i = 1; i < path.length; i++) {
                 final var fi = i;
                 final var fh = holder;
-                wrap = wrap.map(it -> it.getType().getTargetClass()).map(DataStructure::of).flatMap(struct -> struct.getProperty(path[fi]));
+                wrap = wrap.map(it -> it.getType().getTargetClass())
+                        .map(DataStructure::of)
+                        .flatMap(struct -> struct.getProperty(path[fi]));
                 if (wrap.test(prop -> !prop.getType().isStandard() && prop.getType().getTargetClass().isInstance(fh))) {
                     Object o = wrap.ifPresentMap(prop -> prop.getFrom(fh));
                     if (o != null) holder = o;
                 }
             }
             final var fh = holder;
-            return wrap.ifPresentMapOrElseThrow(prop -> new Pair<>(prop, fh), () -> new NoSuchElementException("No such property: " + String.join(".", path)));
+            return wrap.ifPresentMapOrElseThrow(prop -> new Pair<>(prop, fh),
+                    () -> new NoSuchElementException("No such property: " + String.join(".", path)));
         }
 
         private static EntitySelectMenu.@NotNull SelectTarget getSelectTarget(DataStructure<?>.Property<?> property) {
             EntitySelectMenu.SelectTarget target;
-            if (Channel.class.isAssignableFrom(property.getType().getTargetClass())) target = EntitySelectMenu.SelectTarget.CHANNEL;
-            else if (User.class.isAssignableFrom(property.getType().getTargetClass())) target = EntitySelectMenu.SelectTarget.USER;
-            else if (Role.class.isAssignableFrom(property.getType().getTargetClass())) target = EntitySelectMenu.SelectTarget.ROLE;
-            else throw new IllegalArgumentException("Invalid mentionable: " + property.getType().getTargetClass().getCanonicalName());
+            if (Channel.class.isAssignableFrom(property.getType()
+                    .getTargetClass())) target = EntitySelectMenu.SelectTarget.CHANNEL;
+            else if (User.class.isAssignableFrom(property.getType()
+                    .getTargetClass())) target = EntitySelectMenu.SelectTarget.USER;
+            else if (Role.class.isAssignableFrom(property.getType()
+                    .getTargetClass())) target = EntitySelectMenu.SelectTarget.ROLE;
+            else throw new IllegalArgumentException("Invalid mentionable: " + property.getType()
+                        .getTargetClass()
+                        .getCanonicalName());
             return target;
         }
     }

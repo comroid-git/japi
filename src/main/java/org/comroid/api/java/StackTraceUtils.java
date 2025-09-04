@@ -122,7 +122,7 @@ public final class StackTraceUtils {
                     first = false;
                     continue;
                 }
-                if (Stream.concat(Stream.of("java", "org.comroid"), EXTRA_FILTER_NAMES.stream())
+                if (Stream.concat(Stream.of("java", "org.comroid", "de.kaleidox"), EXTRA_FILTER_NAMES.stream())
                         .collect(Streams.append(pkgs))
                         .anyMatch(element.getClassName()::startsWith))
                     out.println("\tat " + element);

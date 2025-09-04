@@ -3,7 +3,6 @@ package org.comroid.api.data;
 import jakarta.persistence.AttributeConverter;
 import lombok.AccessLevel;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -15,6 +14,7 @@ import org.jetbrains.annotations.Contract;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.DoubleUnaryOperator;
 import java.util.stream.DoubleStream;
@@ -23,7 +23,7 @@ import java.util.stream.IntStream;
 import static java.lang.Math.*;
 
 @SuppressWarnings("unused")
-public interface Vector {
+public interface Vector extends Cloneable {
     int    IndexX = 0;
     int    IndexY = 1;
     int    IndexZ = 2;
@@ -42,15 +42,36 @@ public interface Vector {
     }
 
     static Vector of(double... dim) {
-        switch (dim.length) {
-            case 2:
-                return new N2(dim[0], dim[1]);
-            case 3:
-                return new N3(dim[0], dim[1], dim[2]);
-            case 4:
-                return new N4(dim[0], dim[1], dim[2], dim[3]);
-        }
-        throw outOfBounds(dim.length);
+        return switch (dim.length) {
+            case 2 -> new N2(dim[0], dim[1]);
+            case 3 -> new N3(dim[0], dim[1], dim[2]);
+            case 4 -> new N4(dim[0], dim[1], dim[2], dim[3]);
+            default -> throw outOfBounds(dim.length);
+        };
+    }
+
+    static Vector min(Vector a, Vector b) {
+        var vec = a.ctor();
+        for (var dim = 0; dim < a.n(); dim++) vec.set(dim, Math.min(a.get(dim), b.get(dim)));
+        return vec;
+    }
+
+    static Vector max(Vector a, Vector b) {
+        var vec = a.ctor();
+        for (var dim = 0; dim < a.n(); dim++) vec.set(dim, Math.max(a.get(dim), b.get(dim)));
+        return vec;
+    }
+
+    static Vector rel(Vector root, Vector vector) {
+        return root.subi(vector);
+    }
+
+    static double dist(Vector a, Vector b) {
+        Vector min = min(a, b), max = max(a, b);
+        var    acc = 0.0;
+        for (var i = 0; i < a.n(); i++)
+            acc += pow(max.get(i) - min.get(i), 2);
+        return sqrt(acc);
     }
 
     double getX();
@@ -68,6 +89,16 @@ public interface Vector {
     double getW();
 
     Vector setW(double value);
+
+    @SuppressWarnings("MethodDoesntCallSuperMethod")
+    default Vector clone() {
+        return switch (n()) {
+            case 2 -> new N2(getX(), getY());
+            case 3 -> new N3(getX(), getY(), getZ());
+            case 4 -> new N4(getX(), getY(), getZ(), getW());
+            default -> throw new RuntimeException(new CloneNotSupportedException());
+        };
+    }
 
     default Vector intCast() {
         return map(x -> (int) x);
@@ -116,7 +147,7 @@ public interface Vector {
 
     default Vector muli(Vector other) {
         var a = toArray();
-        var b = toArray();
+        var b = other.toArray();
         var r = ctor();
         for (var i = 0; i < n(); i++) r.set(i, a[i] * b[i]);
         return r;
@@ -169,7 +200,7 @@ public interface Vector {
 
     default Vector addi(Vector other) {
         var a = toArray();
-        var b = toArray();
+        var b = other.toArray();
         var r = ctor();
         for (var i = 0; i < n(); i++) r.set(i, a[i] + b[i]);
         return r;
@@ -181,7 +212,7 @@ public interface Vector {
 
     default Vector subi(Vector other) {
         var a = toArray();
-        var b = toArray();
+        var b = other.toArray();
         var r = ctor();
         for (var i = 0; i < n(); i++) r.set(i, a[i] - b[i]);
         return r;
@@ -193,7 +224,7 @@ public interface Vector {
 
     default Vector modi(Vector other) {
         var a = toArray();
-        var b = toArray();
+        var b = other.toArray();
         var r = ctor();
         for (var i = 0; i < n(); i++) r.set(i, a[i] % b[i]);
         return r;
@@ -209,7 +240,7 @@ public interface Vector {
 
     default Vector divi(Vector other) {
         var a = toArray();
-        var b = toArray();
+        var b = other.toArray();
         var r = ctor();
         for (var i = 0; i < n(); i++) r.set(i, a[i] / b[i]);
         return r;
@@ -222,6 +253,22 @@ public interface Vector {
         return sqrt(sum);
     }
 
+    default N2 as2() {
+        return (N2) this;
+    }
+
+    default N3 as3() {
+        return (N3) this;
+    }
+
+    default N4 as4() {
+        return (N4) this;
+    }
+
+    default Vector negate() {
+        return map(x -> -x);
+    }
+
     private static UnsupportedOperationException outOfBounds(int n) {
         return new UnsupportedOperationException("Unsupported Vector dimension: " + n);
     }
@@ -231,7 +278,7 @@ public interface Vector {
     @FieldDefaults(level = AccessLevel.PROTECTED)
     class N2 implements Vector {
         public static final N2 Zero = new N2();
-        public static final N2 One = new N2(1, 1);
+        public static final N2 One  = new N2(1, 1);
         double x, y;
 
         public N2(double x, double y) {
@@ -274,28 +321,46 @@ public interface Vector {
             return new N2(dim[0], dim[1]);
         }
 
-        @ApiStatus.Experimental
-        public N3 to3(double z) {
-            return new N3(x, y, z);
+        @Override
+        public final int hashCode() {
+            return Objects.hash((Object[]) stream().boxed().toArray(Double[]::new));
+        }
+
+        @Override
+        public final boolean equals(Object o) {
+            if (!(o instanceof Vector ov)) return false;
+            double[] it = toArray(), ot = ov.toArray();
+            var      eq = 0;
+            for (var i = 0; i < n(); i++) if (abs(Double.compare(it[i], ot[i])) < 0.000_01) eq++;
+            return eq == n();
+        }
+
+        @Override
+        public Vector clone() {
+            return Vector.super.clone();
         }
 
         @Override
         public final String toString() {
             final var dims = new char[]{ 'x', 'y', 'z', 'w' };
-            var       ls   = "(";
+            var       ls   = new StringBuilder("(");
             for (var n = 0; n < n(); n++)
-                ls += "" + dims[n] + '=' + get(n) + ';';
+                ls.append(dims[n]).append('=').append(get(n)).append(';');
             return ls.substring(0, ls.length() - 1) + ')';
+        }
+
+        @ApiStatus.Experimental
+        public N3 to3(double z) {
+            return new N3(x, y, z);
         }
     }
 
     @Getter
     @NoArgsConstructor
-    @EqualsAndHashCode(callSuper = true)
     @FieldDefaults(level = AccessLevel.PROTECTED)
     class N3 extends N2 {
-        public static final N3 Zero = new N3();
-        public static final N3 One  = new N3(1, 1, 1);
+        public static final N3     Zero = new N3();
+        public static final N3     One  = new N3(1, 1, 1);
         @Setter             double z;
 
         public N3(double x, double y, double z) {
@@ -329,7 +394,7 @@ public interface Vector {
             @Override
             public byte[] convertToDatabaseColumn(N3 attribute) {
                 var buf = ByteBuffer.allocate(attribute.n() */*byte count of double*/8);
-                var i = -8;
+                var i   = -8;
                 buf.putDouble(i += 8, attribute.x);
                 buf.putDouble(i += 8, attribute.y);
                 buf.putDouble(i, attribute.z);
@@ -339,10 +404,10 @@ public interface Vector {
             @Override
             public N3 convertToEntityAttribute(byte[] dbData) {
                 var buf = ByteBuffer.wrap(dbData);
-                var i = -8;
-                var x = buf.getDouble(i += 8);
-                var y = buf.getDouble(i += 8);
-                var z = buf.getDouble(i);
+                var i   = -8;
+                var x   = buf.getDouble(i += 8);
+                var y   = buf.getDouble(i += 8);
+                var z   = buf.getDouble(i);
                 return new N3(x, y, z);
             }
         }
@@ -350,7 +415,6 @@ public interface Vector {
 
     @Getter
     @NoArgsConstructor
-    @EqualsAndHashCode(callSuper = true)
     @FieldDefaults(level = AccessLevel.PROTECTED)
     class N4 extends N3 {
         public static final N4     Zero = new N4();
@@ -383,7 +447,7 @@ public interface Vector {
             @Override
             public byte[] convertToDatabaseColumn(N4 attribute) {
                 var buf = ByteBuffer.allocate(attribute.n() */*byte count of double*/8);
-                var i = -8;
+                var i   = -8;
                 buf.putDouble(i += 8, attribute.x);
                 buf.putDouble(i += 8, attribute.y);
                 buf.putDouble(i += 8, attribute.z);
@@ -394,11 +458,11 @@ public interface Vector {
             @Override
             public N4 convertToEntityAttribute(byte[] dbData) {
                 var buf = ByteBuffer.wrap(dbData);
-                var i = -8;
-                var x = buf.getDouble(i += 8);
-                var y = buf.getDouble(i += 8);
-                var z = buf.getDouble(i += 8);
-                var w = buf.getDouble(i);
+                var i   = -8;
+                var x   = buf.getDouble(i += 8);
+                var y   = buf.getDouble(i += 8);
+                var z   = buf.getDouble(i += 8);
+                var w   = buf.getDouble(i);
                 return new N4(x, y, z, w);
             }
         }

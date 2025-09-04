@@ -17,7 +17,7 @@ apply plugin: 'java-library'
 apply plugin: 'maven-publish'
 
 group 'org.comroid'
-version '2.2'//.' + getCommitTimestampMinutes()
+version '2.3.' + getCommitTimestampMinutes()
 
 configurations.compileClasspath.resolutionStrategy.activateDependencyLocking()
 
@@ -57,8 +57,12 @@ dependencies {
     api 'org.projectlombok:lombok:1.18.30'
     annotationProcessor 'org.projectlombok:lombok:+'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
+    compileOnly 'org.junit.jupiter:junit-jupiter-api:+'
     testImplementation 'org.easymock:easymock:+'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:+'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:+'
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:+'
+    testCompileOnly 'junit:junit:+'
 }
 
 publishing {
