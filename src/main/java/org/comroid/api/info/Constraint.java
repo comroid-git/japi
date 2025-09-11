@@ -4,7 +4,6 @@ import lombok.AccessLevel;
 import lombok.Data;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.StandardException;
-import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Streams;
@@ -26,9 +25,8 @@ import static java.util.stream.IntStream.*;
 import static org.comroid.api.func.util.Streams.*;
 
 @Log
-@UtilityClass
 public class Constraint {
-    public API anyOf(Object actual, String nameof, Object... expected) {
+    public static API anyOf(Object actual, String nameof, Object... expected) {
         return new API(() -> Arrays.asList(expected).contains(actual))
                 .setConstraint("anyOf")
                 .setTypeof(actual.getClass())
@@ -38,7 +36,7 @@ public class Constraint {
                 .setExpected(expected);
     }
 
-    public API equals(Object actual, Object expected, String nameof) {
+    public static API equals(Object actual, Object expected, String nameof) {
         return new API(() -> Objects.equals(actual, expected))
                 .setConstraint("equals")
                 .setTypeof(actual.getClass())
@@ -49,7 +47,7 @@ public class Constraint {
     }
 
     @Contract("false, _ -> fail")
-    public API decide(boolean pass, String nameof) {
+    public static API decide(boolean pass, String nameof) {
         return decide(pass)
                 .setConstraint("check")
                 .setNameof(nameof)
@@ -58,17 +56,17 @@ public class Constraint {
     }
 
     @Contract("-> new")
-    public API pass() {
+    public static API pass() {
         return new API(() -> true);
     }
 
     @Contract("-> fail")
-    public API fail() {
+    public static API fail() {
         return new API(() -> false);
     }
 
     @Contract("null, _ -> new; _, _ -> fail")
-    public API isNull(Object it, String nameof) {
+    public static API isNull(Object it, String nameof) {
         return new API(() -> it == null)
                 .setConstraint("isNull")
                 .setNameof(nameof)
@@ -76,14 +74,14 @@ public class Constraint {
     }
 
     @Contract("null, _ -> fail")
-    public API notNull(Object it, String nameof) {
+    public static API notNull(Object it, String nameof) {
         return new API(() -> it != null)
                 .setConstraint("notNull")
                 .setNameof(nameof)
                 .setShouldBe("not");
     }
 
-    public API combine(API... apis) {
+    public static API combine(API... apis) {
         Length.min(1, apis, "apis").run();
         if (apis.length == 1) return apis[0];
         var base = apis[0];
@@ -106,14 +104,17 @@ public class Constraint {
         return base;
     }
 
+    private Constraint() {
+        throw new UnsupportedOperationException();
+    }
+
     @Contract("false -> fail")
-    private API decide(boolean pass) {
+    private static API decide(boolean pass) {
         return pass ? pass() : fail();
     }
 
-    @UtilityClass
-    public class Type {
-        public API anyOf(Object it, String nameof, Class<?>... types) {
+    public static class Type {
+        public static API anyOf(Object it, String nameof, Class<?>... types) {
             final var tt = it instanceof Class<?>;
             return decide(Arrays.stream(types)
                     .anyMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
@@ -124,7 +125,7 @@ public class Constraint {
                     .setExpected(Arrays.toString(types));
         }
 
-        public API noneOf(Object it, String nameof, Class<?>... types) {
+        public static API noneOf(Object it, String nameof, Class<?>... types) {
             final var tt = it instanceof Class<?>;
             return decide(Arrays.stream(types)
                     .noneMatch(x -> (tt && x.isAssignableFrom((Class<?>) it)) || x.isInstance(it)))
@@ -134,20 +135,26 @@ public class Constraint {
                     .setShouldBe("none of types")
                     .setExpected(Arrays.toString(types));
         }
+
+        private Type() {
+            throw new UnsupportedOperationException();
+        }
     }
 
-    @UtilityClass
-    public class Range {
-        public API inside(double xIncl, double yIncl, double actual, String nameof) {
+    public static class Range {
+        public static API inside(double xIncl, double yIncl, double actual, String nameof) {
             return combine(Length.min(xIncl, actual, nameof + " range lower end"),
                     Length.max(yIncl, actual, nameof + " range upper end"))
                     .setNameof("range (%f..%f)".formatted(xIncl, yIncl));
         }
+
+        private Range() {
+            throw new UnsupportedOperationException();
+        }
     }
 
-    @UtilityClass
-    public class Length {
-        public API min(double min, Object target, String nameof) {
+    public static class Length {
+        public static API min(double min, Object target, String nameof) {
             int len = Integer.MIN_VALUE;
             if (target.getClass().isArray())
                 len = ((Object[]) target).length;
@@ -164,7 +171,7 @@ public class Constraint {
                     .setExpected(min);
         }
 
-        public API max(double max, Object target, String nameof) {
+        public static API max(double max, Object target, String nameof) {
             int len = Integer.MAX_VALUE;
             if (target.getClass().isArray())
                 len = ((Object[]) target).length;
@@ -184,11 +191,15 @@ public class Constraint {
                     .setShouldBe("at most")
                     .setExpected(max);
         }
+
+        private Length() {
+            throw new UnsupportedOperationException();
+        }
     }
 
     @Data
     @StandardException
-    public final class UnmetError extends IllegalArgumentException {
+    public static final class UnmetError extends IllegalArgumentException {
         private boolean resolved = false;
 
         public void cancel() {

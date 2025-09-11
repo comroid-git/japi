@@ -1,7 +1,6 @@
 package org.comroid.api.info;
 
 import lombok.SneakyThrows;
-import lombok.experimental.UtilityClass;
 import org.comroid.api.java.StackTraceUtils;
 
 import java.util.Arrays;
@@ -10,8 +9,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-@UtilityClass
 public final class Log {
+    private Log() {
+        throw new UnsupportedOperationException();
+    }
+
     public static Logger get() {
         return getForCaller(1);
     }

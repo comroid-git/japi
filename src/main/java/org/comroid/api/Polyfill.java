@@ -1,6 +1,5 @@
 package org.comroid.api;
 
-import lombok.experimental.UtilityClass;
 import org.comroid.annotations.Doc;
 import org.comroid.api.data.RegExpUtil;
 import org.comroid.api.func.Provider;
@@ -47,8 +46,11 @@ import java.util.stream.StreamSupport;
 import static java.util.Objects.*;
 
 @Experimental
-@UtilityClass
 public final class Polyfill {
+    private Polyfill() {
+        throw new UnsupportedOperationException();
+    }
+
     private static final CompletableFuture<?>                                   infiniteFuture     = new CompletableFuture<>();
     private static final Pattern                                                DURATION_PATTERN   = Pattern.compile(
             "((?<amount>\\d+)(?<unit>[yMwdhms][oi]?n?))");

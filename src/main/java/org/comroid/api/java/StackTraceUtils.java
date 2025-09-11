@@ -1,6 +1,5 @@
 package org.comroid.api.java;
 
-import lombok.experimental.UtilityClass;
 import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.DelegateStream;
 import org.comroid.api.func.util.Streams;
@@ -13,8 +12,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-@UtilityClass
 public final class StackTraceUtils {
+    private StackTraceUtils() {
+        throw new UnsupportedOperationException();
+    }
+
     public static final List<String> EXTRA_FILTER_NAMES = new ArrayList<>();
 
     public static String caller(int skip) {

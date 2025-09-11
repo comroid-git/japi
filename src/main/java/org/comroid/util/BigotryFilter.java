@@ -1,11 +1,13 @@
 package org.comroid.util;
 
-import lombok.experimental.UtilityClass;
 import org.intellij.lang.annotations.Language;
 
-@UtilityClass
 @SuppressWarnings("ALL")
 public class BigotryFilter {
+    private BigotryFilter() {
+        throw new UnsupportedOperationException();
+    }
+
     public static final @Language("RegExp") String   Separator = "[/,\\s\r\n]+";
     public static final String[] Pronouns = new String[]{ "they", "them" };
 

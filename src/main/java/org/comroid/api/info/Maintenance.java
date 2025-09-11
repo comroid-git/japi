@@ -3,7 +3,6 @@ package org.comroid.api.info;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
-import lombok.experimental.UtilityClass;
 import org.comroid.api.attr.Described;
 import org.comroid.api.attr.Named;
 import org.jetbrains.annotations.Nullable;
@@ -12,10 +11,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-@UtilityClass
 public class Maintenance {
-    private final Set<Inspection> inspections = new HashSet<>();
-    public final Set<Inspection> INSPECTIONS = Collections.unmodifiableSet(inspections);
+    private static final Set<Inspection> inspections = new HashSet<>();
+    public static final  Set<Inspection> INSPECTIONS = Collections.unmodifiableSet(inspections);
+    private Maintenance() {
+        throw new UnsupportedOperationException();
+    }
 
     @Value
     @Builder
