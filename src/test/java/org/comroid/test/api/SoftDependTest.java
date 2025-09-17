@@ -29,6 +29,6 @@ public class SoftDependTest {
     @Test
     public void testType() {
         Assertions.assertNotNull(SoftDepend.type("java.lang.String").get(), "existent assertion");
-        Assertions.assertNull(SoftDepend.type("javax.persistence.Id").get(), "nonexistent assertion");
+        Assertions.assertNull(SoftDepend.type("jakarta.persistence.Id").get(), "nonexistent assertion");
     }
 }

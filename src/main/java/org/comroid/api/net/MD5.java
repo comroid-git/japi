@@ -1,15 +1,13 @@
 package org.comroid.api.net;
 
 import lombok.SneakyThrows;
-import lombok.experimental.UtilityClass;
 
 import java.io.InputStream;
 import java.security.MessageDigest;
 
-@UtilityClass
 public class MD5 {
     @SneakyThrows
-    public String calculate(InputStream inputStream) {
+    public static String calculate(InputStream inputStream) {
         MessageDigest md5Digest = MessageDigest.getInstance("MD5");
         byte[] buffer = new byte[8192]; // Buffer size can be adjusted as per your requirement
         int    bytesRead;
@@ -33,5 +31,9 @@ public class MD5 {
         }
 
         return md5Hex.toString();
+    }
+
+    private MD5() {
+        throw new UnsupportedOperationException();
     }
 }

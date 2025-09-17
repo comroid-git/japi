@@ -5,7 +5,6 @@ import jdk.jshell.SnippetEvent;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.Value;
-import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Category;
@@ -54,10 +53,17 @@ import static java.util.stream.Stream.of;
 import static org.comroid.api.func.util.Streams.*;
 
 @Log
-@UtilityClass
 @ApiStatus.Internal
 @SuppressWarnings({ "DuplicatedCode", "BooleanMethodIsAlwaysInverted" })
 public class Annotations {
+    public static boolean readonly(AnnotatedElement element) {
+        return concat(of(Readonly.class),
+                SoftDepend.<Annotation>type("jakarta.persistence.Id").stream()).flatMap(type -> findAnnotations(type,
+                        element))
+                .findAny()
+                .isPresent();
+    }
+
     public static final Class<?>[] SystemFilters = new Class<?>[]{ Object.class, Class.class, Annotation.class };
 
     @ApiStatus.Experimental
@@ -66,10 +72,8 @@ public class Annotations {
         return Constraint.fail();
     }
 
-    public static boolean readonly(AnnotatedElement element) {
-        return concat(of(Readonly.class), SoftDepend.<Annotation>type("javax.persistence.Id").stream()).flatMap(type -> findAnnotations(type, element))
-                .findAny()
-                .isPresent();
+    private Annotations() {
+        throw new UnsupportedOperationException();
     }
 
     public static Set<String> aliases(@NotNull AnnotatedElement of) {

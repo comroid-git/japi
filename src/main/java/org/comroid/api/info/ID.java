@@ -1,6 +1,5 @@
 package org.comroid.api.info;
 
-import lombok.experimental.UtilityClass;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.UUIDContainer;
 import org.comroid.api.data.bind.DataStructure;
@@ -15,14 +14,13 @@ import java.util.UUID;
 
 import static org.comroid.api.func.ext.Wrap.*;
 
-@UtilityClass
 public class ID {
-    public @NotNull String of(@NotNull Object it) {
+    public static @NotNull String of(@NotNull Object it) {
         if (it instanceof UUID uuid)
             return uuid.toString();
         if (it instanceof UUIDContainer uuidContainer)
             return of(uuidContainer.getUuid());
-        return SoftDepend.type("javax.persistence.Id", "jakarta.persistence.Id")
+        return SoftDepend.type("jakarta.persistence.Id", "jakarta.persistence.Id")
                 .map(Polyfill::<Class<Annotation>>uncheckedCast)
                 .flatMap(idAT -> ReflectionHelper.fieldWithAnnotation(it.getClass(), idAT).stream())
                 .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && (fld.canAccess(it) || fld.trySetAccessible()))
@@ -33,5 +31,9 @@ public class ID {
                         .map(prop -> prop.getFrom(it)))
                 .map(ID::of)
                 .orElseGet(it::toString);
+    }
+
+    private ID() {
+        throw new UnsupportedOperationException();
     }
 }

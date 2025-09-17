@@ -2,7 +2,6 @@ package org.comroid.api.func.util;
 
 import lombok.Value;
 import lombok.experimental.NonFinal;
-import lombok.experimental.UtilityClass;
 import org.comroid.annotations.Convert;
 import org.comroid.annotations.Default;
 import org.comroid.annotations.Instance;
@@ -30,8 +29,11 @@ import java.util.stream.Collector;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-@UtilityClass
 public final class Bitmask {
+    private Bitmask() {
+        throw new UnsupportedOperationException();
+    }
+
     private static final Map<Class<?>, AtomicLong> LAST_FLAG = new ConcurrentHashMap<>();
     public static final long EMPTY = 0x0;
 

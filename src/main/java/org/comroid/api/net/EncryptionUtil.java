@@ -2,7 +2,6 @@ package org.comroid.api.net;
 
 import lombok.Getter;
 import lombok.SneakyThrows;
-import lombok.experimental.UtilityClass;
 import org.comroid.api.attr.Named;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.Range;
@@ -13,13 +12,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-@UtilityClass
 public class EncryptionUtil {
-    private final Map<UUID, Cipher> cipherCache = new ConcurrentHashMap<>();
+    private static final Map<UUID, Cipher> cipherCache = new ConcurrentHashMap<>();
 
     @lombok.Builder
     @SneakyThrows
-    public Cipher prepareCipher(
+    public static Cipher prepareCipher(
             UUID id,
             Algorithm algorithm,
             Transformation transformation,
@@ -27,6 +25,10 @@ public class EncryptionUtil {
             @Range(from = 16, to = 16) String key
     ) {
         return cipherCache.computeIfAbsent(id, $ -> $createCipher(algorithm, transformation, mode, key));
+    }
+
+    private EncryptionUtil() {
+        throw new UnsupportedOperationException();
     }
 
     public enum Algorithm implements Named {
@@ -63,7 +65,7 @@ public class EncryptionUtil {
     }
 
     @SneakyThrows
-    private Cipher $createCipher(
+    private static Cipher $createCipher(
             Algorithm algorithm,
             Transformation transformation,
             @MagicConstant(valuesFromClass = Cipher.class) int mode,

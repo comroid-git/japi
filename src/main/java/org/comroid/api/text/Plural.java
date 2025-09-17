@@ -32,8 +32,14 @@ public class Plural implements Word, Function<@NotNull Number, @NotNull String> 
         return plural;
     }
 
-    public Quantified q(Number quantity) {
+    @Override
+    public Quantified quantify(Number quantity) {
         return new Quantified(quantity);
+    }
+
+    @Deprecated
+    public Quantified q(Number quantity) {
+        return quantify(quantity);
     }
 
     @Override
@@ -63,7 +69,10 @@ public class Plural implements Word, Function<@NotNull Number, @NotNull String> 
             this(quantitySupplier, () -> DEFAULT_FORMAT);
         }
 
-        public Quantified(@NotNull Supplier<@NotNull Number> quantitySupplier, @Nullable Supplier<@NotNull String> formatSupplier) {
+        public Quantified(
+                @NotNull Supplier<@NotNull Number> quantitySupplier,
+                @Nullable Supplier<@NotNull String> formatSupplier
+        ) {
             this.quantitySupplier = quantitySupplier;
             this.formatSupplier   = formatSupplier;
         }
@@ -79,10 +88,16 @@ public class Plural implements Word, Function<@NotNull Number, @NotNull String> 
         }
 
         @Override
+        public Word quantify(Number quantity) {
+            return new Quantified(quantity);
+        }
+
+        @Override
         public @NotNull String toString() {
             var string = getAlternateName();
-            if (formatSupplier != null)
-                string = formatSupplier.get().replace("%d", String.valueOf(quantitySupplier.get())).replace("%s", string);
+            if (formatSupplier != null) string = formatSupplier.get()
+                    .replace("%d", String.valueOf(quantitySupplier.get()))
+                    .replace("%s", string);
             return string;
         }
 

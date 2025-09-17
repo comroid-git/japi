@@ -45,4 +45,6 @@ public interface Word extends CharSequence, WrappedFormattable {
     default CharSequence subSequence(int start, int end) {
         return toString().subSequence(start, end);
     }
+
+    Word quantify(Number quantity);
 }

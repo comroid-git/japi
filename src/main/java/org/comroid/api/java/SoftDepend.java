@@ -1,6 +1,5 @@
 package org.comroid.api.java;
 
-import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
 import org.comroid.api.Polyfill;
 import org.comroid.api.func.ext.Wrap;
@@ -20,12 +19,13 @@ import java.util.stream.Stream;
 import static org.comroid.api.func.ext.Wrap.*;
 
 @Log
-@UtilityClass
 public class SoftDepend {
-    private final Map<String, Class<?>> typeCache        = new ConcurrentHashMap<>();
-    private final Set<String>           nonexistentTypes = new HashSet<>();
+    private static final Map<String, Class<?>> typeCache        = new ConcurrentHashMap<>();
+    private static final Set<String>           nonexistentTypes = new HashSet<>();
 
-    public <T> Wrap<T> run(final @Language(value = "Java", prefix = "import static ", suffix = ";") String name) {
+    public static <T> Wrap<T> run(
+            final @Language(value = "Java", prefix = "import static ", suffix = ";") String name
+    ) {
         return Cache.get("SoftDepend @ static " + name, () -> {
             try {
                 // type
@@ -65,14 +65,18 @@ public class SoftDepend {
         });
     }
 
-    public <T> Stream<Class<T>> type(final @Language(value = "Java", prefix = "import ", suffix = ";") String... names) {
+    public static <T> Stream<Class<T>> type(
+            final @Language(value = "Java", prefix = "import ", suffix = ";") String... names
+    ) {
         return Arrays.stream(names)
                 .map(SoftDepend::type)
                 .flatMap(Wrap::stream)
                 .map(Polyfill::uncheckedCast);
     }
 
-    public <T> Wrap<Class<T>> type(final @Language(value = "Java", prefix = "import ", suffix = ";") String name) {
+    public static <T> Wrap<Class<T>> type(
+            final @Language(value = "Java", prefix = "import ", suffix = ";") String name
+    ) {
         if (nonexistentTypes.contains(name))
             return empty();
         if (typeCache.containsKey(name))
@@ -85,5 +89,9 @@ public class SoftDepend {
             nonexistentTypes.add(name);
             return empty();
         }
+    }
+
+    private SoftDepend() {
+        throw new UnsupportedOperationException();
     }
 }

@@ -1,6 +1,5 @@
 package org.comroid.api.func.util;
 
-import lombok.experimental.UtilityClass;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.func.comp.StringBasedComparator;
 import org.comroid.api.info.Log;
@@ -21,9 +20,12 @@ import java.util.stream.Collectors;
 import static java.util.stream.IntStream.*;
 import static org.comroid.api.java.StackTraceUtils.*;
 
-@UtilityClass
 @lombok.extern.java.Log
 public final class Debug {
+    private Debug() {
+        throw new UnsupportedOperationException();
+    }
+
     public static String[]          DEBUG_ENV_KEYS  = new String[]{ "DEBUG", "DEBUG_ENV", "IS_DEBUG", "TRACE", "TRACE_ENV", "IS_TRACE" };
     public static BooleanSupplier[] IS_DEBUG_CHECKS = new BooleanSupplier[]{ Debug::isDebugEnv };
     public static Logger            logger          = Log.get(Debug.class);
