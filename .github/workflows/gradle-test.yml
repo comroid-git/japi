@@ -1,0 +1,44 @@
+name: Gradle CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # or true if you only need first-level
+          fetch-depth: 0          # ensures full history for submodules
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run tests
+        run: ./gradlew :test --stacktrace
+
+      # Upload the test reports as artifacts
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: build/test-results/test
+
+      # Publish test results so they appear in GitHub Actions UI
+      - name: Publish Test Results
+        uses: mikepenz/action-junit-report@v4
+        if: always() # always run even if tests fail
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
