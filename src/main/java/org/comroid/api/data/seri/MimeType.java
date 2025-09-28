@@ -12,9 +12,11 @@ import org.comroid.api.java.SoftDepend;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 @With
 @Value
@@ -26,14 +28,16 @@ public class MimeType {
 
     public static final MimeType GRAPHQL    = parse("application/graphql");
     public static final MimeType JAVASCRIPT = parse("application/javascript");
-    public static final MimeType JSON = parse("application/json",
+    public static final MimeType JSON       = parse("application/json",
             DataNode::json,
             SoftDepend.type("com.fasterxml.jackson.databind.ObjectMapper")
                     .ifPresentMapOrElseGet($ -> Jackson.JSON, () -> org.comroid.api.data.seri.adp.JSON.Parser));
     public static final MimeType MSWORD     = parse("application/msword");
     public static final MimeType PDF        = parse("application/pdf");
     public static final MimeType SQL        = parse("application/sql");
-    public static final MimeType URLENCODED = parse("application/x-www-form-urlencoded", DataNode::form, FormData.Parser);
+    public static final MimeType URLENCODED = parse("application/x-www-form-urlencoded",
+            DataNode::form,
+            FormData.Parser);
     public static final MimeType XML        = parse("application/xml");
     public static final MimeType ZIP        = parse("application/zip");
     public static final MimeType ZSTD       = parse("application/zstd");
@@ -58,7 +62,10 @@ public class MimeType {
     }
 
     @SneakyThrows
-    public static MimeType parse(String str, @Nullable Function<DataNode, DataNode> serializerPrefix, @Nullable Serializer<? extends DataNode> deserializer) {
+    public static MimeType parse(
+            String str, @Nullable Function<DataNode, DataNode> serializerPrefix,
+            @Nullable Serializer<? extends DataNode> deserializer
+    ) {
         var matcher = PATTERN.matcher(str);
         if (!matcher.matches()) throw new IllegalArgumentException("Invalid MimeType format: " + str);
         return new MimeType(matcher.group("type"),
@@ -68,6 +75,12 @@ public class MimeType {
                 Optional.ofNullable(matcher.group("args")).map(x -> x.split(";")).orElse(null),
                 serializerPrefix,
                 deserializer);
+    }
+
+    public static Optional<MimeType> forExtension(String extension) {
+        return Stream.of(JSON, XML, HTML, PHP, CSV, GIF, JPEG, PNG, SVG, APNG)
+                .filter(mimeType -> Objects.equals(mimeType.tree, extension))
+                .findAny();
     }
 
     @NotNull  String type;
@@ -86,8 +99,9 @@ public class MimeType {
     }
 
     public MimeType(
-            @NotNull String type, @Nullable String tree, @NotNull String subtype, @Nullable String suffix, @Nullable String[] args,
-            @Nullable Function<DataNode, DataNode> serializerPrefix, @Nullable Serializer<? extends DataNode> deserializer
+            @NotNull String type, @Nullable String tree, @NotNull String subtype, @Nullable String suffix,
+            @Nullable String[] args, @Nullable Function<DataNode, DataNode> serializerPrefix,
+            @Nullable Serializer<? extends DataNode> deserializer
     ) {
         this.type             = type;
         this.tree             = tree;
