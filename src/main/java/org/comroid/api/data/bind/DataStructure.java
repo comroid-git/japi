@@ -123,7 +123,7 @@ public class DataStructure<T> implements Named {
             ) {
                 final var    parts        = new ArrayList<AnnotatedElement>();
                 final var    name         = new String[]{ member.getName() };
-                P            defaultValue = Annotations.defaultValue(member);
+                P            defaultValue = null;//todo Annotations.defaultValue(member);
                 ValueType<P> type;
                 Invocable<P> getter;
                 Invocable<?> setter       = null;
