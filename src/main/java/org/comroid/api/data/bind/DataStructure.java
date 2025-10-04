@@ -118,7 +118,7 @@ public class DataStructure<T> implements Named {
             <R extends java.lang.reflect.Member & AnnotatedElement, P> DataStructure<T>.Property<P> convertProperty(R member) {
                 final var    parts        = new ArrayList<AnnotatedElement>();
                 final var    name         = new String[]{ member.getName() };
-                P            defaultValue = Annotations.defaultValue(member);
+                P            defaultValue = null;//todo Annotations.defaultValue(member);
                 ValueType<P> type;
                 Invocable<P> getter;
                 Invocable<?> setter       = null;

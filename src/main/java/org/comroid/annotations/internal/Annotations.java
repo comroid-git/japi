@@ -94,6 +94,7 @@ public class Annotations {
         return Wrap.ofStream(findAnnotations(Category.class, of)).map(Result::getAnnotation).map(Category.Adapter::wrap);
     }
 
+    @ApiStatus.Experimental
     public static <R> @Nullable R defaultValue(@NotNull AnnotatedElement of) {
         var expr = findAnnotations(Default.class, of).map(Result::getAnnotation).map(Default::value).toList();
         try {
