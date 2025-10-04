@@ -56,19 +56,24 @@ import static org.comroid.api.func.util.Streams.*;
 @ApiStatus.Internal
 @SuppressWarnings({ "DuplicatedCode", "BooleanMethodIsAlwaysInverted" })
 public class Annotations {
-    private static final JShell     JSHELL        = JShell.create();
-    public static final  Class<?>[] SystemFilters = new Class<?>[]{ Object.class, Class.class, Annotation.class };
-
     public static boolean readonly(AnnotatedElement element) {
         return concat(of(Readonly.class),
                 SoftDepend.<Annotation>type("jakarta.persistence.Id").stream()).flatMap(type -> findAnnotations(type,
-                element)).findAny().isPresent();
+                        element))
+                .findAny()
+                .isPresent();
     }
+
+    public static final Class<?>[] SystemFilters = new Class<?>[]{ Object.class, Class.class, Annotation.class };
 
     @ApiStatus.Experimental
     @Convert(identifyVia = "annotationType")
     public static Constraint.API expect(AnnotatedElement context) {
         return Constraint.fail();
+    }
+
+    private Annotations() {
+        throw new UnsupportedOperationException();
     }
 
     public static Set<String> aliases(@NotNull AnnotatedElement of) {
@@ -78,8 +83,7 @@ public class Annotations {
     }
 
     public static Stream<Result<Description>> description(@NotNull AnnotatedElement of) {
-        return findAnnotations(Description.class, of).sorted(Comparator.comparing(Result::getAnnotation,
-                Description.COMPARATOR));
+        return findAnnotations(Description.class, of).sorted(Comparator.comparing(Result::getAnnotation, Description.COMPARATOR));
     }
 
     public static String descriptionText(@NotNull AnnotatedElement of) {
@@ -87,9 +91,7 @@ public class Annotations {
     }
 
     public static Wrap<Category.Adapter> category(@NotNull AnnotatedElement of) {
-        return Wrap.ofStream(findAnnotations(Category.class, of))
-                .map(Result::getAnnotation)
-                .map(Category.Adapter::wrap);
+        return Wrap.ofStream(findAnnotations(Category.class, of)).map(Result::getAnnotation).map(Category.Adapter::wrap);
     }
 
     public static <R> @Nullable R defaultValue(@NotNull AnnotatedElement of) {
@@ -102,15 +104,17 @@ public class Annotations {
                     if (exc != null) throw exc;
                 }
             };
-            return expr.stream()
-                    .flatMap(code -> JSHELL.eval(code).stream())
-                    .peek(e -> silent.throwIfExcPresent(e))
-                    .map(SnippetEvent::value)
-                    .filter(Objects::nonNull)
-                    .findAny()
-                    .map(StandardValueType::findGoodType)
-                    .map(Polyfill::<R>uncheckedCast)
-                    .orElse(null);
+            try (final var jShell = JShell.create()) {
+                return expr.stream()
+                        .flatMap(code -> jShell.eval(code).stream())
+                        .peek(e -> silent.throwIfExcPresent(e))
+                        .map(SnippetEvent::value)
+                        .filter(Objects::nonNull)
+                        .findAny()
+                        .map(StandardValueType::findGoodType)
+                        .map(Polyfill::<R>uncheckedCast)
+                        .orElse(null);
+            }
         } catch (Throwable t) {
             log.log(Debug.isDebug() ? Level.WARNING : Level.FINE, "Failed to evaluate default expression of " + of, t);
 
@@ -135,8 +139,7 @@ public class Annotations {
         return ignore(it, null);
     }
 
-    public static Optional<? extends AnnotatedElement> ignore(
-            @NotNull AnnotatedElement it, @Nullable Class<?> context) {
+    public static Optional<? extends AnnotatedElement> ignore(@NotNull AnnotatedElement it, @Nullable Class<?> context) {
         var yield = findAnnotations(Ignore.class, it).findFirst();
         if (yield.isEmpty()) return Optional.empty();
         var anno  = yield.get();
@@ -160,8 +163,7 @@ public class Annotations {
         });
     }
 
-    public static <A extends Annotation> Stream<Result<A>> findAnnotations(
-            final Class<A> type, final AnnotatedElement target) {
+    public static <A extends Annotation> Stream<Result<A>> findAnnotations(final Class<A> type, final AnnotatedElement target) {
         //Constraint.Type.anyOf(target, "target", Class.class, Member.class).run();
 
         // @Ignore should inherit upwards indefinitely on anything but types; unless specified otherwise with @Ignore.Ancestors
@@ -178,10 +180,7 @@ public class Annotations {
             var useAncestry = !Ignore.Inherit.class.isAssignableFrom(type) && !ignoreInherit(member, type);
             var inherit = typeInherit.orRef(() -> Wrap.of(member.getAnnotation(Inherit.class))).map(it -> {
                 final var et = getElementType(member);
-                return stream(it.rules()).filter(r -> r.on() == et)
-                        .map(Inherit.Rule::strategy)
-                        .findAny()
-                        .orElseGet(it::value);
+                return stream(it.rules()).filter(r -> r.on() == et).map(Inherit.Rule::strategy).findAny().orElseGet(it::value);
             }).orElse(Inherit.Type.Default);
 
             // expand with ancestors by local or annotations @Inheritance annotations
@@ -226,18 +225,15 @@ public class Annotations {
         try {
             if (target instanceof Member mem) {
                 Member chk;
-                if (mem instanceof DataStructure.Member dmem)
-                    if (dmem.getContext() instanceof Parameter) return Wrap.empty();
-                    else chk = (Member) dmem.getContext();
+                if (mem instanceof DataStructure.Member dmem) if (dmem.getContext() instanceof Parameter) return Wrap.empty();
+                else chk = (Member) dmem.getContext();
                 else chk = mem;
                 var pType = chk.getDeclaringClass().getSuperclass();
                 if (pType == null) return Wrap.empty();
                 // todo: this is inaccurate for different parameter overrides
-                if (chk instanceof Method mtd)
-                    return Wrap.of(pType.getDeclaredMethod(mtd.getName(), mtd.getParameterTypes()));
+                if (chk instanceof Method mtd) return Wrap.of(pType.getDeclaredMethod(mtd.getName(), mtd.getParameterTypes()));
                 else if (chk instanceof Field fld) return Wrap.of(pType.getDeclaredField(fld.getName()));
-                else if (chk instanceof Constructor<?> ctor)
-                    return Wrap.of(pType.getDeclaredConstructor(ctor.getParameterTypes()));
+                else if (chk instanceof Constructor<?> ctor) return Wrap.of(pType.getDeclaredConstructor(ctor.getParameterTypes()));
             } else if (target instanceof Class<?> cls) return Wrap.of(cls.getSuperclass());
         } catch (NoSuchMethodException | NoSuchFieldException e) {
             return Wrap.empty();
@@ -248,18 +244,12 @@ public class Annotations {
     public static String toString(Description... config) {
         if (config.length == 1) {
             var mode = config[0].mode();
-            return stream(config).map(Description::value)
-                    .flatMap(Arrays::stream)
-                    .map(Translation::str)
-                    .collect(Collectors.joining(switch (mode) {
-                        case Usage -> " ";
-                        case Lines -> "\n";
-                        case Steps -> "\n- ";
-                    }));
-        } else return stream(config).sorted(Description.COMPARATOR)
-                .map(Annotations::toString)
-                .map(Translation::str)
-                .collect(Collectors.joining("\n\n"));
+            return stream(config).map(Description::value).flatMap(Arrays::stream).map(Translation::str).collect(Collectors.joining(switch (mode) {
+                case Usage -> " ";
+                case Lines -> "\n";
+                case Steps -> "\n- ";
+            }));
+        } else return stream(config).sorted(Description.COMPARATOR).map(Annotations::toString).map(Translation::str).collect(Collectors.joining("\n\n"));
     }
 
     public static <T extends Member & AnnotatedElement> String toString(Expect expect, T member) {
@@ -269,16 +259,9 @@ public class Annotations {
                 expect.onTarget());
     }
 
-    private Annotations() {
-        throw new UnsupportedOperationException();
-    }
-
     @SneakyThrows
     @SuppressWarnings("unchecked")
-    private static <A extends Annotation> Stream<A> getRepeatableAnnotationsByType(
-            AnnotatedElement member,
-            Class<A> type
-    ) {
+    private static <A extends Annotation> Stream<A> getRepeatableAnnotationsByType(AnnotatedElement member, Class<A> type) {
         if (!type.isAnnotationPresent(Repeatable.class)) return of(member.getAnnotation(type));
         var rep      = type.getAnnotation(Repeatable.class);
         var listType = rep.value();
