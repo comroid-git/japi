@@ -11,6 +11,7 @@ import lombok.experimental.FieldDefaults;
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.AnnotatedTarget;
 import org.comroid.annotations.Category;
+import org.comroid.annotations.DisplayName;
 import org.comroid.annotations.Ignore;
 import org.comroid.annotations.Order;
 import org.comroid.annotations.internal.Annotations;
@@ -70,17 +71,19 @@ public class DataStructure<T> implements Named {
     }
 
     @lombok.Builder
-    public static <T> DataStructure<T> of(final @NotNull Class<? super T> target, final @NotNull Class<? super T> above) {
+    public static <T> DataStructure<T> of(
+            final @NotNull Class<? super T> target,
+            final @NotNull Class<? super T> above
+    ) {
         final var key = new Key<>(target, above);
-        if ($cache.containsKey(key))
-            return uncheckedCast($cache.get(key));
+        if ($cache.containsKey(key)) return uncheckedCast($cache.get(key));
 
         final var struct = new DataStructure<T>(target);
 
         var helper = new Object() {
             <R extends java.lang.reflect.Member & AnnotatedElement> Stream<R> streamRelevantMembers(Class<?> decl) {
-                return Stream.of(decl).flatMap(Streams.multiply(
-                                c -> Arrays.stream(c.getDeclaredFields()),
+                return Stream.of(decl)
+                        .flatMap(Streams.multiply(c -> Arrays.stream(c.getDeclaredFields()),
                                 c -> Arrays.stream(c.getDeclaredMethods()),
                                 c -> Arrays.stream(c.getConstructors())))
                         .map(Polyfill::uncheckedCast);
@@ -92,10 +95,12 @@ public class DataStructure<T> implements Named {
 
             boolean filterConstructorModifiers(java.lang.reflect.Member member) {
                 final var mod = member.getModifiers();
-                return Map.<Class<?>, IntPredicate>of(
-                                Method.class, bit -> ((Method) member).getReturnType().equals(target) && Modifier.isStatic(bit),
-                                DataStructure.Constructor.class, bit -> true)
-                        .entrySet().stream()
+                return Map.<Class<?>, IntPredicate>of(Method.class,
+                                bit -> ((Method) member).getReturnType().equals(target) && Modifier.isStatic(bit),
+                                DataStructure.Constructor.class,
+                                bit -> true)
+                        .entrySet()
+                        .stream()
                         .anyMatch(e -> !e.getKey().isInstance(member) || e.getValue().test(mod));
             }
 
@@ -103,11 +108,9 @@ public class DataStructure<T> implements Named {
                 if (member instanceof Field fld)
                     return checkAccess(fld) && !struct.getDeclaredProperties().containsKey(member.getName());
                 else if (member instanceof Method mtd)
-                    return checkAccess(mtd)
-                           && (member.getName().startsWith("get") && member.getName().length() > 3)
-                           && mtd.getParameterCount() == 0
-                           && !struct.getDeclaredProperties().containsKey(Capitalization.Current.getProperties()
-                            .convert(member.getName().substring(3)));
+                    return checkAccess(mtd) && (member.getName().startsWith("get") && member.getName()
+                                                                                              .length() > 3) && mtd.getParameterCount() == 0 && !struct.getDeclaredProperties()
+                            .containsKey(Capitalization.Current.getProperties().convert(member.getName().substring(3)));
                 else return false;
             }
 
@@ -115,7 +118,9 @@ public class DataStructure<T> implements Named {
                 return member instanceof AccessibleObject obj && obj.trySetAccessible();
             }
 
-            <R extends java.lang.reflect.Member & AnnotatedElement, P> DataStructure<T>.Property<P> convertProperty(R member) {
+            <R extends java.lang.reflect.Member & AnnotatedElement, P> DataStructure<T>.Property<P> convertProperty(
+                    R member
+            ) {
                 final var    parts        = new ArrayList<AnnotatedElement>();
                 final var    name         = new String[]{ member.getName() };
                 P            defaultValue = Annotations.defaultValue(member);
@@ -127,8 +132,7 @@ public class DataStructure<T> implements Named {
                 if (member instanceof Field fld) {
                     type = ValueType.of(fld.getType());
                     getter = Invocable.ofFieldGet(fld);
-                    if (!Modifier.isFinal(member.getModifiers()))
-                        setter = Invocable.ofFieldSet(fld);
+                    if (!Modifier.isFinal(member.getModifiers())) setter = Invocable.ofFieldSet(fld);
 
                     Arrays.stream(target.getMethods())
                             .filter(mtd -> mtd.getName().toLowerCase().endsWith(name[0].toLowerCase()))
@@ -143,22 +147,17 @@ public class DataStructure<T> implements Named {
                     getter = Invocable.ofMethodCall(mtd);
 
                     setter = Wrap.ofOptional(Arrays.stream(target.getMethods())
-                                    .filter(this::filterSystem)
-                                    .filter(this::filterIgnored)
-                                    .filter(this::filterAbove)
-                                    .filter(this::filterPropertyModifiers)
-                                    .filter(candidate -> {
-                                        var setterName = candidate.getName();
-                                        return setterName.startsWith("set")
-                                               && setterName.length() > 3
-                                               && setterName.equals("set" + UpperCamelCase.convert(name[0]))
-                                               && checkAccess(candidate)
-                                               && candidate.getParameterCount() == 1
-                                               && ValueType.of(candidate.getParameterTypes()[0]).equals(type);
-                                    })
-                                    .findAny())
-                            .peek(parts::add)
-                            .ifPresentMap(Invocable::ofMethodCall);
+                            .filter(this::filterSystem)
+                            .filter(this::filterIgnored)
+                            .filter(this::filterAbove)
+                            .filter(this::filterPropertyModifiers)
+                            .filter(candidate -> {
+                                var setterName = candidate.getName();
+                                return setterName.startsWith("set") && setterName.length() > 3 && setterName.equals(
+                                        "set" + UpperCamelCase.convert(name[0])) && checkAccess(candidate) && candidate.getParameterCount() == 1 && ValueType.of(
+                                        candidate.getParameterTypes()[0]).equals(type);
+                            })
+                            .findAny()).peek(parts::add).ifPresentMap(Invocable::ofMethodCall);
 
                     Arrays.stream(target.getDeclaredFields())
                             .filter(fld -> fld.getName().equals(name[0]))
@@ -166,9 +165,14 @@ public class DataStructure<T> implements Named {
                 } else throw new AssertionError("Could not initialize property adapter for " + member);
 
                 var partsArray = parts.toArray(AnnotatedElement[]::new);
-                DataStructure<T>.Property<P> prop = uncheckedCast(
-                        struct.new Property<>(name[0], member, target, type, defaultValue, setter == null || parts.stream().anyMatch(Annotations::readonly),
-                                getter, setter));
+                DataStructure<T>.Property<P> prop = uncheckedCast(struct.new Property<>(name[0],
+                        member,
+                        target,
+                        type,
+                        defaultValue,
+                        setter == null || parts.stream().anyMatch(Annotations::readonly),
+                        getter,
+                        setter));
                 setAnnotations(prop, partsArray);
                 setMetadata(prop, partsArray);
                 return prop;
@@ -205,9 +209,7 @@ public class DataStructure<T> implements Named {
 
             private void setMetadata(Member member, AnnotatedElement... sources) {
                 // aliases
-                Arrays.stream(sources)
-                        .flatMap(it -> Annotations.aliases(it).stream())
-                        .forEach(member.aliases::add);
+                Arrays.stream(sources).flatMap(it -> Annotations.aliases(it).stream()).forEach(member.aliases::add);
 
                 // description
                 Arrays.stream(sources)
@@ -223,14 +225,15 @@ public class DataStructure<T> implements Named {
             }
 
             <R extends java.lang.reflect.Member & AnnotatedElement> boolean filterConstructorMembers(R member) {
-                var base = (member instanceof Method || member instanceof java.lang.reflect.Constructor<?>)
-                           && !member.getName().startsWith("set") && checkAccess(member);
-                if (member instanceof Method mtd)
-                    return base && mtd.getReturnType().equals(target);
+                var base = (member instanceof Method || member instanceof java.lang.reflect.Constructor<?>) && !member.getName()
+                        .startsWith("set") && checkAccess(member);
+                if (member instanceof Method mtd) return base && mtd.getReturnType().equals(target);
                 return base;
             }
 
-            <R extends java.lang.reflect.Member & AnnotatedElement> DataStructure<T>.Constructor convertConstructor(R member) {
+            <R extends java.lang.reflect.Member & AnnotatedElement> DataStructure<T>.Constructor convertConstructor(
+                    R member
+            ) {
                 String       name  = member.getName();
                 Invocable<T> func  = null;
                 Parameter[]  param = new Parameter[0];
@@ -241,8 +244,7 @@ public class DataStructure<T> implements Named {
                     func  = Invocable.ofMethodCall(mtd);
                     param = mtd.getParameters();
                 }
-                if (func == null)
-                    throw new RuntimeException("Could not initialize construction adapter for " + member);
+                if (func == null) throw new RuntimeException("Could not initialize construction adapter for " + member);
                 DataStructure<T>.Constructor ctor = struct.new Constructor(name, member, target, List.of(param), func);
                 setAnnotations(ctor, member);
                 setMetadata(ctor, member);
@@ -255,8 +257,7 @@ public class DataStructure<T> implements Named {
                 .filter(helper::filterSystem)
                 .filter(helper::filterIgnored)
                 .filter(helper::filterAbove)
-                .flatMap(s -> Stream.concat(
-                        Stream.of(s)
+                .flatMap(s -> Stream.concat(Stream.of(s)
                                 .filter(helper::filterPropertyModifiers)
                                 .filter(helper::filterPropertyMembers)
                                 .map(helper::convertProperty)
@@ -281,24 +282,22 @@ public class DataStructure<T> implements Named {
                 .forEach(struct.parents::add);
 
         Log.at(Level.FINE, "Initialized %d members for %s".formatted(init.size(), target.getCanonicalName()));
-        Log.at(Level.FINER, "Initialized: " + init.stream().map(Objects::toString).collect(Collectors.joining("\n\t- ", "\n\t- ", "")));
+        Log.at(Level.FINER,
+                "Initialized: " + init.stream()
+                        .map(Objects::toString)
+                        .collect(Collectors.joining("\n\t- ", "\n\t- ", "")));
         return struct;
     }
 
-    @NotNull Class<? super T> type;
-    @NotNull
-    @ToString.Exclude
-    List<DataStructure<? super T>> parents            = new ArrayList<>();
-    @NotNull
-    @ToString.Exclude
-    List<Constructor>              constructors       = new ArrayList<>();
-    @NotNull
-    @ToString.Exclude
-    Map<String, Property<?>>       declaredProperties = new ConcurrentHashMap<>();
+    @NotNull                   Class<? super T>               type;
+    @NotNull @ToString.Exclude List<DataStructure<? super T>> parents            = new ArrayList<>();
+    @NotNull @ToString.Exclude List<Constructor>              constructors       = new ArrayList<>();
+    @NotNull @ToString.Exclude Map<String, Property<?>>       declaredProperties = new ConcurrentHashMap<>();
 
     public Set<DataStructure<? super T>.Property<?>> getProperties() {
         var set = new HashSet<DataStructure<? super T>.Property<?>>(declaredProperties.values());
-        parents.stream().flatMap(dataStructure -> dataStructure.getProperties().stream())
+        parents.stream()
+                .flatMap(dataStructure -> dataStructure.getProperties().stream())
                 .filter(prop -> set.stream().map(Member::getName).noneMatch(prop.name::equals))
                 .forEach(set::add);
         return set;
@@ -320,8 +319,9 @@ public class DataStructure<T> implements Named {
         for (Map.Entry<Category.Adapter, List<DataStructure<? super T>.Property<?>>> adapterListEntry : map.entrySet()) {
             var list = adapterListEntry.getValue();
             list.sort(Property.COMPARATOR);
-            Map.Entry<Category.Adapter, List<DataStructure<? super T>.Property<?>>> apply
-                    = new AbstractMap.SimpleImmutableEntry<>(adapterListEntry.getKey(), Collections.unmodifiableList(list));
+            Map.Entry<Category.Adapter, List<DataStructure<? super T>.Property<?>>> apply = new AbstractMap.SimpleImmutableEntry<>(
+                    adapterListEntry.getKey(),
+                    Collections.unmodifiableList(list));
             toSort.add(apply);
         }
         toSort.sort(Map.Entry.comparingByKey(Category.COMPARATOR));
@@ -342,8 +342,7 @@ public class DataStructure<T> implements Named {
     }
 
     public Wrap<DataStructure<?>.Property<?>> getProperty(String... path) {
-        if (path.length == 0)
-            return Wrap.empty();
+        if (path.length == 0) return Wrap.empty();
         Wrap<DataStructure<?>.Property<?>> it = uncheckedCast(getProperty(path[0]));
         for (var i = 1; i < path.length; i++) {
             final var fi = i;
@@ -356,9 +355,8 @@ public class DataStructure<T> implements Named {
 
     public <V> Wrap<Property<V>> getProperty(String name) {
         return Wrap.ofStream(getProperties().stream()
-                        .filter(prop -> Stream.concat(Stream.of(prop.name), prop.aliases.stream())
-                                .anyMatch(alias -> alias.equals(name))))
-                .castRef();
+                .filter(prop -> Stream.concat(Stream.of(prop.name), prop.aliases.stream())
+                        .anyMatch(alias -> alias.equals(name)))).castRef();
     }
 
     public Set<Property<?>> update(Map<String, String> data, T target) {
@@ -372,11 +370,9 @@ public class DataStructure<T> implements Named {
             }
 
             final var name = prop.getName();
-            if (!data.containsKey(name))
-                continue;
+            if (!data.containsKey(name)) continue;
             if (!prop.canSet()) {
-                if (data.containsKey(name))
-                    log.warning("Data had value for " + prop + "; but the property is not settable");
+                if (data.containsKey(name)) log.warning("Data had value for " + prop + "; but the property is not settable");
                 continue;
             }
 
@@ -391,21 +387,12 @@ public class DataStructure<T> implements Named {
 
     @Value
     public class Constructor extends Member {
-        @NotNull
-        @ToString.Exclude
-        @Getter(onMethod = @__(@JsonIgnore))
-        List<Parameter> args;
-        @NotNull
-        @ToString.Exclude
-        @Getter(onMethod = @__(@JsonIgnore))
-        Invocable<T> ctor;
+        @NotNull @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) List<Parameter> args;
+        @NotNull @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<T>    ctor;
 
         private Constructor(
-                @NotNull String name,
-                @NotNull AnnotatedElement context,
-                @NotNull Class<?> declaringClass,
-                @NotNull List<Parameter> args,
-                @NotNull Invocable<T> ctor
+                @NotNull String name, @NotNull AnnotatedElement context, @NotNull Class<?> declaringClass,
+                @NotNull List<Parameter> args, @NotNull Invocable<T> ctor
         ) {
             super(name, context, declaringClass);
             this.args = args;
@@ -435,32 +422,18 @@ public class DataStructure<T> implements Named {
 
     @Value
     public class Property<V> extends Member {
-        public static final Comparator<? super DataStructure<?>.Property<?>> COMPARATOR = Comparator
-                .<DataStructure<?>.Property<?>>comparingInt(prop -> prop.getCategory().stream()
-                        .mapToInt(Category::order)
-                        .findFirst()
-                        .orElse(0))
+        public static final Comparator<? super DataStructure<?>.Property<?>> COMPARATOR = Comparator.<DataStructure<?>.Property<?>>comparingInt(
+                        prop -> prop.getCategory().stream().mapToInt(Category::order).findFirst().orElse(0))
                 .thenComparing(Order.COMPARATOR);
-        @NotNull  ValueType<V> type;
-        @Nullable V            defaultValue;
+        @NotNull            ValueType<V>                                     type;
+        @Nullable           V                                                defaultValue;
         boolean readonly;
-        @Nullable
-        @ToString.Exclude
-        @Getter(onMethod = @__(@JsonIgnore))
-        Invocable<V> getter;
-        @Nullable
-        @ToString.Exclude
-        @Getter(onMethod = @__(@JsonIgnore))
-        Invocable<?> setter;
+        @Nullable @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<V> getter;
+        @Nullable @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) Invocable<?> setter;
 
         public Property(
-                @NotNull String name,
-                @NotNull AnnotatedElement context,
-                @NotNull Class<?> declaringClass,
-                @NotNull ValueType<V> type,
-                @Nullable V defaultValue,
-                boolean readonly,
-                @Nullable Invocable<V> getter,
+                @NotNull String name, @NotNull AnnotatedElement context, @NotNull Class<?> declaringClass,
+                @NotNull ValueType<V> type, @Nullable V defaultValue, boolean readonly, @Nullable Invocable<V> getter,
                 @Nullable Invocable<?> setter
         ) {
             super(name, context, declaringClass);
@@ -510,6 +483,12 @@ public class DataStructure<T> implements Named {
             return !isReadonly() && setter != null;
         }
 
+        public V parseAndSet(Object target, String str) {
+            var value = getType().parse(str);
+            setFor(target, value);
+            return value;
+        }
+
         @NoArgsConstructor(access = AccessLevel.PRIVATE)
         public abstract class Mod {
             public DataStructure<T> getStructure() {
@@ -538,35 +517,29 @@ public class DataStructure<T> implements Named {
     }
 
     @FieldDefaults(level = AccessLevel.PROTECTED, makeFinal = true)
-    public static abstract class Member implements Named, AnnotatedElement, java.lang.reflect.Member, ValuePointer<Object> {
-        @NotNull
+    public static abstract class Member
+            implements Named, AnnotatedElement, java.lang.reflect.Member, ValuePointer<Object> {
+        @NotNull @Getter                                                                 String                 name;
         @Getter
-        String name;
-        @Getter @NotNull Set<String>            aliases     = new HashSet<>();
-        @Getter @NotNull List<String>           description = new ArrayList<>();
-        @Getter @NotNull List<Category.Adapter> category    = new ArrayList<>();
-        @NotNull
-        @AnnotatedTarget
-        @ToString.Exclude
-        @Getter(onMethod = @__(@JsonIgnore))
-        AnnotatedElement context;
-        @NotNull
-        @ToString.Exclude
-        Set<Result<?>>   annotations = new HashSet<>();
+        @NotNull                                                                         Set<String>            aliases     = new HashSet<>();
         @Getter
-        @NotNull Class<?> declaringClass;
+        @NotNull                                                                         List<String>           description = new ArrayList<>();
         @Getter
-        int     modifiers = Modifier.PUBLIC;
+        @NotNull                                                                         List<Category.Adapter> category    = new ArrayList<>();
+        @NotNull @AnnotatedTarget @ToString.Exclude @Getter(onMethod = @__(@JsonIgnore)) AnnotatedElement       context;
+        @NotNull @ToString.Exclude
+                                                                                         Set<Result<?>>         annotations = new HashSet<>();
         @Getter
-        boolean synthetic = false;
+        @NotNull                                                                         Class<?>               declaringClass;
+        @Getter                                                                          int                    modifiers   = Modifier.PUBLIC;
+        @Getter                                                                          boolean                synthetic   = false;
 
         private Member(@NotNull String name, @NotNull AnnotatedElement context, @NotNull Class<?> declaringClass) {
             this.name           = name;
             this.context        = context;
             this.declaringClass = declaringClass;
 
-            findAnnotations(Alias.class, this)
-                    .map(Result::getAnnotation)
+            findAnnotations(Alias.class, this).map(Result::getAnnotation)
                     .flatMap(alias -> Arrays.stream(alias.value()))
                     .forEach(aliases::add);
             findAnnotations(Annotation.class, this).forEach(annotations::add);
@@ -574,7 +547,7 @@ public class DataStructure<T> implements Named {
 
         @Override
         public String getAlternateName() {
-            return Title_Case.convert(getName());
+            return DisplayName.$.of(context).orElseGet(() -> Title_Case.convert(getName()));
         }
 
         public abstract String getCanonicalName();
@@ -587,10 +560,7 @@ public class DataStructure<T> implements Named {
         @Override
         @SuppressWarnings({ "NullableProblems", "DataFlowIssue" }) // killing away weird intellij complaints
         public <T extends Annotation> @NotNull @Nullable T getAnnotation(final @NotNull Class<T> annotationClass) {
-            return streamAnnotations(annotationClass)
-                    .map(Result::getAnnotation)
-                    .findAny()
-                    .orElse(null);
+            return streamAnnotations(annotationClass).map(Result::getAnnotation).findAny().orElse(null);
         }
 
         @Ignore
@@ -604,8 +574,7 @@ public class DataStructure<T> implements Named {
         @Override
         @JsonIgnore
         public Annotation[] getDeclaredAnnotations() {
-            return streamAnnotations(Annotation.class)
-                    .filter(result -> result.getContext().equals(context))
+            return streamAnnotations(Annotation.class).filter(result -> result.getContext().equals(context))
                     .toArray(Annotation[]::new);
         }
 
@@ -621,8 +590,7 @@ public class DataStructure<T> implements Named {
 
         @Override
         public String toString() {
-            return "%s (%s) %s.%s".formatted(
-                    getClass().getSimpleName(),
+            return "%s (%s) %s.%s".formatted(getClass().getSimpleName(),
                     getHeldType().getTargetClass().getSimpleName(),
                     declaringClass.getSimpleName(),
                     name);

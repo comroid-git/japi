@@ -1,8 +1,22 @@
 package org.comroid.api.func;
 
+import jakarta.persistence.AttributeConverter;
+import jakarta.persistence.Converter;
+
 import java.util.function.Function;
 
-public interface Junction<A, B> {
+@Converter
+public interface Junction<A, B> extends AttributeConverter<A, B> {
+    @Override
+    default B convertToDatabaseColumn(A a) {
+        return forward(a);
+    }
+
+    @Override
+    default A convertToEntityAttribute(B b) {
+        return backward(b);
+    }
+
     static <T> Junction<String, T> ofString(Function<String, T> parser) {
         return of(parser, String::valueOf);
     }
