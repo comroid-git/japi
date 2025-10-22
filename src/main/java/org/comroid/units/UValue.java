@@ -11,7 +11,7 @@ import static org.jetbrains.annotations.ApiStatus.*;
 @Value
 @Builder
 @Experimental
-public class UValue extends Number {
+public class UValue {
     public static final Pattern PATTERN = Pattern.compile("(?<value>-?[0-9]+(\\.[0-9]+)?)(?<unit>.+)?");
 
     public static UValue parse(String str) {
@@ -23,24 +23,4 @@ public class UValue extends Number {
 
     double value;
     @Nullable Unit unit;
-
-    @Override
-    public int intValue() {
-        return (int) value;
-    }
-
-    @Override
-    public long longValue() {
-        return (long) value;
-    }
-
-    @Override
-    public float floatValue() {
-        return (float) value;
-    }
-
-    @Override
-    public double doubleValue() {
-        return value;
-    }
 }
