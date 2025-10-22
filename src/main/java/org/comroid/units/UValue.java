@@ -12,7 +12,7 @@ import static org.jetbrains.annotations.ApiStatus.*;
 @Builder
 @Experimental
 public class UValue {
-    public static final Pattern PATTERN = Pattern.compile("(?<value>-?[0-9]+(\\.[0-9]+)?)(?<unit>.+)?");
+    public static final Pattern PATTERN = Pattern.compile("(?<value>-?[0-9]+\\s?(\\.[0-9]+)?)(?<unit>.+)?");
 
     public static UValue parse(String str) {
         var matcher = PATTERN.matcher(str);
@@ -26,6 +26,6 @@ public class UValue {
 
     @Override
     public String toString() {
-        return "%f%s".formatted(value, unit == null ? "" : value);
+        return "%1.0f %s".formatted(value, unit == null ? "" : unit);
     }
 }
