@@ -23,4 +23,9 @@ public class UValue {
 
     double value;
     @Nullable Unit unit;
+
+    @Override
+    public String toString() {
+        return "%f%s".formatted(value, unit == null ? "" : value);
+    }
 }
