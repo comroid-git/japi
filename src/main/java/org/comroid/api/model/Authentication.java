@@ -4,8 +4,13 @@ import lombok.Builder;
 import lombok.Builder.Default;
 import lombok.Value;
 import lombok.experimental.NonFinal;
+import org.comroid.api.comp.Base64;
+import org.comroid.api.info.Constraint;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.AbstractMap;
+import java.util.Map;
 
 @Value
 @Builder
@@ -34,6 +39,14 @@ public class Authentication {
     @Default           Type   type     = Type.Anonymous;
     @Default @Nullable String username = null;
     @Default @Nullable String passkey  = null;
+
+    public Map.Entry<String, String> toHttpBasicHeader() {
+        Constraint.notNull(username, "username").run();
+        Constraint.notNull(passkey, "passkey").run();
+
+        return new AbstractMap.SimpleImmutableEntry<>("Authorization",
+                "Basic " + Base64.encode(username + ':' + passkey));
+    }
 
     public enum Type {
         Anonymous, UsernamePassword, UsernameToken, OnlyUsername, Token

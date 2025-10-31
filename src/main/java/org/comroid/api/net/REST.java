@@ -82,7 +82,9 @@ public final class REST {
     private           Function<Request, CompletableFuture<Response>> executor;
 
     public enum Method implements Named {
-        GET, POST, PUT, DELETE, HEAD, OPTIONS, TRACE, CONNECT, PATCH
+        GET, POST, PUT, DELETE, HEAD, OPTIONS, TRACE, CONNECT, PATCH,
+        // non standard
+        MKCOL
     }
 
     @Value
