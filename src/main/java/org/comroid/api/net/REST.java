@@ -82,8 +82,7 @@ public final class REST {
     private           Function<Request, CompletableFuture<Response>> executor;
 
     public enum Method implements Named {
-        GET, POST, PUT, DELETE, HEAD, OPTIONS, TRACE, CONNECT, PATCH,
-        // non standard
+        GET, POST, PUT, DELETE, HEAD, OPTIONS, TRACE, CONNECT, PATCH, // non standard
         MKCOL
     }
 
@@ -111,7 +110,10 @@ public final class REST {
             this(method, uri, body, REST.this.serializer);
         }
 
-        private Request(@NotNull Method method, @NotNull URI uri, @Nullable DataNode body, @NotNull Serializer<? extends DataNode> serializer) {
+        private Request(
+                @NotNull Method method, @NotNull URI uri, @Nullable DataNode body,
+                @NotNull Serializer<? extends DataNode> serializer
+        ) {
             this.method     = method;
             this.uri        = uri;
             this.body       = body;
@@ -163,7 +165,8 @@ public final class REST {
         }
 
         public void require(int statusCode, @Nullable String message) {
-            if (responseCode != statusCode) throw new RuntimeException(Objects.requireNonNullElseGet(message, this::reqErrMsg));
+            if (responseCode != statusCode)
+                throw new RuntimeException(Objects.requireNonNullElseGet(message, this::reqErrMsg));
         }
 
         private String reqErrMsg() {
@@ -178,13 +181,18 @@ public final class REST {
         public CompletableFuture<Response> apply(Request request) {
             var pub = List.of(Method.GET, Method.OPTIONS, Method.TRACE).contains(request.method) || request.body == null
                       ? HttpRequest.BodyPublishers.noBody()
-                      : HttpRequest.BodyPublishers.ofString(request.body.toSerializedString());
+                      : request.body instanceof DataNode.Plain plain
+                        ? HttpRequest.BodyPublishers.ofByteArray(plain.toBytes())
+                        : HttpRequest.BodyPublishers.ofString(request.body.toSerializedString());
             var req = HttpRequest.newBuilder().uri(request.uri).method(request.method.name(), pub);
             request.headers.forEach(req::header);
-            req.header("Content-Type", request.body == null ? "application/json" : request.body.getMimeType().toString());
+            req.header("Content-Type",
+                    request.body == null ? "application/json" : request.body.getMimeType().toString());
             var res = HttpResponse.BodyHandlers.ofString();
             return client.sendAsync(req.build(), res).thenApply(response -> {
-                var body = response.body().isBlank() || response.statusCode() / 100 != 2 ? DataNode.of(null) : request.serializer.parse(response.body());
+                var body = response.body().isBlank() || response.statusCode() / 100 != 2
+                           ? DataNode.of(null)
+                           : request.serializer.parse(response.body());
                 return Default.new Response(request, response.statusCode(), body, response.headers().map());
             }).thenCompose(request::handleRedirect);
         }

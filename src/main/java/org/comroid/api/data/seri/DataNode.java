@@ -6,10 +6,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.Delegate;
+import lombok.experimental.NonFinal;
 import org.comroid.annotations.Ignore;
 import org.comroid.api.Polyfill;
 import org.comroid.api.config.Adapt;
 import org.comroid.api.config.adapter.TypeAdapter;
+import org.comroid.api.data.ByteArray;
 import org.comroid.api.data.bind.DataStructure;
 import org.comroid.api.data.seri.adp.FormData;
 import org.comroid.api.data.seri.adp.JSON;
@@ -55,35 +57,36 @@ import static org.comroid.api.data.seri.type.StandardValueType.*;
 public interface DataNode extends MimeType.Container, StringSerializable, Specifiable<Object> {
     static Stream<Entry> properties(final java.lang.Object it) {
         if (it instanceof DataNode.Base) return ((DataNode) it).properties();
-        if (it instanceof Map<?, ?> map) return map.entrySet().stream().collect(new Collector<Map.Entry<?, ?>, List<Entry>, Stream<Entry>>() {
-            @Override
-            public Supplier<List<Entry>> supplier() {
-                return ArrayList::new;
-            }
+        if (it instanceof Map<?, ?> map)
+            return map.entrySet().stream().collect(new Collector<Map.Entry<?, ?>, List<Entry>, Stream<Entry>>() {
+                @Override
+                public Supplier<List<Entry>> supplier() {
+                    return ArrayList::new;
+                }
 
-            @Override
-            public BiConsumer<List<Entry>, Map.Entry<?, ?>> accumulator() {
-                return (ls, e) -> ls.add(new Entry(String.valueOf(e.getKey()), of(e.getValue())));
-            }
+                @Override
+                public BiConsumer<List<Entry>, Map.Entry<?, ?>> accumulator() {
+                    return (ls, e) -> ls.add(new Entry(String.valueOf(e.getKey()), of(e.getValue())));
+                }
 
-            @Override
-            public BinaryOperator<List<Entry>> combiner() {
-                return (l, r) -> {
-                    l.addAll(r);
-                    return l;
-                };
-            }
+                @Override
+                public BinaryOperator<List<Entry>> combiner() {
+                    return (l, r) -> {
+                        l.addAll(r);
+                        return l;
+                    };
+                }
 
-            @Override
-            public Function<List<Entry>, Stream<Entry>> finisher() {
-                return Collection::stream;
-            }
+                @Override
+                public Function<List<Entry>, Stream<Entry>> finisher() {
+                    return Collection::stream;
+                }
 
-            @Override
-            public Set<Characteristics> characteristics() {
-                return Set.of();
-            }
-        });
+                @Override
+                public Set<Characteristics> characteristics() {
+                    return Set.of();
+                }
+            });
         return DataStructure.of(it.getClass(), java.lang.Object.class)
                 .getDeclaredProperties()
                 .values()
@@ -120,6 +123,10 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         }
     }
 
+    static DataNode.Plain bytes(byte[] bytes) {
+        return new Plain(bytes);
+    }
+
     @Ignore
     @Override
     @JsonIgnore
@@ -149,8 +156,10 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
 
     default JSON.Node json() {
         if (this instanceof JSON.Node) return (JSON.Node) this;
-        else if (this instanceof Object) return properties().collect(JSON.Object::new, (n, e) -> n.put(e.key, e.getValue().json()), Map::putAll);
-        else if (this instanceof Array) return properties().collect(JSON.Array::new, (n, e) -> n.add(e.getValue().json()), List::addAll);
+        else if (this instanceof Object)
+            return properties().collect(JSON.Object::new, (n, e) -> n.put(e.key, e.getValue().json()), Map::putAll);
+        else if (this instanceof Array)
+            return properties().collect(JSON.Array::new, (n, e) -> n.add(e.getValue().json()), List::addAll);
         else if (this instanceof Value<?> value) return JSON.Value.convert(value);
         else return of(this).json();
     }
@@ -182,7 +191,11 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
             return Value.NULL;
         } catch (Throwable t) {
             Debug.log("Unable to get key " + key, t);
-            return properties().filter(e -> key.equals(e.key)).findAny().map(Entry::getValue).map(DataNode::of).orElse(Value.NULL);
+            return properties().filter(e -> key.equals(e.key))
+                    .findAny()
+                    .map(Entry::getValue)
+                    .map(DataNode::of)
+                    .orElse(Value.NULL);
         }
     }
 
@@ -372,6 +385,19 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
                 ls.add(new Entry(String.valueOf(i), get(fi)));
             }
             return ls.stream();
+        }
+    }
+
+    @lombok.Value
+    @NonFinal
+    class Plain extends Value<byte[]> implements ByteArray {
+        public Plain(byte[] value) {
+            super(value);
+        }
+
+        @Override
+        public byte[] toBytes() {
+            return value;
         }
     }
 

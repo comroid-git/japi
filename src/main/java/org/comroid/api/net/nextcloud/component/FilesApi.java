@@ -37,15 +37,15 @@ public class FilesApi extends OcsApiComponent {
 
     public CompletableFuture<?> mkdir(String path) {
         return getOcsApi().request(REST.Method.MKCOL,
-                        "/remote.php/dav/files/" + getOcsApi().getCredentials().getUsername() + '/' + path)
-                .execute()
-                .thenApply(REST.Response::validate2xxOK);
+                "/remote.php/dav/files/" + getOcsApi().getCredentials().getUsername() + '/' + path.replaceAll(" ",
+                        "%20")).execute().thenApply(REST.Response::validate2xxOK);
     }
 
     public CompletableFuture<?> upload(String path, InputStream data) throws IOException {
         return getOcsApi().request(REST.Method.PUT,
-                        "/remote.php/dav/files/" + getOcsApi().getCredentials().getUsername() + '/' + path)
-                .setBody(new DataNode.Value<>(new String(data.readAllBytes(), StandardCharsets.UTF_8)))
+                        "/remote.php/dav/files/" + getOcsApi().getCredentials().getUsername() + '/' + path.replaceAll(" ",
+                                "%20"))
+                .setBody(DataNode.bytes(data.readAllBytes()))
                 .execute()
                 .thenApply(REST.Response::validate2xxOK);
     }
