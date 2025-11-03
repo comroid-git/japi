@@ -13,6 +13,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Value
 public class FilesApi extends OcsApiComponent {
@@ -21,6 +23,13 @@ public class FilesApi extends OcsApiComponent {
     }
 
     public CompletableFuture<?> mkdirs(String path) {
+        var split = path.split("/");
+        IntStream.range(0, split.length)
+                .mapToObj(i -> split[0] + '/' + IntStream.rangeClosed(1, i)
+                        .mapToObj(off -> split[off])
+                        .collect(Collectors.joining("/")))
+                .forEach(this::mkdir);
+
         return CompletableFuture.allOf(Arrays.stream(path.split("/"))
                 .map(this::mkdir)
                 .toArray(CompletableFuture[]::new));
