@@ -1,5 +1,6 @@
 package org.comroid.api.func.ext;
 
+import lombok.Getter;
 import lombok.SneakyThrows;
 import org.comroid.annotations.inheritance.MustExtend;
 import org.comroid.api.Polyfill;
@@ -107,7 +108,8 @@ public interface Context extends Named, Convertible, LoggerCarrier {
     }
 
     @Deprecated(forRemoval = true)
-    static <T> T requireFromContexts(Class<T> member, String message, boolean includeChildren) throws NoSuchElementException {
+    static <T> T requireFromContexts(Class<T> member, String message, boolean includeChildren)
+    throws NoSuchElementException {
         return getFromContexts(member, includeChildren).orElseThrow(() -> new NoSuchElementException(message));
     }
 
@@ -153,8 +155,7 @@ public interface Context extends Named, Convertible, LoggerCarrier {
 
     @NonExtendable
     default <T> Wrap<T> getFromContext(final Class<T> type, boolean includeChildren) {
-        return () -> streamContextMembers(includeChildren, type)
-                .filter(type::isInstance)
+        return () -> streamContextMembers(includeChildren, type).filter(type::isInstance)
                 .findFirst()
                 .map(type::cast)
                 .orElse(null);
@@ -169,13 +170,15 @@ public interface Context extends Named, Convertible, LoggerCarrier {
     }
 
     default <T> Serializer<T> findSerializer(@Nullable CharSequence mimetype) {
-        return streamContextMembers(true)
-                .filter(Serializer.class::isInstance)
+        return streamContextMembers(true).filter(Serializer.class::isInstance)
                 .map(Serializer.class::cast)
                 .filter(seri -> mimetype == null || seri.getMimeType().equals(mimetype.toString()))
                 .findFirst()
                 .map(Polyfill::<Serializer<T>>uncheckedCast)
-                .orElseThrow(() -> new NoSuchElementException(String.format("No Serializer with Mime Type %s was found in %s", mimetype, this)));
+                .orElseThrow(() -> new NoSuchElementException(String.format(
+                        "No Serializer with Mime Type %s was found in %s",
+                        mimetype,
+                        this)));
     }
 
     @Deprecated(forRemoval = true)
@@ -218,20 +221,27 @@ public interface Context extends Named, Convertible, LoggerCarrier {
 
     @NonExtendable
     @Deprecated(forRemoval = true)
-    default <T> @NotNull T requireFromContext(final Class<? super T> memberType, boolean includeChildren) throws NoSuchElementException {
+    default <T> @NotNull T requireFromContext(final Class<? super T> memberType, boolean includeChildren)
+    throws NoSuchElementException {
         return requireFromContext(memberType, String.format("No member of type %s found in %s", memberType, this));
     }
 
     @NonExtendable
     @Deprecated(forRemoval = true)
-    default <T> @NotNull T requireFromContext(final Class<? super T> memberType, String message) throws NoSuchElementException {
+    default <T> @NotNull T requireFromContext(final Class<? super T> memberType, String message)
+    throws NoSuchElementException {
         return requireFromContext(memberType, message, false);
     }
 
     @NonExtendable
     @Deprecated(forRemoval = true)
-    default <T> @NotNull T requireFromContext(final Class<? super T> memberType, String message, boolean includeChildren) throws NoSuchElementException {
-        return uncheckedCast(getFromContext(memberType, includeChildren).assertion(String.format("<%s => %s>", this, message)));
+    default <T> @NotNull T requireFromContext(
+            final Class<? super T> memberType, String message,
+            boolean includeChildren
+    ) throws NoSuchElementException {
+        return uncheckedCast(getFromContext(memberType, includeChildren).assertion(String.format("<%s => %s>",
+                this,
+                message)));
     }
 
     @Deprecated(forRemoval = true)
@@ -247,8 +257,7 @@ public interface Context extends Named, Convertible, LoggerCarrier {
         @Override
         default String getName() {
             Class<? extends This> cls = getClass();
-            if (cls == null)
-                return "uninitialized context";
+            if (cls == null) return "uninitialized context";
             return wrapContextStr(cls.getSimpleName());
         }
 
@@ -285,13 +294,13 @@ public interface Context extends Named, Convertible, LoggerCarrier {
 
     @Internal
     class Base implements Context {
-        @SuppressWarnings("ConstantConditions")
-        public static final Context.Base ROOT;
+        @SuppressWarnings("ConstantConditions") public static final Context.Base ROOT;
 
         static {
             try {
                 ROOT = new Context.Base(null, "ROOT", new Object[0]);
-                InputStream resource = ClassLoader.getSystemClassLoader().getResourceAsStream("org/comroid/api/context.properties");
+                InputStream resource = ClassLoader.getSystemClassLoader()
+                        .getResourceAsStream("org/comroid/api/context.properties");
                 if (resource != null) {
                     Properties props = new Properties();
                     props.load(resource);
@@ -304,7 +313,9 @@ public interface Context extends Named, Convertible, LoggerCarrier {
                         createInstance(targetClass).ifPresent(it -> values[fc] = it);
                         c++;
                     }
-                    Debug.logger.log(Level.FINE, "Initializing ContextualProvider Root with: {}", Arrays.toString(values));
+                    Debug.logger.log(Level.FINE,
+                            "Initializing ContextualProvider Root with: {}",
+                            Arrays.toString(values));
                     ROOT.addToContext(values);
                 }
             } catch (IOException e) {
@@ -314,10 +325,10 @@ public interface Context extends Named, Convertible, LoggerCarrier {
             }
         }
 
-        protected final Set<Context> children;
-        private final Set<Object> myMembers;
-        private final Context     parent;
-        private final String      name;
+        @Getter protected final Set<Context> children;
+        @Getter private final   Set<Object>  myMembers;
+        private final           Context      parent;
+        private final           String       name;
 
         protected Base(Object... initialMembers) {
             this(ROOT, initialMembers);
@@ -334,8 +345,7 @@ public interface Context extends Named, Convertible, LoggerCarrier {
                             ? parent
                             : Objects.requireNonNull(parent);
             this.name     = name;
-            if (!isRoot())
-                parent.addToContext(this);
+            if (!isRoot()) parent.addToContext(this);
             addToContext(initialMembers);
         }
 
@@ -350,37 +360,30 @@ public interface Context extends Named, Convertible, LoggerCarrier {
 
         @SneakyThrows
         public final <T> Stream<? extends T> streamContextMembers(boolean includeChildren, final Class<T> type) {
-            Stream<Object> stream1 = Stream.concat(
-                    Stream.of(parent)
-                            .filter(Objects::nonNull)
-                            .flatMap(contextualProvider -> contextualProvider.streamContextMembers(false)),
-                    Stream.of(this)
-            );
+            Stream<Object> stream1 = Stream.concat(Stream.of(parent)
+                    .filter(Objects::nonNull)
+                    .flatMap(contextualProvider -> contextualProvider.streamContextMembers(false)), Stream.of(this));
 
-            Stream<Object> stream2 = Stream.concat(
-                    myMembers.stream(),
+            Stream<Object> stream2 = Stream.concat(myMembers.stream(),
                     includeChildren
                     ? children.stream().flatMap(sub -> sub.streamContextMembers(includeChildren))
-                    : Stream.empty()
-            );
+                    : Stream.empty());
 
             // stream beans if we are in a spring environment
             // needs to call 'new org.springframework.context.support.StaticApplicationContext().getBeansOfType(type)'
-            Stream<Object> stream3 = Wrap.ofSupplier(ThrowingSupplier.fallback(() -> Class
-                            .forName("org.springframework.context.support.StaticApplicationContext")))
+            Stream<Object> stream3 = Wrap.ofSupplier(ThrowingSupplier.fallback(() -> Class.forName(
+                            "org.springframework.context.support.StaticApplicationContext")))
                     .stream()
                     .map(ReflectionHelper::obtainInstance)
                     .flatMap(Wrap::stream)
                     .filter(Objects::nonNull)
                     .flatMap(ctx -> ReflectionHelper.<Map<String, Object>>call(ctx, "getBeansOfType", type)
-                            .values().stream());
+                            .values()
+                            .stream());
 
-            return Stream.concat(Stream.concat(stream1, stream2), stream3)
-                    .filter(Objects::nonNull)
+            return Stream.concat(Stream.concat(stream1, stream2), stream3).filter(Objects::nonNull)
                     //.flatMap(it -> {if (it.getClass().isArray()) return Stream.of((Object[]) it);return Stream.of(it);})
-                    .filter(type::isInstance)
-                    .map(type::cast)
-                    .distinct();
+                    .filter(type::isInstance).map(type::cast).distinct();
         }
 
         @Override

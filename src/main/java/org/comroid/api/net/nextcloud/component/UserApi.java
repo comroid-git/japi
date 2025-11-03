@@ -21,7 +21,8 @@ public class UserApi extends OcsApiComponent {
                         .get("users")
                         .asArray()
                         .stream()
-                        .map(DataNode::toSerializedString)
+                        .map(DataNode::asValue)
+                        .map(DataNode::asString)
                         .toList());
     }
 }

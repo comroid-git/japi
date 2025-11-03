@@ -5,5 +5,5 @@ import lombok.Value;
 @Value
 public class ColumnValue {
     int    columnId;
-    String value;
+    Object value;
 }
