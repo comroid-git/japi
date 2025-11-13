@@ -83,6 +83,7 @@ public final class FileHandle extends File implements Named, ContentParser {
 
     @Override
     public boolean mkdirs() {
+        if (exists()) return true;
         if (isDirectory())
             return super.mkdirs();
         else return getParentFile().mkdirs();
