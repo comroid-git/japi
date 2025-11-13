@@ -134,7 +134,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
             usage.advanceFull();
 
             var call = usage.getStackTrace().peek().asCall();
-            if (call != null && call.getParameters().size() <= usage.getArgumentStrings().size()) return empty();
+            if (call != null && call.getParameters().size() < usage.getArgumentStrings().size()) return empty();
 
             // collect autocompletion stream
             var stackTrace = usage.getStackTrace();
@@ -143,7 +143,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                     .filter(callable -> isPermitted(usage, callable))
                     .flatMap(Callable::nodes)
                     .flatMap(cast(org.comroid.commands.node.Parameter.class))
-                    .skip(usage.getArgumentStrings().size())
+                    .skip(usage.getArgumentStrings().size() - 1)
                     .limit(1)
                     .findAny();
 
@@ -196,8 +196,12 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
 
                 if (commandParameter != null) {
                     // parse user argument
-                    var str = usage.getArgumentStrings().get(commandParameter);
-                    useArgs[i] = adapter.type().parse(str);
+                    if (getCapabilities().contains(CommandCapability.NAMED_ARGS) && namedArgs != null)
+                        useArgs[i] = namedArgs.get(commandParameter.getName());
+                    else {
+                        var str = usage.getArgumentStrings().get(commandParameter);
+                        useArgs[i] = adapter.type().parse(str);
+                    }
                 } else {
                     // find contextual argument
                     useArgs[i] = usage.getContext()
@@ -246,11 +250,11 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
 
     private boolean isPermitted(CommandUsage usage, Callable callable) {
         var permission = callable.getAttribute().permission();
-        return usage.getContext()
-                       .stream()
-                       .flatMap(cast(PermissionChecker.class))
-                       .findAny()
-                       .isEmpty() || usage.getContext()
+        return Command.EmptyAttribute.equals(permission) || usage.getContext()
+                .stream()
+                .flatMap(cast(PermissionChecker.class))
+                .findAny()
+                .isEmpty() || usage.getContext()
                        .stream()
                        .flatMap(cast(PermissionChecker.class))
                        .filter(chk -> chk.acceptPermission(permission))
