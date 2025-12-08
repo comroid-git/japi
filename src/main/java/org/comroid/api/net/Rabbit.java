@@ -46,7 +46,8 @@ public class Rabbit implements Named {
     public static Wrap<Rabbit> of(@Nullable String name, @Nullable String uri) {
         if (uri == null) return Wrap.empty();
         final var uri0 = uri(uri);
-        return Wrap.of($cache.compute(uri0, (uri1, old) -> old == null || !old.connection.isOpen() ? new Rabbit(name, uri1) : old));
+        return Wrap.of($cache.compute(uri0,
+                (uri1, old) -> old == null || !old.connection.isOpen() ? new Rabbit(name, uri1) : old));
     }
 
     @Nullable String name;
@@ -85,7 +86,9 @@ public class Rabbit implements Named {
     }
 
     public Exchange exchange(String exchange, String exchangeType) {
-        return exchanges.compute(exchange, (exc, old) -> old == null || !old.channel.isOpen() ? new Exchange(exc, exchangeType) : old);
+        return exchanges.compute(exchange,
+                (exc, old) -> (old == null || old.channel == null) || !old.channel.isOpen() ? new Exchange(exc,
+                        exchangeType) : old);
     }
 
     @Override
@@ -100,7 +103,9 @@ public class Rabbit implements Named {
 
     @Override
     public String toString() {
-        return name != null ? name : uri.getHost() + ':' + uri.getPort() + '/' + Objects.requireNonNullElse(uri.getPath(), "");
+        return name != null
+               ? name
+               : uri.getHost() + ':' + uri.getPort() + '/' + Objects.requireNonNullElse(uri.getPath(), "");
     }
 
     @Value
@@ -136,7 +141,8 @@ public class Rabbit implements Named {
         }
 
         public <T> Route<T> route(String name, String routingKey, ByteConverter<T> converter) {
-            return uncheckedCast(routes.compute(routingKey, (rk, old) -> old == null || old.isClosed() ? new Route<>(name, routingKey, converter) : old));
+            return uncheckedCast(routes.compute(routingKey,
+                    (rk, old) -> old == null || old.isClosed() ? new Route<>(name, routingKey, converter) : old));
         }
 
         public Rabbit rabbit() {
@@ -150,7 +156,8 @@ public class Rabbit implements Named {
 
         @Override
         public boolean equals(Object other) {
-            return other instanceof Exchange exchange && Objects.equals(this.exchange, exchange.exchange) && Objects.equals(this.rabbit(), exchange.rabbit());
+            return other instanceof Exchange exchange && Objects.equals(this.exchange,
+                    exchange.exchange) && Objects.equals(this.rabbit(), exchange.rabbit());
         }
 
         @Override
@@ -184,7 +191,9 @@ public class Rabbit implements Named {
             public synchronized Channel touch() {
                 var channel = Exchange.this.touch();
                 if (tag == null) {
-                    queue = (name == null ? channel.queueDeclare() : channel.queueDeclare(name, true, true, true, Map.of())).getQueue();
+                    queue = (name == null
+                             ? channel.queueDeclare()
+                             : channel.queueDeclare(name, true, true, true, Map.of())).getQueue();
                     channel.queueBind(queue, exchange, routingKey);
                     tag = channel.basicConsume(queue, this::handleRabbitData, tag -> {});
                 }
@@ -201,10 +210,13 @@ public class Rabbit implements Named {
                             null,
                             null,
                             data,
-                            ThrowingRunnable.rethrowing(() -> channel.basicAck(content.getEnvelope().getDeliveryTag(), false)));
+                            ThrowingRunnable.rethrowing(() -> channel.basicAck(content.getEnvelope().getDeliveryTag(),
+                                    false)));
                     accept(event);
                 } catch (Throwable t) {
-                    org.comroid.api.info.Log.at(Level.WARNING, "Could not receive data from route: " + new String(content.getBody()), t);
+                    org.comroid.api.info.Log.at(Level.WARNING,
+                            "Could not receive data from route: " + new String(content.getBody()),
+                            t);
                 }
             }
 
@@ -233,7 +245,8 @@ public class Rabbit implements Named {
 
             @Override
             public boolean equals(Object other) {
-                return other instanceof Route<?> route && Objects.equals(routingKey, route.routingKey) && Objects.equals(exchange(), route.exchange());
+                return other instanceof Route<?> route && Objects.equals(routingKey,
+                        route.routingKey) && Objects.equals(exchange(), route.exchange());
             }
 
             @Override
