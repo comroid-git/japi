@@ -200,23 +200,30 @@ public class Rabbit implements Named {
                 return channel;
             }
 
-            private void handleRabbitData(String $, Delivery content) {
+            private void handleRabbitData(String $, Delivery delivery) {
+                long tag = delivery.getEnvelope().getDeliveryTag();
                 try {
-                    var str = new String(content.getBody());
+                    var str = new String(delivery.getBody());
                     Debug.log(log, "Data receiving: " + str);
                     if (str.isBlank() || "null".equals(str)) return;
-                    var data = converter.fromBytes(content.getBody());
+                    var data = converter.fromBytes(delivery.getBody());
                     var event = new Event<>(seq.incrementAndGet(),
                             null,
-                            null,
+                            delivery.getEnvelope().getRoutingKey(),
                             data,
-                            ThrowingRunnable.rethrowing(() -> channel.basicAck(content.getEnvelope().getDeliveryTag(),
+                            ThrowingRunnable.rethrowing(() -> channel.basicAck(delivery.getEnvelope().getDeliveryTag(),
                                     false)));
                     accept(event);
+                    touch().basicAck(tag, false);
                 } catch (Throwable t) {
                     org.comroid.api.info.Log.at(Level.WARNING,
-                            "Could not receive data from route: " + new String(content.getBody()),
+                            "Could not receive data from route: " + new String(delivery.getBody()),
                             t);
+                    try {
+                        touch().basicNack(tag, false, true);
+                    } catch (Throwable ignored) {
+                        org.comroid.api.info.Log.at(Level.FINE, "Could not send NACK, tag: " + tag, t);
+                    }
                 }
             }
 
