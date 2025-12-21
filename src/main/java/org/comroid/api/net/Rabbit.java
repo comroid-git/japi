@@ -220,7 +220,7 @@ public class Rabbit implements Named {
                             "Could not receive data from route: " + new String(delivery.getBody()),
                             t);
                     try {
-                        touch().basicNack(tag, false, true);
+                        touch().basicNack(tag, false, false);
                     } catch (Throwable ignored) {
                         org.comroid.api.info.Log.at(Level.FINE, "Could not send NACK, tag: " + tag, t);
                     }
