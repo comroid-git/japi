@@ -143,7 +143,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                     .filter(callable -> isPermitted(usage, callable))
                     .flatMap(Callable::nodes)
                     .flatMap(cast(org.comroid.commands.node.Parameter.class))
-                    .skip(usage.getArgumentStrings().size() - 1)
+                    .skip(Math.max(0, usage.getArgumentStrings().size() - 1))
                     .limit(1)
                     .findAny();
 
@@ -196,8 +196,8 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
 
                 if (commandParameter != null) {
                     // parse user argument
-                    if (getCapabilities().contains(CommandCapability.NAMED_ARGS) && namedArgs != null)
-                        useArgs[i] = namedArgs.get(commandParameter.getName());
+                    if (getCapabilities().contains(CommandCapability.NAMED_ARGS) && namedArgs != null) useArgs[i] = namedArgs.get(
+                            commandParameter.getName());
                     else {
                         var str = usage.getArgumentStrings().get(commandParameter);
                         useArgs[i] = adapter.type().parse(str);
