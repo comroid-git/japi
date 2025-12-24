@@ -18,7 +18,7 @@ public interface MinecraftPermissionAdapter {
             }
 
             @Override
-            public TriState checkPermission(UUID playerId, String key, boolean explicit) {
+            public TriState checkPermission(UUID playerId, @NotNull String key, boolean explicit) {
                 var player = Bukkit.getPlayer(playerId);
                 if (player == null) return TriState.FALSE;
                 var perms = player.getEffectivePermissions()
@@ -41,4 +41,12 @@ public interface MinecraftPermissionAdapter {
     default TriState checkPermission(UUID playerId, @NotNull String key) {return checkPermission(playerId, key, false);}
 
     TriState checkPermission(UUID playerId, @NotNull String key, boolean explicit);
+
+    default boolean checkPermissionOrOp(UUID playerId, @NotNull String key) {
+        return checkPermissionOrOp(playerId, key, false);
+    }
+
+    default boolean checkPermissionOrOp(UUID playerId, @NotNull String key, boolean explicit) {
+        return checkPermission(playerId, key, explicit).toBooleanOrElse(false) || checkOpLevel(playerId);
+    }
 }
