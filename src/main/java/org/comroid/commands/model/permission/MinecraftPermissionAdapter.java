@@ -5,6 +5,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.permissions.PermissionAttachmentInfo;
 import org.intellij.lang.annotations.MagicConstant;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
@@ -37,7 +38,7 @@ public interface MinecraftPermissionAdapter {
 
     boolean checkOpLevel(UUID playerId, @MagicConstant(intValues = { 1, 2, 3, 4 }) int minimum);
 
-    default TriState checkPermission(UUID playerId, String key) {return checkPermission(playerId, key, false);}
+    default TriState checkPermission(UUID playerId, @NotNull String key) {return checkPermission(playerId, key, false);}
 
-    TriState checkPermission(UUID playerId, String key, boolean explicit);
+    TriState checkPermission(UUID playerId, @NotNull String key, boolean explicit);
 }
