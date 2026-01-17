@@ -9,9 +9,9 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
-public interface MinecraftPermissionAdapter {
-    static MinecraftPermissionAdapter spigot() {
-        return new MinecraftPermissionAdapter() {
+public interface PermissionAdapter {
+    static PermissionAdapter spigot() {
+        return new PermissionAdapter() {
             @Override
             public boolean checkOpLevel(UUID playerId, int $) {
                 return Bukkit.getOperators().stream().map(OfflinePlayer::getUniqueId).anyMatch(playerId::equals);

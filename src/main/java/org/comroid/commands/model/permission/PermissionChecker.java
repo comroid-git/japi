@@ -14,7 +14,7 @@ import static java.util.function.Predicate.*;
 import static org.comroid.api.func.util.Streams.*;
 
 public interface PermissionChecker {
-    static PermissionChecker minecraft(final MinecraftPermissionAdapter adapter) {
+    static PermissionChecker minecraft(final PermissionAdapter adapter) {
         return new PermissionChecker() {
             @Override
             public boolean acceptPermission(String key) {
