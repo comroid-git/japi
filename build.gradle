@@ -90,5 +90,3 @@ publishing {
         }
     }
 }
-
-jar.finalizedBy publishToMavenLocal
