@@ -9,6 +9,7 @@ import org.comroid.api.attr.Named;
 import org.comroid.api.data.seri.Serializer;
 import org.comroid.api.func.exc.ThrowingSupplier;
 import org.comroid.api.func.util.Debug;
+import org.comroid.api.func.util.RootContextSource;
 import org.comroid.api.java.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
@@ -19,11 +20,14 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -53,7 +57,7 @@ import static org.comroid.api.java.StackTraceUtils.*;
 @MustExtend(Context.Base.class)
 public interface Context extends Named, Convertible, LoggerCarrier {
     static Context root() {
-        return Base.ROOT;
+        return Base.ROOT.get();
     }
 
     static <T> @Nullable T get(Class<T> type) {
@@ -120,7 +124,9 @@ public interface Context extends Named, Convertible, LoggerCarrier {
 
     @Deprecated(forRemoval = true)
     static <T> Wrap<T> getFromContexts(final Class<T> member, boolean includeChildren) {
-        return () -> Base.ROOT.children.stream()
+        return () -> Base.ROOT.get()
+                .getChildren()
+                .stream()
                 .flatMap(sub -> sub.getFromContext(member, includeChildren).stream())
                 .findFirst()
                 .orElse(null);
@@ -140,6 +146,10 @@ public interface Context extends Named, Convertible, LoggerCarrier {
     @Deprecated(forRemoval = true)
     static <T> T getFromRoot(Class<T> type, Supplier<? extends T> elseGet) {
         return wrap(type).orElseGet(elseGet);
+    }
+
+    default Collection<Context> getChildren() {
+        return Collections.emptySet();
     }
 
     @Internal
@@ -294,35 +304,41 @@ public interface Context extends Named, Convertible, LoggerCarrier {
 
     @Internal
     class Base implements Context {
-        @SuppressWarnings("ConstantConditions") public static final Context.Base ROOT;
+        @SuppressWarnings("ConstantConditions") public static final Supplier<Context> ROOT;
 
         static {
-            try {
-                ROOT = new Context.Base(null, "ROOT", new Object[0]);
-                InputStream resource = ClassLoader.getSystemClassLoader()
-                        .getResourceAsStream("org/comroid/api/context.properties");
-                if (resource != null) {
-                    Properties props = new Properties();
-                    props.load(resource);
+            ROOT = Wrap.onDemand(() -> ServiceLoader.load(RootContextSource.class)
+                    .findFirst()
+                    .map(RootContextSource::getRootContext)
+                    .orElseGet(() -> {
+                        try {
+                            var rootContext = new Context.Base(null, "ROOT", new Object[0]);
+                            InputStream resource = ClassLoader.getSystemClassLoader()
+                                    .getResourceAsStream("org/comroid/api/context.properties");
+                            if (resource != null) {
+                                Properties props = new Properties();
+                                props.load(resource);
 
-                    int c = 0;
-                    Object[] values = new Object[props.size()];
-                    for (Map.Entry<Object, Object> entry : props.entrySet()) {
-                        final int fc          = c;
-                        Class<?>  targetClass = Class.forName(String.valueOf(entry.getValue()));
-                        createInstance(targetClass).ifPresent(it -> values[fc] = it);
-                        c++;
-                    }
-                    Debug.logger.log(Level.FINE,
-                            "Initializing ContextualProvider Root with: {}",
-                            Arrays.toString(values));
-                    ROOT.addToContext(values);
-                }
-            } catch (IOException e) {
-                throw new RuntimeException("Could not read context properties", e);
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException("Could not find Context Class", e);
-            }
+                                int      c      = 0;
+                                Object[] values = new Object[props.size()];
+                                for (Map.Entry<Object, Object> entry : props.entrySet()) {
+                                    final int fc          = c;
+                                    Class<?>  targetClass = Class.forName(String.valueOf(entry.getValue()));
+                                    createInstance(targetClass).ifPresent(it -> values[fc] = it);
+                                    c++;
+                                }
+                                Debug.logger.log(Level.FINE,
+                                        "Initializing ContextualProvider Root with: {}",
+                                        Arrays.toString(values));
+                                rootContext.addToContext(values);
+                            }
+                            return rootContext;
+                        } catch (IOException e) {
+                            throw new RuntimeException("Could not read context properties", e);
+                        } catch (ClassNotFoundException e) {
+                            throw new RuntimeException("Could not find Context Class", e);
+                        }
+                    }));
         }
 
         @Getter protected final Set<Context> children;
@@ -330,12 +346,16 @@ public interface Context extends Named, Convertible, LoggerCarrier {
         private final           Context      parent;
         private final           String       name;
 
-        protected Base(Object... initialMembers) {
-            this(ROOT, initialMembers);
-        }
-
         protected Base(@NotNull Context parent, Object... initialMembers) {
             this(parent, callerClass(1).getSimpleName(), initialMembers);
+        }
+
+        protected Base(String name, Object... initialMembers) {
+            this(null, name, initialMembers);
+        }
+
+        protected Base(Object... initialMembers) {
+            this(null, "ROOT", initialMembers);
         }
 
         protected Base(Context parent, String name, Object... initialMembers) {
@@ -347,10 +367,6 @@ public interface Context extends Named, Convertible, LoggerCarrier {
             this.name     = name;
             if (!isRoot()) parent.addToContext(this);
             addToContext(initialMembers);
-        }
-
-        protected Base(String name, Object... initialMembers) {
-            this(ROOT, name, initialMembers);
         }
 
         @Override

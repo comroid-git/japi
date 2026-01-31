@@ -87,13 +87,26 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         return exceptionally(supplier, t -> Log.at(Level.SEVERE, "An internal error occurred", t));
     }
 
-    static <R extends DataNode, T extends Throwable> Wrap<R> exceptionally(@NotNull ThrowingSupplier<R, T> supplier, @NotNull Consumer<T> handler) {
+    static <R extends DataNode, T extends Throwable> Wrap<R> exceptionally(
+            @NotNull ThrowingSupplier<R, T> supplier, @NotNull Consumer<T> handler) {
         return () -> {
             try {
                 return supplier.get();
             } catch (Throwable e) {
                 handler.accept(Polyfill.uncheckedCast(e));
                 return null;
+            }
+        };
+    }
+
+    static <O> Wrap<O> onDemand(Supplier<O> source) {
+        return new Wrap<>() {
+            private O object;
+
+            @Override
+            public O get() {
+                if (object == null) object = source.get();
+                return object;
             }
         };
     }
@@ -221,11 +234,13 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         return remapper.apply(get());
     }
 
-    default <X, R> @NotNull Wrap<@Nullable R> combine(@Nullable Supplier<@Nullable X> other, BiFunction<T, @Nullable X, @Nullable R> accumulator) {
+    default <X, R> @NotNull Wrap<@Nullable R> combine(
+            @Nullable Supplier<@Nullable X> other, BiFunction<T, @Nullable X, @Nullable R> accumulator) {
         return () -> accumulate(other, accumulator);
     }
 
-    default <X, R> @Nullable R accumulate(@Nullable Supplier<@Nullable X> other, BiFunction<T, X, @Nullable R> accumulator) {
+    default <X, R> @Nullable R accumulate(
+            @Nullable Supplier<@Nullable X> other, BiFunction<T, X, @Nullable R> accumulator) {
         if (other == null || other.get() == null) return null;
         return accumulator.apply(get(), other.get());
     }
@@ -249,7 +264,8 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         consumer.accept(get());
     }
 
-    default <EX extends Throwable> void ifPresentOrElseThrow(Consumer<T> consumer, Supplier<EX> exceptionSupplier) throws EX {
+    default <EX extends Throwable> void ifPresentOrElseThrow(Consumer<T> consumer, Supplier<EX> exceptionSupplier)
+    throws EX {
         if (isNonNull()) consume(consumer);
         else throw exceptionSupplier.get();
     }
@@ -276,7 +292,8 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         } else return task.get();
     }
 
-    default <R, X extends Throwable> R ifPresentMapOrElseThrow(Function<T, R> consumer, Supplier<X> exceptionSupplier) throws X {
+    default <R, X extends Throwable> R ifPresentMapOrElseThrow(Function<T, R> consumer, Supplier<X> exceptionSupplier)
+    throws X {
         if (isNonNull()) return into(consumer);
         throw exceptionSupplier.get();
     }
@@ -296,7 +313,8 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
         }
     }
 
-    default <O, R> @Nullable R ifBothPresentMap(@Nullable Supplier<O> other, BiFunction<@NotNull T, @NotNull O, R> accumulator) {
+    default <O, R> @Nullable R ifBothPresentMap(
+            @Nullable Supplier<O> other, BiFunction<@NotNull T, @NotNull O, R> accumulator) {
         if (other != null) {
             O o = other.get();
             if (isNonNull() && o != null) return accumulator.apply(assertion(), o);
