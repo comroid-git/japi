@@ -48,6 +48,12 @@ public class Authentication {
                 "Basic " + Base64.encode(username + ':' + passkey));
     }
 
+    public Map.Entry<String, String> toBearerTokenHeader() {
+        Constraint.notNull(passkey, "passkey").run();
+
+        return new AbstractMap.SimpleImmutableEntry<>("Authorization", "Bearer " + passkey);
+    }
+
     public enum Type {
         Anonymous, UsernamePassword, UsernameToken, OnlyUsername, Token
     }

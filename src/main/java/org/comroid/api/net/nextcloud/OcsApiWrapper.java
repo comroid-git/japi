@@ -2,6 +2,7 @@ package org.comroid.api.net.nextcloud;
 
 import lombok.Builder;
 import lombok.Value;
+import lombok.experimental.NonFinal;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.model.Authentication;
 import org.comroid.api.net.REST;
@@ -15,6 +16,7 @@ import java.util.concurrent.CompletableFuture;
 
 @Value
 @Builder
+@NonFinal
 public class OcsApiWrapper extends Component.Base implements OcsApiCore {
     @lombok.Builder.Default REST rest = REST.Default;
     String         baseUrl;
