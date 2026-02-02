@@ -47,7 +47,7 @@ dependencies {
     compileOnly 'jakarta.persistence:jakarta.persistence-api:3.+'
     compileOnly 'org.apache.tomcat:tomcat-annotations-api:10.+'
 
-    compileOnly 'net.dv8tion:JDA:5.+'
+    compileOnly 'net.dv8tion:JDA:6.+'
 
     compileOnly 'org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT'
     compileOnly 'net.kyori:adventure-api:4.11.+'

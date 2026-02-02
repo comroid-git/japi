@@ -3,6 +3,13 @@ package org.comroid.api.config;
 import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.NonFinal;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.components.textinput.TextInput;
+import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.entities.IMentionable;
 import net.dv8tion.jda.api.entities.ISnowflake;
 import net.dv8tion.jda.api.entities.Message;
@@ -18,12 +25,7 @@ import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionE
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.InteractionHook;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
-import net.dv8tion.jda.api.interactions.components.selections.EntitySelectMenu;
-import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
-import net.dv8tion.jda.api.interactions.components.text.TextInput;
-import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
-import net.dv8tion.jda.api.interactions.modals.Modal;
+import net.dv8tion.jda.api.modals.Modal;
 import org.comroid.annotations.Ignore;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.attr.Aliased;
@@ -315,7 +317,7 @@ public class ConfigurationManager<T extends DataNode> {
                                 .toList());
 
                         // send mentionable selection box
-                        channel.sendMessage(text).addActionRow(builder.build()).queue();
+                        channel.sendMessage(text).addComponents(ActionRow.of(builder.build())).queue();
                     } else break ifs;
                 } else if (propClass.isEnum()) {
                     // prepare enum selection box
@@ -329,7 +331,7 @@ public class ConfigurationManager<T extends DataNode> {
                                     .orElseGet(field::getName), field.getName(), Annotations.descriptionText(field)));
 
                     // send enum selection box
-                    channel.sendMessage(text).addActionRow(menu.build()).queue();
+                    channel.sendMessage(text).addComponents(ActionRow.of(menu.build())).queue();
                 } else if (!propType.isStandard()) {
                     var from   = current;
                     var struct = DataStructure.of(propClass);
@@ -343,7 +345,7 @@ public class ConfigurationManager<T extends DataNode> {
             }
 
             // just send a simple textbox-based editor message
-            channel.sendMessage(text).addActionRow(Button.primary(fullName, "Change Value...")).queue();
+            channel.sendMessage(text).addComponents(ActionRow.of(Button.primary(fullName, "Change Value..."))).queue();
         }
 
         @Override
@@ -356,9 +358,9 @@ public class ConfigurationManager<T extends DataNode> {
             event.deferReply().submit().thenCompose(hook -> {
                 if (checkOutOfContext(event)) return CompletableFuture.completedFuture(null);
                 event.replyModal(Modal.create(event.getComponentId(), event.getComponentId())
-                        .addActionRow(TextInput.create("newValue", "New Value", TextInputStyle.SHORT)
+                        .addComponents(Label.of("New Value", TextInput.create("newValue", TextInputStyle.SHORT)
                                 .setPlaceholder(config.get(event.getComponentId().split("\\.")).asString())
-                                .build())
+                                .build()))
                         .build()).queue();
                 return hook.sendMessage("Done!").setEphemeral(false).submit();
             }).exceptionally(Debug.exceptionLogger("Internal error when handling interaction"));

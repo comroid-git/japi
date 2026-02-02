@@ -56,7 +56,7 @@ import static org.comroid.api.data.seri.type.StandardValueType.*;
 @Ignore({ Convertible.class, DataStructure.class })
 public interface DataNode extends MimeType.Container, StringSerializable, Specifiable<Object> {
     static Stream<Entry> properties(final java.lang.Object it) {
-        if (it instanceof DataNode.Base) return ((DataNode) it).properties();
+        if (it instanceof Base) return ((DataNode) it).properties();
         if (it instanceof Map<?, ?> map)
             return map.entrySet().stream().collect(new Collector<Map.Entry<?, ?>, List<Entry>, Stream<Entry>>() {
                 @Override
@@ -107,7 +107,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
 
     static DataNode of(java.lang.Object it) {
         if (it == null) return Value.NULL;
-        else if (it instanceof DataNode.Base) return (DataNode) it;
+        else if (it instanceof Base) return (DataNode) it;
         else if (it instanceof Iterable) {
             // handle as array node
             var arr = new Array();
@@ -123,7 +123,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         }
     }
 
-    static DataNode.Plain bytes(byte[] bytes) {
+    static Plain bytes(byte[] bytes) {
         return new Plain(bytes);
     }
 
@@ -375,6 +375,18 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
             var val = DataNode.of(value);
             add(val);
             return val;
+        }
+
+        @Override
+        @SneakyThrows
+        public <R> Wrap<R> as(ValueType<R> type) {
+            if (!type.isArray()) throw new IllegalArgumentException("Need array type");
+            var componentType = type.getTargetClass().getComponentType();
+            var array         = (java.lang.Object[]) java.lang.reflect.Array.newInstance(componentType, size());
+            var me            = asArray();
+            for (var i = 0; i < array.length; i++) array[i] = me.get(i).as(componentType).orElse(null);
+            //noinspection unchecked
+            return Wrap.of((R) array);
         }
 
         @Override
