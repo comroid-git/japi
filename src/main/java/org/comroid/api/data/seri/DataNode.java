@@ -38,6 +38,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -305,11 +306,13 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
 
     @Override
     default <R> Wrap<R> as(final Class<R> type) {
-        return Specifiable.super.as(type)
-                .orRef(() -> Wrap.of(ValueType.of(type))
-                        .flatMap(StandardValueType.class)
-                        .map(svt -> Polyfill.<R>uncheckedCast(svt.parse(asString())))
-                        .or(() -> Activator.get(type).createInstance(this)));
+        return Specifiable.super.as(type).orRef(() -> {
+            var valueType = ValueType.of(type);
+            return Wrap.of(valueType)
+                    .flatMap(StandardValueType.class)
+                    .map(svt -> Polyfill.<R>uncheckedCast(svt.parse(asString())))
+                    .orRef(() -> as(valueType).castRef());
+        });
     }
 
     @Nullable
@@ -357,13 +360,34 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         }
 
         @Override
+        public <R> @Nullable R convert(Class<? super R> target) {
+            if (Map.class.isAssignableFrom(target) && !Object.class.isAssignableFrom(target)) {
+                //noinspection unchecked
+                return (R) toMap();
+            }
+            return Wrap.of(Activator.get(target).createInstance(this)).cast();
+        }
+
+        @Override
+        public <T> Wrap<T> as(ValueType<T> type) {
+            var convert = convert(type.getTargetClass());
+            return Wrap.of(convert);
+        }
+
+        @Override
         public Stream<DataNode.Entry> properties() {
             return entrySet().stream().map(e -> new DataNode.Entry(e.getKey(), e.getValue()));
         }
 
-        @Override
-        public <R> @Nullable R convert(Class<? super R> target) {
-            return Wrap.of(Activator.get(target).createInstance(this)).cast();
+        public @NotNull Map<String, java.lang.Object> toMap() {
+            var out = new HashMap<String, java.lang.Object>();
+            map.forEach((k, v) -> out.put(k, switch (v) {
+                case Object obj -> obj.toMap();
+                case Array arr -> arr.toList();
+                case Value<?> val -> val.getValue();
+                default -> v;
+            }));
+            return out;
         }
     }
 
@@ -380,7 +404,7 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
         @Override
         @SneakyThrows
         public <R> Wrap<R> as(ValueType<R> type) {
-            if (!type.isArray()) throw new IllegalArgumentException("Need array type");
+            if (!type.isArray()) throw new IllegalArgumentException("Need array type; got " + type);
             var componentType = type.getTargetClass().getComponentType();
             var array         = (java.lang.Object[]) java.lang.reflect.Array.newInstance(componentType, size());
             var me            = asArray();
@@ -397,6 +421,17 @@ public interface DataNode extends MimeType.Container, StringSerializable, Specif
                 ls.add(new Entry(String.valueOf(i), get(fi)));
             }
             return ls.stream();
+        }
+
+        public @NotNull List<java.lang.Object> toList() {
+            var out = new ArrayList<>();
+            list.forEach(v -> out.add(switch (v) {
+                case Object obj -> obj.toMap();
+                case Array arr -> arr.toList();
+                case Value<?> val -> val.getValue();
+                default -> v;
+            }));
+            return out;
         }
     }
 

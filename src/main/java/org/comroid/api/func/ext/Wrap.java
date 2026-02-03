@@ -363,7 +363,10 @@ public interface Wrap<T> extends Supplier<@Nullable T>, Referent<T>, MutableStat
     }
 
     default <O> Wrap<O> flatMap(final @NotNull Function<? super T, Supplier<? extends O>> func) {
-        return ifPresentMapOrElseGet(func, () -> null)::get;
+        return () -> {
+            Supplier<? extends O> supplier = ifPresentMapOrElseGet(func, () -> null);
+            return supplier == null ? null : supplier.get();
+        };
     }
 
     @Value

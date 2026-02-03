@@ -52,7 +52,7 @@ public class Activator<T> {
                             .stream()
                             .sorted(Comparator.<DataStructure<T>.Constructor>comparingInt(ctor -> ctor.getArgs().size())
                                     .reversed())
-                            .filter(ctor -> ctor.getArgs().size() <= data.size())
+                            //.filter(ctor -> ctor.getArgs().size() <= data.size())
                             .filter(ctor -> ctor.getArgs()
                                     .stream()
                                     .flatMap(param -> Annotations.aliases(param).stream())
@@ -71,7 +71,7 @@ public class Activator<T> {
                                                     .findAny()
                                                     .map(obj::get))
                                             .flatMap(it -> it.as(ValueType.of(param.getType())))
-                                            .orElseThrow();
+                                            .orElse(null);
                                 }
 
                                 final var it = ctor.getCtor().invokeRethrow(args);

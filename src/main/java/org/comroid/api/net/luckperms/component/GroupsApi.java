@@ -31,7 +31,8 @@ public class GroupsApi extends LuckPermsApiComponent
 
     @Override
     public CompletableFuture<GroupData> get(String name) {
-        return getLpApi().get("/group/" + name).thenApply(data -> data.as(GroupData.class).assertion());
+        return getLpApi().get("/group/" + name)
+                .thenApply(data -> data.as(GroupData.class).orElseThrow(() -> new RuntimeException()));
     }
 
     @lombok.Builder(builderMethodName = "search", buildMethodName = "execute", builderClassName = "SearchQuery")
