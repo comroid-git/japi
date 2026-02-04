@@ -159,6 +159,20 @@ public class Streams {
         return it -> concat(Stream.of(it).map(base), by.apply(it));
     }
 
+    public static <T, C> Function<T, Stream<T>> distinctBy(final Function<T, C> mapper) {
+        return new Function<T, Stream<T>>() {
+            final HashSet<C> checkValues = new HashSet<>();
+
+            @Override
+            public Stream<T> apply(T t) {
+                var c = mapper.apply(t);
+                if (checkValues.add(c))
+                    return Stream.of(t);
+                return empty();
+            }
+        };
+    }
+
     @SuppressWarnings("ReplaceInefficientStreamCount")
     public static <T> Collector<T, Set<T>, Stream<T>> expandRecursive(Function<? super T, Stream<? extends T>> by) {
         return Collector.of(HashSet::new,
@@ -180,7 +194,7 @@ public class Streams {
             l.addAll(r);
             return l;
         }, ls -> {
-            var out = new ArrayList<List<T>>();
+            var out  = new ArrayList<List<T>>();
             var iter = ls.iterator();
             ArrayList<T> group = null;
             while (iter.hasNext()) {
@@ -421,9 +435,7 @@ public class Streams {
 
         @WrapWith("map")
         public static <A, B, X, Y> Function<Entry<A, B>, Entry<X, Y>> cross(
-                final @NotNull BiFunction<A, B, X> xFunction,
-                final @NotNull BiFunction<A, B, Y> yFunction
-        ) {
+                final @NotNull BiFunction<A, B, X> xFunction, final @NotNull BiFunction<A, B, Y> yFunction) {
             return e -> new SimpleImmutableEntry<>(xFunction.apply(e.getKey(), e.getValue()),
                     yFunction.apply(e.getKey(), e.getValue()));
         }
@@ -510,9 +522,7 @@ public class Streams {
 
         @WrapWith("flatMap")
         public static <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filter(
-                final @NotNull BiPredicate<A, B> predicate,
-                final @NotNull BiConsumer<A, B> disposal
-        ) {
+                final @NotNull BiPredicate<A, B> predicate, final @NotNull BiConsumer<A, B> disposal) {
             return e -> {
                 if (predicate.test(e.getKey(), e.getValue())) return Stream.of(e);
                 disposal.accept(e.getKey(), e.getValue());
@@ -540,9 +550,7 @@ public class Streams {
 
         @WrapWith("flatMap")
         public static <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filterA(
-                final @NotNull Predicate<A> predicate,
-                final @NotNull Consumer<A> disposal
-        ) {
+                final @NotNull Predicate<A> predicate, final @NotNull Consumer<A> disposal) {
             return filter(predicate, disposal, $ -> true, nop());
         }
 
@@ -567,9 +575,7 @@ public class Streams {
 
         @WrapWith("flatMap")
         public static <A, B, E extends Entry<A, B>> Function<E, Stream<E>> filterB(
-                final @NotNull Predicate<B> predicate,
-                final @NotNull Consumer<B> disposal
-        ) {
+                final @NotNull Predicate<B> predicate, final @NotNull Consumer<B> disposal) {
             return filter($ -> true, nop(), predicate, disposal);
         }
 
