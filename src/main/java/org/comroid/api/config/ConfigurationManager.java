@@ -26,6 +26,7 @@ import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionE
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.modals.Modal;
+import net.dv8tion.jda.api.requests.RestAction;
 import org.comroid.annotations.Ignore;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.attr.Aliased;
@@ -242,7 +243,8 @@ public class ConfigurationManager<T extends DataNode> {
         public void clear() {
             List<Message> ls = List.of();
             do {
-                if (!ls.isEmpty()) channel.deleteMessages(ls).complete();
+                if (ls.size() >= 2) channel.deleteMessages(ls).complete();
+                else ls.stream().map(Message::delete).forEach(RestAction::queue);
                 ls = channel.getHistory().retrievePast(100).complete();
             } while (!ls.isEmpty());
         }
@@ -358,9 +360,10 @@ public class ConfigurationManager<T extends DataNode> {
             event.deferReply().submit().thenCompose(hook -> {
                 if (checkOutOfContext(event)) return CompletableFuture.completedFuture(null);
                 event.replyModal(Modal.create(event.getComponentId(), event.getComponentId())
-                        .addComponents(Label.of("New Value", TextInput.create("newValue", TextInputStyle.SHORT)
-                                .setPlaceholder(config.get(event.getComponentId().split("\\.")).asString())
-                                .build()))
+                        .addComponents(Label.of("New Value",
+                                TextInput.create("newValue", TextInputStyle.SHORT)
+                                        .setPlaceholder(config.get(event.getComponentId().split("\\.")).asString())
+                                        .build()))
                         .build()).queue();
                 return hook.sendMessage("Done!").setEphemeral(false).submit();
             }).exceptionally(Debug.exceptionLogger("Internal error when handling interaction"));
