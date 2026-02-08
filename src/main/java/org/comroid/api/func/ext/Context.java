@@ -342,7 +342,7 @@ public interface Context extends Named, Convertible, LoggerCarrier {
         }
 
         @Getter protected final Set<Context> children;
-        @Getter private final   Set<Object>  myMembers;
+        @Getter protected final Set<Object> myMembers;
         private final           Context      parent;
         private final           String       name;
 
