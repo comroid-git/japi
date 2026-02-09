@@ -21,6 +21,11 @@ version '2.3.' + getCommitTimestampMinutes()
 
 configurations.compileClasspath.resolutionStrategy.activateDependencyLocking()
 
+java {
+    sourceCompatibility = 21
+    targetCompatibility = 21
+}
+
 repositories {
     mavenLocal()
     mavenCentral()
