@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 @Value
 @Builder
@@ -94,5 +95,9 @@ public class CommandUsage {
         };
 
         while (helper.findNext()) helper.commit();
+    }
+
+    public <T> Stream<T> fromContext(Class<T> type) {
+        return context.stream().flatMap(Streams.cast(type));
     }
 }
