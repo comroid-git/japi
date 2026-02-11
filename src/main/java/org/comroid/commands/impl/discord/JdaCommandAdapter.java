@@ -140,7 +140,13 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
             var options = manager.autoComplete(JdaCommandAdapter.this,
                             event.getCommandString().substring(1).split(" "),
                             option.getName(),
-                            option.getValue())
+                            option.getValue(),
+                            event.getName(),
+                            event,
+                            event.getUser(),
+                            event.getMember(),
+                            event.getGuild(),
+                            event.getChannel())
                     .map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key(), e.description()))
                     .limit(25)
                     .toList();

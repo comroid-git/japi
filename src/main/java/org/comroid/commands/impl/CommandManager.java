@@ -97,11 +97,10 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
     }
 
     public final Stream<AutoFillOption> autoComplete(
-            CommandResponseHandler source,
-            @Doc("Do not include currentValue") String[] fullCommand,
-            String argName, @Nullable String currentValue
+            CommandResponseHandler source, @Doc("Do not include currentValue") String[] fullCommand, String argName,
+            @Nullable String currentValue, Object... extraArgs
     ) {
-        var usage = createUsageBase(source, fullCommand);
+        var usage = createUsageBase(source, fullCommand, extraArgs);
         return autoComplete(usage, argName, currentValue);
     }
 
