@@ -192,20 +192,23 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
             for (var i = 0; i < adapters.length; i++) {
                 var adapter          = adapters[i];
                 var commandParameter = adapter.commandParameter();
+                var type = adapter.type();
 
                 if (commandParameter != null) {
                     // parse user argument
-                    if (getCapabilities().contains(CommandCapability.NAMED_ARGS) && namedArgs != null) useArgs[i] = namedArgs.get(
-                            commandParameter.getName());
-                    else {
+                    if (getCapabilities().contains(CommandCapability.NAMED_ARGS) && namedArgs != null) {
+                        useArgs[i] = namedArgs.get(commandParameter.getName());
+                        if (type.getTargetClass().isEnum())
+                            useArgs[i] = type.parse(String.valueOf(useArgs[i]));
+                    } else {
                         var str = usage.getArgumentStrings().get(commandParameter);
-                        useArgs[i] = adapter.type().parse(str);
+                        useArgs[i] = type.parse(str);
                     }
                 } else {
                     // find contextual argument
                     useArgs[i] = usage.getContext()
                             .stream()
-                            .filter(adapter.type().getTargetClass()::isInstance)
+                            .filter(type.getTargetClass()::isInstance)
                             .findAny()
                             .orElse(null);
                 }
