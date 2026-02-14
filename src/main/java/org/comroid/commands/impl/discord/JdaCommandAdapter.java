@@ -37,7 +37,6 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandGroupData;
 import net.dv8tion.jda.api.requests.RestAction;
-import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
@@ -52,6 +51,7 @@ import org.comroid.api.data.seri.type.BoundValueType;
 import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.ext.Wrap;
+import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.Event;
 import org.comroid.api.tree.UncheckedCloseable;
 import org.comroid.commands.impl.AbstractCommandAdapter;
@@ -266,17 +266,17 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
         final var e         = of(args).flatMap(cast(SlashCommandInteractionEvent.class)).findAny().orElseThrow();
         final var user      = of(args).flatMap(cast(User.class)).findAny().orElseThrow();
         var       ephemeral = cmd.getStackTrace().peek().getAttribute().privacy() != CommandPrivacyLevel.PUBLIC;
+
         if (response instanceof CompletableFuture) e.deferReply()
                 .setEphemeral(ephemeral)
                 .submit()
                 .thenCombine(((CompletableFuture<?>) response),
                         (hook, resp) -> handleResponse(msg -> hook.sendMessage(msg).submit(), user, resp))
                 .thenCompose(identity())
-                .exceptionally(Polyfill.exceptionLogger());
-        else {
-            ReplyCallbackAction req;
-            handleResponse(msg -> e.reply(msg).setEphemeral(ephemeral).submit(), user, response);
-        }
+                .exceptionally(Debug.exceptionLogger("Could not defer reply to command"));
+        else handleResponse(msg -> e.reply(msg).setEphemeral(ephemeral).submit(),
+                user,
+                response).exceptionally(Debug.exceptionLogger("Could not reply to command"));
     }
 
     @Override
