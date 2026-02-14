@@ -337,7 +337,7 @@ public class Event<T> implements Wrap<T> {
             return registerTargetListener(target, null);
         }
 
-        public Listener<T> subscribeData(final @NotNull Consumer<T> action) {
+        public Listener<T> subscribeData(final @NotNull Consumer<? super T> action) {
             return subscribe(e -> action.accept(e.getData()));
         }
 
