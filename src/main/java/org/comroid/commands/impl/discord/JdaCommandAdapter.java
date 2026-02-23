@@ -251,6 +251,8 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
     }
 
     private CompletableFuture<?> handleResponse(JdaCommandAdapter.MessageSender hook, User user, Object response) {
+        if (response instanceof MessageEmbed embed) response = new EmbedBuilder(embed);
+        else if (response instanceof MessageCreateBuilder mcb) response = mcb.build();
         return (switch (response) {
             case MessageCreateData message -> hook.send(message);
             case EmbedBuilder embed -> {
