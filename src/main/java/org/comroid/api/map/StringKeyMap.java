@@ -6,9 +6,9 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Value
 public class StringKeyMap<V> implements Map<CharSequence, V> {
@@ -19,7 +19,7 @@ public class StringKeyMap<V> implements Map<CharSequence, V> {
     }
 
     public StringKeyMap(Map<? extends CharSequence, V> copy) {
-        this(new ConcurrentHashMap<>(), copy);
+        this(new HashMap<>(), copy);
     }
 
     public StringKeyMap(Map<String, V> innerMap, Map<? extends CharSequence, V> copy) {
