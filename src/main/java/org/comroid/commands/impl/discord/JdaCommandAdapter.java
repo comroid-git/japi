@@ -264,21 +264,37 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public void handleResponse(CommandUsage cmd, @NotNull Object response, Object... args) {
-        final var e         = of(args).flatMap(cast(SlashCommandInteractionEvent.class)).findAny().orElseThrow();
-        final var user      = of(args).flatMap(cast(User.class)).findAny().orElseThrow();
-        var       ephemeral = cmd.getStackTrace().peek().getAttribute().privacy() != CommandPrivacyLevel.PUBLIC;
+        final var e    = of(args).flatMap(cast(SlashCommandInteractionEvent.class)).findAny().orElseThrow();
+        final var user = of(args).flatMap(cast(User.class)).findAny().orElseThrow();
 
-        if (response instanceof CompletableFuture) e.deferReply()
+        var ephemeral = cmd.getStackTrace().peek().getAttribute().privacy() != CommandPrivacyLevel.PUBLIC;
+        var body      = response;
+
+        final Function<Message, RestAction<?>>[] callback = new Function[1];
+
+        if (body instanceof ResponseCallback(Object wrapperBody, Function<Message, RestAction<?>> wrapperCallback)) {
+            callback[0] = wrapperCallback;
+                          body = wrapperBody;
+        }
+        if (body instanceof CompletableFuture) e.deferReply()
                 .setEphemeral(ephemeral)
                 .submit()
-                .thenCombine(((CompletableFuture<?>) response),
-                        (hook, resp) -> handleResponse(msg -> hook.sendMessage(msg).submit(), user, resp))
+                .thenCombine(((CompletableFuture<?>) body), (hook, resp) -> handleResponse(msg -> {
+                    RestAction<Message> action = hook.sendMessage(msg);
+                    if (callback[0] != null) action = action.flatMap(it -> callback[0].apply(it).map($ -> it));
+                    return action.submit();
+                }, user, resp))
                 .thenCompose(identity())
                 .exceptionally(Debug.exceptionLogger("Could not defer reply to command"));
-        else handleResponse(msg -> e.reply(msg).setEphemeral(ephemeral).submit(),
-                user,
-                response).exceptionally(Debug.exceptionLogger("Could not reply to command"));
+        else handleResponse(msg -> {
+            RestAction<Message> action = e.reply(msg)
+                    .setEphemeral(ephemeral)
+                    .map(hook -> hook.getCallbackResponse().getMessage());
+            if (callback[0] != null) action = action.flatMap(it -> callback[0].apply(it).map($ -> it));
+            return action.submit();
+        }, user, body).exceptionally(Debug.exceptionLogger("Could not reply to command"));
     }
 
     @Override
@@ -445,6 +461,8 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
             return send(new MessageCreateBuilder().setContent(content).build());
         }
     }
+
+    public record ResponseCallback(Object body, Function<Message, RestAction<?>> callback) {}
 
     @Value
     @NonFinal

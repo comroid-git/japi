@@ -12,7 +12,7 @@ public enum Markdown implements TextDecoration {
     @Strikethrough Strikethrough("~~"),
 
     @Verbatim Code("`"),
-    @Verbatim CodeBlock("```"),
+    @Verbatim CodeBlock("```\n", "\n```"),
 
     @Quote Quote("> ", "\n"),
 
