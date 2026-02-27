@@ -6,6 +6,7 @@ import lombok.experimental.NonFinal;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.Level;
 import org.comroid.annotations.Doc;
+import org.comroid.annotations.Order;
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.Aliased;
@@ -13,6 +14,7 @@ import org.comroid.api.data.seri.adp.JSON;
 import org.comroid.api.func.util.Invocable;
 import org.comroid.api.java.Activator;
 import org.comroid.api.java.ReflectionHelper;
+import org.comroid.api.java.StackTraceUtils;
 import org.comroid.api.tree.Container;
 import org.comroid.commands.Command;
 import org.comroid.commands.autofill.AutoFillOption;
@@ -22,6 +24,7 @@ import org.comroid.commands.autofill.impl.EnumBasedAutoFillProvider;
 import org.comroid.commands.model.CommandCapability;
 import org.comroid.commands.model.CommandContextProvider;
 import org.comroid.commands.model.CommandError;
+import org.comroid.commands.model.CommandErrorHandler;
 import org.comroid.commands.model.CommandInfoProvider;
 import org.comroid.commands.model.CommandResponseHandler;
 import org.comroid.commands.model.permission.PermissionChecker;
@@ -36,8 +39,10 @@ import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -79,6 +84,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
         var       attr = klass.getAnnotation(Command.class);
         if (attr != null) nodes = Set.of(Group.builder()
                 .attribute(attr)
+                .registeredTarget(target)
                 .name(Command.EmptyAttribute.equals(attr.value()) ? klass.getSimpleName() : attr.value())
                 .source(klass)
                 .groups(groups)
@@ -97,8 +103,9 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
     }
 
     public final Stream<AutoFillOption> autoComplete(
-            CommandResponseHandler source, @Doc("Do not include currentValue") String[] fullCommand, String argName,
-            @Nullable String currentValue, Object... extraArgs
+            CommandResponseHandler source,
+            @Doc("Do not include currentValue") String[] fullCommand,
+            String argName, @Nullable String currentValue, Object... extraArgs
     ) {
         var usage = createUsageBase(source, fullCommand, extraArgs);
         return autoComplete(usage, argName, currentValue);
@@ -111,6 +118,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                 .findAny()
                 .orElseThrow(() -> new CommandError("No such command: " + Arrays.toString(fullCommand)));
         var builder = CommandUsage.builder()
+                .registeredTarget(baseNode.getRegisteredTarget())
                 .source(source)
                 .manager(this)
                 .fullCommand(trimFullCommand(fullCommand))
@@ -163,8 +171,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                     .map(n -> new AutoFillOption(n.getName(), n.getDescription()));
         } catch (Throwable e) {
             log.log(isDebug() ? Level.WARN : Level.DEBUG, "An error ocurred during command autocompletion", e);
-            return of(usage.getSource().handleThrowable(e)).map(String::valueOf)
-                    .map(str -> new AutoFillOption(str, str));
+            return of(tryHandleThrowable(usage, e)).map(String::valueOf).map(str -> new AutoFillOption(str, str));
         }
     }
 
@@ -198,8 +205,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                     // parse user argument
                     if (getCapabilities().contains(CommandCapability.NAMED_ARGS) && namedArgs != null) {
                         useArgs[i] = namedArgs.get(commandParameter.getName());
-                        if (type.getTargetClass().isEnum())
-                            useArgs[i] = type.parse(String.valueOf(useArgs[i]));
+                        if (type.getTargetClass().isEnum()) useArgs[i] = type.parse(String.valueOf(useArgs[i]));
                     } else {
                         var str = usage.getArgumentStrings().get(commandParameter);
                         useArgs[i] = type.parse(str);
@@ -217,10 +223,10 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
             // execute method
             result = response = call.getCallable().invoke(call.getTarget(), useArgs);
         } catch (CommandError err) {
-            response = err.getResponse() == null ? usage.getSource().handleThrowable(err) : err.getResponse();
+            response = err.getResponse() == null ? tryHandleThrowable(usage, err) : err.getResponse();
         } catch (Throwable e) {
             log.log(isDebug() ? Level.ERROR : Level.DEBUG, "An error ocurred during command execution", e);
-            response = usage.getSource().handleThrowable(e);
+            response = tryHandleThrowable(usage, e);
         }
         if (response != null) usage.getSource().handleResponse(usage, response, usage.getContext().toArray());
         return result;
@@ -240,10 +246,18 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
         return streamChildren(AbstractCommandAdapter.class).findAny();
     }
 
+    private String tryHandleThrowable(CommandUsage usage, Throwable t) {
+        return Stream.concat(children(CommandErrorHandler.class).sorted(Comparator.comparing(Object::getClass,
+                        Order.COMPARATOR)), of((CommandErrorHandler) usage.getSource()))
+                .sorted(Comparator.comparingInt(handler -> handler instanceof CommandResponseHandler ? 1 : 0))
+                .flatMap(handler -> handler.handleThrowable(usage, t).stream())
+                .findFirst()
+                .orElseGet(() -> StackTraceUtils.toString(t));
+    }
+
     private String[] trimFullCommand(String[] fullCommand) {
         var ls = new ArrayList<String>();
-        for (var i = 0; i < fullCommand.length; i++) {
-            var part = fullCommand[i];
+        for (var part : fullCommand) {
             if (part.isBlank() && ls.getLast().isBlank()) break;
             ls.add(part);
         }
@@ -272,6 +286,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
     private Group createGroupNode(@Nullable Object target, Class<?> source) {
         var attribute = Annotations.findAnnotations(Command.class, source).findFirst().orElseThrow().getAnnotation();
         var group = Group.builder()
+                .registeredTarget(Objects.requireNonNullElse(target, source))
                 .name(Command.EmptyAttribute.equals(attribute.value()) ? source.getSimpleName() : attribute.value())
                 .attribute(attribute)
                 .source(source)
@@ -293,6 +308,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
     private Call createCallNode(@Nullable Object target, Method source) {
         var attribute = Annotations.findAnnotations(Command.class, source).findFirst().orElseThrow().getAnnotation();
         var call = Call.builder()
+                .registeredTarget(Objects.requireNonNullElse(target, source))
                 .name(Command.EmptyAttribute.equals(attribute.value()) ? source.getName() : attribute.value())
                 .attribute(attribute)
                 .target(target)
@@ -333,7 +349,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                 .index(index);
 
         // init special types
-        if (source.getType().isEnum()) builder.autoFillProvider(new EnumBasedAutoFillProvider(Polyfill.uncheckedCast(
+        if (source.getType().isEnum()) builder.autoFillProvider(new EnumBasedAutoFillProvider<>(Polyfill.uncheckedCast(
                 source.getType())));
         else if (attribute.autoFill().length > 0) builder.autoFillProvider(new ArrayBasedAutoFillProvider(attribute.autoFill()));
 

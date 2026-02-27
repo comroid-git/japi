@@ -25,6 +25,7 @@ import java.util.stream.Stream;
 public class CommandUsage {
     CommandManager manager;
     String[]       fullCommand;
+    @NotNull Object                 registeredTarget;
     @NotNull CommandResponseHandler source;
     @NotNull Callable               baseNode;
     @Default                       Stack<Callable>        stackTrace      = new Stack<>();

@@ -9,9 +9,10 @@ import org.jetbrains.annotations.NotNull;
 import java.io.PrintStream;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Optional;
 
 @FunctionalInterface
-public interface CommandResponseHandler {
+public interface CommandResponseHandler extends CommandErrorHandler {
     @Deprecated
     default Capitalization getDesiredKeyCapitalization() {
         return Capitalization.IDENTITY;
@@ -19,7 +20,8 @@ public interface CommandResponseHandler {
 
     void handleResponse(CommandUsage command, @NotNull Object response, Object... args);
 
-    default String handleThrowable(Throwable throwable) {
+    @Override
+    default Optional<String> handleThrowable(CommandUsage usage, Throwable throwable) {
         while (throwable instanceof InvocationTargetException itex) throwable = throwable.getCause();
         var msg = "%s: %s".formatted(throwable instanceof CommandError
                                      ? throwable.getClass().getSimpleName()
@@ -34,7 +36,7 @@ public interface CommandResponseHandler {
                               .getClass()
                               .getSimpleName() + ": " + throwable.getCause().getMessage()
                 : throwable.getMessage());
-        if (throwable instanceof CommandError) return msg;
+        if (throwable instanceof CommandError) return Optional.of(msg);
         var buf = new StringWriter();
         var out = new PrintStream(new DelegateStream.Output(buf));
         out.println(msg);
@@ -47,6 +49,6 @@ public interface CommandResponseHandler {
         StackTraceUtils.wrap(cause, out, true);
         var str = buf.toString();
         if (str.length() > 1950) str = str.substring(0, 1950);
-        return str;
+        return Optional.of(str);
     }
 }

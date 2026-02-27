@@ -15,6 +15,7 @@ import java.util.stream.Stream;
 @SuperBuilder
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public abstract class Callable extends Node {
+    @NotNull Object registeredTarget;
     @NotNull Command attribute;
 
     public @NotNull String getName() {
