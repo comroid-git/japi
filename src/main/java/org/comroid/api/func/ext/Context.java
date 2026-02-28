@@ -10,6 +10,7 @@ import org.comroid.api.data.seri.Serializer;
 import org.comroid.api.func.exc.ThrowingSupplier;
 import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.RootContextSource;
+import org.comroid.api.info.Log;
 import org.comroid.api.java.ReflectionHelper;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.ApiStatus.Internal;
@@ -307,38 +308,45 @@ public interface Context extends Named, Convertible, LoggerCarrier {
         @SuppressWarnings("ConstantConditions") public static final Supplier<Context> ROOT;
 
         static {
-            ROOT = Wrap.onDemand(() -> ServiceLoader.load(RootContextSource.class)
-                    .findFirst()
-                    .map(RootContextSource::getRootContext)
-                    .orElseGet(() -> {
-                        try {
-                            var rootContext = new Context.Base(null, "ROOT", new Object[0]);
-                            InputStream resource = ClassLoader.getSystemClassLoader()
-                                    .getResourceAsStream("/org/comroid/api/context.properties");
-                            if (resource != null) {
-                                Properties props = new Properties();
-                                props.load(resource);
+            ROOT = Wrap.onDemand(() -> {
+                try {
+                    return ServiceLoader.load(RootContextSource.class)
+                            .findFirst()
+                            .map(RootContextSource::getRootContext)
+                            .orElseGet(() -> {
+                                try {
+                                    var rootContext = new Context.Base(null, "ROOT", new Object[0]);
+                                    InputStream resource = ClassLoader.getSystemClassLoader()
+                                            .getResourceAsStream("/org/comroid/api/context.properties");
+                                    if (resource != null) {
+                                        Properties props = new Properties();
+                                        props.load(resource);
 
-                                int      c      = 0;
-                                Object[] values = new Object[props.size()];
-                                for (Map.Entry<Object, Object> entry : props.entrySet()) {
-                                    final int fc          = c;
-                                    Class<?>  targetClass = Class.forName(String.valueOf(entry.getValue()));
-                                    createInstance(targetClass).ifPresent(it -> values[fc] = it);
-                                    c++;
+                                        int      c      = 0;
+                                        Object[] values = new Object[props.size()];
+                                        for (Map.Entry<Object, Object> entry : props.entrySet()) {
+                                            final int fc          = c;
+                                            Class<?>  targetClass = Class.forName(String.valueOf(entry.getValue()));
+                                            createInstance(targetClass).ifPresent(it -> values[fc] = it);
+                                            c++;
+                                        }
+                                        Debug.logger.log(Level.FINE,
+                                                "Initializing ContextualProvider Root with: {}",
+                                                Arrays.toString(values));
+                                        rootContext.addToContext(values);
+                                    }
+                                    return rootContext;
+                                } catch (IOException e) {
+                                    throw new RuntimeException("Could not read context properties", e);
+                                } catch (ClassNotFoundException e) {
+                                    throw new RuntimeException("Could not find Context Class", e);
                                 }
-                                Debug.logger.log(Level.FINE,
-                                        "Initializing ContextualProvider Root with: {}",
-                                        Arrays.toString(values));
-                                rootContext.addToContext(values);
-                            }
-                            return rootContext;
-                        } catch (IOException e) {
-                            throw new RuntimeException("Could not read context properties", e);
-                        } catch (ClassNotFoundException e) {
-                            throw new RuntimeException("Could not find Context Class", e);
-                        }
-                    }));
+                            });
+                } catch (Throwable t) {
+                    Log.at(Level.WARNING, "Unable to initialize Root Context", t);
+                    return null;
+                }
+            });
         }
 
         @Getter protected final Set<Context> children;
