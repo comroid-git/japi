@@ -314,7 +314,7 @@ public interface Context extends Named, Convertible, LoggerCarrier {
                         try {
                             var rootContext = new Context.Base(null, "ROOT", new Object[0]);
                             InputStream resource = ClassLoader.getSystemClassLoader()
-                                    .getResourceAsStream("org/comroid/api/context.properties");
+                                    .getResourceAsStream("/org/comroid/api/context.properties");
                             if (resource != null) {
                                 Properties props = new Properties();
                                 props.load(resource);
