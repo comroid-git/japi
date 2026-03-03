@@ -28,6 +28,7 @@ import net.dv8tion.jda.api.events.message.MessageDeleteEvent;
 import net.dv8tion.jda.api.events.message.react.MessageReactionAddEvent;
 import net.dv8tion.jda.api.events.session.ShutdownEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.ICommandReference;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -70,10 +71,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -89,10 +92,11 @@ import static org.comroid.api.func.util.Streams.*;
 @Value
 @RequiredArgsConstructor
 public class JdaCommandAdapter extends AbstractCommandAdapter implements PermissionChecker {
-    private final CommandManager manager;
-    Set<CommandCapability> capabilities = Set.of(CommandCapability.NAMED_ARGS);
-    JDA                    jda;
-    Event.Bus<GenericEvent> bus          = new Event.Bus<>();
+    CommandManager          manager;
+    Map<String, Command>    namedCommands = new ConcurrentHashMap<>();
+    Set<CommandCapability>  capabilities  = Set.of(CommandCapability.NAMED_ARGS);
+    JDA                     jda;
+    Event.Bus<GenericEvent> bus           = new Event.Bus<>();
     @Nullable @NonFinal @Setter BiFunction<EmbedBuilder, User, EmbedBuilder> embedFinalizer = null;
     @Setter @NonFinal           boolean                                      initialized    = false;
     @Setter @NonFinal boolean purgeCommands = false;//Debug.isDebug();
@@ -205,7 +209,12 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
                     default -> {}
                 }
 
-                chain = chain == null ? jda.upsertCommand(cmd) : chain.flatMap($ -> jda.upsertCommand(cmd));
+                chain = (chain == null
+                         ? jda.upsertCommand(cmd)
+                         : chain.flatMap($ -> jda.upsertCommand(cmd))).map(it -> {
+                    namedCommands.put(it.getFullCommandName(), it);
+                    return it;
+                });
             }
 
             if (chain == null) chain = jda.retrieveApplicationInfo();
