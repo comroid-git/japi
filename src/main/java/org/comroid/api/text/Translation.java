@@ -2,6 +2,7 @@ package org.comroid.api.text;
 
 import lombok.SneakyThrows;
 import lombok.Value;
+import org.comroid.api.func.util.Debug;
 import org.comroid.api.info.Log;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -45,7 +46,8 @@ public class Translation {
         try {
             return get(Locale.getDefault()).get(key, fallback);
         } catch (MissingResourceException e) {
-            Log.at(Level.FINE, "Unable to translate key: " + key, e);
+            if (Debug.isDebug()) Log.at(Level.FINE, "Unable to translate key: " + key, e);
+            else Log.at(Level.FINE, "Unable to translate key: " + key);
             return fallback;
         }
     }
