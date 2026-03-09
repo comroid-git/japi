@@ -204,7 +204,7 @@ public class Rabbit implements Named {
                 long tag = delivery.getEnvelope().getDeliveryTag();
                 try {
                     var str = new String(delivery.getBody());
-                    Debug.log(log, "Data receiving: " + str);
+                    log.finer("Data receiving: " + str);
                     if (str.isBlank() || "null".equals(str)) return;
                     var data = converter.fromBytes(delivery.getBody());
                     var event = new Event<>(seq.incrementAndGet(),
@@ -234,7 +234,7 @@ public class Rabbit implements Named {
             @SneakyThrows
             public void send(T data, @Nullable String routingKey) {
                 try {
-                    Debug.log(log, "Data sending: " + data);
+                    log.finer("Data sending: " + data);
                     var body = converter.toBytes(data);
                     touch().basicPublish(exchange, Objects.requireNonNullElse(routingKey, this.routingKey), null, body);
                 } catch (Throwable t) {
