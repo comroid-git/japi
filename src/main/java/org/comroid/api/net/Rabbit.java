@@ -175,7 +175,7 @@ public class Rabbit implements Named {
             @NonFinal String tag;
 
             private Route(@Nullable String name, @Nullable String routingKey, ByteConverter<T> converter) {
-                this.name = (Debug.isDebug() ? "dev." : "") + name;
+                this.name = name == null ? null : (Debug.isDebug() ? "dev." : "") + name;
                 this.routingKey = routingKey;
                 this.converter  = converter;
 
