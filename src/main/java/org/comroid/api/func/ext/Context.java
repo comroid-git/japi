@@ -310,38 +310,37 @@ public interface Context extends Named, Convertible, LoggerCarrier {
         static {
             ROOT = Wrap.onDemand(() -> {
                 try {
-                    return ServiceLoader.load(RootContextSource.class)
-                            .findFirst()
-                            .map(RootContextSource::getRootContext)
-                            .orElseGet(() -> {
-                                try {
-                                    var rootContext = new Context.Base(null, "ROOT", new Object[0]);
-                                    InputStream resource = ClassLoader.getSystemClassLoader()
-                                            .getResourceAsStream("/org/comroid/api/context.properties");
-                                    if (resource != null) {
-                                        Properties props = new Properties();
-                                        props.load(resource);
+                    var serviceLoader   = ServiceLoader.load(RootContextSource.class);
+                    var servicedContext = serviceLoader.findFirst().map(RootContextSource::getRootContext);
+                    return servicedContext.orElseGet(() -> {
+                        try {
+                            var rootContext = new Context.Base(null, "ROOT", new Object[0]);
+                            InputStream resource = ClassLoader.getSystemClassLoader()
+                                    .getResourceAsStream("/org/comroid/api/context.properties");
+                            if (resource != null) {
+                                Properties props = new Properties();
+                                props.load(resource);
 
-                                        int      c      = 0;
-                                        Object[] values = new Object[props.size()];
-                                        for (Map.Entry<Object, Object> entry : props.entrySet()) {
-                                            final int fc          = c;
-                                            Class<?>  targetClass = Class.forName(String.valueOf(entry.getValue()));
-                                            createInstance(targetClass).ifPresent(it -> values[fc] = it);
-                                            c++;
-                                        }
-                                        Debug.logger.log(Level.FINE,
-                                                "Initializing ContextualProvider Root with: {}",
-                                                Arrays.toString(values));
-                                        rootContext.addToContext(values);
-                                    }
-                                    return rootContext;
-                                } catch (IOException e) {
-                                    throw new RuntimeException("Could not read context properties", e);
-                                } catch (ClassNotFoundException e) {
-                                    throw new RuntimeException("Could not find Context Class", e);
+                                int      c      = 0;
+                                Object[] values = new Object[props.size()];
+                                for (Map.Entry<Object, Object> entry : props.entrySet()) {
+                                    final int fc          = c;
+                                    Class<?>  targetClass = Class.forName(String.valueOf(entry.getValue()));
+                                    createInstance(targetClass).ifPresent(it -> values[fc] = it);
+                                    c++;
                                 }
-                            });
+                                Debug.logger.log(Level.FINE,
+                                        "Initializing ContextualProvider Root with: {}",
+                                        Arrays.toString(values));
+                                rootContext.addToContext(values);
+                            }
+                            return rootContext;
+                        } catch (IOException e) {
+                            throw new RuntimeException("Could not read context properties", e);
+                        } catch (ClassNotFoundException e) {
+                            throw new RuntimeException("Could not find Context Class", e);
+                        }
+                    });
                 } catch (Throwable t) {
                     Log.at(Level.WARNING, "Unable to initialize Root Context", t);
                     return null;
