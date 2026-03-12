@@ -36,6 +36,13 @@ public class Authentication {
         return new Authentication(Type.UsernameToken, username, token);
     }
 
+    public static Authentication ofHeader(String headerValue) {
+        var value = Base64.decode(headerValue);
+        var split = value.split(":");
+
+        return ofLogin(split[0], split[1]);
+    }
+
     @Default           Type   type     = Type.Anonymous;
     @Default @Nullable String username = null;
     @Default @Nullable String passkey  = null;
