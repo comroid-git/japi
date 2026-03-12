@@ -268,6 +268,7 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
                 if (embedFinalizer != null) embed = embedFinalizer.apply(embed, user);
                 yield hook.send(embed.build());
             }
+            case RestAction<?> action -> action.submit();
             default -> hook.send(String.valueOf(response));
         });
     }
