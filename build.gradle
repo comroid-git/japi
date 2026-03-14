@@ -37,6 +37,7 @@ repositories {
 dependencies {
     // annotations
     api 'org.jetbrains:annotations:24.1.0'
+    api 'org.jspecify:jspecify:+'
 
     // soft dependencies
     compileOnly 'org.slf4j:slf4j-api:1.+'
