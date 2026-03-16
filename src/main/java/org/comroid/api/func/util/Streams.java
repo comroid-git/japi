@@ -57,6 +57,22 @@ public class Streams {
     }
 
     @SafeVarargs
+    public static <I> Collector<I, Collection<I>, Stream<I>> prepend(I... values) {
+        return prepend(Arrays.asList(values));
+    }
+
+    public static <I> Collector<I, Collection<I>, Stream<I>> prepend(Iterable<I> values) {
+        return prepend(of(values));
+    }
+
+    public static <I> Collector<I, Collection<I>, Stream<I>> prepend(Stream<? extends I> values) {
+        return Collector.of(ArrayList::new, Collection::add, (l, r) -> {
+            l.addAll(r);
+            return l;
+        }, is -> concat(values, is.stream()));
+    }
+
+    @SafeVarargs
     public static <I> Collector<I, Collection<I>, Stream<I>> append(I... values) {
         return append(Arrays.asList(values));
     }
@@ -65,15 +81,15 @@ public class Streams {
         return append(of(values));
     }
 
-    public static <T> Stream<T> of(Iterable<T> iterable) {
-        return StreamSupport.stream(iterable.spliterator(), false);
-    }
-
     public static <I> Collector<I, Collection<I>, Stream<I>> append(Stream<? extends I> values) {
         return Collector.of(ArrayList::new, Collection::add, (l, r) -> {
             l.addAll(r);
             return l;
         }, is -> concat(is.stream(), values));
+    }
+
+    public static <T> Stream<T> of(Iterable<T> iterable) {
+        return StreamSupport.stream(iterable.spliterator(), false);
     }
 
     public static <I> Function<I, Stream<I>> filter(final int next, final Consumer<I> elseConsumer) {
