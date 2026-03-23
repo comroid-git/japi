@@ -1,5 +1,6 @@
 package org.comroid.commands.impl;
 
+import lombok.SneakyThrows;
 import lombok.ToString;
 import lombok.Value;
 import lombok.experimental.NonFinal;
@@ -34,6 +35,7 @@ import org.comroid.commands.node.Group;
 import org.comroid.commands.node.Node;
 import org.jetbrains.annotations.Nullable;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
@@ -183,6 +185,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
         return execute(usage, namedArgs);
     }
 
+    @SneakyThrows
     public final @Nullable Object execute(CommandUsage usage, @Nullable Map<String, Object> namedArgs) {
         Object result = null, response;
         try {
@@ -222,6 +225,10 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
 
             // execute method
             result = response = call.getCallable().invoke(call.getTarget(), useArgs);
+        } catch (InvocationTargetException itex) {
+            if (itex.getCause() instanceof CommandError err)
+                response = err.getResponse() == null ? tryHandleThrowable(usage, err) : err.getResponse();
+            else throw itex;
         } catch (CommandError err) {
             response = err.getResponse() == null ? tryHandleThrowable(usage, err) : err.getResponse();
         } catch (Throwable e) {
