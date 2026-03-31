@@ -105,9 +105,8 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
     }
 
     public final Stream<AutoFillOption> autoComplete(
-            CommandResponseHandler source,
-            @Doc("Do not include currentValue") String[] fullCommand,
-            String argName, @Nullable String currentValue, Object... extraArgs
+            CommandResponseHandler source, @Doc("Do not include currentValue") String[] fullCommand, String argName,
+            @Nullable String currentValue, Object... extraArgs
     ) {
         var usage = createUsageBase(source, fullCommand, extraArgs);
         return autoComplete(usage, argName, currentValue);
@@ -130,14 +129,11 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                 of(this, source).flatMap(cast(CommandContextProvider.class))).collect(Collectors.toUnmodifiableSet());
         var expand = expand(it -> contextProviders.stream().flatMap(ccp -> ccp.expandContext(it)));
         of(this, source).flatMap(expand).distinct().forEach(builder::context);
-        concat(streamChildren(Object.class), Arrays.stream(context)).flatMap(expand)
-                .distinct()
-                .forEach(builder::context);
+        concat(streamChildren(Object.class), Arrays.stream(context)).flatMap(expand).distinct().forEach(builder::context);
         return builder.build();
     }
 
-    public final Stream<AutoFillOption> autoComplete(
-            CommandUsage usage, String argName, @Nullable String currentValue) {
+    public final Stream<AutoFillOption> autoComplete(CommandUsage usage, String argName, @Nullable String currentValue) {
         try {
             // initialize usage
             usage.advanceFull();
@@ -162,9 +158,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                 return currentCallFirstParam.orElseGet(paramTrace::peek)
                         .autoFill(usage, argName, currentValue)
                         .filter(IAutoFillProvider.stringCheck(currentValue))
-                        .map(seq -> seq instanceof AutoFillOption afo
-                                    ? afo
-                                    : new AutoFillOption(seq.toString(), seq.toString()));
+                        .map(seq -> seq instanceof AutoFillOption afo ? afo : new AutoFillOption(seq.toString(), seq.toString()));
                 // else try sub-callables
             else return Stream.of(stackTrace.peek())
                     .filter(callable -> isPermitted(usage, callable))
@@ -177,10 +171,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
         }
     }
 
-    public final @Nullable Object execute(
-            CommandResponseHandler source, String[] fullCommand,
-            @Nullable Map<String, Object> namedArgs, Object... extraArgs
-    ) {
+    public final @Nullable Object execute(CommandResponseHandler source, String[] fullCommand, @Nullable Map<String, Object> namedArgs, Object... extraArgs) {
         var usage = createUsageBase(source, fullCommand, extraArgs);
         return execute(usage, namedArgs);
     }
@@ -192,7 +183,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
             usage.advanceFull();
 
             Call call = usage.getStackTrace().peek().asCall();
-            if (call == null) throw new CommandError("No such command");
+            if (call == null) throw new CommandError("No such command: " + String.join(" ", usage.getFullCommand()));
 
             validatePermitted(usage, call);
 
@@ -215,19 +206,14 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                     }
                 } else {
                     // find contextual argument
-                    useArgs[i] = usage.getContext()
-                            .stream()
-                            .filter(type.getTargetClass()::isInstance)
-                            .findAny()
-                            .orElse(null);
+                    useArgs[i] = usage.getContext().stream().filter(type.getTargetClass()::isInstance).findAny().orElse(null);
                 }
             }
 
             // execute method
             result = response = call.getCallable().invoke(call.getTarget(), useArgs);
         } catch (InvocationTargetException itex) {
-            if (itex.getCause() instanceof CommandError err)
-                response = err.getResponse() == null ? tryHandleThrowable(usage, err) : err.getResponse();
+            if (itex.getCause() instanceof CommandError err) response = err.getResponse() == null ? tryHandleThrowable(usage, err) : err.getResponse();
             else throw itex;
         } catch (CommandError err) {
             response = err.getResponse() == null ? tryHandleThrowable(usage, err) : err.getResponse();
@@ -254,8 +240,8 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
     }
 
     private String tryHandleThrowable(CommandUsage usage, Throwable t) {
-        return Stream.concat(children(CommandErrorHandler.class).sorted(Comparator.comparing(Object::getClass,
-                        Order.COMPARATOR)), of((CommandErrorHandler) usage.getSource()))
+        return Stream.concat(children(CommandErrorHandler.class).sorted(Comparator.comparing(Object::getClass, Order.COMPARATOR)),
+                        of((CommandErrorHandler) usage.getSource()))
                 .sorted(Comparator.comparingInt(handler -> handler instanceof CommandResponseHandler ? 1 : 0))
                 .flatMap(handler -> handler.handleThrowable(usage, t).stream())
                 .findFirst()
@@ -285,9 +271,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
     }
 
     private void validatePermitted(CommandUsage usage, Callable callable) {
-        if (!isPermitted(usage, callable))
-            throw PermissionChecker.insufficientPermissions("missing permission '" + callable.getAttribute()
-                    .permission() + "'");
+        if (!isPermitted(usage, callable)) throw PermissionChecker.insufficientPermissions("missing permission '" + callable.getAttribute().permission() + "'");
     }
 
     private Group createGroupNode(@Nullable Object target, Class<?> source) {
@@ -339,10 +323,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
     }
 
     private org.comroid.commands.node.Parameter createParameterNode(int index, Parameter source) {
-        var attribute = Annotations.findAnnotations(Command.Arg.class, source)
-                .findFirst()
-                .orElseThrow()
-                .getAnnotation();
+        var attribute = Annotations.findAnnotations(Command.Arg.class, source).findFirst().orElseThrow().getAnnotation();
         // construct parameter node
         var builder = org.comroid.commands.node.Parameter.builder()
                 .name(Optional.ofNullable(attribute.value())
@@ -356,8 +337,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
                 .index(index);
 
         // init special types
-        if (source.getType().isEnum()) builder.autoFillProvider(new EnumBasedAutoFillProvider<>(Polyfill.uncheckedCast(
-                source.getType())));
+        if (source.getType().isEnum()) builder.autoFillProvider(new EnumBasedAutoFillProvider<>(Polyfill.uncheckedCast(source.getType())));
         else if (attribute.autoFill().length > 0) builder.autoFillProvider(new ArrayBasedAutoFillProvider(attribute.autoFill()));
 
         // init custom autofill providers
