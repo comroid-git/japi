@@ -113,47 +113,43 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
                 bus.publish(event);
             }
         });
-        bus.flatMap(SlashCommandInteractionEvent.class)
-                .listen()
-                .subscribeData(event -> manager.execute(JdaCommandAdapter.this,
-                        event.getCommandString().substring(1)/*.replaceAll("(\\w+):","$1")*/.split(" "),
-                        event.getOptions()
-                                .stream()
-                                .collect(Collectors.toMap(OptionMapping::getName,
-                                        mapping -> switch (mapping.getType()) {
-                                            case STRING -> mapping.getAsString();
-                                            case INTEGER -> mapping.getAsInt();
-                                            case BOOLEAN -> mapping.getAsBoolean();
-                                            case USER -> mapping.getAsUser();
-                                            case CHANNEL -> mapping.getAsChannel();
-                                            case ROLE -> mapping.getAsRole();
-                                            case MENTIONABLE -> mapping.getAsMentionable();
-                                            case NUMBER -> mapping.getAsDouble();
-                                            case ATTACHMENT -> mapping.getAsAttachment();
-                                            default ->
-                                                    throw new IllegalStateException("Unexpected value: " + mapping.getType());
-                                        })),
-                        event.getName(),
-                        event,
-                        event.getUser(),
-                        event.getMember(),
-                        event.getGuild(),
-                        event.getChannel()));
+        bus.flatMap(SlashCommandInteractionEvent.class).listen().subscribeData(event -> {
+            var commandSplit = event.getCommandString().split(" ");
+            if (commandSplit[0].startsWith("/")) commandSplit[0] = commandSplit[0].substring(1);
+
+            manager.execute(JdaCommandAdapter.this,
+                    commandSplit,
+                    event.getOptions().stream().collect(Collectors.toMap(OptionMapping::getName, mapping -> switch (mapping.getType()) {
+                        case STRING -> mapping.getAsString();
+                        case INTEGER -> mapping.getAsInt();
+                        case BOOLEAN -> mapping.getAsBoolean();
+                        case USER -> mapping.getAsUser();
+                        case CHANNEL -> mapping.getAsChannel();
+                        case ROLE -> mapping.getAsRole();
+                        case MENTIONABLE -> mapping.getAsMentionable();
+                        case NUMBER -> mapping.getAsDouble();
+                        case ATTACHMENT -> mapping.getAsAttachment();
+                        default -> throw new IllegalStateException("Unexpected value: " + mapping.getType());
+                    })),
+                    event.getName(),
+                    event,
+                    event.getUser(),
+                    event.getMember(),
+                    event.getGuild(),
+                    event.getChannel());
+        });
         bus.flatMap(CommandAutoCompleteInteractionEvent.class).listen().subscribeData(event -> {
             var option = event.getFocusedOption();
             var options = manager.autoComplete(JdaCommandAdapter.this,
-                            event.getCommandString().substring(1).split(" "),
-                            option.getName(),
-                            option.getValue(),
-                            event.getName(),
-                            event,
-                            event.getUser(),
-                            event.getMember(),
-                            event.getGuild(),
-                            event.getChannel())
-                    .map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key(), e.description()))
-                    .limit(25)
-                    .toList();
+                    event.getCommandString().substring(1).split(" "),
+                    option.getName(),
+                    option.getValue(),
+                    event.getName(),
+                    event,
+                    event.getUser(),
+                    event.getMember(),
+                    event.getGuild(),
+                    event.getChannel()).map(e -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(e.key(), e.description())).limit(25).toList();
             event.replyChoices(options).queue();
         });
 
@@ -176,14 +172,10 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
         jda.retrieveCommands().flatMap(existing -> {
             RestAction<?> chain = null;
             if (purgeCommands) for (var ex : existing)
-                chain = chain == null
-                        ? jda.deleteCommandById(ex.getId())
-                        : chain.flatMap($ -> jda.deleteCommandById(ex.getId()));
+                chain = chain == null ? jda.deleteCommandById(ex.getId()) : chain.flatMap($ -> jda.deleteCommandById(ex.getId()));
 
             for (var node : manager.getBaseNodes()) {
-                if (!purgeCommands && existing.stream()
-                        .map(ICommandReference::getName)
-                        .anyMatch(node.getName()::equalsIgnoreCase)) continue;
+                if (!purgeCommands && existing.stream().map(ICommandReference::getName).anyMatch(node.getName()::equalsIgnoreCase)) continue;
 
                 SlashCommandData cmd = Commands.slash(node.getName().toLowerCase(), node.getDescription());
 
@@ -196,8 +188,7 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
                     }
                     case Call call -> {
                         var perm = call.getAttribute().permission();
-                        if (perm.matches("\\d+")) cmd.setDefaultPermissions(DefaultMemberPermissions.enabledFor(Long.parseLong(
-                                perm)));
+                        if (perm.matches("\\d+")) cmd.setDefaultPermissions(DefaultMemberPermissions.enabledFor(Long.parseLong(perm)));
                         for (var parameter : call.getParameters()) {
                             cmd.addOption(optionType(parameter),
                                     parameter.name().toLowerCase(),
@@ -209,9 +200,7 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
                     default -> {}
                 }
 
-                chain = (chain == null
-                         ? jda.upsertCommand(cmd)
-                         : chain.flatMap($ -> jda.upsertCommand(cmd))).map(it -> {
+                chain = (chain == null ? jda.upsertCommand(cmd) : chain.flatMap($ -> jda.upsertCommand(cmd))).map(it -> {
                     namedCommands.put(it.getFullCommandName(), it);
                     return it;
                 });
@@ -247,8 +236,7 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
     private OptionType optionType(org.comroid.commands.node.Parameter parameter) {
         return Optional.of(parameter.getParam().getType()).flatMap(t -> {
             if (Boolean.class.isAssignableFrom(t)) return Optional.of(OptionType.BOOLEAN);
-            if (Integer.class.isAssignableFrom(t) || Long.class.isAssignableFrom(t))
-                return Optional.of(OptionType.INTEGER);
+            if (Integer.class.isAssignableFrom(t) || Long.class.isAssignableFrom(t)) return Optional.of(OptionType.INTEGER);
             if (Number.class.isAssignableFrom(t)) return Optional.of(OptionType.NUMBER);
             if (User.class.isAssignableFrom(t) || Member.class.isAssignableFrom(t)) return Optional.of(OptionType.USER);
             if (Channel.class.isAssignableFrom(t)) return Optional.of(OptionType.CHANNEL);
@@ -299,9 +287,7 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
                 .thenCompose(identity())
                 .exceptionally(Debug.exceptionLogger("Could not defer reply to command"));
         else handleResponse(msg -> {
-            RestAction<Message> action = e.reply(msg)
-                    .setEphemeral(ephemeral)
-                    .map(hook -> hook.getCallbackResponse().getMessage());
+            RestAction<Message> action = e.reply(msg).setEphemeral(ephemeral).map(hook -> hook.getCallbackResponse().getMessage());
             if (callback[0] != null) action = action.flatMap(it -> callback[0].apply(it).map($ -> it));
             return action.submit();
         }, user, body).exceptionally(Debug.exceptionLogger("Could not reply to command"));
@@ -319,8 +305,7 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
         return usage.getContext()
                 .stream()
                 .flatMap(cast(Member.class))
-                .anyMatch(usr -> usr.getIdLong() == 141476933849448448L /* kaleidox is superadmin for testing purposes */ || usr.hasPermission(
-                        permissions));
+                .anyMatch(usr -> usr.getIdLong() == 141476933849448448L /* kaleidox is superadmin for testing purposes */ || usr.hasPermission(permissions));
     }
 
     @Getter
@@ -413,9 +398,7 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
         };
 
         public static Wrap<JdaCommandAdapter.IOptionAdapter> of(final Class<?> type) {
-            return Wrap.of(Arrays.stream(values())
-                    .filter(adp -> adp.valueType.getTargetClass().isAssignableFrom(type))
-                    .findAny());
+            return Wrap.of(Arrays.stream(values()).filter(adp -> adp.valueType.getTargetClass().isAssignableFrom(type)).findAny());
         }
 
         ValueType<?> valueType;
@@ -497,8 +480,8 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
         @NonFinal @Setter @Nullable Consumer<EmbedBuilder> embedFinalizer;
 
         public PaginatedList(
-                MessageChannelUnion channel, Supplier<Stream<T>> source, Comparator<T> comparator,
-                Function<T, MessageEmbed.Field> toField, String title, int perPage
+                MessageChannelUnion channel, Supplier<Stream<T>> source, Comparator<T> comparator, Function<T, MessageEmbed.Field> toField,
+                String title, int perPage
         ) {
             this.channel    = channel;
             this.source     = source;
@@ -584,8 +567,7 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
             return "Page %d / %d".formatted(page, pageCount());
         }
 
-        private <R extends MessageRequest<R>> RestAction<List<Void>> message(
-                R request, Function<R, RestAction<Message>> executor) {
+        private <R extends MessageRequest<R>> RestAction<List<Void>> message(R request, Function<R, RestAction<Message>> executor) {
             request.setEmbeds(createEmbed().build());
             var message = executor.apply(request);
             return refreshReactions(message);
@@ -594,12 +576,7 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
         private EmbedBuilder createEmbed() {
             var embedBuilder = new EmbedBuilder().setTitle(title).setFooter(pageText());
 
-            var entries = source.get()
-                    .sorted(comparator)
-                    .skip((long) perPage * (page - 1))
-                    .limit(perPage)
-                    .map(toField)
-                    .toList();
+            var entries = source.get().sorted(comparator).skip((long) perPage * (page - 1)).limit(perPage).map(toField).toList();
             embedBuilder.getFields().addAll(entries);
             finalizeEmbed(embedBuilder);
 
@@ -612,16 +589,10 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
                 var emojis = concat(of(EMOJI_DELETE, EMOJI_REFRESH),
                         (pageCount <= 9
                          ? Arrays.stream(EMOJI_NUMBER).skip(1).limit(pageCount)
-                         : of(EMOJI_FIRST_PAGE,
-                                 EMOJI_PREV_PAGE,
-                                 EMOJI_NEXT_PAGE,
-                                 EMOJI_LAST_PAGE))).map(Emoji::fromUnicode).toList();
+                         : of(EMOJI_FIRST_PAGE, EMOJI_PREV_PAGE, EMOJI_NEXT_PAGE, EMOJI_LAST_PAGE))).map(Emoji::fromUnicode).toList();
                 return concat(
                         // remove excess page numbers
-                        Arrays.stream(EMOJI_NUMBER)
-                                .skip(1 + pageCount())
-                                .map(Emoji::fromUnicode)
-                                .filter(emoji -> msg.getReaction(emoji) != null),
+                        Arrays.stream(EMOJI_NUMBER).skip(1 + pageCount()).map(Emoji::fromUnicode).filter(emoji -> msg.getReaction(emoji) != null),
                         // add new reactions
                         emojis.stream().filter(emoji -> msg.getReaction(emoji) == null)).findAny().isPresent();
             }, msg -> {
@@ -629,10 +600,7 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
                 var emojis = concat(of(EMOJI_DELETE, EMOJI_REFRESH),
                         (pageCount <= 9
                          ? Arrays.stream(EMOJI_NUMBER).skip(1).limit(pageCount)
-                         : of(EMOJI_FIRST_PAGE,
-                                 EMOJI_PREV_PAGE,
-                                 EMOJI_NEXT_PAGE,
-                                 EMOJI_LAST_PAGE))).map(Emoji::fromUnicode).toList();
+                         : of(EMOJI_FIRST_PAGE, EMOJI_PREV_PAGE, EMOJI_NEXT_PAGE, EMOJI_LAST_PAGE))).map(Emoji::fromUnicode).toList();
                 return RestAction.allOf(concat(
                         // remove excess page numbers
                         Arrays.stream(EMOJI_NUMBER)
@@ -641,9 +609,7 @@ public class JdaCommandAdapter extends AbstractCommandAdapter implements Permiss
                                 .filter(emoji -> msg.getReaction(emoji) != null)
                                 .map(msg::removeReaction),
                         // add new reactions
-                        emojis.stream()
-                                .filter(emoji -> msg.getReaction(emoji) == null)
-                                .map(msg::addReaction)).toList());
+                        emojis.stream().filter(emoji -> msg.getReaction(emoji) == null).map(msg::addReaction)).toList());
             });
         }
     }
