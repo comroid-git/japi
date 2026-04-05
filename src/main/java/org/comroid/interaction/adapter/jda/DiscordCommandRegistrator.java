@@ -88,7 +88,7 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
         log.info("Upserting %d interactions to discord bot %s".formatted(all.size(), jda.getSelfUser()));
 
         RestAction<?> action = PURGE_COMMANDS.consume() ? jda.retrieveCommands().flatMap(cmds -> {
-            log.fine("Puring %d previously defined commands".formatted(cmds.size()));
+            log.fine("Purging %d previously defined commands".formatted(cmds.size()));
 
             RestAction<?> sub = new CompletedRestAction<>(jda, (Object) null);
             for (var cmd : cmds)

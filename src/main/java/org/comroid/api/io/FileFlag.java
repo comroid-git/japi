@@ -13,23 +13,27 @@ public class FileFlag {
 
     @SneakyThrows
     public static boolean enable(File file) {
+        if (!file.isAbsolute()) file = file.getAbsoluteFile();
         return cache.containsKey(file) && cache.get(file).enable();
     }
 
     public static boolean consume(File file) {
+        if (!file.isAbsolute()) file = file.getAbsoluteFile();
         return cache.containsKey(file) && cache.get(file).consume();
     }
 
     File file;
 
+    public FileFlag(File file) {
+        this.file = file.getAbsoluteFile();
+    }
+
     @SneakyThrows
     public boolean enable() {
-        if (!file.isAbsolute()) return enable(file.getAbsoluteFile());
         return file.exists() || file.createNewFile();
     }
 
     public boolean consume() {
-        if (!file.isAbsolute()) return consume(file.getAbsoluteFile());
         return file.exists() && file.delete();
     }
 }
