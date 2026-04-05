@@ -4,7 +4,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
-import org.comroid.api.Polyfill;
 import org.comroid.api.java.Activator;
 import org.comroid.interaction.annotation.Interaction;
 import org.comroid.interaction.model.InteractionContext;
@@ -54,10 +53,9 @@ public class MethodNode extends InteractionNode implements ParameterizedNode, Co
                 Object value  = context.getParameter(param);
 
                 if (parser != null) value = Activator.get(parser).createInstance().parse(String.valueOf(value));
-                else if (pType.isEnum()) value = Enum.valueOf(Polyfill.uncheckedCast(pType), String.valueOf(value));
 
                 args[i] = value;
-            } else args[i] = context.child(pType).get();
+            } else args[i] = context.component(pType).get();
         }
 
         var target = source instanceof InstanceRegistry instance ? instance.getInstance() : null;

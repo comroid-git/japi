@@ -31,7 +31,12 @@ enum DiscordResponseChain implements ResponseChain<MessageCreateData> {
         var privacy = privacy(context);
         if (privacy == Interaction.PrivacyLevel.PRIVATE) return;
 
-        context.child(IReplyCallback.class).assertion().deferReply().setEphemeral(privacy == Interaction.PrivacyLevel.EPHEMERAL).map(context::addChild).queue();
+        context.component(IReplyCallback.class)
+                .assertion()
+                .deferReply()
+                .setEphemeral(privacy == Interaction.PrivacyLevel.EPHEMERAL)
+                .map(context::addChild)
+                .queue();
     }
 
     @Override
@@ -39,7 +44,7 @@ enum DiscordResponseChain implements ResponseChain<MessageCreateData> {
         var privacy = privacy(context);
 
         if (privacy == Interaction.PrivacyLevel.PRIVATE) {
-            var result = context.child(User.class);
+            var result = context.component(User.class);
             if (result.isNull()) {
                 log.warning("Dropping response because there is no message target compatible to the set privacy level %s: %s".formatted(privacy, response));
                 return;
@@ -51,13 +56,13 @@ enum DiscordResponseChain implements ResponseChain<MessageCreateData> {
         }
 
         if (async(context)) {
-            var deferredReply = context.child(InteractionHook.class);
+            var deferredReply = context.component(InteractionHook.class);
             if (deferredReply.isNonNull()) {
                 deferredReply.assertion().editOriginal(JdaUtil.convertToEditData(response)).queue();
                 return;
             }
         } else {
-            var directReply = context.child(IReplyCallback.class);
+            var directReply = context.component(IReplyCallback.class);
             if (directReply.isNonNull()) {
                 directReply.assertion().reply(response).setEphemeral(privacy == Interaction.PrivacyLevel.EPHEMERAL).queue();
                 return;
@@ -97,10 +102,10 @@ enum DiscordResponseChain implements ResponseChain<MessageCreateData> {
     }
 
     static Interaction.PrivacyLevel privacy(InteractionContext context) {
-        return context.child(Interaction.class).map(Interaction::privacy).orElse(Interaction.PrivacyLevel.EPHEMERAL);
+        return context.component(Interaction.class).map(Interaction::privacy).orElse(Interaction.PrivacyLevel.EPHEMERAL);
     }
 
     static boolean async(InteractionContext context) {
-        return context.child(Interaction.class).filter(Interaction::async).isNonNull();
+        return context.component(Interaction.class).filter(Interaction::async).isNonNull();
     }
 }

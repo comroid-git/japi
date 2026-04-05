@@ -69,6 +69,11 @@ public class InteractionContext extends Component.Base {
     @Singular Map<ParameterNode, Object> parameters;
     MultiValueMap<String, Object> definitions;
 
+    @Override
+    public boolean isSubComponent() {
+        return true;
+    }
+
     public Object getValue(String key) {
         return values.getOrDefault(key, null);
     }
@@ -86,7 +91,9 @@ public class InteractionContext extends Component.Base {
                 return null;
             });
         } else try {
-            handleResponse(node.invoke(this));
+            var response = node.invoke(this);
+
+            handleResponse(response);
         } catch (Throwable t) {
             core.handle(this, t);
         }
@@ -94,9 +101,9 @@ public class InteractionContext extends Component.Base {
 
     @SuppressWarnings("unchecked")
     private void handleResponse(final Object response) {
-        children(ResponseConverter.class).map(converter -> converter.convertResponse(response)).filter(Objects::nonNull).forEach(formatted -> {
+        components(ResponseConverter.class).map(converter -> converter.convertResponse(response)).filter(Objects::nonNull).forEach(formatted -> {
             var fType = formatted.getClass();
-            children(ResponseHandler.class).filter(handler -> handler.getResponseType().isAssignableFrom(fType))
+            components(ResponseHandler.class).filter(handler -> handler.getResponseType().isAssignableFrom(fType))
                     .forEach(handler -> handler.sendResponse(this, formatted));
         });
     }

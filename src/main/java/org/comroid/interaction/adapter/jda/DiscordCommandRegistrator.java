@@ -48,7 +48,7 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
             for (var base : tree.getNodes()) {
                 CommandData data;
                 var         ctx = base.getDefinitionValues(KEY_CONTEXT).findAny().orElse(CONTEXT_COMMAND);
-                var         cap = adp.child(NameCapitalizer.class).assertion();
+                var cap = adp.component(NameCapitalizer.class).assertion();
 
                 if (base instanceof GroupNode group) {
                     if (!ctx.equalsIgnoreCase(CONTEXT_COMMAND)) {

@@ -56,6 +56,11 @@ public class JdaAdapter extends Component.Base implements EventListener {
     }
 
     @Override
+    public boolean isSubComponent() {
+        return true;
+    }
+
+    @Override
     public Stream<Object> streamOwnChildren() {
         return Stream.of(jda);
     }

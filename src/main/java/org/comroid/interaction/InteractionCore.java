@@ -57,13 +57,13 @@ public class InteractionCore extends Component.Base implements RegistryHandler {
     }
 
     private void verifyComponentExists(Class<?> type) {
-        child(type).assertion("No component of type %s was found".formatted(type.getCanonicalName()));
+        component(type).assertion("No component of type %s was found".formatted(type.getCanonicalName()));
     }
 
     public void handle(InteractionContext context, Throwable error) {
         log.log(Level.SEVERE, "Encountered an error during interaction handling", error);
 
-        var handlers = (context == null ? children(ErrorHandler.class) : context.children(ErrorHandler.class)).iterator();
+        var handlers = (context == null ? components(ErrorHandler.class) : context.components(ErrorHandler.class)).iterator();
         if (!handlers.hasNext()) return;
 
         do {
