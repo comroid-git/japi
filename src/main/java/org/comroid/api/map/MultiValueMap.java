@@ -7,6 +7,8 @@ import org.jspecify.annotations.Nullable;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -24,6 +26,12 @@ public class MultiValueMap<K, V> implements Map<K, V> {
 
     public MultiValueMap(Map<K, Collection<V>> underlying) {
         this.underlying = underlying;
+    }
+
+    public MultiValueMap<K, V> immutableCopy() {
+        var map = new HashMap<K, Collection<V>>();
+        for (var entry : underlying.entrySet()) map.put(entry.getKey(), Collections.unmodifiableCollection(entry.getValue()));
+        return new MultiValueMap<>(Collections.unmodifiableMap(map));
     }
 
     @Override

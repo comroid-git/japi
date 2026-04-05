@@ -80,7 +80,7 @@ public class StreamAdapter extends Component.Base implements Runnable, ResponseC
 
     private InteractionContext createContext(String line) {
         var split   = line.split("\\s+");
-        var builder = InteractionContext.basic(core, split);
+        var builder = InteractionContext.basic(core, split).parent(this);
         var node    = builder.build().getNode();
         var endCall = Arrays.binarySearch(split, node.getInteraction().value());
         var args    = Arrays.stream(split).skip(endCall + 1).iterator();

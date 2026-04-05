@@ -71,7 +71,7 @@ public class JdaAdapter extends Component.Base implements EventListener {
 
         log.finer("Dispatching command interaction " + event);
 
-        var builder = InteractionContext.basic(core, event.getFullCommandName().split("\\s+"));
+        var builder = InteractionContext.basic(core, event.getFullCommandName().split("\\s+")).parent(this);
 
         try {
             initContextVariables(event, builder);

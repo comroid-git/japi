@@ -1,6 +1,5 @@
 package org.comroid.interaction.model;
 
-import lombok.Builder;
 import lombok.Singular;
 import lombok.Value;
 import lombok.extern.java.Log;
@@ -16,6 +15,7 @@ import org.comroid.interaction.node.ParameterNode;
 import org.comroid.interaction.node.model.ParentNode;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -25,7 +25,6 @@ import java.util.function.Supplier;
 @Log
 @Value
 @Child
-@Builder
 public class InteractionContext extends Component.Base {
     public static InteractionContext.Builder basic(InteractionCore core, String... fullCommand) {
         var context = builder().core(core);
@@ -63,11 +62,25 @@ public class InteractionContext extends Component.Base {
         return context.definitions(defs);
     }
 
-    InteractionCore core;
-    MethodNode node;
-    @Singular Map<String, Object>        values;
-    @Singular Map<ParameterNode, Object> parameters;
+    InteractionCore            core;
+    MethodNode                 node;
+    Map<String, Object>        values;
+    Map<ParameterNode, Object> parameters;
     MultiValueMap<String, Object> definitions;
+
+    @lombok.Builder
+    public InteractionContext(
+            Object parent, InteractionCore core, MethodNode node, @Singular Map<String, Object> values, @Singular Map<ParameterNode, Object> parameters,
+            MultiValueMap<String, Object> definitions
+    ) {
+        super(parent);
+
+        this.core        = core;
+        this.node        = node;
+        this.values      = Collections.unmodifiableMap(values);
+        this.parameters  = Collections.unmodifiableMap(parameters);
+        this.definitions = definitions.immutableCopy();
+    }
 
     @Override
     public boolean isSubComponent() {
