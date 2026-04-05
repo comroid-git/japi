@@ -33,8 +33,8 @@ public class JsonTest {
         for (var i = 0; i < 3; i++) {
             var obj = arr.get(i).asObject();
 
-            Assertions.assertEquals(i, obj.get("id").asInt(), "ID mismatch at element " + i);
-            Assertions.assertEquals(Names[i], obj.get("name").asString(), "Name mismatch at element " + i);
+            Assertions.assertEquals(i, obj.get("id").asInt(), "ID mismatch at annotated " + i);
+            Assertions.assertEquals(Names[i], obj.get("name").asString(), "Name mismatch at annotated " + i);
         }
 
         /*

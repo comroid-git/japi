@@ -32,6 +32,6 @@ public final class ArrayUtil {
                 .filter(type::isInstance)
                 .findAny()
                 .map(type::cast)
-                .orElseThrow(() -> new NoSuchElementException("No element of type " + type.getSimpleName() + " was found"));
+                .orElseThrow(() -> new NoSuchElementException("No annotated of type " + type.getSimpleName() + " was found"));
     }
 }

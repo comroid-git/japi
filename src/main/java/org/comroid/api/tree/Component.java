@@ -57,7 +57,7 @@ import static org.comroid.api.func.util.Streams.*;
 import static org.comroid.api.text.Capitalization.*;
 
 @Ignore
-public interface Component extends Container, LifeCycle, Tickable, EnabledState, Named {
+public interface Component extends Container, LifeCycle, Tickable, EnabledState, Named, ComponentContextSupplier {
     Maintenance.Inspection MI_MissingDependency = Maintenance.Inspection.builder()
             .name("Component missing Dependency")
             .format("Component %s is missing Dependency %s")
@@ -103,11 +103,13 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
     State getCurrentState();
 
+    @Override
     default <T extends Component> Stream<T> components(@Nullable Class<? super T> type) {
         return Stream.concat(streamChildren(type),
                 isSubComponent() ? Stream.of(getParent()).filter(Objects::nonNull).flatMap(comp -> comp.components(type)) : empty());
     }
 
+    @Override
     default <T extends Component> Wrap<T> component(@Nullable Class<? super T> type) {
         return () -> uncheckedCast(components(type).findAny().orElse(null));
     }

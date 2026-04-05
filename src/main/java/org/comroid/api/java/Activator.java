@@ -16,6 +16,7 @@ import org.comroid.api.func.util.Streams;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.Predicate;
@@ -37,6 +38,10 @@ public class Activator<T> {
         this.struct = DataStructure.of(target);
     }
 
+    public T createInstance() {
+        return createInstance(DataNode.of(Map.of()));
+    }
+
     public T createInstance(DataNode data) {
         if (data instanceof DataNode.Value<?> value) return uncheckedCast(value.getValue());
         return Arrays.stream(target.getFields())
@@ -50,13 +55,9 @@ public class Activator<T> {
                     final var obj = data.asObject();
                     return struct.getConstructors()
                             .stream()
-                            .sorted(Comparator.<DataStructure<T>.Constructor>comparingInt(ctor -> ctor.getArgs().size())
-                                    .reversed())
+                            .sorted(Comparator.<DataStructure<T>.Constructor>comparingInt(ctor -> ctor.getArgs().size()).reversed())
                             //.filter(ctor -> ctor.getArgs().size() <= data.size())
-                            .filter(ctor -> ctor.getArgs()
-                                    .stream()
-                                    .flatMap(param -> Annotations.aliases(param).stream())
-                                    .allMatch(obj::containsKey))
+                            .filter(ctor -> ctor.getArgs().stream().flatMap(param -> Annotations.aliases(param).stream()).allMatch(obj::containsKey))
                             .findFirst()
                             .map(ctor -> {
                                 var args = new Object[ctor.getArgs().size()];
@@ -64,14 +65,12 @@ public class Activator<T> {
                                 for (int i = 0; i < args.length; i++) {
                                     var param = ctor.getArgs().get(i);
                                     args[i] = Wrap.ofOptional(Annotations.aliases(param)
-                                                    .stream()
-                                                    .collect(Streams.append(param.getName()))
-                                                    .filter(Predicate.not(String::isBlank))
-                                                    .filter(obj::containsKey)
-                                                    .findAny()
-                                                    .map(obj::get))
-                                            .flatMap(it -> it.as(ValueType.of(param.getType())))
-                                            .orElse(null);
+                                            .stream()
+                                            .collect(Streams.append(param.getName()))
+                                            .filter(Predicate.not(String::isBlank))
+                                            .filter(obj::containsKey)
+                                            .findAny()
+                                            .map(obj::get)).flatMap(it -> it.as(ValueType.of(param.getType()))).orElse(null);
                                 }
 
                                 final var it = ctor.getCtor().invokeRethrow(args);
@@ -81,9 +80,7 @@ public class Activator<T> {
                                         .flatMap(e -> struct.getProperty(e.getKey())
                                                 .filter(DataStructure.Property::canSet)
                                                 .peek(prop -> prop.setFor(it,
-                                                        e.getValue()
-                                                                .as(uncheckedCast(prop.getType().getTargetClass()),
-                                                                        "unable to cast")))
+                                                        e.getValue().as(uncheckedCast(prop.getType().getTargetClass()), "unable to cast")))
                                                 .stream())
                                         .forEach(prop -> log.fine("Injected %s for %s".formatted(prop, it)));
 

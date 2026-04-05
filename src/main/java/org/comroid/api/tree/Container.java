@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import org.comroid.annotations.Ignore;
+import org.comroid.annotations.Order;
+import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.Polyfill;
 import org.comroid.api.attr.EnabledState;
 import org.comroid.api.attr.Owned;
@@ -19,6 +21,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -47,11 +50,12 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
     default <T> Stream<T> streamChildren(@Nullable Class<? super T> type) {
         return Stream.concat(getChildren().stream(), streamOwnChildren())
                 .flatMap(Streams.cast(type))
+                .sorted(Comparator.comparing(Object::getClass, Order.COMPARATOR))
                 .map(Polyfill::uncheckedCast);
     }
 
     default Stream<Object> streamOwnChildren() {
-        return Stream.empty();
+        return Annotations.children(this);
     }
 
     default <T> Stream<T> children(@Nullable Class<? super T> type) {

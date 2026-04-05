@@ -8,6 +8,7 @@ import lombok.Value;
 import lombok.extern.java.Log;
 import org.comroid.annotations.Alias;
 import org.comroid.annotations.Category;
+import org.comroid.annotations.Child;
 import org.comroid.annotations.Convert;
 import org.comroid.annotations.Default;
 import org.comroid.annotations.Description;
@@ -20,6 +21,7 @@ import org.comroid.api.data.seri.type.StandardValueType;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Debug;
 import org.comroid.api.func.util.Invocable;
+import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.java.ReflectionHelper;
 import org.comroid.api.java.SoftDepend;
@@ -39,6 +41,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -56,24 +59,20 @@ import static org.comroid.api.func.util.Streams.*;
 @ApiStatus.Internal
 @SuppressWarnings({ "DuplicatedCode", "BooleanMethodIsAlwaysInverted" })
 public class Annotations {
+    /// an attribute is to be considered unset if this is assigned
+    public static final String     EMPTY_ATTRIBUTE = "@@@";
+    public static final Class<?>[] SystemFilters   = new Class<?>[]{ Object.class, Class.class, Annotation.class };
+
     public static boolean readonly(AnnotatedElement element) {
-        return concat(of(Readonly.class),
-                SoftDepend.<Annotation>type("jakarta.persistence.Id").stream()).flatMap(type -> findAnnotations(type,
-                        element))
+        return concat(of(Readonly.class), SoftDepend.<Annotation>type("jakarta.persistence.Id").stream()).flatMap(type -> findAnnotations(type, element))
                 .findAny()
                 .isPresent();
     }
-
-    public static final Class<?>[] SystemFilters = new Class<?>[]{ Object.class, Class.class, Annotation.class };
 
     @ApiStatus.Experimental
     @Convert(identifyVia = "annotationType")
     public static Constraint.API expect(AnnotatedElement context) {
         return Constraint.fail();
-    }
-
-    private Annotations() {
-        throw new UnsupportedOperationException();
     }
 
     public static Set<String> aliases(@NotNull AnnotatedElement of) {
@@ -221,7 +220,7 @@ public class Annotations {
             decl = (Class<?>) target;
         } else if (target instanceof Member mem) {
             decl = mem.getDeclaringClass();
-        } else throw new AssertionError("Invalid element: " + target);
+        } else throw new AssertionError("Invalid annotated: " + target);
         if (target instanceof Class<?> && decl.getPackageName().startsWith("java")) return Wrap.empty();
         try {
             if (target instanceof Member mem) {
@@ -239,7 +238,7 @@ public class Annotations {
         } catch (NoSuchMethodException | NoSuchFieldException e) {
             return Wrap.empty();
         }
-        throw new IllegalArgumentException("Invalid element: " + target);
+        throw new IllegalArgumentException("Invalid annotated: " + target);
     }
 
     public static String toString(Description... config) {
@@ -258,6 +257,25 @@ public class Annotations {
                 member.getName(),
                 expect.value(),
                 expect.onTarget());
+    }
+
+    public static Stream<Object> children(final Object of) {
+        final var considerAll = of.getClass().isAnnotationPresent(Child.class);
+        return DataStructure.of(of.getClass())
+                .getProperties()
+                .stream()
+                .filter(prop -> considerAll || prop.isAnnotationPresent(Child.class))
+                .map(prop -> prop.getFrom(of))
+                .filter(Objects::nonNull)
+                .flatMap(it -> switch (it) {
+                    case Iterable<?> iter -> Streams.of(iter);
+                    case Map<?, ?> map -> map.values().stream();
+                    default -> of(it);
+                });
+    }
+
+    private Annotations() {
+        throw new UnsupportedOperationException();
     }
 
     @SneakyThrows
