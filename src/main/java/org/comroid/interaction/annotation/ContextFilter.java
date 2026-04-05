@@ -18,11 +18,11 @@ public @interface ContextFilter {
     /// context key
     String value();
 
-    /// value to check against
-    String filter() default "";
-
     /// check type to perform against filter
     Check check() default Check.ANY;
+
+    /// value to check against
+    String filter() default "";
 
     /// when set, an instance of the given {@link Provider provider class is used to evaluate
     Class<? extends Provider> provider() default Provider.Default.class;
