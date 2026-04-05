@@ -114,11 +114,16 @@ public class InteractionContext extends Component.Base {
 
     @SuppressWarnings("unchecked")
     private void handleResponse(final Object response) {
-        components(ResponseConverter.class).map(converter -> converter.convertResponse(response)).filter(Objects::nonNull).forEach(formatted -> {
-            var fType = formatted.getClass();
-            components(ResponseHandler.class).filter(handler -> handler.getResponseType().isAssignableFrom(fType))
-                    .forEach(handler -> handler.sendResponse(this, formatted));
-        });
+        components(ResponseConverter.class).distinct()
+                .map(converter -> converter.convertResponse(response))
+                .distinct()
+                .filter(Objects::nonNull)
+                .forEach(formatted -> {
+                    var fType = formatted.getClass();
+                    components(ResponseHandler.class).distinct()
+                            .filter(handler -> handler.getResponseType().isAssignableFrom(fType))
+                            .forEach(handler -> handler.sendResponse(this, formatted));
+                });
     }
 
     private static Supplier<RuntimeException> noSuchCommand(String name) {

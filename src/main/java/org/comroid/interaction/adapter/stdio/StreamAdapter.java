@@ -54,6 +54,7 @@ public class StreamAdapter extends Component.Base implements Runnable, ResponseC
     @Override
     public void sendResponse(InteractionContext context, String response) {
         output.println(response);
+        log.info(response);
     }
 
     @Override
