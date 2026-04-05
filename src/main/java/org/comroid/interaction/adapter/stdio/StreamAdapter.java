@@ -3,7 +3,6 @@ package org.comroid.interaction.adapter.stdio;
 import lombok.Value;
 import lombok.extern.java.Log;
 import org.comroid.api.func.exc.ThrowingFunction;
-import org.comroid.api.func.ext.Context;
 import org.comroid.api.tree.Component;
 import org.comroid.interaction.InteractionCore;
 import org.comroid.interaction.component.error.ErrorHandler;
@@ -26,7 +25,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class StreamAdapter extends Component.Base implements ErrorHandler, Runnable, ResponseChain<String> {
     public static void main(String... args) throws IOException {
         try (
-                var core = new InteractionCore(Context.root()); var isr = new InputStreamReader(System.in); var br = new BufferedReader(isr);
+                var core = new InteractionCore(); var isr = new InputStreamReader(System.in); var br = new BufferedReader(isr);
                 var pw = new PrintWriter(System.out)
         ) {
             var adapter = new StreamAdapter(core, br, pw);

@@ -2,7 +2,6 @@ package org.comroid.interaction;
 
 import lombok.Value;
 import lombok.extern.java.Log;
-import org.comroid.api.func.ext.Context;
 import org.comroid.api.tree.Component;
 import org.comroid.interaction.component.RegistryHandler;
 import org.comroid.interaction.component.error.ErrorHandler;
@@ -25,7 +24,6 @@ import java.util.logging.Level;
 public class InteractionCore extends Component.Base implements RegistryHandler {
     public static final String NO_DESCRIPTION = "No description";
 
-    Context              context;
     Set<InteractionTree> registered = new HashSet<>();
 
     @Override

@@ -12,10 +12,12 @@ import java.util.function.IntBinaryOperator;
 
 public class InteractionTest {
     @Interaction(filter = { @ContextFilter(value = "permission.discord", filter = "8") })
-    public static void math(
-            @Parameter String operator, @Parameter(completion = { @Completion(strings = { "1", "2" }) }) int x,
+    public static int math(
+            @Parameter Operator operator, @Parameter(completion = { @Completion(strings = { "1", "2" }) }) int x,
             @Parameter(completion = { @Completion(strings = { "3", "4" }) }) int y
-    ) {}
+    ) {
+        return operator.applyAsInt(x, y);
+    }
 
     @Test
     public void testStdio() throws IOException {
