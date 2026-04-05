@@ -5,7 +5,7 @@ import org.comroid.interaction.annotation.Completion;
 import org.comroid.interaction.annotation.ContextFilter;
 import org.comroid.interaction.annotation.Interaction;
 import org.comroid.interaction.annotation.Parameter;
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.util.function.IntBinaryOperator;
@@ -19,9 +19,13 @@ public class InteractionTest {
         return operator.applyAsInt(x, y);
     }
 
+    public static void main(String... args) throws IOException {
+        StreamAdapter.main(InteractionTest.class.getCanonicalName());
+    }
+
     @Test
     public void testStdio() throws IOException {
-        StreamAdapter.main(InteractionTest.class.getCanonicalName());
+        main();
     }
 
     public enum Operator implements IntBinaryOperator {

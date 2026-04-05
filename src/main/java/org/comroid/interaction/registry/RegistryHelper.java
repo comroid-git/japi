@@ -103,6 +103,7 @@ public final class RegistryHelper {
                 .or(() -> Optional.ofNullable(element).flatMap(it -> Optional.ofNullable(switch (it) {
                     case Class<?> type -> type.getSimpleName();
                     case Member member -> member.getName();
+                    case java.lang.reflect.Parameter parameter -> parameter.getName();
                     case Named named -> named.getName();
                     default -> null;
                 })));

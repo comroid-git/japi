@@ -33,6 +33,6 @@ public class GroupNode extends InteractionNode implements ParentNode, ContextMan
 
     @Override
     public Object invoke(InteractionContext context) {
-        return children.stream().filter(node -> "$".equals(node.getName())).findAny().orElseThrow().invoke(context);
+        return children.stream().filter(node -> "$".equals(node.getInteraction().value())).findAny().orElseThrow().invoke(context);
     }
 }

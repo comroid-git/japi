@@ -5,7 +5,6 @@ import lombok.extern.java.Log;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.tree.Component;
 import org.comroid.interaction.InteractionCore;
-import org.comroid.interaction.component.error.ErrorHandler;
 import org.comroid.interaction.component.response.ResponseChain;
 import org.comroid.interaction.model.InteractionContext;
 import org.comroid.interaction.model.Response;
@@ -22,7 +21,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 @Log
 @Value
-public class StreamAdapter extends Component.Base implements ErrorHandler, Runnable, ResponseChain<String> {
+public class StreamAdapter extends Component.Base implements Runnable, ResponseChain<String> {
     public static void main(String... args) throws IOException {
         try (
                 var core = new InteractionCore(); var isr = new InputStreamReader(System.in); var br = new BufferedReader(isr);
@@ -69,20 +68,12 @@ public class StreamAdapter extends Component.Base implements ErrorHandler, Runna
     }
 
     @Override
-    public ErrorHandler.State handle(InteractionContext context, Throwable error) {
-        log.severe("Encountered an error during interaction execution; " + context);
-        error.printStackTrace(output);
-
-        return ErrorHandler.State.UNCHANGED;
-    }
-
-    @Override
     public void run() {
         new InputListener().run();
     }
 
     private InteractionContext createContext(String line) {
-        return InteractionContext.basic(core, line.split("\\w+")).build();
+        return InteractionContext.basic(core, line.split("\\s+")).build();
     }
 
     @Value
@@ -101,7 +92,7 @@ public class StreamAdapter extends Component.Base implements ErrorHandler, Runna
                 (context = createContext(line)).invoke();
                 output.write("> ");
             } catch (Throwable t) {
-                handle(context, t);
+                core.handle(context, t);
             }
         }
     }

@@ -5,7 +5,6 @@ import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import org.comroid.api.Polyfill;
-import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.java.Activator;
 import org.comroid.interaction.annotation.Interaction;
 import org.comroid.interaction.model.InteractionContext;
@@ -16,7 +15,6 @@ import org.comroid.interaction.registry.InstanceRegistry;
 import org.comroid.interaction.registry.RegistrySource;
 import org.jspecify.annotations.NonNull;
 
-import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
@@ -37,12 +35,7 @@ public class MethodNode extends InteractionNode implements ParameterizedNode, Co
     }
 
     public Optional<ParameterNode> getParameter(String name) {
-        return parameters.stream().filter(it -> it.getName().equals(name)).findAny();
-    }
-
-    @Override
-    public Wrap<AnnotatedElement> element() {
-        return this::getMethod;
+        return parameters.stream().filter(it -> it.getParameter().value().equals(name)).findAny();
     }
 
     @Override

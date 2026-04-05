@@ -289,7 +289,7 @@ public final class ReflectionHelper {
             if (instance == null && Modifier.isStatic(field.getModifiers()))
                 throw new IllegalArgumentException("Instance missing for non-static field");
 
-            Object yield = field.get(instance);
+            Object yield = forceGetField(instance, field);
             return cast.cast(yield);
         } catch (Throwable e) {
             throw new RuntimeException(e);

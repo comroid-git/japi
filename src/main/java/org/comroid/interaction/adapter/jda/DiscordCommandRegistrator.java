@@ -57,8 +57,8 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
                     }
 
                     // only slash commands can be grouped
-                    data = Commands.slash(cap.getCapitalization(NameCapitalizer.ComponentType.CALLABLE).convert(base.getName()),
-                            base.getDescription() != null ? base.getDescription() : InteractionCore.NO_DESCRIPTION);
+                    data = Commands.slash(cap.getCapitalization(NameCapitalizer.ComponentType.CALLABLE).convert(base.getInteraction().value()),
+                            base.getInteraction().getDescription() != null ? base.getInteraction().getDescription() : InteractionCore.NO_DESCRIPTION);
 
                     for (var child : group.getChildren()) {
                         var subcommand = createSubcommand(child);
@@ -66,15 +66,15 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
                     }
                 } else if (base instanceof MethodNode method) data = switch (ctx) {
                     case CONTEXT_COMMAND -> {
-                        var slash = Commands.slash(cap.getCapitalization(NameCapitalizer.ComponentType.CALLABLE).convert(base.getName()),
-                                base.getDescription() != null ? base.getDescription() : InteractionCore.NO_DESCRIPTION);
+                        var slash = Commands.slash(cap.getCapitalization(NameCapitalizer.ComponentType.CALLABLE).convert(base.getInteraction().value()),
+                                base.getInteraction().getDescription() != null ? base.getInteraction().getDescription() : InteractionCore.NO_DESCRIPTION);
 
                         for (var param : method.getParameters()) slash.addOptions(createOptionData(param));
 
                         yield slash;
                     }
-                    case CONTEXT_MESSAGE -> Commands.message(cap.getCapitalization(NameCapitalizer.ComponentType.TITLE).convert(base.getName()));
-                    case CONTEXT_USER -> Commands.user(cap.getCapitalization(NameCapitalizer.ComponentType.TITLE).convert(base.getName()));
+                    case CONTEXT_MESSAGE -> Commands.message(cap.getCapitalization(NameCapitalizer.ComponentType.TITLE).convert(base.getInteraction().value()));
+                    case CONTEXT_USER -> Commands.user(cap.getCapitalization(NameCapitalizer.ComponentType.TITLE).convert(base.getInteraction().value()));
                     default -> throw new IllegalStateException("Unexpected value: " + ctx);
                 };
                 else throw new IllegalStateException("Unexpected value: " + base);
@@ -117,19 +117,17 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
     static SubcommandData createSubcommand(InvokableNode node) {
         return switch (node) {
             case GroupNode ignored -> throw new IllegalStateException("GroupNode may not be a subcommand: " + node);
-            case MethodNode method -> new SubcommandData(method.getName(),
-                    method.getDescription() != null ? method.getDescription() : InteractionCore.NO_DESCRIPTION).addOptions(method.getParameters()
-                    .stream()
-                    .map(DiscordCommandRegistrator::createOptionData)
-                    .toList());
+            case MethodNode method -> new SubcommandData(method.getInteraction().value(),
+                    method.getInteraction().getDescription() != null ? method.getInteraction().getDescription() : InteractionCore.NO_DESCRIPTION).addOptions(
+                    method.getParameters().stream().map(DiscordCommandRegistrator::createOptionData).toList());
             default -> throw new IllegalStateException("Unexpected value: " + node);
         };
     }
 
     static @NonNull OptionData createOptionData(ParameterNode param) {
         return new OptionData(getOptionType(param),
-                param.getName(),
-                param.getDescription() != null ? param.getDescription() : InteractionCore.NO_DESCRIPTION,
+                param.getParameter().value(),
+                param.getParameter().getDescription() != null ? param.getParameter().getDescription() : InteractionCore.NO_DESCRIPTION,
                 param.getParameter().required(),
                 !param.getCompletion().isEmpty() || param.getReflect().getType().isEnum());
     }

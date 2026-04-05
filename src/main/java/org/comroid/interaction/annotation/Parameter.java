@@ -4,6 +4,7 @@ import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.attr.Described;
 import org.comroid.api.func.util.Streams;
 import org.comroid.interaction.registry.RegistryHelper;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -12,6 +13,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 @Target({ ElementType.PARAMETER })
 @Retention(RetentionPolicy.RUNTIME)
@@ -33,7 +35,7 @@ public @interface Parameter {
     }
 
     @SuppressWarnings({ "ClassExplicitlyAnnotation", "rawtypes" })
-    record Resolved(String value, String description, boolean required, Completion[] completion, Class<? extends Parser> parser)
+    record Resolved(String value, @Nullable String description, boolean required, Completion[] completion, @Nullable Class<? extends Parser> parser)
             implements Parameter, Described {
         public static Resolved of(Element element) {
             return new Resolved(RegistryHelper.findName(element).orElseThrow(),
@@ -45,7 +47,7 @@ public @interface Parameter {
                             .map(Completion.ConstantStrings::new)
                             .map(it -> new Completion[]{ it })
                             .orElseGet(element.parameter::completion),
-                    element.parameter.parser());
+                    Optional.ofNullable(element.parameter.parser()).filter(Predicate.not(Parser.class::equals)).orElse(null));
         }
 
         @Override

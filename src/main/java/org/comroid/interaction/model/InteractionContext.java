@@ -5,16 +5,18 @@ import lombok.Singular;
 import lombok.Value;
 import lombok.extern.java.Log;
 import org.comroid.annotations.Child;
+import org.comroid.api.map.MultiValueMap;
 import org.comroid.api.tree.Component;
+import org.comroid.eval.MinimalExpression;
 import org.comroid.interaction.InteractionCore;
 import org.comroid.interaction.component.response.ResponseConverter;
 import org.comroid.interaction.component.response.ResponseHandler;
 import org.comroid.interaction.node.MethodNode;
 import org.comroid.interaction.node.ParameterNode;
-import org.comroid.interaction.node.model.InteractionNode;
 import org.comroid.interaction.node.model.ParentNode;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -35,7 +37,7 @@ public class InteractionContext extends Component.Base {
         var node = core.getRegistered()
                 .stream()
                 .flatMap(tree -> tree.getNodes().stream())
-                .filter(base -> base.getName().equalsIgnoreCase(part[0]))
+                .filter(base -> base.getInteraction().value().equalsIgnoreCase(part[0]))
                 .findAny()
                 .orElseThrow(noSuchCommand(part[0]));
 
@@ -43,19 +45,29 @@ public class InteractionContext extends Component.Base {
             if (!(node instanceof ParentNode parent)) break;
 
             part[0] = parts.next();
-            node    = parent.getChildren().stream().filter(it -> it.getName().equalsIgnoreCase(part[0])).findAny().orElseThrow(noSuchCommand(part[0]));
+            var buf = parent.getChildren().stream().filter(it -> it.getInteraction().value().equalsIgnoreCase(part[0])).findAny().orElse(null);
+            if (buf == null) break;
+
+            node = buf;
         }
 
         if (!(node instanceof MethodNode method)) throw new IllegalStateException("Unexpected node: " + node);
         context.node(method);
 
-        return context;
+        var defs = new MultiValueMap<String, Object>();
+        for (var def : node.getInteraction().definitions())
+            defs.getUnderlying()
+                    .computeIfAbsent(def.value(), $ -> new HashSet<>())
+                    .addAll(Arrays.stream(def.expression()).map(MinimalExpression::evaluate).filter(Objects::nonNull).toList());
+
+        return context.definitions(defs);
     }
 
     InteractionCore core;
-    InteractionNode node;
+    MethodNode node;
     @Singular Map<String, Object>        values;
     @Singular Map<ParameterNode, Object> parameters;
+    MultiValueMap<String, Object> definitions;
 
     public Object getValue(String key) {
         return values.getOrDefault(key, null);

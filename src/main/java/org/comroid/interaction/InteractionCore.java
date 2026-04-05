@@ -63,7 +63,7 @@ public class InteractionCore extends Component.Base implements RegistryHandler {
     public void handle(InteractionContext context, Throwable error) {
         log.log(Level.SEVERE, "Encountered an error during interaction handling", error);
 
-        var handlers = context.children(ErrorHandler.class).iterator();
+        var handlers = (context == null ? children(ErrorHandler.class) : context.children(ErrorHandler.class)).iterator();
         if (!handlers.hasNext()) return;
 
         do {
