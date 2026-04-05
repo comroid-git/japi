@@ -2,6 +2,7 @@ package org.comroid.interaction.adapter.stdio;
 
 import lombok.Value;
 import lombok.extern.java.Log;
+import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.tree.Component;
 import org.comroid.interaction.InteractionCore;
@@ -41,6 +42,11 @@ public class StreamAdapter extends Component.Base implements Runnable, ResponseC
     PrintWriter     output;
 
     @Override
+    public boolean isSubComponent() {
+        return true;
+    }
+
+    @Override
     public Class<String> getResponseType() {
         return String.class;
     }
@@ -73,7 +79,27 @@ public class StreamAdapter extends Component.Base implements Runnable, ResponseC
     }
 
     private InteractionContext createContext(String line) {
-        return InteractionContext.basic(core, line.split("\\s+")).build();
+        var split   = line.split("\\s+");
+        var builder = InteractionContext.basic(core, split);
+        var node    = builder.build().getNode();
+        var endCall = Arrays.binarySearch(split, node.getInteraction().value());
+        var args    = Arrays.stream(split).skip(endCall + 1).iterator();
+
+        for (var parameter : node.getParameters()) {
+            if (!args.hasNext()) {
+                if (parameter.getParameter().required())
+                    throw new IllegalArgumentException("Not enough arguments; expected '%s'".formatted(parameter.getParameter().value()));
+                else break;
+            }
+
+            var str   = args.next();
+            var type  = ValueType.of(parameter.getReflect().getType());
+            var value = type.parse(str);
+
+            builder.parameter(parameter, value);
+        }
+
+        return builder.build();
     }
 
     @Value
