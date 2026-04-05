@@ -76,9 +76,9 @@ public @interface ContextFilter {
         };
 
         private static boolean any(Object target, String filter) {
-            if (target instanceof CharSequence) return target.toString().contains(filter);
-            if (target instanceof Collection<?> col) return col.contains(filter);
-            return false;
+            if (target instanceof CharSequence chars) return filter.isBlank() ? !chars.isEmpty() : target.toString().contains(filter);
+            if (target instanceof Collection<?> col) return filter.isBlank() ? !col.isEmpty() : col.contains(filter);
+            return filter.isBlank() && target != null;
         }
     }
 
