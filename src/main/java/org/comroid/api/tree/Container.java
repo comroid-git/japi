@@ -48,8 +48,14 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
     void clearChildren();
 
     default <T> Stream<T> streamChildren(@Nullable Class<? super T> type) {
+        return streamChildren(type, true);
+    }
+
+    default <T> Stream<T> streamChildren(@Nullable Class<? super T> type, boolean recurse) {
         return Stream.concat(getChildren().stream(), streamOwnChildren())
-                .collect(Streams.expandRecursive(it -> Stream.of(it).flatMap(Streams.cast(Container.class)).flatMap(c -> c.streamChildren(type))))
+                .collect(Streams.expandRecursive(it -> recurse
+                                                       ? Stream.of(it).flatMap(Streams.cast(Container.class)).flatMap(c -> c.streamChildren(type))
+                                                       : Stream.empty()))
                 .distinct()
                 .flatMap(Streams.cast(type))
                 .sorted(Comparator.comparing(Object::getClass, Order.COMPARATOR))
@@ -116,13 +122,14 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
         @SafeVarargs
         @SneakyThrows
         protected final <T> void runOnChildren(Class<T> type, ThrowingConsumer<T, Throwable> task, Predicate<T> test, T... extra) {
-            final List<Throwable> errors = streamChildren(type).collect(append(moreMembers().flatMap(cast(type))))
+            final List<Throwable> errors = streamChildren(type, false).collect(append(moreMembers().flatMap(cast(type))))
                     .collect(append(extra))
                     .filter(Objects::nonNull)
                     .filter(Predicate.not(this::equals))
                     // extra enabled check for EnabledState objects
                     .filter(it -> !(it instanceof EnabledState) || ((EnabledState) it).isEnabled())
                     .filter(test)
+                    .distinct()
                     .flatMap(it -> {
                         try {
                             task.accept(it);

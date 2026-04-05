@@ -84,10 +84,21 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
             }
         }
 
-        log.info("Upserting %d interactions to discord bot %s".formatted(all.size(), adp.getJda().getSelfUser()));
+        var jda = adp.getJda();
+        log.info("Upserting %d interactions to discord bot %s".formatted(all.size(), jda.getSelfUser()));
 
-        RestAction<?> action = new CompletedRestAction<>(adp.getJda(), (Object) null);
-        for (var data : all) action = action.flatMap($ -> adp.getJda().upsertCommand(data));
+        RestAction<?> action = PURGE_COMMANDS.consume() ? jda.retrieveCommands().flatMap(cmds -> {
+            log.fine("Puring %d previously defined commands".formatted(cmds.size()));
+
+            RestAction<?> sub = new CompletedRestAction<>(jda, (Object) null);
+            for (var cmd : cmds)
+                sub = sub.flatMap($ -> jda.deleteCommandById(cmd.getId()));
+
+            return sub;
+        }) : new CompletedRestAction<>(jda, (Object) null);
+
+        for (var data : all) action = action.flatMap($ -> jda.upsertCommand(data));
+
         action.queue();
     }
 

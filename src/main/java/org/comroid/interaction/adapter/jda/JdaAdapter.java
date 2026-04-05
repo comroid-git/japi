@@ -18,6 +18,7 @@ import org.comroid.api.Polyfill;
 import org.comroid.api.attr.IntegerAttribute;
 import org.comroid.api.data.seri.DataNode;
 import org.comroid.api.func.util.Streams;
+import org.comroid.api.io.FileFlag;
 import org.comroid.api.java.Activator;
 import org.comroid.api.tree.Component;
 import org.comroid.interaction.InteractionCore;
@@ -28,6 +29,7 @@ import org.comroid.interaction.node.MethodNode;
 import org.comroid.interaction.node.ParameterNode;
 import org.jspecify.annotations.NonNull;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
@@ -37,6 +39,8 @@ import java.util.stream.Stream;
 @Value
 @NonFinal
 public class JdaAdapter extends Component.Base implements EventListener {
+    public static final FileFlag PURGE_COMMANDS = new FileFlag(new File("./purge_commands"));
+
     public static final String KEY_CONTEXT     = "context.discord";
     public static final String CONTEXT_COMMAND = "command";
     public static final String CONTEXT_MESSAGE = "message";

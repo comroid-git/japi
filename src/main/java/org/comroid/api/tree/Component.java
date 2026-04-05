@@ -23,6 +23,7 @@ import org.comroid.api.func.exc.ThrowingConsumer;
 import org.comroid.api.func.ext.Wrap;
 import org.comroid.api.func.util.Bitmask;
 import org.comroid.api.func.util.Cache;
+import org.comroid.api.func.util.Streams;
 import org.comroid.api.info.Constraint;
 import org.comroid.api.info.Log;
 import org.comroid.api.info.Maintenance;
@@ -104,13 +105,13 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
     State getCurrentState();
 
     @Override
-    default <T extends Component> Stream<T> components(@Nullable Class<? super T> type) {
+    default <T> Stream<T> components(@Nullable Class<? super T> type) {
         return Stream.<T>concat(streamChildren(type),
                 isSubComponent() ? Stream.of(getParent()).filter(Objects::nonNull).flatMap(comp -> comp.components(type)) : empty()).distinct();
     }
 
     @Override
-    default <T extends Component> Wrap<T> component(@Nullable Class<? super T> type) {
+    default <T> Wrap<T> component(@Nullable Class<? super T> type) {
         return () -> uncheckedCast(components(type).findAny().orElse(null));
     }
 
@@ -360,15 +361,19 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         }
 
         private void injectDependencies() {
-            dependencies().stream().filter(dep -> dep.prop != null && dep.prop.canSet()).<Map.Entry<Dependency, Component>>flatMap(dep -> {
+            dependencies().stream().filter(dep -> dep.prop != null && dep.prop.canSet()).<Map.Entry<Dependency, Object>>flatMap(dep -> {
                 var results = components(dep.type).toList();
                 if (results.size() > 1) {
                     final var names = dep.name.isEmpty() ? Stream.concat(Stream.of(dep.prop.getName()), dep.prop.getAliases().stream())
                             .collect(Collectors.toSet()) : Set.of(dep.name);
-                    var byName = results.stream().filter(it -> names.stream().anyMatch(alias -> equalsIgnoreCase(alias, it.getName()))).toList();
+                    var byName = results.stream()
+                            .flatMap(Streams.cast(Named.class))
+                            .filter(it -> names.stream().anyMatch(alias -> equalsIgnoreCase(alias, it.getName())))
+                            .toList();
                     if (byName.isEmpty()) {
                         Log.at(Level.WARNING, "Exact name match yielded no results; attempting to find with contains()");
                         byName = results.stream()
+                                .flatMap(Streams.cast(Named.class))
                                 .filter(it -> names.stream().map(String::toLowerCase).anyMatch(alias -> it.getName().toLowerCase().contains(alias)))
                                 .toList();
                     }
@@ -419,7 +424,7 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
         }
 
         private static <T> boolean test(T it, State state) {
-            return it instanceof Component && ((Component) it).testState(state);
+            return !(it instanceof Component) || ((Component) it).testState(state);
         }
     }
 
