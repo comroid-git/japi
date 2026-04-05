@@ -105,8 +105,8 @@ public interface Component extends Container, LifeCycle, Tickable, EnabledState,
 
     @Override
     default <T extends Component> Stream<T> components(@Nullable Class<? super T> type) {
-        return Stream.concat(streamChildren(type),
-                isSubComponent() ? Stream.of(getParent()).filter(Objects::nonNull).flatMap(comp -> comp.components(type)) : empty());
+        return Stream.<T>concat(streamChildren(type),
+                isSubComponent() ? Stream.of(getParent()).filter(Objects::nonNull).flatMap(comp -> comp.components(type)) : empty()).distinct();
     }
 
     @Override

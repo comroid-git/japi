@@ -4,7 +4,5 @@ import org.comroid.interaction.model.InteractionContext;
 import org.jspecify.annotations.Nullable;
 
 public interface ErrorHandler {
-    State handle(@Nullable InteractionContext context, Throwable error);
-
-    enum State {UNCHANGED, RECOVERED}
+    @Nullable Object handle(@Nullable InteractionContext context, Throwable error);
 }

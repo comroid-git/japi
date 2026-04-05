@@ -8,6 +8,7 @@ import org.comroid.api.map.MultiValueMap;
 import org.comroid.api.tree.Component;
 import org.comroid.eval.MinimalExpression;
 import org.comroid.interaction.InteractionCore;
+import org.comroid.interaction.component.error.ErrorHandler;
 import org.comroid.interaction.component.response.ResponseConverter;
 import org.comroid.interaction.component.response.ResponseHandler;
 import org.comroid.interaction.node.MethodNode;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 
 @Log
 @Value
@@ -99,31 +101,41 @@ public class InteractionContext extends Component.Base {
         if (node.getInteraction().async()) {
             component(ResponseHandler.class).ifPresent(it -> it.deferResponse(this));
 
-            CompletableFuture.supplyAsync(() -> node.invoke(this)).thenAccept(this::handleResponse).exceptionally(t -> {
-                core.handle(this, t);
+            CompletableFuture.supplyAsync(() -> node.invoke(this)).thenAccept(this::handle).exceptionally(t -> {
+                handle(t);
                 return null;
             });
         } else try {
             var response = node.invoke(this);
 
-            handleResponse(response);
+            handle(response);
         } catch (Throwable t) {
-            core.handle(this, t);
+            handle(t);
         }
     }
 
     @SuppressWarnings("unchecked")
-    private void handleResponse(final Object response) {
-        components(ResponseConverter.class).distinct()
-                .map(converter -> converter.convertResponse(response))
-                .distinct()
-                .filter(Objects::nonNull)
-                .forEach(formatted -> {
-                    var fType = formatted.getClass();
-                    components(ResponseHandler.class).distinct()
-                            .filter(handler -> handler.getResponseType().isAssignableFrom(fType))
-                            .forEach(handler -> handler.sendResponse(this, formatted));
-                });
+    private void handle(final Object response) {
+        components(ResponseConverter.class).map(converter -> converter.convertResponse(response)).distinct().filter(Objects::nonNull).forEach(formatted -> {
+            var fType = formatted.getClass();
+            components(ResponseHandler.class).filter(handler -> handler.getResponseType().isAssignableFrom(fType))
+                    .forEach(handler -> handler.sendResponse(this, formatted));
+        });
+    }
+
+    public void handle(Throwable error) {
+        log.log(Level.SEVERE, "Encountered an error during interaction handling", error);
+
+        var handlers = components(ErrorHandler.class).iterator();
+        if (!handlers.hasNext()) return;
+
+        Object response;
+
+        do {
+            response = handlers.next().handle(this, error);
+        } while (response == null && handlers.hasNext());
+
+        if (response != null) handle(response);
     }
 
     private static Supplier<RuntimeException> noSuchCommand(String name) {

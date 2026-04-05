@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.logging.Level;
 
 @Log
 @Value
@@ -119,7 +120,8 @@ public class StreamAdapter extends Component.Base implements Runnable, ResponseC
                 (context = createContext(line)).invoke();
                 output.write("> ");
             } catch (Throwable t) {
-                core.handle(context, t);
+                if (context != null) context.handle(t);
+                else log.log(Level.SEVERE, "An error occurred during initialization", t);
             }
         }
     }

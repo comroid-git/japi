@@ -4,10 +4,8 @@ import lombok.Value;
 import lombok.extern.java.Log;
 import org.comroid.api.tree.Component;
 import org.comroid.interaction.component.RegistryHandler;
-import org.comroid.interaction.component.error.ErrorHandler;
 import org.comroid.interaction.component.response.ResponseConverter;
 import org.comroid.interaction.component.response.ResponseHandler;
-import org.comroid.interaction.model.InteractionContext;
 import org.comroid.interaction.model.InteractionTree;
 import org.comroid.interaction.registry.InstanceRegistry;
 import org.comroid.interaction.registry.RegistrySource;
@@ -17,7 +15,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.logging.Level;
 
 @Log
 @Value
@@ -58,17 +55,5 @@ public class InteractionCore extends Component.Base implements RegistryHandler {
 
     private void verifyComponentExists(Class<?> type) {
         component(type).assertion("No component of type %s was found".formatted(type.getCanonicalName()));
-    }
-
-    public void handle(InteractionContext context, Throwable error) {
-        log.log(Level.SEVERE, "Encountered an error during interaction handling", error);
-
-        var handlers = (context == null ? components(ErrorHandler.class) : context.components(ErrorHandler.class)).iterator();
-        if (!handlers.hasNext()) return;
-
-        do {
-            var state = handlers.next().handle(context, error);
-            if (state != ErrorHandler.State.UNCHANGED) break;
-        } while (handlers.hasNext());
     }
 }
