@@ -59,7 +59,7 @@ public class InteractionContext extends Component.Base {
         for (var def : node.getInteraction().definitions())
             defs.getUnderlying()
                     .computeIfAbsent(def.value(), $ -> new HashSet<>())
-                    .addAll(Arrays.stream(def.expression()).map(MinimalExpression::evaluate).filter(Objects::nonNull).toList());
+                    .addAll(Arrays.stream(def.expr()).map(MinimalExpression::evaluate).filter(Objects::nonNull).toList());
 
         return context.definitions(defs);
     }
@@ -109,6 +109,8 @@ public class InteractionContext extends Component.Base {
             var response = node.invoke(this);
 
             handle(response);
+        } catch (Response response) {
+            handle((Object) response);
         } catch (Throwable t) {
             handle(t);
         }

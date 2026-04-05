@@ -1,6 +1,7 @@
 package org.comroid.interaction.adapter.jda;
 
 import lombok.Value;
+import lombok.experimental.NonFinal;
 import lombok.experimental.StandardException;
 import lombok.extern.java.Log;
 import net.dv8tion.jda.api.JDA;
@@ -29,10 +30,12 @@ import org.jspecify.annotations.NonNull;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 @Log
 @Value
+@NonFinal
 public class JdaAdapter extends Component.Base implements EventListener {
     public static final String KEY_CONTEXT     = "context.discord";
     public static final String CONTEXT_COMMAND = "command";
@@ -76,7 +79,6 @@ public class JdaAdapter extends Component.Base implements EventListener {
         try {
             initContextVariables(event, builder);
 
-            params:
             if (event instanceof GenericCommandInteractionEvent command) {
                 // lombok is stupid - find better solution for this shit
                 //var node = ReflectionHelper.fieldByName(InteractionContext.Builder.class, builder, "node", MethodNode.class);
@@ -164,14 +166,14 @@ public class JdaAdapter extends Component.Base implements EventListener {
 
         event.replyChoices(param.getCompletion()
                 .stream()
-                .flatMap(completion -> Stream.concat(Arrays.stream(completion.strings()),
+                .flatMap(completion -> Stream.concat(Arrays.stream(completion.strings()).map(str -> new Command.Choice(str, str)),
                         Stream.ofNullable(completion.provider())
                                 .filter(type -> !Completion.Provider.class.equals(type))
                                 .map(Activator::get)
                                 .map(it -> it.createInstance(DataNode.of(Map.of())))
-                                .flatMap(provider -> provider.apply(context, param))
-                                .map(String::valueOf)))
-                .map(str -> new Command.Choice(str, str))
+                                .flatMap(provider -> provider.findCompletionOptions(context, param, event.getFocusedOption().getValue()))
+                                .map(option -> new Command.Choice(Objects.requireNonNullElse(option.display(), option.key()).toString(),
+                                        option.key().toString()))))
                 .toList()).queue();
     }
 

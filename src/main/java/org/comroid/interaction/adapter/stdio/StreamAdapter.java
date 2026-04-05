@@ -65,7 +65,7 @@ public class StreamAdapter extends Component.Base implements Runnable, ResponseC
 
     @Override
     public @Nullable String convertResponse(Response response) {
-        return response.content();
+        return response.getContent();
     }
 
     @Override

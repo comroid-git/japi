@@ -92,7 +92,7 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
     }
 
     static void initCommandData(InteractionNode node, CommandData data) {
-        initDefaultPermission(node.getFilterValues(KEY_PERMISSION), data);
+        initDefaultPermission(node.getDefinitionValues(KEY_PERMISSION), data);
         initNsfw(node, data);
     }
 

@@ -74,7 +74,7 @@ public class CommandManager extends Container.Base implements CommandInfoProvide
     }
 
     @SuppressWarnings("UnusedReturnValue")
-    public final Set<Node> register(final Object target) {
+    public Set<Node> register(final Object target) {
         var klass  = target instanceof Class<?> cls0 ? cls0 : target.getClass();
         var groups = new ArrayList<Group>();
         var calls  = new ArrayList<Call>();

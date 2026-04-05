@@ -25,8 +25,9 @@ import org.comroid.api.func.ext.Context;
 import org.comroid.api.java.StackTraceUtils;
 import org.comroid.api.text.Markdown;
 import org.comroid.api.text.StringUtil;
-import org.comroid.commands.autofill.IAutoFillProvider;
-import org.comroid.commands.impl.CommandUsage;
+import org.comroid.interaction.annotation.Completion;
+import org.comroid.interaction.model.InteractionContext;
+import org.comroid.interaction.node.ParameterNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -94,11 +95,11 @@ public class JdaUtil {
         return event instanceof MessageReceivedEvent mre ? mre.getMessage() : null;
     }
 
-    public enum AutoFillLogLevels implements IAutoFillProvider {
+    public enum AutoFillLogLevels implements Completion.Provider.OfStrings {
         @Instance INSTANCE;
 
         @Override
-        public Stream<? extends CharSequence> autoFill(CommandUsage usage, String argName, String currentValue) {
+        public Stream<String> findCompletionValues(InteractionContext context, ParameterNode parameter, String currentValue) {
             return Stream.of("OFF", "SEVERE", "WARNING", "INFO", "CONFIG", "FINE", "FINER", "FINEST", "ALL");
         }
     }

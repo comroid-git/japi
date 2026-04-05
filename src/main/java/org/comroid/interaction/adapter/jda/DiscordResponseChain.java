@@ -95,7 +95,7 @@ enum DiscordResponseChain implements ResponseChain<MessageCreateData> {
 
         var message = new MessageCreateBuilder();
 
-        if (response.isPlaintext()) message.setContent(response.content());
+        if (response.isPlaintext()) message.setContent(response.getContent());
         else message.addEmbeds(response.toEmbed().build());
 
         return message.build();

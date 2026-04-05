@@ -44,6 +44,7 @@ public class InteractionCore extends Component.Base implements RegistryHandler {
 
     public void register(Object target) {
         register(new InstanceRegistry(target));
+        addChild(target);
     }
 
     /// verify minimum required components
@@ -54,6 +55,6 @@ public class InteractionCore extends Component.Base implements RegistryHandler {
     }
 
     private void verifyComponentExists(Class<?> type) {
-        component(type).assertion("No component of type %s was found".formatted(type.getCanonicalName()));
+        child(type).assertion("No component of type %s was found".formatted(type.getCanonicalName()));
     }
 }

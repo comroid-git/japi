@@ -23,6 +23,6 @@ public interface ContextManipulatingNode {
     }
 
     default Stream<String> getDefinitionValues(String key) {
-        return getDefinition(key).flatMap(def -> Arrays.stream(def.expression()));
+        return getDefinition(key).flatMap(def -> Arrays.stream(def.expr()));
     }
 }

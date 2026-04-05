@@ -5,7 +5,7 @@ import lombok.Value;
 import org.comroid.api.func.util.Debug;
 import org.comroid.api.info.Log;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -21,21 +21,25 @@ import java.util.ResourceBundle;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
-@Value
-public class Translation {
+@lombok.extern.java.Log
+public record Translation(Locale locale, ResourceBundle strings) {
     public static final Map<String, Translation> LOADED = new ConcurrentHashMap<>();
 
-    public static Translation get() {
+    public static @Nullable Translation get() {
         return get(Locale.getDefault());
     }
 
-    public static Translation get(@NotNull Locale locale) {
-        return get(ResourceBundle.getBundle("locale", locale, new LangFileResourceBundleControl()));
+    public static @Nullable Translation get(@NotNull Locale locale) {
+        try {
+            return get(ResourceBundle.getBundle("locale", locale, new LangFileResourceBundleControl()));
+        } catch (MissingResourceException mrEx) {
+            log.fine(mrEx.getMessage());
+            return null;
+        }
     }
 
     public static Translation get(@NotNull ResourceBundle strings) {
-        return LOADED.computeIfAbsent(strings.getLocale().getLanguage(),
-                k -> new Translation(strings.getLocale(), strings));
+        return LOADED.computeIfAbsent(strings.getLocale().getLanguage(), k -> new Translation(strings.getLocale(), strings));
     }
 
     public static String str(@NotNull String key) {
@@ -44,7 +48,8 @@ public class Translation {
 
     public static String str(@NotNull String key, @Nullable String fallback) {
         try {
-            return get(Locale.getDefault()).get(key, fallback);
+            var translation = get(Locale.getDefault());
+            return translation == null ? fallback : translation.get(key, fallback);
         } catch (MissingResourceException e) {
             if (Debug.isDebug()) Log.at(Level.FINE, "Unable to translate key: " + key, e);
             else Log.at(Level.FINE, "Unable to translate key: " + key);
@@ -52,17 +57,12 @@ public class Translation {
         }
     }
 
-    Locale         locale;
-    ResourceBundle strings;
-
     public String get(@NotNull String key) {
         return wrapNewlines(strings.getString(key));
     }
 
     public String get(@NotNull String key, @Nullable String fallback) {
-        return wrapNewlines(strings.containsKey(key)
-                            ? strings.getString(key)
-                            : Objects.requireNonNullElse(fallback, key));
+        return wrapNewlines(strings.containsKey(key) ? strings.getString(key) : Objects.requireNonNullElse(fallback, key));
     }
 
     private static String wrapNewlines(String raw) {
@@ -100,10 +100,7 @@ public class Translation {
 
         @Override
         @SneakyThrows
-        public ResourceBundle newBundle(
-                String baseName, Locale locale, String format, ClassLoader loader,
-                boolean reload
-        ) {
+        public ResourceBundle newBundle(String baseName, Locale locale, String format, ClassLoader loader, boolean reload) {
             if (!"lang".equals(format)) return null;
 
             var bundleName   = toBundleName(baseName, locale);

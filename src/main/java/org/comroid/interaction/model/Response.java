@@ -1,6 +1,8 @@
 package org.comroid.interaction.model;
 
 import lombok.Builder;
+import lombok.Singular;
+import lombok.Value;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.MessageEmbed;
@@ -15,24 +17,14 @@ import org.jspecify.annotations.Nullable;
 
 import java.awt.*;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
+@Value
 @Experimental
 @Builder(toBuilder = true)
-public record Response(
-        @Nullable String title,
-        @Nullable String content,
-        @Nullable String url,
-        @Nullable String imageUrl,
-        @Nullable String footnote,
-        @Nullable Instant timestamp,
-        @Nullable Color color,
-        @Nullable Author author,
-        @NonNull List<@NonNull Detail> details
-) implements ValidityCheck {
+public class Response extends RuntimeException implements ValidityCheck {
     public static Response of(CharSequence chars) {
         return builder().content(chars.toString()).build();
     }
@@ -58,11 +50,31 @@ public record Response(
                 .build();
     }
 
+    @Nullable String                title;
+    @Nullable String                content;
+    @Nullable String                url;
+    @Nullable String                imageUrl;
+    @Nullable String                footnote;
+    @Nullable Instant               timestamp;
+    @Nullable Color                 color;
+    @Nullable Author                author;
+    @Singular List<@NonNull Detail> details;
+
     public Response(
             @Nullable String title, @Nullable String content, @Nullable String url, @Nullable String imageUrl, @Nullable String footnote,
-            @Nullable Instant timestamp, @Nullable Color color, @Nullable Author author
+            @Nullable Instant timestamp, @Nullable Color color, @Nullable Author author, List<@NonNull Detail> details
     ) {
-        this(title, content, url, imageUrl, footnote, timestamp, color, author, new ArrayList<>());
+        super(Objects.requireNonNullElse(title, content));
+
+        this.title     = title;
+        this.content   = content;
+        this.url       = url;
+        this.imageUrl  = imageUrl;
+        this.footnote  = footnote;
+        this.timestamp = timestamp;
+        this.color     = color;
+        this.author    = author;
+        this.details   = details;
     }
 
     public boolean isPlaintext() {

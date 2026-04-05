@@ -49,6 +49,8 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
 
     default <T> Stream<T> streamChildren(@Nullable Class<? super T> type) {
         return Stream.concat(getChildren().stream(), streamOwnChildren())
+                .collect(Streams.expandRecursive(it -> Stream.of(it).flatMap(Streams.cast(Container.class)).flatMap(c -> c.streamChildren(type))))
+                .distinct()
                 .flatMap(Streams.cast(type))
                 .sorted(Comparator.comparing(Object::getClass, Order.COMPARATOR))
                 .map(Polyfill::uncheckedCast);
@@ -67,18 +69,12 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
     }
 
     private static Exception makeException(List<Throwable> errors) {
-        return new Exception(String.format("%d unexpected %s occurred",
-                errors.size(),
-                Polyfill.plural(errors, "exception", "+s")),
-                null,
-                true, false) {
-        };
+        return new Exception(String.format("%d unexpected %s occurred", errors.size(), Polyfill.plural(errors, "exception", "+s")), null, true, false) {};
     }
 
     class Base implements Container, Reloadable {
-        @Ignore @Getter final Set<Object>                              children;
-        @Ignore @Getter
-        private final         AtomicReference<CompletableFuture<Void>> closed = new AtomicReference<>(new CompletableFuture<>());
+        @Ignore @Getter final         Set<Object>                              children;
+        @Ignore @Getter private final AtomicReference<CompletableFuture<Void>> closed = new AtomicReference<>(new CompletableFuture<>());
 
         public Base(Object... children) {
             this.children = new HashSet<>(Set.of(children));
@@ -96,17 +92,13 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
 
         @Contract("_ -> this")
         public Object addChildren(@Nullable Object @NotNull ... children) {
-            Stream.of(children)
-                    .filter(Objects::nonNull)
-                    .forEach(this.children::add);
+            Stream.of(children).filter(Objects::nonNull).forEach(this.children::add);
             return this;
         }
 
         @Override
         public int removeChildren(Object @NotNull ... children) {
-            return (int) Stream.of(children)
-                    .filter(this.children::remove)
-                    .count();
+            return (int) Stream.of(children).filter(this.children::remove).count();
         }
 
         @Override
@@ -124,8 +116,7 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
         @SafeVarargs
         @SneakyThrows
         protected final <T> void runOnChildren(Class<T> type, ThrowingConsumer<T, Throwable> task, Predicate<T> test, T... extra) {
-            final List<Throwable> errors = streamChildren(type)
-                    .collect(append(moreMembers().flatMap(cast(type))))
+            final List<Throwable> errors = streamChildren(type).collect(append(moreMembers().flatMap(cast(type))))
                     .collect(append(extra))
                     .filter(Objects::nonNull)
                     .filter(Predicate.not(this::equals))
@@ -142,14 +133,12 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
                     })
                     .distinct()
                     .toList();
-            if (errors.isEmpty())
-                return;
-            if (errors.size() == 1)
-                throw errors.get(0);
-            throw errors.stream().collect(
-                    () -> Container.makeException(errors),
-                    Throwable::addSuppressed,
-                    (l, r) -> Arrays.stream(r.getSuppressed()).forEachOrdered(l::addSuppressed));
+            if (errors.isEmpty()) return;
+            if (errors.size() == 1) throw errors.get(0);
+            throw errors.stream()
+                    .collect(() -> Container.makeException(errors),
+                            Throwable::addSuppressed,
+                            (l, r) -> Arrays.stream(r.getSuppressed()).forEachOrdered(l::addSuppressed));
         }
 
         protected Stream<AutoCloseable> moreMembers() {
@@ -157,9 +146,7 @@ public interface Container extends Stoppable, SelfCloseable, Specifiable<Contain
         }
 
         public boolean setClosed(boolean state) {
-            return Polyfill.updateBoolState(isClosed(), state,
-                    () -> closed.get().complete(null),
-                    () -> closed.set(new CompletableFuture<>()));
+            return Polyfill.updateBoolState(isClosed(), state, () -> closed.get().complete(null), () -> closed.set(new CompletableFuture<>()));
         }
 
         @Override
