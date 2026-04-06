@@ -73,7 +73,7 @@ public @interface Interaction {
                     .map(ThrowingFunction.fallback(Capitalization::valueOf))
                     .filter(Objects::nonNull)
                     .findAny()
-                    .orElse(Capitalization.lowerCamelCase);
+                    .orElse(Capitalization.lower_hyphen_case);
 
             return new Resolved(RegistryHelper.findName(element).map(nameCapitalization::convert).orElseThrow(),
                     RegistryHelper.findDescription(element.annotated).orElse(null),

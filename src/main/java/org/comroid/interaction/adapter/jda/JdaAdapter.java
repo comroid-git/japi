@@ -11,6 +11,7 @@ import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInterac
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.GenericContextInteractionEvent;
 import net.dv8tion.jda.api.hooks.EventListener;
+import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.CommandInteractionPayload;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -33,6 +34,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.util.logging.Level;
 import java.util.stream.Stream;
 
 @Log
@@ -79,9 +81,10 @@ public class JdaAdapter extends Component.Base implements EventListener {
 
         log.finer("Dispatching command interaction " + event);
 
-        var builder = InteractionContext.basic(core, event.getFullCommandName().split("\\s+")).parent(this);
+        InteractionContext.Builder builder;
 
         try {
+            builder = InteractionContext.basic(core, event.getFullCommandName().split("\\s+")).parent(this);
             initContextVariables(event, builder);
 
             if (event instanceof GenericCommandInteractionEvent command) {
@@ -97,8 +100,11 @@ public class JdaAdapter extends Component.Base implements EventListener {
                     builder.parameter(parameter, value);
                 }
             }
-        } catch (CannotInitContext cicEx) {
-            log.warning(cicEx.getMessage());
+        } catch (Throwable t) {
+            log.log(Level.SEVERE, "Failed to initilaize interaction context", t);
+            if (event instanceof IReplyCallback callback) callback.reply(("An internal error occurred ```%s: %s``` Please contact an administrator or bot developer").formatted(
+                    t.getClass().getSimpleName(),
+                    t.getMessage())).setEphemeral(true).queue();
             return;
         }
 
