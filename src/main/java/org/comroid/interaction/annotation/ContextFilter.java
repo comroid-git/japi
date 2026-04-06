@@ -16,7 +16,7 @@ import java.util.function.BiPredicate;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ContextFilter {
     /// context key
-    String value();
+    String key();
 
     /// check type to perform against filter
     Check check() default Check.ANY;
@@ -32,7 +32,7 @@ public @interface ContextFilter {
         EQUALS {
             @Override
             public boolean test(ContextFilter requirement, InteractionContext context) {
-                var target = context.getValue(requirement.value());
+                var target = context.getValue(requirement.key());
                 var filter = requirement.filter();
 
                 return Objects.equals(target, filter);
@@ -42,7 +42,7 @@ public @interface ContextFilter {
         SIMILAR {
             @Override
             public boolean test(ContextFilter requirement, InteractionContext context) {
-                var target = context.getValue(requirement.value());
+                var target = context.getValue(requirement.key());
                 var filter = requirement.filter();
 
                 if (target instanceof CharSequence) return filter.equalsIgnoreCase(target.toString());
@@ -58,7 +58,7 @@ public @interface ContextFilter {
         ANY {
             @Override
             public boolean test(ContextFilter requirement, InteractionContext context) {
-                var target = context.getValue(requirement.value());
+                var target = context.getValue(requirement.key());
                 var filter = requirement.filter();
 
                 return Check.any(target, filter);
@@ -68,7 +68,7 @@ public @interface ContextFilter {
         ABSENT {
             @Override
             public boolean test(ContextFilter requirement, InteractionContext context) {
-                var target = context.getValue(requirement.value());
+                var target = context.getValue(requirement.key());
                 var filter = requirement.filter();
 
                 return !Check.any(target, filter);

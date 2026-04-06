@@ -67,7 +67,7 @@ public @interface Interaction {
                             .map(Element::interaction)
                             .flatMap(it -> Arrays.stream(it.definitions()))).toArray(ContextDefinition[]::new);
             var nameCapitalization = Arrays.stream(definitions)
-                    .filter(def -> def.value().equalsIgnoreCase(NameCapitalizer.CONTEXT_KEY))
+                    .filter(def -> def.key().equalsIgnoreCase(NameCapitalizer.CONTEXT_KEY))
                     .map(ContextDefinition::expr)
                     .flatMap(Arrays::stream)
                     .map(ThrowingFunction.fallback(Capitalization::valueOf))

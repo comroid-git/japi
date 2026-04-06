@@ -9,6 +9,7 @@ import org.comroid.api.tree.Component;
 import org.comroid.eval.MinimalExpression;
 import org.comroid.interaction.InteractionCore;
 import org.comroid.interaction.component.error.ErrorHandler;
+import org.comroid.interaction.component.permission.PermissionAdapter;
 import org.comroid.interaction.component.response.ResponseConverter;
 import org.comroid.interaction.component.response.ResponseHandler;
 import org.comroid.interaction.node.MethodNode;
@@ -56,7 +57,7 @@ public class InteractionContext extends Component.Base {
         var defs = new MultiValueMap<String, Object>();
         for (var def : node.getInteraction().definitions())
             defs.getUnderlying()
-                    .computeIfAbsent(def.value(), $ -> new HashSet<>())
+                    .computeIfAbsent(def.key(), $ -> new HashSet<>())
                     .addAll(Arrays.stream(def.expr()).map(MinimalExpression::evaluate).filter(Objects::nonNull).toList());
 
         return context.definitions(defs);
@@ -96,17 +97,21 @@ public class InteractionContext extends Component.Base {
     }
 
     public void invoke() {
-        if (node.getInteraction().async()) {
-            component(ResponseHandler.class).ifPresent(it -> it.deferResponse(this));
+        try {
+            if (components(PermissionAdapter.class).noneMatch(adp -> adp.verifyPermission(this))) throw Response.of("Insufficient permissions");
 
-            CompletableFuture.supplyAsync(() -> node.invoke(this)).thenAccept(this::handle).exceptionally(t -> {
-                handle(t);
-                return null;
-            });
-        } else try {
-            var response = node.invoke(this);
+            if (node.getInteraction().async()) {
+                component(ResponseHandler.class).ifPresent(it -> it.deferResponse(this));
 
-            handle(response);
+                CompletableFuture.supplyAsync(() -> node.invoke(this)).thenAccept(this::handle).exceptionally(t -> {
+                    handle(t);
+                    return null;
+                });
+            } else {
+                var response = node.invoke(this);
+
+                handle(response);
+            }
         } catch (Response response) {
             handle((Object) response);
         } catch (Throwable t) {

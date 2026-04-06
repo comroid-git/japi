@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.util.function.IntBinaryOperator;
 
 public class InteractionTest {
-    @Interaction(filter = { @ContextFilter(value = "permission.discord", filter = "8") })
+    @Interaction(filter = { @ContextFilter(key = "permission.discord", filter = "8") })
     public static int math(
             @Parameter Operator operator, @Parameter(completion = { @Completion(strings = { "1", "2" }) }) int x,
             @Parameter(completion = { @Completion(strings = { "3", "4" }) }) int y

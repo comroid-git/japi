@@ -61,7 +61,7 @@ public class JdaAdapter extends Component.Base implements EventListener {
         this.core = parent;
         this.jda  = jda;
 
-        addChildren(DiscordNameCapitalizer.INSTANCE, new DiscordCommandRegistrator(this), DiscordResponseChain.INSTANCE);
+        addChildren(DiscordNameCapitalizer.INSTANCE, new DiscordCommandRegistrator(this), new DiscordPermissionAdapter(this), DiscordResponseChain.INSTANCE);
         jda.addEventListener(this);
     }
 

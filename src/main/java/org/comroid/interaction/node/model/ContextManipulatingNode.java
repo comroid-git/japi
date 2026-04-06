@@ -15,11 +15,11 @@ public interface ContextManipulatingNode {
     }
 
     default Stream<String> getFilterValues(String key) {
-        return getFilter(key).map(ContextFilter::value);
+        return getFilter(key).map(ContextFilter::key);
     }
 
     default Stream<ContextDefinition> getDefinition(String key) {
-        return Arrays.stream(getInteraction().definitions()).filter(it -> it.value().startsWith(key));
+        return Arrays.stream(getInteraction().definitions()).filter(it -> it.key().startsWith(key));
     }
 
     default Stream<String> getDefinitionValues(String key) {

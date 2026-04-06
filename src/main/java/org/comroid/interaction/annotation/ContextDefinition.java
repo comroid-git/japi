@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ContextDefinition {
     /// context key
-    String value();
+    String key();
 
     // expressions for values to set; each will be appended
     @Language(value = "JShellLanguage", prefix = "java.lang.Supplier x = () -> ", suffix = ";") String[] expr() default { };
