@@ -3,6 +3,8 @@ package org.comroid.interaction.component;
 import org.comroid.api.text.Capitalization;
 
 public interface NameCapitalizer {
+    String CONTEXT_KEY = "capitalization";
+
     Capitalization getCapitalization(ComponentType type);
 
     enum ComponentType {

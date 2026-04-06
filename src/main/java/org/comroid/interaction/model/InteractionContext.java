@@ -35,12 +35,10 @@ public class InteractionContext extends Component.Base {
         if (!parts.hasNext()) throw new IllegalStateException("Cannot initialize interaction context; command is empty");
         var part = new String[]{ parts.next() };
 
-        var node = core.getRegistered()
-                .stream()
-                .flatMap(tree -> tree.getNodes().stream())
-                .filter(base -> base.getInteraction().value().equalsIgnoreCase(part[0]))
-                .findAny()
-                .orElseThrow(noSuchCommand(part[0]));
+        var node = core.getRegistered().stream().flatMap(tree -> tree.getNodes().stream()).filter(base -> {
+            var name = base.getInteraction().value();
+            return name.contains(" ") ? name.equalsIgnoreCase(String.join(" ", fullCommand)) : name.equalsIgnoreCase(part[0]);
+        }).findAny().orElseThrow(noSuchCommand(part[0]));
 
         while (parts.hasNext()) {
             if (!(node instanceof ParentNode parent)) break;

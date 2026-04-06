@@ -8,7 +8,7 @@ enum DiscordNameCapitalizer implements NameCapitalizer {
     @Instance INSTANCE;
 
     @Override
-    public Capitalization getCapitalization(ComponentType ignored) {
-        return ignored == ComponentType.TITLE ? Capitalization.Title_Case : Capitalization.lower_hyphen_case;
+    public Capitalization getCapitalization(ComponentType type) {
+        return type == ComponentType.TITLE ? Capitalization.Title_Case : Capitalization.lower_hyphen_case;
     }
 }

@@ -2,6 +2,9 @@ package org.comroid.interaction.annotation;
 
 import org.comroid.annotations.internal.Annotations;
 import org.comroid.api.attr.Described;
+import org.comroid.api.func.exc.ThrowingFunction;
+import org.comroid.api.text.Capitalization;
+import org.comroid.interaction.component.NameCapitalizer;
 import org.comroid.interaction.registry.RegistryHelper;
 import org.jspecify.annotations.Nullable;
 
@@ -51,22 +54,33 @@ public @interface Interaction {
     ) implements Interaction, Described {
         public static Resolved of(Element element, @Nullable Element parent) {
             var detached = element.interaction.detached();
-            return new Resolved(RegistryHelper.findName(element).orElseThrow(),
+            var filters = Stream.concat(Arrays.stream(element.interaction.filter()),
+                    Stream.ofNullable(parent)
+                            .filter($ -> !detached)
+                            .filter(Objects::nonNull)
+                            .map(Element::interaction)
+                            .flatMap(it -> Arrays.stream(it.filter()))).toArray(ContextFilter[]::new);
+            var definitions = Stream.concat(Arrays.stream(element.interaction.definitions()),
+                    Stream.ofNullable(parent)
+                            .filter($ -> !detached)
+                            .filter(Objects::nonNull)
+                            .map(Element::interaction)
+                            .flatMap(it -> Arrays.stream(it.definitions()))).toArray(ContextDefinition[]::new);
+            var nameCapitalization = Arrays.stream(definitions)
+                    .filter(def -> def.value().equalsIgnoreCase(NameCapitalizer.CONTEXT_KEY))
+                    .map(ContextDefinition::expr)
+                    .flatMap(Arrays::stream)
+                    .map(ThrowingFunction.fallback(Capitalization::valueOf))
+                    .filter(Objects::nonNull)
+                    .findAny()
+                    .orElse(Capitalization.lowerCamelCase);
+
+            return new Resolved(RegistryHelper.findName(element).map(nameCapitalization::convert).orElseThrow(),
                     RegistryHelper.findDescription(element.annotated).orElse(null),
                     element.interaction.async() || parent != null && parent.interaction.async(),
                     element.interaction.privacy(),
-                    Stream.concat(Arrays.stream(element.interaction.filter()),
-                            Stream.ofNullable(parent)
-                                    .filter($ -> !detached)
-                                    .filter(Objects::nonNull)
-                                    .map(Element::interaction)
-                                    .flatMap(it -> Arrays.stream(it.filter()))).toArray(ContextFilter[]::new),
-                    Stream.concat(Arrays.stream(element.interaction.definitions()),
-                            Stream.ofNullable(parent)
-                                    .filter($ -> !detached)
-                                    .filter(Objects::nonNull)
-                                    .map(Element::interaction)
-                                    .flatMap(it -> Arrays.stream(it.definitions()))).toArray(ContextDefinition[]::new),
+                    filters,
+                    definitions,
                     detached);
         }
 
