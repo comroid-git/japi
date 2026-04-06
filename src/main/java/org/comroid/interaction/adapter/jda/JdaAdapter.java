@@ -60,6 +60,7 @@ public class JdaAdapter extends Component.Base implements EventListener {
         this.jda  = jda;
 
         addChildren(DiscordNameCapitalizer.INSTANCE, new DiscordCommandRegistrator(this), DiscordResponseChain.INSTANCE);
+        jda.addEventListener(this);
     }
 
     @Override
@@ -127,7 +128,7 @@ public class JdaAdapter extends Component.Base implements EventListener {
                 var type   = node.getReflect().getType();
                 var parser = node.getParameter().parser();
 
-                if (!Parameter.Parser.class.equals(parser)) yield Activator.get(parser).createInstance(DataNode.of(Map.of())).parse(str);
+                if (parser != null && !Parameter.Parser.class.equals(parser)) yield Activator.get(parser).createInstance(DataNode.of(Map.of())).parse(str);
 
                 yield type.isEnum() ? Enum.valueOf(Polyfill.uncheckedCast(type), str) : str;
             }
