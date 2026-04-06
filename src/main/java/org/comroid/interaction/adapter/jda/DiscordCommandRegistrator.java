@@ -19,6 +19,7 @@ import net.dv8tion.jda.internal.requests.CompletedRestAction;
 import org.comroid.api.attr.IntegerAttribute;
 import org.comroid.api.data.RegExpUtil;
 import org.comroid.api.data.seri.type.ValueType;
+import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.tree.Initializable;
 import org.comroid.interaction.InteractionCore;
 import org.comroid.interaction.component.NameCapitalizer;
@@ -33,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
 import java.util.stream.Stream;
 
 import static org.comroid.interaction.adapter.jda.JdaAdapter.*;
@@ -85,7 +87,6 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
         }
 
         var jda = adp.getJda();
-        log.info("Upserting %d interactions to discord bot %s".formatted(all.size(), jda.getSelfUser()));
 
         RestAction<?> action = PURGE_COMMANDS.consume() ? jda.retrieveCommands().flatMap(cmds -> {
             log.fine("Purging %d previously defined commands".formatted(cmds.size()));
@@ -99,7 +100,10 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
 
         for (var data : all) action = action.flatMap($ -> jda.upsertCommand(data));
 
-        action.queue();
+        action.submit().thenAccept($ -> log.info("Upserted %d interactions to discord bot %s".formatted(all.size(), jda.getSelfUser()))).exceptionally(t -> {
+            log.log(Level.SEVERE, "Failed to upsert interactions", t);
+            return null;
+        });
     }
 
     static void initCommandData(InteractionNode node, CommandData data) {
@@ -108,7 +112,10 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
     }
 
     static void initDefaultPermission(Stream<String> permissions, CommandData data) {
-        var permissionMask = permissions.flatMap(perm -> Optional.ofNullable(Permission.valueOf(perm.toUpperCase()))
+        var permissionMask = permissions.flatMap(perm -> Optional.of(perm)
+                        .filter(str -> str.matches("\\D+"))
+                        .map(String::toUpperCase)
+                        .map(ThrowingFunction.fallback(Permission::valueOf))
                         .map(Stream::of)
                         .orElseGet(() -> Stream.of(perm)
                                 .filter(it -> it.matches("\\d+"))

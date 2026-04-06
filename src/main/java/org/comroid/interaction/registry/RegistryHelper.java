@@ -41,7 +41,7 @@ public final class RegistryHelper {
 
         for (var method : type.getMethods()) {
             var mod = method.getModifiers();
-            if (!Modifier.isStatic(mod)) continue;
+            if (source instanceof InstanceRegistry reg && reg.getInstance() != null && Modifier.isStatic(mod)) continue;
 
             var callable = constructMethod(source, method, base == null ? null : base.toInteractionElement()).orElse(null);
             if (callable == null) continue;
