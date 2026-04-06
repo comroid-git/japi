@@ -22,6 +22,7 @@ import org.comroid.api.data.seri.type.ValueType;
 import org.comroid.api.func.exc.ThrowingFunction;
 import org.comroid.api.tree.Initializable;
 import org.comroid.interaction.InteractionCore;
+import org.comroid.interaction.annotation.ContextDefinition;
 import org.comroid.interaction.component.NameCapitalizer;
 import org.comroid.interaction.node.GroupNode;
 import org.comroid.interaction.node.MethodNode;
@@ -31,9 +32,11 @@ import org.comroid.interaction.node.model.InvokableNode;
 import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 
@@ -63,6 +66,22 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
                             base.getInteraction().getDescription() != null ? base.getInteraction().getDescription() : InteractionCore.NO_DESCRIPTION);
 
                     for (var child : group.getChildren()) {
+                        var contexts = child.getDefinition(JdaAdapter.KEY_CONTEXT).map(ContextDefinition::expr).flatMap(Arrays::stream).toList();
+
+                        if (contexts.stream().anyMatch(Predicate.not(JdaAdapter.CONTEXT_COMMAND::equals))) {
+                            CommandData contextual;
+
+                            if (contexts.contains(CONTEXT_MESSAGE)) contextual = Commands.message(cap.getCapitalization(NameCapitalizer.ComponentType.TITLE)
+                                    .convert(child.getInteraction().value()));
+                            else if (contexts.contains(CONTEXT_USER)) contextual = Commands.user(cap.getCapitalization(NameCapitalizer.ComponentType.TITLE)
+                                    .convert(child.getInteraction().value()));
+                            else throw new IllegalStateException("Unknown contexts: " + String.join(", ", contexts));
+
+                            initCommandData(child, contextual);
+                            all.add(contextual);
+                            continue;
+                        }
+
                         var subcommand = createSubcommand(child);
                         ((SlashCommandData) data).addSubcommands(subcommand);
                     }

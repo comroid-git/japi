@@ -24,10 +24,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 @Internal
 public final class RegistryHelper {
     public static Collection<InteractionNode> compileFromClass(@NonNull RegistrySource source, @NonNull Class<?> type) {
+        var detached = new ArrayList<InteractionNode>();
         var children = new ArrayList<InteractionNode>();
 
         for (var subtype : type.getClasses()) {
@@ -46,10 +48,11 @@ public final class RegistryHelper {
             var callable = constructMethod(source, method, base == null ? null : base.toInteractionElement()).orElse(null);
             if (callable == null) continue;
 
-            children.add(callable);
+            if (callable.getInteraction().detached()) detached.add(callable);
+            else children.add(callable);
         }
 
-        return base == null ? children : List.of(base);
+        return Stream.concat(detached.stream(), Stream.ofNullable(base)).toList();
     }
 
     public static Optional<GroupNode> constructGroup(@NonNull RegistrySource source, @NonNull Class<?> type, List<? extends InteractionNode> children) {

@@ -33,6 +33,9 @@ public @interface Interaction {
     /// context definitions to emit
     ContextDefinition[] definitions() default { };
 
+    /// whether to detach this interaction from its parent container
+    boolean detached() default false;
+
     enum PrivacyLevel {
         /// response is sent publicly
         PUBLIC,
@@ -43,19 +46,28 @@ public @interface Interaction {
     }
 
     @SuppressWarnings("ClassExplicitlyAnnotation")
-    record Resolved(String value, String description, boolean async, PrivacyLevel privacy, ContextFilter[] filter, ContextDefinition[] definitions)
-            implements Interaction, Described {
+    record Resolved(
+            String value, String description, boolean async, PrivacyLevel privacy, ContextFilter[] filter, ContextDefinition[] definitions, boolean detached
+    ) implements Interaction, Described {
         public static Resolved of(Element element, @Nullable Element parent) {
+            var detached = element.interaction.detached();
             return new Resolved(RegistryHelper.findName(element).orElseThrow(),
                     RegistryHelper.findDescription(element.annotated).orElse(null),
                     element.interaction.async() || parent != null && parent.interaction.async(),
                     element.interaction.privacy(),
                     Stream.concat(Arrays.stream(element.interaction.filter()),
-                                    Stream.ofNullable(parent).filter(Objects::nonNull).map(Element::interaction).flatMap(it -> Arrays.stream(it.filter())))
-                            .toArray(ContextFilter[]::new),
+                            Stream.ofNullable(parent)
+                                    .filter($ -> !detached)
+                                    .filter(Objects::nonNull)
+                                    .map(Element::interaction)
+                                    .flatMap(it -> Arrays.stream(it.filter()))).toArray(ContextFilter[]::new),
                     Stream.concat(Arrays.stream(element.interaction.definitions()),
-                                    Stream.ofNullable(parent).filter(Objects::nonNull).map(Element::interaction).flatMap(it -> Arrays.stream(it.definitions())))
-                            .toArray(ContextDefinition[]::new));
+                            Stream.ofNullable(parent)
+                                    .filter($ -> !detached)
+                                    .filter(Objects::nonNull)
+                                    .map(Element::interaction)
+                                    .flatMap(it -> Arrays.stream(it.definitions()))).toArray(ContextDefinition[]::new),
+                    detached);
         }
 
         @Override
