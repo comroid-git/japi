@@ -7,6 +7,7 @@ import org.comroid.interaction.component.permission.PermissionAdapter;
 import org.comroid.interaction.model.InteractionContext;
 
 import java.util.Arrays;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 @Value
@@ -16,8 +17,12 @@ class DiscordPermissionAdapter implements PermissionAdapter {
     @Override
     public boolean verifyPermission(InteractionContext context) {
         var member = context.child(Member.class).orElse(null);
-        var list   = context.getNode().getDefinitionValues(JdaAdapter.KEY_PERMISSION).flatMap(DiscordPermissionAdapter::parsePermission).toList();
-        return list.isEmpty() ? member == null : member.hasPermission(list);
+        var list = context.getNode()
+                .getDefinitionValues(JdaAdapter.KEY_PERMISSION)
+                .filter(Predicate.not(String::isBlank))
+                .flatMap(DiscordPermissionAdapter::parsePermission)
+                .toList();
+        return member == null ? list.isEmpty() : member.hasPermission(list);
     }
 
     static Stream<Permission> parsePermission(String string) {
