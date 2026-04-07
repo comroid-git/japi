@@ -18,16 +18,16 @@ public enum Jackson implements Serializer<JSON.Node> {
     @Override
     @SneakyThrows
     public @Nullable JSON.Node parse(@Language("JSON") @Nullable String data) {
-        final var mapper = Context.root().getFromContext(ObjectMapper.class, true).assertion();
+        final var mapper = Context.root().getFromContext(ObjectMapper.class, true).orElseGet(ObjectMapper::new);
 
         //noinspection unchecked
         return data == null
                ? DataNode.Value.NULL.json()
                : data.trim().startsWith("{")
-                 ? org.comroid.api.data.seri.adp.JSON.Object.of(mapper.readValue(data,
-                       Map.class))
-                 : data.trim().startsWith("[") ? org.comroid.api.data.seri.adp.JSON.Array.of(mapper.readValue(data,
-                         List.class)) : DataNode.of(mapper.readTree(data)).json();
+                 ? org.comroid.api.data.seri.adp.JSON.Object.of(mapper.readValue(data, Map.class))
+                 : data.trim().startsWith("[")
+                   ? org.comroid.api.data.seri.adp.JSON.Array.of(mapper.readValue(data, List.class))
+                   : DataNode.of(mapper.readTree(data)).json();
     }
 
     @Override
