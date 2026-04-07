@@ -101,9 +101,10 @@ public class InteractionContext extends Component.Base {
             if (components(PermissionAdapter.class).noneMatch(adp -> adp.verifyPermission(this))) throw Response.of("Insufficient permissions");
 
             if (node.getInteraction().async()) {
-                component(ResponseHandler.class).ifPresent(it -> it.deferResponse(this));
+                component(ResponseHandler.class).ifPresent(it -> it.deferResponse(this).join());
 
                 CompletableFuture.supplyAsync(() -> node.invoke(this)).thenAccept(this::handle).exceptionally(t -> {
+                    log.log(Level.FINE, "An internal error occurred during async interaction handling", t);
                     handle(t);
                     return null;
                 });

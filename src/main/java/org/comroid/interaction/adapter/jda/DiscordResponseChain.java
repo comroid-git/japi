@@ -17,6 +17,8 @@ import org.comroid.interaction.model.Response;
 import org.comroid.util.JdaUtil;
 import org.jspecify.annotations.Nullable;
 
+import java.util.concurrent.CompletableFuture;
+
 @Log
 enum DiscordResponseChain implements ResponseChain<MessageCreateData> {
     @Instance INSTANCE;
@@ -27,16 +29,16 @@ enum DiscordResponseChain implements ResponseChain<MessageCreateData> {
     }
 
     @Override
-    public void deferResponse(InteractionContext context) {
+    public CompletableFuture<?> deferResponse(InteractionContext context) {
         var privacy = privacy(context);
-        if (privacy == Interaction.PrivacyLevel.PRIVATE) return;
+        if (privacy == Interaction.PrivacyLevel.PRIVATE) return CompletableFuture.completedFuture(null);
 
-        context.component(IReplyCallback.class)
+        return context.component(IReplyCallback.class)
                 .assertion()
                 .deferReply()
                 .setEphemeral(privacy == Interaction.PrivacyLevel.EPHEMERAL)
                 .map(context::addChild)
-                .queue();
+                .submit();
     }
 
     @Override
@@ -84,6 +86,7 @@ enum DiscordResponseChain implements ResponseChain<MessageCreateData> {
         if (object instanceof Response response) return convertResponse(response);
         if (object instanceof EmbedBuilder builder) object = builder.build();
         if (object instanceof MessageEmbed embed) object = new MessageCreateBuilder().addEmbeds(embed);
+        if (object instanceof CharSequence chars) object = new MessageCreateBuilder().setContent(chars.toString());
         if (object instanceof MessageCreateBuilder builder) object = builder.build();
         if (object instanceof MessageCreateData data) return data;
         return null;
@@ -102,10 +105,10 @@ enum DiscordResponseChain implements ResponseChain<MessageCreateData> {
     }
 
     static Interaction.PrivacyLevel privacy(InteractionContext context) {
-        return context.component(Interaction.class).map(Interaction::privacy).orElse(Interaction.PrivacyLevel.EPHEMERAL);
+        return context.getNode().getInteraction().privacy();
     }
 
     static boolean async(InteractionContext context) {
-        return context.component(Interaction.class).filter(Interaction::async).isNonNull();
+        return context.getNode().getInteraction().async();
     }
 }
