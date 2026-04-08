@@ -40,7 +40,7 @@ public @interface Parameter {
         public static Resolved of(Element element) {
             return new Resolved(RegistryHelper.findName(element).orElseThrow(),
                     RegistryHelper.findDescription(element.annotated).orElse(null),
-                    element.parameter.required(),
+                    element.parameter.required() || element.annotated.isAnnotationPresent(Nullable.class),
                     Optional.of(element.annotated.getType())
                             .filter(Class::isEnum)
                             .map(eType -> Arrays.stream(eType.getEnumConstants()).flatMap(Streams.cast(Enum.class)).map(Enum::name).toArray(String[]::new))
