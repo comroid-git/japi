@@ -121,8 +121,11 @@ public class InteractionContext extends Component.Base {
     }
 
     @SuppressWarnings("unchecked")
-    private void handle(final Object response) {
-        components(ResponseConverter.class).map(converter -> converter.convertResponse(response)).distinct().filter(Objects::nonNull).forEach(formatted -> {
+    private void handle(Object response) {
+        if (response == null) response = "Success";
+        final var $response = response;
+
+        components(ResponseConverter.class).map(converter -> converter.convertResponse($response)).distinct().filter(Objects::nonNull).forEach(formatted -> {
             var fType = formatted.getClass();
             components(ResponseHandler.class).filter(handler -> handler.getResponseType().isAssignableFrom(fType))
                     .forEach(handler -> handler.sendResponse(this, formatted));
