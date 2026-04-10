@@ -2,7 +2,6 @@ package org.comroid.interaction.adapter.jda;
 
 import lombok.Value;
 import lombok.experimental.NonFinal;
-import lombok.experimental.StandardException;
 import lombok.extern.java.Log;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.events.GenericEvent;
@@ -187,7 +186,4 @@ public class JdaAdapter extends Component.Base implements EventListener {
                                         option.key().toString()))))
                 .toList()).queue();
     }
-
-    @StandardException
-    private static class CannotInitContext extends RuntimeException {}
 }
