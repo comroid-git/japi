@@ -50,7 +50,7 @@ public @interface Parameter {
 
             return new Resolved(RegistryHelper.findName(element).orElseThrow(),
                     RegistryHelper.findDescription(element.annotated).orElse(null),
-                    element.parameter.required() || !element.annotated.isAnnotationPresent(Nullable.class),
+                    !element.annotated.isAnnotationPresent(Nullable.class) && element.parameter.required(),
                     completions,
                     Optional.ofNullable(element.parameter.parser()).filter(Predicate.not(Parser.class::equals)).orElse(null));
         }
