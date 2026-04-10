@@ -99,18 +99,18 @@ public class JdaAdapter extends Component.Base implements EventListener {
                     builder.parameter(parameter, value);
                 }
             }
+
+            var context = builder.build();
+
+            if (event instanceof CommandAutoCompleteInteractionEvent autoComplete) autoComplete(context, autoComplete);
+            else context.invoke();
         } catch (Throwable t) {
             log.log(Level.SEVERE, "Failed to initilaize interaction context", t);
+
             if (event instanceof IReplyCallback callback) callback.reply(("An internal error occurred ```%s: %s``` Please contact an administrator or bot developer").formatted(
                     t.getClass().getSimpleName(),
                     t.getMessage())).setEphemeral(true).queue();
-            return;
         }
-
-        var context = builder.build();
-
-        if (event instanceof CommandAutoCompleteInteractionEvent autoComplete) autoComplete(context, autoComplete);
-        else context.invoke();
     }
 
     private static void initContextVariables(CommandInteractionPayload event, InteractionContext.Builder context) {
