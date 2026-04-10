@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -76,10 +75,7 @@ public final class RegistryHelper {
         var annotation = parameter.getAnnotation(Parameter.class);
         if (annotation == null) return Optional.empty();
 
-        return Optional.of(new ParameterNode(source,
-                parameter,
-                Parameter.Resolved.of(new Parameter.Element(annotation, parameter)),
-                Set.of(annotation.completion())));
+        return Optional.of(new ParameterNode(source, parameter, Parameter.Resolved.of(new Parameter.Element(annotation, parameter))));
     }
 
     public static Optional<String> findName(Interaction.Element element) {

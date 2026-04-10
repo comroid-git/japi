@@ -14,6 +14,7 @@ import java.lang.annotation.Target;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 @Target({ ElementType.PARAMETER })
 @Retention(RetentionPolicy.RUNTIME)
@@ -38,15 +39,19 @@ public @interface Parameter {
     record Resolved(String value, @Nullable String description, boolean required, Completion[] completion, @Nullable Class<? extends Parser> parser)
             implements Parameter, Described {
         public static Resolved of(Element element) {
+            var completions = Stream.concat(Stream.of(element.annotated.getType())
+                    .filter(Class::isEnum)
+                    .map(eType -> Arrays.stream(eType.getEnumConstants())
+                            .flatMap(Streams.cast(Enum.class))
+                            .map(Enum::name)
+                            .filter(Predicate.not("unknown"::equalsIgnoreCase))
+                            .toArray(String[]::new))
+                    .map(Completion.ConstantStrings::new), Arrays.stream(element.parameter.completion())).toArray(Completion[]::new);
+
             return new Resolved(RegistryHelper.findName(element).orElseThrow(),
                     RegistryHelper.findDescription(element.annotated).orElse(null),
                     element.parameter.required() || element.annotated.isAnnotationPresent(Nullable.class),
-                    Optional.of(element.annotated.getType())
-                            .filter(Class::isEnum)
-                            .map(eType -> Arrays.stream(eType.getEnumConstants()).flatMap(Streams.cast(Enum.class)).map(Enum::name).toArray(String[]::new))
-                            .map(Completion.ConstantStrings::new)
-                            .map(it -> new Completion[]{ it })
-                            .orElseGet(element.parameter::completion),
+                    completions,
                     Optional.ofNullable(element.parameter.parser()).filter(Predicate.not(Parser.class::equals)).orElse(null));
         }
 

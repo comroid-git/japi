@@ -174,8 +174,7 @@ public class JdaAdapter extends Component.Base implements EventListener {
         }
         var param = pResult.get();
 
-        event.replyChoices(param.getCompletion()
-                .stream()
+        event.replyChoices(Arrays.stream(param.getParameter().completion())
                 .flatMap(completion -> Stream.concat(Arrays.stream(completion.strings()).map(str -> new Command.Choice(str, str)),
                         Stream.ofNullable(completion.provider())
                                 .filter(type -> !Completion.Provider.class.equals(type))

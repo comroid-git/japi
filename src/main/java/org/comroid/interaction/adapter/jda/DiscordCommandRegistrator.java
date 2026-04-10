@@ -166,7 +166,7 @@ record DiscordCommandRegistrator(JdaAdapter adp) implements Initializable {
                 param.getParameter().value(),
                 param.getParameter().getDescription() != null ? param.getParameter().getDescription() : InteractionCore.NO_DESCRIPTION,
                 param.getParameter().required(),
-                !param.getCompletion().isEmpty() || param.getReflect().getType().isEnum());
+                param.getParameter().completion().length != 0);
     }
 
     static OptionType getOptionType(ParameterNode node) {
